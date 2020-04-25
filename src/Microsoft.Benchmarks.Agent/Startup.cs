@@ -308,7 +308,7 @@ namespace Microsoft.Benchmarks.Agent
 
                         break;
                     }
-                    catch(IOException e)
+                    catch (IOException e)
                     {
                         if (e.InnerException is AddressInUseException)
                         {
@@ -391,7 +391,7 @@ namespace Microsoft.Benchmarks.Agent
                     // Lookup expired jobs
                     var expiredJobs = _jobs.GetAll().Where(j => j.State == JobState.Deleted && DateTime.UtcNow - j.LastDriverCommunicationUtc > DeletedTimeout);
 
-                    foreach(var expiredJob in expiredJobs)
+                    foreach (var expiredJob in expiredJobs)
                     {
                         Log.WriteLine($"Removing expired job {expiredJob.Id}");
                         _jobs.Remove(expiredJob.Id);
@@ -676,7 +676,7 @@ namespace Microsoft.Benchmarks.Agent
                                                         {
                                                             Name = "benchmarks/working-set",
                                                             Timestamp = now,
-                                                            Value = Math.Ceiling((double) workingSet / 1024 / 1024) // < 1MB still needs to appear as 1MB
+                                                            Value = Math.Ceiling((double)workingSet / 1024 / 1024) // < 1MB still needs to appear as 1MB
                                                         });
 
                                                         job.Measurements.Enqueue(new Measurement
@@ -701,10 +701,10 @@ namespace Microsoft.Benchmarks.Agent
                                                                 {
                                                                     Name = "benchmarks/swap",
                                                                     Timestamp = now,
-                                                                    Value = (int) GetSwapBytes() / 1024 / 1024
+                                                                    Value = (int)GetSwapBytes() / 1024 / 1024
                                                                 });
                                                             }
-                                                            catch(Exception e)
+                                                            catch (Exception e)
                                                             {
                                                                 Log.WriteLine($"[ERROR] Could not get swap memory:" + e.ToString());
                                                             }
@@ -794,7 +794,7 @@ namespace Microsoft.Benchmarks.Agent
                                                             {
                                                                 Name = "benchmarks/swap",
                                                                 Timestamp = now,
-                                                                Value = (int) GetSwapBytes() / 1024 / 1024
+                                                                Value = (int)GetSwapBytes() / 1024 / 1024
                                                             });
                                                         }
                                                         catch (Exception e)
@@ -1686,7 +1686,7 @@ namespace Microsoft.Benchmarks.Agent
                 var startIndex = lines.Length - 1;
 
                 // Seek backward in case thre are multiple blocks of statistics
-                for (; startIndex >= 0 ; startIndex--)
+                for (; startIndex >= 0; startIndex--)
                 {
                     if (lines[startIndex].Contains("#StartJobStatistics", StringComparison.OrdinalIgnoreCase))
                     {
@@ -1722,7 +1722,7 @@ namespace Microsoft.Benchmarks.Agent
                         job.Measurements.Enqueue(measurement);
                     }
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     Log.WriteLine($"[ERROR] Invalid Json payload: " + e.Message);
                 }
@@ -1806,7 +1806,7 @@ namespace Microsoft.Benchmarks.Agent
                         ProcessUtil.Run("docker", $"rmi --force {imageName}", throwOnError: false);
                     }
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     Log.WriteLine("An error occured while deleting the docker container: " + e.Message);
                     finalState = JobState.Failed;
@@ -2973,7 +2973,7 @@ namespace Microsoft.Benchmarks.Agent
                 }
                 else
                 {
-                    ProcessUtil.Run("cgset", $"-r cpuset.cpus=0-{Environment.ProcessorCount-1} benchmarks", log: true);
+                    ProcessUtil.Run("cgset", $"-r cpuset.cpus=0-{Environment.ProcessorCount - 1} benchmarks", log: true);
                 }
 
                 // The cpuset.mems value for the 'benchmarks' controller need to match the root one
@@ -3637,7 +3637,13 @@ namespace Microsoft.Benchmarks.Agent
             // Attempt to parse a string like
             // - http://<host>.com/<user>/<repo>.git OR
             // - http://<host>.com/<user>/<repo>
-            var repository = source.Repository;
+            var repository = source?.Repository;
+
+            if (repository == null)
+            {
+                return null;
+            }
+
             var lastSlash = repository.LastIndexOf('/');
             var dot = repository.LastIndexOf('.');
 
