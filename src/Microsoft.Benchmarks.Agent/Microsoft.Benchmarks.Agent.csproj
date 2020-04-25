@@ -1,10 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <Description>REST APIs to run ASP.NET benchmark server.</Description>
+    <Description>The benchmarking agent</Description>
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <OutputType>Exe</OutputType>
-    <LangVersion>7.1</LangVersion>
+    <Authors>Microsoft</Authors>
+    <PackAsTool>true</PackAsTool>
+    <IsPackable>true</IsPackable>
+    <AssemblyName>benchmarks-agent</AssemblyName>
+    <ToolCommandName>benchmarks-agent</ToolCommandName>
   </PropertyGroup>
 
   <ItemGroup>
