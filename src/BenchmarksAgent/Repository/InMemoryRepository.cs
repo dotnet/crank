@@ -1,20 +1,21 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+﻿// Copyright (c) .NEServerJob Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using Benchmarks.ServerJob;
 
 namespace Repository
 {
-    public class InMemoryRepository<T> : IRepository<T> where T: IIdentifiable
+    public class InMemoryJobRepository : IJobRepository
     {
         private readonly object _lock = new object();
-        private readonly List<T> _items = new List<T>();
+        private readonly List<ServerJob> _items = new List<ServerJob>();
         private int _nextId = 1;
 
-        public T Add(T item)
+        public ServerJob Add(ServerJob item)
         {
             if (item.Id != 0)
             {
@@ -31,7 +32,7 @@ namespace Repository
             }
         }
 
-        public T Find(int id)
+        public ServerJob Find(int id)
         {
             lock (_lock)
             {
@@ -41,7 +42,7 @@ namespace Repository
             }
         }
 
-        public IEnumerable<T> GetAll()
+        public IEnumerable<ServerJob> GetAll()
         {
             lock (_lock)
             {
@@ -49,7 +50,7 @@ namespace Repository
             }
         }
 
-        public T Remove(int id)
+        public ServerJob Remove(int id)
         {
             lock (_lock)
             {
@@ -66,7 +67,7 @@ namespace Repository
             }
         }
 
-        public void Update(T item)
+        public void Update(ServerJob item)
         {
             lock (_lock)
             {

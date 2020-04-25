@@ -93,7 +93,7 @@ namespace BenchmarkServer
         // https://docs.docker.com/config/containers/resource_constraints/
         private const double _defaultDockerCfsPeriod = 100000;
 
-        private static readonly IRepository<ServerJob> _jobs = new InMemoryRepository<ServerJob>();
+        private static readonly IJobRepository _jobs = new InMemoryJobRepository();
         private static string _rootTempDir;
         private static bool _cleanup = true;
         private static Process perfCollectProcess;

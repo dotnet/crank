@@ -22,9 +22,9 @@ namespace BenchmarkServer.Controllers
     {
         private static readonly HttpClient _httpClient = new HttpClient();
 
-        private readonly IRepository<ServerJob> _jobs;
+        private readonly IJobRepository _jobs;
 
-        public JobsController(IRepository<ServerJob> jobs)
+        public JobsController(IJobRepository jobs)
         {
             _jobs = jobs;
         }

@@ -8,11 +8,10 @@ using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
-using Repository;
 
 namespace Benchmarks.ServerJob
 {
-    public class ServerJob : IIdentifiable
+    public class ServerJob
     {
         public int DriverVersion { get; set; } = 0;
 
