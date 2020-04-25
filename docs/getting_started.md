@@ -11,23 +11,15 @@ jobs:
       repository: https://github.com/aspnet/perf
       branchOrCommit: master
       project: samples/hello/hello.csproj
-    environmentVariables:
-      ASPNETCORE_URLS: http://localhost:5050
-    port: 5050
 
 scenarios:
   hello:
     application:
       job: server
-    warmup:
-      job: bombardier
-      variables:
-        serverPort: 5050
-        path: /
     load:
       job: bombardier
       variables:
-        serverPort: 5050
+        serverPort: 5000
         path: /
 
 profiles:
@@ -37,13 +29,10 @@ profiles:
     jobs: 
       application:
         endpoints: 
-          - http://localhost:5001
-      warmup:
-        endpoints: 
-          - http://localhost:5002
+          - http://localhost:5010
       load:
         endpoints: 
-          - http://localhost:5002
+          - http://localhost:5011
 ```
 
 ### Run the Agent

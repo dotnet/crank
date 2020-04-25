@@ -85,7 +85,7 @@ namespace BenchmarkServer
         private static readonly HashSet<string> _installedDesktopRuntimes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private static readonly HashSet<string> _installedSdks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        private const string _defaultUrl = "http://*:5001";
+        private const string _defaultUrl = "http://*:5010";
         private static readonly string _defaultHostname = Environment.MachineName.ToLowerInvariant();
         private static string _perfviewPath;
         private static string _dotnetInstallPath;
