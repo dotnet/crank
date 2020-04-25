@@ -29,7 +29,7 @@ namespace Microsoft.Benchmarks.Agent.Controllers
             _jobs = jobs;
         }
 
-        public IEnumerable<ServerJob> GetAll()
+        public IEnumerable<Job> GetAll()
         {
             lock (_jobs)
             {
@@ -105,7 +105,7 @@ namespace Microsoft.Benchmarks.Agent.Controllers
         }
 
         [HttpPost]
-        public IActionResult Create([FromBody] ServerJob job)
+        public IActionResult Create([FromBody] Job job)
         {
             lock (_jobs)
             {
@@ -117,7 +117,7 @@ namespace Microsoft.Benchmarks.Agent.Controllers
                 {
                     return BadRequest("The driver is not compatible with this server, please update it.");
                 }
-                else if (job.State != ServerState.New)
+                else if (job.State != JobState.New)
                 {
                     return BadRequest("The job state should be ServerState.New. You are probably using a wrong version of the driver.");
                 }
@@ -149,7 +149,7 @@ namespace Microsoft.Benchmarks.Agent.Controllers
                         return NoContent();
                     }
 
-                    job.State = ServerState.Deleting;
+                    job.State = JobState.Deleting;
                     _jobs.Update(job);
 
                     Response.Headers["Location"] = $"/jobs/{job.Id}";
@@ -180,7 +180,7 @@ namespace Microsoft.Benchmarks.Agent.Controllers
                         return NotFound();
                     }
 
-                    if (job.State == ServerState.Stopped || job.State == ServerState.Failed)
+                    if (job.State == JobState.Stopped || job.State == JobState.Failed)
                     {
                         // The job might have already been stopped, or deleted.
                         // Can happen if the server stops the job, then the driver does it.
@@ -188,7 +188,7 @@ namespace Microsoft.Benchmarks.Agent.Controllers
                         return new StatusCodeResult((int)HttpStatusCode.Accepted);
                     }
 
-                    job.State = ServerState.Stopping;
+                    job.State = JobState.Stopping;
                     _jobs.Update(job);
 
                     Response.Headers["Location"] = $"/jobs/{job.Id}";
@@ -268,7 +268,7 @@ namespace Microsoft.Benchmarks.Agent.Controllers
                 try
                 {
                     var job = _jobs.Find(id);
-                    job.State = ServerState.TraceCollecting;
+                    job.State = JobState.TraceCollecting;
                     _jobs.Update(job);
 
                     Response.Headers["Location"] = $"/jobs/{job.Id}";
@@ -285,7 +285,7 @@ namespace Microsoft.Benchmarks.Agent.Controllers
         public IActionResult Start(int id)
         {
             var job = _jobs.Find(id);
-            job.State = ServerState.Waiting;
+            job.State = JobState.Waiting;
             _jobs.Update(job);
 
             return Ok();

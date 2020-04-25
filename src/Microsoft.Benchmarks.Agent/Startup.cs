@@ -386,10 +386,10 @@ namespace Microsoft.Benchmarks.Agent
 
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    ServerJob job = null;
+                    Job job = null;
 
                     // Lookup expired jobs
-                    var expiredJobs = _jobs.GetAll().Where(j => j.State == ServerState.Deleted && DateTime.UtcNow - j.LastDriverCommunicationUtc > DeletedTimeout);
+                    var expiredJobs = _jobs.GetAll().Where(j => j.State == JobState.Deleted && DateTime.UtcNow - j.LastDriverCommunicationUtc > DeletedTimeout);
 
                     foreach(var expiredJob in expiredJobs)
                     {
@@ -400,13 +400,13 @@ namespace Microsoft.Benchmarks.Agent
                     // Find the first job that is waiting to be processed (state New)
                     foreach (var j in _jobs.GetAll())
                     {
-                        if (j.State == ServerState.Deleted)
+                        if (j.State == JobState.Deleted)
                         {
                             continue;
                         }
 
                         // Searching for a job to acquire
-                        if (j.State == ServerState.New)
+                        if (j.State == JobState.New)
                         {
                             var now = DateTime.UtcNow;
 
@@ -420,13 +420,13 @@ namespace Microsoft.Benchmarks.Agent
                                 // The job needs to be deleted
                                 Log.WriteLine($"Driver didn't communicate for {DriverTimeout}. Halting job.");
                                 Log.WriteLine($"{j.State} -> Deleting");
-                                j.State = ServerState.Deleting;
+                                j.State = JobState.Deleting;
                             }
                             else
                             {
                                 startMonitorTime = DateTime.UtcNow;
                                 Log.WriteLine($"{j.State} -> Initializing");
-                                j.State = ServerState.Initializing;
+                                j.State = JobState.Initializing;
                             }
                         }
 
@@ -438,7 +438,7 @@ namespace Microsoft.Benchmarks.Agent
 
                     if (job != null)
                     {
-                        if (job.State == ServerState.Failed)
+                        if (job.State == JobState.Failed)
                         {
                             var now = DateTime.UtcNow;
 
@@ -447,10 +447,10 @@ namespace Microsoft.Benchmarks.Agent
                             {
                                 Log.WriteLine($"Driver didn't communicate for {DriverTimeout}. Halting job.");
                                 Log.WriteLine($"{job.State} -> Deleting");
-                                job.State = ServerState.Deleting;
+                                job.State = JobState.Deleting;
                             }
                         }
-                        else if (job.State == ServerState.Waiting)
+                        else if (job.State == JobState.Waiting)
                         {
                             // TODO: Race condition if DELETE is called during this code
                             try
@@ -463,13 +463,13 @@ namespace Microsoft.Benchmarks.Agent
                                     Log.WriteLine($"Skipping job '{job.Id}' with scenario '{job.Scenario}'.");
                                     Log.WriteLine($"'{job.WebHost}' is not supported on this platform.");
                                     Log.WriteLine($"{job.State} -> NotSupported");
-                                    job.State = ServerState.NotSupported;
+                                    job.State = JobState.NotSupported;
                                     continue;
                                 }
 
                                 Log.WriteLine($"Starting job '{job.Id}' with scenario '{job.Scenario}'");
                                 Log.WriteLine($"{job.State} -> Starting");
-                                job.State = ServerState.Starting;
+                                job.State = JobState.Starting;
 
                                 startMonitorTime = DateTime.UtcNow;
 
@@ -502,7 +502,7 @@ namespace Microsoft.Benchmarks.Agent
                                                 await buildAndRunTask;
 
                                                 Log.WriteLine($"{job.State} -> Failed");
-                                                job.State = ServerState.Failed;
+                                                job.State = JobState.Failed;
                                                 break;
                                             }
 
@@ -515,7 +515,7 @@ namespace Microsoft.Benchmarks.Agent
 
                                                 job.Error = "Build is taking too long. Halting build.";
                                                 Log.WriteLine($"{job.State} -> Failed");
-                                                job.State = ServerState.Failed;
+                                                job.State = JobState.Failed;
                                                 break;
                                             }
 
@@ -527,7 +527,7 @@ namespace Microsoft.Benchmarks.Agent
                                         workingDirectory = null;
                                         Log.WriteLine($"Job failed with DockerBuildAndRun: " + e.Message);
                                         Log.WriteLine($"{job.State} -> Failed");
-                                        job.State = ServerState.Failed;
+                                        job.State = JobState.Failed;
                                     }
                                 }
                                 else
@@ -557,7 +557,7 @@ namespace Microsoft.Benchmarks.Agent
                                             workingDirectory = null;
                                             Log.WriteLine($"Job failed with CloneRestoreAndBuild");
                                             Log.WriteLine($"{job.State} -> Failed");
-                                            job.State = ServerState.Failed;
+                                            job.State = JobState.Failed;
                                         }
                                     }
                                 }
@@ -595,10 +595,10 @@ namespace Microsoft.Benchmarks.Agent
                                             if (now - job.LastDriverCommunicationUtc > DriverTimeout)
                                             {
                                                 Log.WriteLine($"[Heartbeat] Driver didn't communicate for {DriverTimeout}. Halting job.");
-                                                if (job.State == ServerState.Running || job.State == ServerState.TraceCollected)
+                                                if (job.State == JobState.Running || job.State == JobState.TraceCollected)
                                                 {
                                                     Log.WriteLine($"{job.State} -> Stopping");
-                                                    job.State = ServerState.Stopping;
+                                                    job.State = JobState.Stopping;
                                                 }
                                             }
 
@@ -613,7 +613,7 @@ namespace Microsoft.Benchmarks.Agent
                                                 {
                                                     Log.WriteLine($"The Docker container has stopped");
                                                     Log.WriteLine($"{job.State} -> Stopping");
-                                                    job.State = ServerState.Stopping;
+                                                    job.State = JobState.Stopping;
                                                 }
                                                 else
                                                 {
@@ -722,10 +722,10 @@ namespace Microsoft.Benchmarks.Agent
 
                                                         job.Error = $"Job failed at runtime:\n{job.Output}";
 
-                                                        if (job.State != ServerState.Deleting)
+                                                        if (job.State != JobState.Deleting)
                                                         {
                                                             Log.WriteLine($"{job.State} -> Failed");
-                                                            job.State = ServerState.Failed;
+                                                            job.State = JobState.Failed;
                                                         }
                                                     }
                                                     else
@@ -733,10 +733,10 @@ namespace Microsoft.Benchmarks.Agent
                                                         Log.WriteLine($"Process has exited ({process.ExitCode})");
 
                                                         // Don't revert a Deleting state by mistake
-                                                        if (job.State != ServerState.Deleting)
+                                                        if (job.State != JobState.Deleting)
                                                         {
                                                             Log.WriteLine($"{job.State} -> Stopped");
-                                                            job.State = ServerState.Stopped;
+                                                            job.State = JobState.Stopped;
                                                         }
                                                     }
                                                 }
@@ -824,17 +824,17 @@ namespace Microsoft.Benchmarks.Agent
                             {
                                 Log.WriteLine($"Error starting job '{job.Id}': {e}");
                                 Log.WriteLine($"{job.State} -> Failed");
-                                job.State = ServerState.Failed;
+                                job.State = JobState.Failed;
                                 continue;
                             }
                         }
-                        else if (job.State == ServerState.Stopping)
+                        else if (job.State == JobState.Stopping)
                         {
                             Log.WriteLine($"Stopping job '{job.Id}' with scenario '{job.Scenario}'");
 
                             await StopJobAsync();
                         }
-                        else if (job.State == ServerState.Stopped)
+                        else if (job.State == JobState.Stopped)
                         {
                             Log.WriteLine($"Job '{job.Id}' has stopped, waiting for the driver to delete it");
 
@@ -843,16 +843,16 @@ namespace Microsoft.Benchmarks.Agent
                                 // The job needs to be deleted
                                 Log.WriteLine($"Driver didn't communicate for {DriverTimeout}. Halting job.");
                                 Log.WriteLine($"{job.State} -> Deleting");
-                                job.State = ServerState.Deleting;
+                                job.State = JobState.Deleting;
                             }
                         }
-                        else if (job.State == ServerState.Deleting)
+                        else if (job.State == JobState.Deleting)
                         {
                             Log.WriteLine($"Deleting job '{job.Id}' with scenario '{job.Scenario}'");
 
                             await DeleteJobAsync();
                         }
-                        else if (job.State == ServerState.TraceCollecting)
+                        else if (job.State == JobState.TraceCollecting)
                         {
                             // Stop perfview
                             if (job.Collect)
@@ -868,7 +868,7 @@ namespace Microsoft.Benchmarks.Agent
 
                                 Log.WriteLine("Trace collected");
                                 Log.WriteLine($"{job.State} ->  TraceCollected");
-                                job.State = ServerState.TraceCollected;
+                                job.State = JobState.TraceCollected;
                             }
 
                             // Stop dotnet-trace
@@ -897,11 +897,11 @@ namespace Microsoft.Benchmarks.Agent
                                 }
 
                                 Log.WriteLine($"{job.State} ->  TraceCollected");
-                                job.State = ServerState.TraceCollected;
+                                job.State = JobState.TraceCollected;
                             }
 
                         }
-                        else if (job.State == ServerState.Starting)
+                        else if (job.State == JobState.Starting)
                         {
                             var startTimeout = job.StartTimeout > TimeSpan.Zero
                                 ? job.StartTimeout
@@ -911,11 +911,11 @@ namespace Microsoft.Benchmarks.Agent
                             if (DateTime.UtcNow - startMonitorTime > startTimeout)
                             {
                                 Log.WriteLine($"Job didn't start during the expected delay");
-                                job.State = ServerState.Failed;
+                                job.State = JobState.Failed;
                                 job.Error = "Job didn't start during the expected delay. Check that it outputs a startup message on the log.";
                             }
                         }
-                        else if (job.State == ServerState.Initializing)
+                        else if (job.State == JobState.Initializing)
                         {
                             lock (job.Metadata)
                             {
@@ -1010,7 +1010,7 @@ namespace Microsoft.Benchmarks.Agent
                             if (DateTime.UtcNow - startMonitorTime > InitializeTimeout)
                             {
                                 Log.WriteLine($"Job didn't initialize during the expected delay");
-                                job.State = ServerState.Failed;
+                                job.State = JobState.Failed;
                                 job.Error = "Job didn't initalize during the expected delay.";
                             }
                         }
@@ -1192,7 +1192,7 @@ namespace Microsoft.Benchmarks.Agent
                                 Log.WriteLine($"Process has stopped");
 
 
-                                job.State = ServerState.Stopped;
+                                job.State = JobState.Stopped;
 
                                 process = null;
                             }
@@ -1228,7 +1228,7 @@ namespace Microsoft.Benchmarks.Agent
 
                             Log.WriteLine($"{job.State} -> Deleted");
 
-                            job.State = ServerState.Deleted;
+                            job.State = JobState.Deleted;
                         }
                     }
 
@@ -1413,7 +1413,7 @@ namespace Microsoft.Benchmarks.Agent
             }
         }
 
-        private static async Task<(string containerId, string imageName, string workingDirectory)> DockerBuildAndRun(string path, ServerJob job, string hostname, CancellationToken cancellationToken = default(CancellationToken))
+        private static async Task<(string containerId, string imageName, string workingDirectory)> DockerBuildAndRun(string path, Job job, string hostname, CancellationToken cancellationToken = default(CancellationToken))
         {
             var source = job.Source;
             string srcDir;
@@ -1598,7 +1598,7 @@ namespace Microsoft.Benchmarks.Agent
 
                         job.Output.AddLine(e.Data);
 
-                        if (job.State == ServerState.Starting && e.Data.IndexOf(job.ReadyStateText, StringComparison.OrdinalIgnoreCase) >= 0)
+                        if (job.State == JobState.Starting && e.Data.IndexOf(job.ReadyStateText, StringComparison.OrdinalIgnoreCase) >= 0)
                         {
                             Log.WriteLine($"Ready state detected, application is now running...");
                             MarkAsRunning(hostname, job, stopwatch);
@@ -1622,7 +1622,7 @@ namespace Microsoft.Benchmarks.Agent
 
                         job.Output.AddLine("[STDERR] " + e.Data);
 
-                        if (job.State == ServerState.Starting && e.Data.IndexOf(job.ReadyStateText, StringComparison.OrdinalIgnoreCase) >= 0)
+                        if (job.State == JobState.Starting && e.Data.IndexOf(job.ReadyStateText, StringComparison.OrdinalIgnoreCase) >= 0)
                         {
                             Log.WriteLine($"Ready state detected, application is now running...");
                             MarkAsRunning(hostname, job, stopwatch);
@@ -1673,7 +1673,7 @@ namespace Microsoft.Benchmarks.Agent
             return (containerId, imageName, workingDirectory);
         }
 
-        private static void ParseMeasurementOutput(ServerJob job, RollingLog standardOutput)
+        private static void ParseMeasurementOutput(Job job, RollingLog standardOutput)
         {
 
             // Detected custom statistics in stdout, parse it
@@ -1729,7 +1729,7 @@ namespace Microsoft.Benchmarks.Agent
             }
         }
 
-        private static async Task<bool> WaitToListen(ServerJob job, string hostname, int maxRetries = 5)
+        private static async Task<bool> WaitToListen(Job job, string hostname, int maxRetries = 5)
         {
             if (job.IsConsoleApp)
             {
@@ -1765,9 +1765,9 @@ namespace Microsoft.Benchmarks.Agent
             return false;
         }
 
-        private static void DockerCleanUp(string containerId, string imageName, ServerJob job)
+        private static void DockerCleanUp(string containerId, string imageName, Job job)
         {
-            var finalState = ServerState.Stopped;
+            var finalState = JobState.Stopped;
 
             try
             {
@@ -1784,7 +1784,7 @@ namespace Microsoft.Benchmarks.Agent
                     {
                         Log.WriteLine("Job failed");
                         job.Error = job.Output.ToString();
-                        finalState = ServerState.Failed;
+                        finalState = JobState.Failed;
                     }
                 }
                 else
@@ -1809,7 +1809,7 @@ namespace Microsoft.Benchmarks.Agent
                 catch(Exception e)
                 {
                     Log.WriteLine("An error occured while deleting the docker container: " + e.Message);
-                    finalState = ServerState.Failed;
+                    finalState = JobState.Failed;
                 }
                 finally
                 {
@@ -1818,7 +1818,7 @@ namespace Microsoft.Benchmarks.Agent
             }
         }
 
-        private static async Task<string> CloneRestoreAndBuild(string path, ServerJob job, string dotnetHome)
+        private static async Task<string> CloneRestoreAndBuild(string path, Job job, string dotnetHome)
         {
             // Clone
             string benchmarkedDir = null;
@@ -2835,7 +2835,7 @@ namespace Microsoft.Benchmarks.Agent
                 : Path.Combine(dotnetHome, "dotnet");
         }
 
-        private static async Task<Process> StartProcess(string hostname, string benchmarksRepo, ServerJob job, string dotnetHome)
+        private static async Task<Process> StartProcess(string hostname, string benchmarksRepo, Job job, string dotnetHome)
         {
             var workingDirectory = Path.Combine(benchmarksRepo, Path.GetDirectoryName(FormatPathSeparators(job.Source.Project)));
             var scheme = (job.Scheme == Scheme.H2 || job.Scheme == Scheme.Https) ? "https" : "http";
@@ -3066,7 +3066,7 @@ namespace Microsoft.Benchmarks.Agent
 
                     job.Output.AddLine(e.Data);
 
-                    if (job.State == ServerState.Starting &&
+                    if (job.State == JobState.Starting &&
                         ((!String.IsNullOrEmpty(job.ReadyStateText) && e.Data.IndexOf(job.ReadyStateText, StringComparison.OrdinalIgnoreCase) >= 0) || job.IsConsoleApp))
                     {
                         RunAndTrace();
@@ -3086,7 +3086,7 @@ namespace Microsoft.Benchmarks.Agent
 
                     job.Output.AddLine(log);
 
-                    if (job.State == ServerState.Starting &&
+                    if (job.State == JobState.Starting &&
                         ((!String.IsNullOrEmpty(job.ReadyStateText) && e.Data.IndexOf(job.ReadyStateText, StringComparison.OrdinalIgnoreCase) >= 0) || job.IsConsoleApp))
                     {
                         MarkAsRunning(hostname, job, stopwatch);
@@ -3187,7 +3187,7 @@ namespace Microsoft.Benchmarks.Agent
             }
         }
 
-        private static void StartCounters(ServerJob job)
+        private static void StartCounters(Job job)
         {
             job.Metadata.Enqueue(new MeasurementMetadata { Source = "Counters", Name = "runtime-counter/cpu-usage", LongDescription = "Amount of time the process has utilized the CPU (ms)", ShortDescription = "CPU Usage (%)", Format = "n0", Aggregate = Operation.Max, Reduce = Operation.Max });
             job.Metadata.Enqueue(new MeasurementMetadata { Source = "Counters", Name = "runtime-counter/working-set", LongDescription = "Amount of working set used by the process (MB)", ShortDescription = "Working Set (MB)", Format = "n0", Aggregate = Operation.Max, Reduce = Operation.Max });
@@ -3292,7 +3292,7 @@ namespace Microsoft.Benchmarks.Agent
             eventPipeTask.Start();
         }
 
-        private static void StartMeasurement(ServerJob job)
+        private static void StartMeasurement(Job job)
         {
             measurementsTerminated = false;
             measurementsTask = new Task(() =>
@@ -3372,7 +3372,7 @@ namespace Microsoft.Benchmarks.Agent
             measurementsTask.Start();
         }
 
-        private static void StartCollection(string workingDirectory, ServerJob job)
+        private static void StartCollection(string workingDirectory, Job job)
         {
             if (OperatingSystem == OperatingSystem.Windows)
             {
@@ -3425,7 +3425,7 @@ namespace Microsoft.Benchmarks.Agent
             }
         }
 
-        private static void StartDotNetTrace(int processId, ServerJob job)
+        private static void StartDotNetTrace(int processId, Job job)
         {
             job.PerfViewTraceFile = Path.Combine(job.BasePath, "trace.nettrace");
 
@@ -3500,12 +3500,12 @@ namespace Microsoft.Benchmarks.Agent
             }
         }
 
-        private static bool MarkAsRunning(string hostname, ServerJob job, Stopwatch stopwatch)
+        private static bool MarkAsRunning(string hostname, Job job, Stopwatch stopwatch)
         {
             lock (job)
             {
                 // Already executed this method?
-                if (job.State == ServerState.Running)
+                if (job.State == JobState.Running)
                 {
                     return false;
                 }
@@ -3516,13 +3516,13 @@ namespace Microsoft.Benchmarks.Agent
                 job.Url = ComputeServerUrl(hostname, job);
 
                 // Mark the job as running to allow the Client to start the test
-                job.State = ServerState.Running;
+                job.State = JobState.Running;
 
                 return true;
             }
         }
 
-        private static string GenerateApplicationHostConfig(ServerJob job, string publishedFolder, string executable, string arguments,
+        private static string GenerateApplicationHostConfig(Job job, string publishedFolder, string executable, string arguments,
             string hostname)
         {
             void SetAttribute(XDocument doc, string path, string name, string value)
@@ -3626,7 +3626,7 @@ namespace Microsoft.Benchmarks.Agent
             }
         }
 
-        private static string ComputeServerUrl(string hostname, ServerJob job)
+        private static string ComputeServerUrl(string hostname, Job job)
         {
             var scheme = (job.Scheme == Scheme.H2 || job.Scheme == Scheme.Https) ? "https" : "http";
             return $"{scheme}://{hostname}:{job.Port}/{job.Path.TrimStart('/')}";

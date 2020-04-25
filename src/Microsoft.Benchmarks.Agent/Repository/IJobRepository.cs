@@ -8,10 +8,10 @@ namespace Repository
 {
     public interface IJobRepository
     {
-        ServerJob Add(ServerJob item);
-        IEnumerable<ServerJob> GetAll();
-        ServerJob Find(int id);
-        ServerJob Remove(int id);
-        void Update(ServerJob item);
+        Job Add(Job item);
+        IEnumerable<Job> GetAll();
+        Job Find(int id);
+        Job Remove(int id);
+        void Update(Job item);
     }
 }

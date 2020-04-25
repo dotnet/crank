@@ -12,10 +12,10 @@ namespace Repository
     public class InMemoryJobRepository : IJobRepository
     {
         private readonly object _lock = new object();
-        private readonly List<ServerJob> _items = new List<ServerJob>();
+        private readonly List<Job> _items = new List<Job>();
         private int _nextId = 1;
 
-        public ServerJob Add(ServerJob item)
+        public Job Add(Job item)
         {
             if (item.Id != 0)
             {
@@ -32,7 +32,7 @@ namespace Repository
             }
         }
 
-        public ServerJob Find(int id)
+        public Job Find(int id)
         {
             lock (_lock)
             {
@@ -42,7 +42,7 @@ namespace Repository
             }
         }
 
-        public IEnumerable<ServerJob> GetAll()
+        public IEnumerable<Job> GetAll()
         {
             lock (_lock)
             {
@@ -50,7 +50,7 @@ namespace Repository
             }
         }
 
-        public ServerJob Remove(int id)
+        public Job Remove(int id)
         {
             lock (_lock)
             {
@@ -67,7 +67,7 @@ namespace Repository
             }
         }
 
-        public void Update(ServerJob item)
+        public void Update(Job item)
         {
             lock (_lock)
             {

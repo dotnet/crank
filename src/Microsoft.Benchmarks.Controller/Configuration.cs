@@ -7,7 +7,7 @@ namespace Microsoft.Benchmarks.Controller
     {
         public object Variables { get; set; } = new Dictionary<string, object>();
 
-        public Dictionary<string, ServerJob> Jobs { get; set; } = new Dictionary<string, ServerJob>();
+        public Dictionary<string, Job> Jobs { get; set; } = new Dictionary<string, Job>();
 
         public Dictionary<string, Dictionary<string, Scenario>> Scenarios { get; set; } = new Dictionary<string, Dictionary<string, Scenario>>();
 
