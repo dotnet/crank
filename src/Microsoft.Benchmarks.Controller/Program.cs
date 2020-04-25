@@ -530,7 +530,7 @@ namespace Microsoft.Benchmarks.Controller
                                     {
                                         var state = await job.GetStateAsync();
 
-                                        stop = stop && (state == ServerState.Stopped || state == ServerState.Failed);
+                                        stop = stop && (state == JobState.Stopped || state == JobState.Failed);
                                     }
 
                                     if (stop)
@@ -813,7 +813,7 @@ namespace Microsoft.Benchmarks.Controller
 
                 await job.TryUpdateJobAsync();
 
-                var stop = job.Job.State == ServerState.Stopped || job.Job.State == ServerState.Deleted || job.Job.State == ServerState.Failed;
+                var stop = job.Job.State == JobState.Stopped || job.Job.State == JobState.Deleted || job.Job.State == JobState.Failed;
 
                 if (start + span > DateTime.UtcNow)
                 {
@@ -1092,7 +1092,7 @@ namespace Microsoft.Benchmarks.Controller
 
                 PatchObject(jobObject, dependencyObject);
 
-                configurationInstance.Jobs[serviceName] = jobObject.ToObject<ServerJob>();
+                configurationInstance.Jobs[serviceName] = jobObject.ToObject<Job>();
             }
 
             // Force all jobs as self-contained by default. This can be overrided by command line config.

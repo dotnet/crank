@@ -46,14 +46,14 @@ namespace Microsoft.Benchmarks.Controller
             _httpClient = new HttpClient(_httpClientHandler);
         }
 
-        public JobConnection(ServerJob definition, Uri serverUri)
+        public JobConnection(Job definition, Uri serverUri)
         {
             Job = definition;
             _serverUri = serverUri;
             _serverJobsUri = new Uri(_serverUri, "/jobs");
         }
 
-        public ServerJob Job { get; private set; }
+        public Job Job { get; private set; }
 
         public async Task<string> StartAsync(
             string jobName,
@@ -89,7 +89,7 @@ namespace Microsoft.Benchmarks.Controller
 
                 response.EnsureSuccessStatusCode();
 
-                Job = JsonConvert.DeserializeObject<ServerJob>(responseContent);
+                Job = JsonConvert.DeserializeObject<Job>(responseContent);
 
                 #region Ensure the job is valid
 
@@ -116,7 +116,7 @@ namespace Microsoft.Benchmarks.Controller
 
                 #endregion
 
-                if (Job?.State == ServerState.Initializing)
+                if (Job?.State == JobState.Initializing)
                 {
                     Log.Write($"Job has been selected by the server ...");
 
@@ -286,7 +286,7 @@ namespace Microsoft.Benchmarks.Controller
                     Log.Verbose($"{(int)response.StatusCode} {response.StatusCode}");
                     response.EnsureSuccessStatusCode();
 
-                    Job = JsonConvert.DeserializeObject<ServerJob>(responseContent);
+                    Job = JsonConvert.DeserializeObject<Job>(responseContent);
 
                     Log.Write($"Job is now building ...");
 
@@ -319,12 +319,12 @@ namespace Microsoft.Benchmarks.Controller
                     throw new Exception("Job not found");
                 }
 
-                Job = JsonConvert.DeserializeObject<ServerJob>(responseContent);
+                Job = JsonConvert.DeserializeObject<Job>(responseContent);
 
 
-                if (Job.State == ServerState.Running)
+                if (Job.State == JobState.Running)
                 {
-                    if (previousJob.State != ServerState.Running)
+                    if (previousJob.State != JobState.Running)
                     {
                         Log.Write($"Job is running");
                         _runningUtc = DateTime.UtcNow;
@@ -332,7 +332,7 @@ namespace Microsoft.Benchmarks.Controller
 
                     return Job.Url;
                 }
-                else if (Job.State == ServerState.Failed)
+                else if (Job.State == JobState.Failed)
                 {
                     Log.Write($"Job failed on benchmark server, stopping...");
 
@@ -341,12 +341,12 @@ namespace Microsoft.Benchmarks.Controller
                     // Returning will also send a Delete message to the server
                     return null;
                 }
-                else if (Job.State == ServerState.NotSupported)
+                else if (Job.State == JobState.NotSupported)
                 {
                     Log.Write("Server does not support this job configuration.");
                     return null;
                 }
-                else if (Job.State == ServerState.Stopped)
+                else if (Job.State == JobState.Stopped)
                 {
                     Log.Write($"Job finished");
 
@@ -386,7 +386,7 @@ namespace Microsoft.Benchmarks.Controller
 
                 var state = await GetStateAsync();
 
-                if (state == ServerState.Stopped || state == ServerState.Failed)
+                if (state == JobState.Stopped || state == JobState.Failed)
                 {
                     break;
                 }
@@ -445,7 +445,7 @@ namespace Microsoft.Benchmarks.Controller
             {
                 try
                 {
-                    Job = JsonConvert.DeserializeObject<ServerJob>(responseContent);
+                    Job = JsonConvert.DeserializeObject<Job>(responseContent);
                 }
                 catch
                 {
@@ -480,7 +480,7 @@ namespace Microsoft.Benchmarks.Controller
         /// <summary>
         /// Returns the current state of the job.
         /// </summary>
-        public async Task<ServerState> GetStateAsync()
+        public async Task<JobState> GetStateAsync()
         {
             Log.Verbose($"GET {_serverJobUri}/state...");
             var response = await _httpClient.GetAsync(_serverJobUri + "/state");
@@ -490,18 +490,18 @@ namespace Microsoft.Benchmarks.Controller
 
             if (response.StatusCode == HttpStatusCode.NotFound || String.IsNullOrEmpty(responseContent))
             {
-                return ServerState.Failed;
+                return JobState.Failed;
             }
             else
             {
                 try
                 {
-                    return Enum.Parse<ServerState>(responseContent);
+                    return Enum.Parse<JobState>(responseContent);
                 }
                 catch
                 {
                     Log.Write($"ERROR while reading state on {_serverJobUri}");
-                    return ServerState.Failed;
+                    return JobState.Failed;
                 }
             }
         }
@@ -668,7 +668,7 @@ namespace Microsoft.Benchmarks.Controller
             }
         }
 
-        private static async Task<int> UploadFileAsync(string filename, ServerJob serverJob, string uri)
+        private static async Task<int> UploadFileAsync(string filename, Job serverJob, string uri)
         {
             Log.Write($"Uploading {filename} to {uri}");
 
@@ -828,13 +828,13 @@ namespace Microsoft.Benchmarks.Controller
             {
                 var state = await GetStateAsync();
 
-                if (state == ServerState.Stopped || state == ServerState.Failed)
+                if (state == JobState.Stopped || state == JobState.Failed)
                 {
                     Log.Write($"Can't download the trace. The job was forcibly stopped by the server.");
                     return;
                 }
 
-                if (state == ServerState.TraceCollecting)
+                if (state == JobState.TraceCollecting)
                 {
                     // Server is collecting the trace
                 }

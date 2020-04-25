@@ -3,7 +3,7 @@
 
 namespace Microsoft.Benchmarks.Models
 {
-    public enum ServerState
+    public enum JobState
     {
         New, // The job was submitted
         Initializing, // The job is processed, the driver update it or submit attachments

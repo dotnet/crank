@@ -11,7 +11,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Benchmarks.Models
 {
-    public class ServerJob
+    public class Job
     {
         public int DriverVersion { get; set; } = 0;
 
@@ -82,7 +82,7 @@ namespace Microsoft.Benchmarks.Models
             }
         }
 
-        public ServerJob AddServerCounter(ServerCounter counter)
+        public Job AddServerCounter(ServerCounter counter)
         {
             lock (this)
             {
@@ -91,7 +91,7 @@ namespace Microsoft.Benchmarks.Models
             }
         }
 
-        public ServerJob ClearServerCounters()
+        public Job ClearServerCounters()
         {
             lock (this)
             {
@@ -109,7 +109,7 @@ namespace Microsoft.Benchmarks.Models
         public bool NoArguments { get; set; } = false;
 
         [JsonConverter(typeof(StringEnumConverter))]
-        public ServerState State { get; set; }
+        public JobState State { get; set; }
 
         public string Url { get; set; }
 
