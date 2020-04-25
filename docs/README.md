@@ -4,7 +4,7 @@
 
 | Topic | Description |
 |-------|-------------|
-|**[Getting Started](getting_started.md)** | Get setup to develop with `tye`.
+|**[Getting Started](getting_started.md)** | Writing your first benchmark.
 
 
 ## Reference documentation
