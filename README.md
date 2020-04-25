@@ -2,8 +2,6 @@
 
 This is the benchmarking infrastructure used by the .NET team using run including (but not limited to) scenarios from the [TechEmpower Web Framework Benchmarks](https://www.techempower.com/benchmarks/).
 
-# Setting up
-
 ## Components
 
 The benchmarking infrastructure is made of these components:
