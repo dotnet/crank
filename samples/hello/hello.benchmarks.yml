@@ -1,0 +1,42 @@
+imports:
+    - https://raw.githubusercontent.com/aspnet/Benchmarks/master/src/WrkClient/wrk.yml
+
+jobs:
+  server:
+    source:
+      repository: https://github.com/aspnet/perf
+      branchOrCommit: master
+      project: samples/hello/hello.csproj
+    environmentVariables:
+      ASPNETCORE_URLS: http://localhost:5050
+    port: 5050
+
+scenarios:
+  hello:
+    application:
+      job: server
+    warmup:
+      job: wrk
+      variables:
+        serverPort: 5050
+        path: /
+    load:
+      job: wrk
+      variables:
+        serverPort: 5050
+        path: /
+
+profiles:
+  local:
+    variables:
+      serverUri: http://localhost:5001
+    jobs: 
+      application:
+        endpoints: 
+          - http://localhost:5001
+      warmup:
+        endpoints: 
+          - http://localhost:5002
+      load:
+        endpoints: 
+          - http://localhost:5002

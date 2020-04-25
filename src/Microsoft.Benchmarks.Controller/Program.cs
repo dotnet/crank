@@ -116,7 +116,7 @@ namespace BenchmarksDriver
                 FullName = "ASP.NET Benchmark Driver",
                 Description = "Driver for ASP.NET Benchmarks",
                 ResponseFileHandling = ResponseFileHandling.ParseArgsAsSpaceSeparated,
-                OptionsComparison = StringComparison.OrdinalIgnoreCase,                
+                OptionsComparison = StringComparison.OrdinalIgnoreCase,
             };
 
             app.HelpOption("-?|-h|--help");
@@ -162,7 +162,7 @@ namespace BenchmarksDriver
             }
 
             // Driver Options
-            
+
             var verboseOption = app.Option("-v|--verbose",
                 "Verbose output", CommandOptionType.NoValue);
             var quietOption = app.Option("--quiet",
@@ -182,7 +182,7 @@ namespace BenchmarksDriver
             var kestrelThreadCountOption = app.Option("--kestrelThreadCount",
                 "Maps to KestrelServerOptions.ThreadCount.",
                 CommandOptionType.SingleValue);
-            
+
             _outputArchiveOption = app.Option("--output-archive",
                 "Output archive attachment. Format is 'path[;destination]'. Path can be a URL. e.g., " +
                 "\"--output-archive c:\\build\\Microsoft.AspNetCore.Mvc.zip\", " +
@@ -256,7 +256,7 @@ namespace BenchmarksDriver
                 {
                     Console.Error.WriteLine("Scenario name must be specified.");
                     return 1;
-                }                
+                }
 
                 var results = new ExecutionResult();
 
@@ -286,7 +286,7 @@ namespace BenchmarksDriver
                         else
                         {
                             variables[segments[0]] = segments[1];
-                        }                        
+                        }
                     }
 
                     foreach (var property in _propertyOption.Values)
@@ -306,8 +306,14 @@ namespace BenchmarksDriver
 
                     var serializer = new Serializer();
 
+                    if (!configuration.Scenarios.TryGetValue(scenarioName, out var scenario))
+                    {
+                        Console.WriteLine($"Unable to find scenario '{scenarioName}'.");
+                        return -1;
+                    }
+
                     // Storing the list of services to run as part of the selected scenario
-                    var dependencies = configuration.Scenarios[scenarioName].Select(x => x.Key).ToArray();
+                    var dependencies = scenario.Select(x => x.Key).ToArray();
 
                     // Verifying endpoints
                     foreach (var jobName in dependencies)
@@ -337,7 +343,7 @@ namespace BenchmarksDriver
                             }
                         }
                     }
-                    
+
                     // Initialize database
                     if (!String.IsNullOrWhiteSpace(_sqlConnectionString))
                     {
@@ -441,7 +447,7 @@ namespace BenchmarksDriver
 
                 for (var i = 1; i <= iterations; i++)
                 {
-                    
+
                     if (iterations > 1)
                     {
                         jobsByDependency.Clear();
@@ -498,12 +504,12 @@ namespace BenchmarksDriver
                             await Task.WhenAll(
                                 jobs.Select(job =>
                                 {
-                                // Start job on agent
-                                return job.StartAsync(
-                                            jobName,
-                                            _outputArchiveOption,
-                                            _buildArchiveOption
-                                        );
+                                    // Start job on agent
+                                    return job.StartAsync(
+                                                jobName,
+                                                _outputArchiveOption,
+                                                _buildArchiveOption
+                                            );
                                 })
                             );
 
@@ -736,7 +742,7 @@ namespace BenchmarksDriver
                 var repeatAfterJob = _repeatOption.Value();
                 var jobKeptRunning = dependencies.TakeWhile(x => !String.Equals(repeatAfterJob, x, StringComparison.OrdinalIgnoreCase));
 
-                return jobKeptRunning.Any(x => String.Equals(jobName, x , StringComparison.OrdinalIgnoreCase));
+                return jobKeptRunning.Any(x => String.Equals(jobName, x, StringComparison.OrdinalIgnoreCase));
             }
         }
 
@@ -760,7 +766,7 @@ namespace BenchmarksDriver
 
             var jobName = dependencies.First();
             var service = configuration.Jobs[jobName];
-            
+
             if (service.Endpoints.Count() != 1)
             {
                 Log.Write($"With --auto-flush a single endpoint is required.");
@@ -883,11 +889,11 @@ namespace BenchmarksDriver
 
             await job.StopAsync();
 
-            await  job.TryUpdateJobAsync();
+            await job.TryUpdateJobAsync();
 
-            await  job.DownloadAssetsAsync(jobName);
+            await job.DownloadAssetsAsync(jobName);
 
-            await  job.DeleteAsync();
+            await job.DeleteAsync();
 
             return executionResults;
         }
@@ -897,7 +903,7 @@ namespace BenchmarksDriver
             // Use the first job results as the reference for metadata:
             var firstJob = allResults.First();
 
-            foreach(var jobEntry in firstJob.Jobs)
+            foreach (var jobEntry in firstJob.Jobs)
             {
                 var jobName = jobEntry.Key;
                 var jobResult = jobEntry.Value;
@@ -908,7 +914,7 @@ namespace BenchmarksDriver
 
                 table.Headers.Add(jobName);
 
-                foreach(var name in allNames)
+                foreach (var name in allNames)
                 {
                     table.Headers.Add(name);
 
@@ -1007,7 +1013,7 @@ namespace BenchmarksDriver
 
             var result = new JObject();
 
-            foreach(var variableObject in variableObjects)
+            foreach (var variableObject in variableObjects)
             {
                 if (variableObject == null)
                 {
@@ -1027,13 +1033,19 @@ namespace BenchmarksDriver
         /// 3- Path the new job with the scenario's properties
         /// </summary>
         public static async Task<Configuration> BuildConfigurationAsync(
-            IEnumerable<string> configurationFileOrUrls, 
-            string scenarioName, 
-            IEnumerable<KeyValuePair<string, string>> arguments, 
+            IEnumerable<string> configurationFileOrUrls,
+            string scenarioName,
+            IEnumerable<KeyValuePair<string, string>> arguments,
             JObject commandLineVariables,
             IEnumerable<string> profiles
             )
         {
+
+            if (!configurationFileOrUrls.Any())
+            {
+                return new Configuration();
+            }
+
             JObject configuration = null;
 
             // Merge all configuration sources
@@ -1061,7 +1073,7 @@ namespace BenchmarksDriver
             {
                 throw new Exception($"The scenario `{scenarioName}` was not found");
             }
-            
+
             var scenario = configurationInstance.Scenarios[scenarioName];
 
             // Clone each service from the selected scenario inside the Jobs property of the Configuration
@@ -1076,7 +1088,7 @@ namespace BenchmarksDriver
                 }
 
                 var jobObject = JObject.FromObject(configurationInstance.Jobs[jobName]);
-                var dependencyObject = (JObject) configuration["scenarios"][scenarioName][serviceName];
+                var dependencyObject = (JObject)configuration["scenarios"][scenarioName][serviceName];
 
                 PatchObject(jobObject, dependencyObject);
 
@@ -1188,7 +1200,7 @@ namespace BenchmarksDriver
 
         private static void ApplyTemplates(JToken node, TemplateContext templateContext)
         {
-            foreach(var token in node.Children())
+            foreach (var token in node.Children())
             {
                 if (token is JValue jValue)
                 {
@@ -1259,13 +1271,13 @@ namespace BenchmarksDriver
                         localconfiguration = JObject.Parse(json);
                         break;
                 }
-                
+
                 // Process imports
                 if (localconfiguration.ContainsKey("imports"))
                 {
                     var mergeOptions = new JsonMergeSettings { MergeArrayHandling = MergeArrayHandling.Replace, MergeNullValueHandling = MergeNullValueHandling.Merge };
 
-                    foreach (JValue import in (JArray) localconfiguration.GetValue("imports"))
+                    foreach (JValue import in (JArray)localconfiguration.GetValue("imports"))
                     {
                         var importFilenameOrUrl = import.ToString();
 
@@ -1285,12 +1297,12 @@ namespace BenchmarksDriver
             else
             {
                 throw new Exception($"Invalid file path or url: '{configurationFilenameOrUrl}'");
-            }            
+            }
         }
 
         public static void PatchObject(JObject source, JObject patch)
         {
-            foreach(var patchProperty in patch)
+            foreach (var patchProperty in patch)
             {
                 var sourceProperty = source.Properties().Where(x => x.Name.Equals(patchProperty.Key, StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
 
@@ -1342,7 +1354,7 @@ namespace BenchmarksDriver
             }
 
             // For each job, compute the operation on each measurement
-            foreach(var job in jobs)
+            foreach (var job in jobs)
             {
                 // Group by name for easy lookup
                 var measurements = job.Job.Measurements.GroupBy(x => x.Name).ToDictionary(x => x.Key, x => x.ToList());

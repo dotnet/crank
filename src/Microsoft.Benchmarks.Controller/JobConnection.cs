@@ -98,15 +98,16 @@ namespace BenchmarksDriver
                     throw new Exception($"Invalid server version ({Job.ServerVersion}), please update your server to match this driver version.");
                 }
 
-                if (!Job.Hardware.HasValue)
-                {
-                    throw new InvalidOperationException("Server is required to set ServerJob.Hardware.");
-                }
+                // REVIEW: Why are these required
+                //if (!Job.Hardware.HasValue)
+                //{
+                //    throw new InvalidOperationException("Server is required to set ServerJob.Hardware.");
+                //}
 
-                if (String.IsNullOrWhiteSpace(Job.HardwareVersion))
-                {
-                    throw new InvalidOperationException("Server is required to set ServerJob.HardwareVersion.");
-                }
+                //if (String.IsNullOrWhiteSpace(Job.HardwareVersion))
+                //{
+                //    throw new InvalidOperationException("Server is required to set ServerJob.HardwareVersion.");
+                //}
 
                 if (!Job.OperatingSystem.HasValue)
                 {
