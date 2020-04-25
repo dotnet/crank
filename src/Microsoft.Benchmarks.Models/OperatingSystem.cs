@@ -1,4 +1,4 @@
-﻿namespace Benchmarks.ServerJob
+﻿namespace Microsoft.Benchmarks.Models
 {
     public enum OperatingSystem
     {

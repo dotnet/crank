@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using McMaster.Extensions.CommandLineUtils;
 
-namespace PipeliningClient
+namespace Microsoft.Benchmarks.Jobs.PipeliningClient
 {
     class Program
     {

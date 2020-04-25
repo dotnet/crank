@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Threading.Tasks;
 
-namespace WrkClient
+namespace Microsoft.Benchmarks.Jobs.Wrk
 {
     class Program
     {
-        static async Task Main(string[] args)
+        static void Main(string[] args)
         {
             Console.WriteLine("wrk Client");
             Console.WriteLine("args: " + String.Join(' ', args));

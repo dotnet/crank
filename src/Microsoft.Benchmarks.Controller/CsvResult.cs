@@ -1,6 +1,6 @@
 ﻿using CsvHelper.Configuration;
 
-namespace BenchmarksDriver
+namespace Microsoft.Benchmarks.Controller
 {
     public class CsvResult
     {

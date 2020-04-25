@@ -1,7 +1,7 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
-namespace Benchmarks.ServerJob
+namespace Microsoft.Benchmarks.Models
 {
     public class MeasurementMetadata
     {

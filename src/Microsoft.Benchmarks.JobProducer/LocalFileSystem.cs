@@ -5,7 +5,7 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 
-namespace PRJobProducer
+namespace Microsoft.Benchmarks.JobProducer
 {
     class LocalFileSystem : IFileSystem
     {

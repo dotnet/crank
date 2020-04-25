@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using Benchmarks;
 using Newtonsoft.Json.Linq;
 
-namespace BombardierClient
+namespace Microsoft.Benchmarks.Jobs.Bombardier
 {
     class Program
     {

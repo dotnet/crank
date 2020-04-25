@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 
-namespace Wrk2Client
+namespace Microsoft.Benchmarks.Jobs.Wrk2
 {
     class Program
     {

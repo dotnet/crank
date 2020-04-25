@@ -10,7 +10,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace BenchmarkServer
+namespace Microsoft.Benchmarks.Agent
 {
     public static class ProcessUtil
     {

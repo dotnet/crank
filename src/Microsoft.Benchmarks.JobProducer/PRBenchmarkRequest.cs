@@ -3,7 +3,7 @@
 
 using Octokit;
 
-namespace PRJobProducer
+namespace Microsoft.Benchmarks.JobProducer
 {
     public class PRBenchmarkRequest
     {

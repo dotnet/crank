@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 
-namespace BenchmarksDriver
+namespace Microsoft.Benchmarks.Controller
 {
     public class Log
     {

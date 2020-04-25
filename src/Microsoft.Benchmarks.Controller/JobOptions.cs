@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace BenchmarksDriver
+namespace Microsoft.Benchmarks.Controller
 {
     public class JobOptions
     {

@@ -5,7 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using Benchmarks.ServerJob;
+using Microsoft.Benchmarks.Models;
 
 namespace Repository
 {

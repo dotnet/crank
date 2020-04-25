@@ -5,7 +5,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Microsoft.Azure.Storage.File;
 
-namespace PRJobProducer
+namespace Microsoft.Benchmarks.JobProducer
 {
     public class AzureStorageFileSystem : IFileSystem
     {

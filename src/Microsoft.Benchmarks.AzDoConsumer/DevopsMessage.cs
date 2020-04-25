@@ -9,7 +9,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Azure.Messaging.ServiceBus;
 
-namespace AzDoConsumer
+namespace Microsoft.Benchmarks.AzDoConsumer
 {
     public class DevopsMessage
     {

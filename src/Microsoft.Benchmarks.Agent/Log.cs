@@ -3,7 +3,7 @@
 
 using System;
 
-namespace BenchmarkServer
+namespace Microsoft.Benchmarks.Agent
 {
     public static class Log
     {

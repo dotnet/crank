@@ -3,7 +3,7 @@ using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
 
-namespace BenchmarksDriver
+namespace Microsoft.Benchmarks.Controller
 {
     internal static class WebUtils
     {

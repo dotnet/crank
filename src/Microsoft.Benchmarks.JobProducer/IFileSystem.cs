@@ -4,7 +4,7 @@
 using System.IO;
 using System.Threading.Tasks;
 
-namespace PRJobProducer
+namespace Microsoft.Benchmarks.JobProducer
 {
     public interface IFileSystem
     {

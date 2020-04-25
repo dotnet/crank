@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 
-namespace Benchmarks.ServerJob
+namespace Microsoft.Benchmarks.Models
 {
     public class AttachmentViewModel
     {

@@ -14,7 +14,7 @@ using Microsoft.Azure.Storage.File;
 using Microsoft.IdentityModel.Tokens;
 using Octokit;
 
-namespace PRJobProducer
+namespace Microsoft.Benchmarks.JobProducer
 {
     public class Program
     {

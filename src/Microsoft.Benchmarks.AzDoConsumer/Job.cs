@@ -8,7 +8,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 
-namespace AzDoConsumer
+namespace Microsoft.Benchmarks.AzDoConsumer
 {
     public class Job : IDisposable
     {

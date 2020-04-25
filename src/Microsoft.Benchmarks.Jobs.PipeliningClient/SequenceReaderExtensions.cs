@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Buffers;
 
-namespace PipeliningClient
+namespace Microsoft.Benchmarks.Jobs.PipeliningClient
 {
     public static class SequenceReaderExtensions
     {

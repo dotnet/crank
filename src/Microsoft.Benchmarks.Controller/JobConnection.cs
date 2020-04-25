@@ -8,12 +8,12 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using System.Web;
-using Benchmarks.ServerJob;
-using BenchmarksDriver.Ignore;
+using Microsoft.Benchmarks.Models;
+using Microsoft.Benchmarks.Controller.Ignore;
 using McMaster.Extensions.CommandLineUtils;
 using Newtonsoft.Json;
 
-namespace BenchmarksDriver
+namespace Microsoft.Benchmarks.Controller
 {
     public class JobConnection
     {

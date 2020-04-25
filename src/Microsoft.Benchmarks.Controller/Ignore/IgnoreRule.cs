@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Text.RegularExpressions;
 
-namespace BenchmarksDriver.Ignore
+namespace Microsoft.Benchmarks.Controller.Ignore
 {
     public interface IGitFile
     {

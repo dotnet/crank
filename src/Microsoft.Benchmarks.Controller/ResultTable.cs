@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace BenchmarksDriver
+namespace Microsoft.Benchmarks.Controller
 {
     // Renders a markdown table
     public class ResultTable

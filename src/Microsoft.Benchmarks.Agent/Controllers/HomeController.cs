@@ -4,7 +4,7 @@
 using System;
 using Microsoft.AspNetCore.Mvc;
 
-namespace BenchmarkServer.Controllers
+namespace Microsoft.Benchmarks.Agent.Controllers
 {
     [Route("")]
     public class HomeController : Controller

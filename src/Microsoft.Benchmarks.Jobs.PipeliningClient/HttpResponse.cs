@@ -1,4 +1,4 @@
-﻿namespace PipeliningClient
+﻿namespace Microsoft.Benchmarks.Jobs.PipeliningClient
 {
     public enum HttpResponseState
     {

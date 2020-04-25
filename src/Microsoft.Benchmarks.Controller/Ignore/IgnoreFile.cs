@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 
-namespace BenchmarksDriver.Ignore
+namespace Microsoft.Benchmarks.Controller.Ignore
 {
     public class IgnoreFile
     {

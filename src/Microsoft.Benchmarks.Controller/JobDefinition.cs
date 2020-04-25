@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
 
-namespace BenchmarksDriver
+namespace Microsoft.Benchmarks.Controller
 {
     class JobDefinition : Dictionary<string, JObject>
     {

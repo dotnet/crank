@@ -19,7 +19,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.Xml.XPath;
-using Benchmarks.ServerJob;
+using Microsoft.Benchmarks.Models;
 using BenchmarksServer;
 using McMaster.Extensions.CommandLineUtils;
 using Microsoft.AspNetCore.Builder;
@@ -35,9 +35,9 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Repository;
-using OperatingSystem = Benchmarks.ServerJob.OperatingSystem;
+using OperatingSystem = Microsoft.Benchmarks.Models.OperatingSystem;
 
-namespace BenchmarkServer
+namespace Microsoft.Benchmarks.Agent
 {
     public class Startup
     {

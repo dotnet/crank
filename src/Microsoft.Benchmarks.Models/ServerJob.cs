@@ -9,7 +9,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
 
-namespace Benchmarks.ServerJob
+namespace Microsoft.Benchmarks.Models
 {
     public class ServerJob
     {

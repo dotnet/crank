@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.Tracing;
 
-namespace Wrk2Client
+namespace Microsoft.Benchmarks.Jobs.Wrk2
 {
     internal sealed class BenchmarksEventSource : EventSource
     {

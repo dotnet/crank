@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace BenchmarksDriver
+namespace Microsoft.Benchmarks.Controller
 {
     public class CounterProfile
     {

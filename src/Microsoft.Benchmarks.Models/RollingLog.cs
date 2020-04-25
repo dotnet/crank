@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Benchmarks.ServerJob
+namespace Microsoft.Benchmarks.Models
 {
     /// <summary>
     /// Prevents logs from getting to big to be rendered on the driver

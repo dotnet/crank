@@ -4,7 +4,7 @@
 using System;
 using System.Text;
 
-namespace AzDoConsumer
+namespace Microsoft.Benchmarks.AzDoConsumer
 {
     public class JobPayload
     {

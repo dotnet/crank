@@ -1,4 +1,4 @@
-﻿namespace BenchmarksDriver
+﻿namespace Microsoft.Benchmarks.Controller
 {
     public class ExecutionResult
     {

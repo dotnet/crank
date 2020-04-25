@@ -4,7 +4,7 @@
 using System;
 using System.Text.RegularExpressions;
 
-namespace BenchmarkServer
+namespace Microsoft.Benchmarks.Agent
 {
     public static class Git
     {

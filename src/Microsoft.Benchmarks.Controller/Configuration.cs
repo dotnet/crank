@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
-using Benchmarks.ServerJob;
+using Microsoft.Benchmarks.Models;
 
-namespace BenchmarksDriver
+namespace Microsoft.Benchmarks.Controller
 {
     public class Configuration
     {

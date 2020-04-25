@@ -3,7 +3,7 @@
 
 using System;
 
-namespace Benchmarks.ServerJob
+namespace Microsoft.Benchmarks.Models
 {
     public class ServerCounter
     {

@@ -11,7 +11,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http.Extensions;
 
-namespace PipeliningClient
+namespace Microsoft.Benchmarks.Jobs.PipeliningClient
 {
     public class HttpConnection : IDisposable
     {

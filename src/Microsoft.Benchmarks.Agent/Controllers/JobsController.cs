@@ -11,11 +11,11 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
-using Benchmarks.ServerJob;
+using Microsoft.Benchmarks.Models;
 using Microsoft.AspNetCore.Mvc;
 using Repository;
 
-namespace BenchmarkServer.Controllers
+namespace Microsoft.Benchmarks.Agent.Controllers
 {
     [Route("[controller]")]
     public class JobsController : Controller

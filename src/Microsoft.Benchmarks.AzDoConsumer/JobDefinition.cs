@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace AzDoConsumer
+namespace Microsoft.Benchmarks.AzDoConsumer
 {
     public class JobDefinitions
     {

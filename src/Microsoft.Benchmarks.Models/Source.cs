@@ -4,7 +4,7 @@
 using System;
 using System.IO;
 
-namespace Benchmarks.ServerJob
+namespace Microsoft.Benchmarks.Models
 {
     public class Source
     {

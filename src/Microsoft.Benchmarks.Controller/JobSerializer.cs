@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 
-namespace BenchmarksDriver.Serializers
+namespace Microsoft.Benchmarks.Controller.Serializers
 {
     public class JobSerializer
     {

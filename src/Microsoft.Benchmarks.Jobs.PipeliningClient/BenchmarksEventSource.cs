@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.Tracing;
 
-namespace PipeliningClient
+namespace Microsoft.Benchmarks.Jobs.PipeliningClient
 {
     internal sealed class BenchmarksEventSource : EventSource
     {

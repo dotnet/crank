@@ -12,7 +12,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using McMaster.Extensions.CommandLineUtils;
 
-namespace JobConsumer
+namespace Microsoft.Benchmarks.JobConsumer
 {
     public class Program
     {

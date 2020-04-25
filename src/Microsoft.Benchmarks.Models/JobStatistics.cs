@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace Benchmarks.ServerJob
+namespace Microsoft.Benchmarks.Models
 {
     public class JobStatistics
     {

@@ -10,8 +10,8 @@ using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using Benchmarks.ServerJob;
-using BenchmarksDriver.Serializers;
+using Microsoft.Benchmarks.Models;
+using Microsoft.Benchmarks.Controller.Serializers;
 using Fluid;
 using Fluid.Values;
 using McMaster.Extensions.CommandLineUtils;
@@ -20,7 +20,7 @@ using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 using YamlDotNet.Serialization;
 
-namespace BenchmarksDriver
+namespace Microsoft.Benchmarks.Controller
 {
     public class Program
     {
@@ -569,7 +569,7 @@ namespace BenchmarksDriver
                         foreach (var jobConnection in jobConnections)
                         {
                             var info = await jobConnection.GetInfoAsync();
-                            var os = Enum.Parse<Benchmarks.ServerJob.OperatingSystem>(info["os"]?.ToString() ?? "linux", ignoreCase: true);
+                            var os = Enum.Parse<Models.OperatingSystem>(info["os"]?.ToString() ?? "linux", ignoreCase: true);
 
                             var traceExtension = ".nettrace";
 
@@ -578,7 +578,7 @@ namespace BenchmarksDriver
                             {
                                 if (jobConnection.Job.Collect)
                                 {
-                                    traceExtension = os == Benchmarks.ServerJob.OperatingSystem.Windows
+                                    traceExtension = os == Models.OperatingSystem.Windows
                                         ? ".etl.zip"
                                         : ".trace.zip"
                                         ;
