@@ -8,6 +8,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{BAF239DE-04E9-428E-A6D6-98D4C6CFB9E3}"
 	ProjectSection(SolutionItems) = preProject
 		NuGet.Config = NuGet.Config
+		README.md = README.md
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{E07EF419-FB9D-4A20-AD4B-C02C13636BA8}"
@@ -15,27 +16,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{E07EF419
 		build\dependencies.props = build\dependencies.props
 		Directory.Build.props = Directory.Build.props
 		Directory.Build.targets = Directory.Build.targets
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docker", "docker", "{EF444B27-3CBA-4581-893A-7F6DB5527371}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "benchmarks", "benchmarks", "{01457A29-0D92-45A3-A37A-A6381E766D67}"
-	ProjectSection(SolutionItems) = preProject
-		docker\benchmarks\build.sh = docker\benchmarks\build.sh
-		docker\benchmarks\Dockerfile = docker\benchmarks\Dockerfile
-		docker\benchmarks\run-client.sh = docker\benchmarks\run-client.sh
-		docker\benchmarks\run-server.sh = docker\benchmarks\run-server.sh
-		docker\benchmarks\stop-client.sh = docker\benchmarks\stop-client.sh
-		docker\benchmarks\stop-server.sh = docker\benchmarks\stop-server.sh
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "benchmarks-driver", "benchmarks-driver", "{80EE0663-7860-4756-8A0E-6A5B6FA5E546}"
-	ProjectSection(SolutionItems) = preProject
-		docker\benchmarks-driver\build.cmd = docker\benchmarks-driver\build.cmd
-		docker\benchmarks-driver\build.sh = docker\benchmarks-driver\build.sh
-		docker\benchmarks-driver\Dockerfile = docker\benchmarks-driver\Dockerfile
-		docker\benchmarks-driver\run.cmd = docker\benchmarks-driver\run.cmd
-		docker\benchmarks-driver\run.sh = docker\benchmarks-driver\run.sh
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Benchmarks.Agent", "src\Microsoft.Benchmarks.Agent\Microsoft.Benchmarks.Agent.csproj", "{CBA92981-0FF1-49B7-8632-136FC2FA8419}"
@@ -109,8 +89,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{01457A29-0D92-45A3-A37A-A6381E766D67} = {EF444B27-3CBA-4581-893A-7F6DB5527371}
-		{80EE0663-7860-4756-8A0E-6A5B6FA5E546} = {EF444B27-3CBA-4581-893A-7F6DB5527371}
 		{CBA92981-0FF1-49B7-8632-136FC2FA8419} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
 		{96366423-063A-4516-916A-40EB7F139753} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
 		{ADFAD247-96AC-493A-8E45-3C4356A948D1} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
