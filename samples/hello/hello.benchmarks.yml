@@ -1,5 +1,5 @@
 imports:
-    - https://raw.githubusercontent.com/aspnet/Benchmarks/master/src/WrkClient/wrk.yml
+    - https://raw.githubusercontent.com/aspnet/Benchmarks/master/src/BombardierClient/bombardier.yml
 
 jobs:
   server:
@@ -16,12 +16,12 @@ scenarios:
     application:
       job: server
     warmup:
-      job: wrk
+      job: bombardier
       variables:
         serverPort: 5050
         path: /
     load:
-      job: wrk
+      job: bombardier
       variables:
         serverPort: 5050
         path: /
@@ -29,7 +29,7 @@ scenarios:
 profiles:
   local:
     variables:
-      serverUri: http://localhost:5001
+      serverUri: http://localhost
     jobs: 
       application:
         endpoints: 
