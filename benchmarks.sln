@@ -20,8 +20,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{E07EF419
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Benchmarks.Agent", "src\Microsoft.Benchmarks.Agent\Microsoft.Benchmarks.Agent.csproj", "{CBA92981-0FF1-49B7-8632-136FC2FA8419}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Benchmarks.AzDoConsumer", "src\Microsoft.Benchmarks.AzDoConsumer\Microsoft.Benchmarks.AzDoConsumer.csproj", "{96366423-063A-4516-916A-40EB7F139753}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Benchmarks.Controller", "src\Microsoft.Benchmarks.Controller\Microsoft.Benchmarks.Controller.csproj", "{ADFAD247-96AC-493A-8E45-3C4356A948D1}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Benchmarks.JobConsumer", "src\Microsoft.Benchmarks.JobConsumer\Microsoft.Benchmarks.JobConsumer.csproj", "{1BD732C3-9CE3-4678-BC40-7CD1750DBA07}"
@@ -48,10 +46,6 @@ Global
 		{CBA92981-0FF1-49B7-8632-136FC2FA8419}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CBA92981-0FF1-49B7-8632-136FC2FA8419}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CBA92981-0FF1-49B7-8632-136FC2FA8419}.Release|Any CPU.Build.0 = Release|Any CPU
-		{96366423-063A-4516-916A-40EB7F139753}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{96366423-063A-4516-916A-40EB7F139753}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{96366423-063A-4516-916A-40EB7F139753}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{96366423-063A-4516-916A-40EB7F139753}.Release|Any CPU.Build.0 = Release|Any CPU
 		{ADFAD247-96AC-493A-8E45-3C4356A948D1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{ADFAD247-96AC-493A-8E45-3C4356A948D1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{ADFAD247-96AC-493A-8E45-3C4356A948D1}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -90,7 +84,6 @@ Global
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{CBA92981-0FF1-49B7-8632-136FC2FA8419} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
-		{96366423-063A-4516-916A-40EB7F139753} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
 		{ADFAD247-96AC-493A-8E45-3C4356A948D1} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
 		{1BD732C3-9CE3-4678-BC40-7CD1750DBA07} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
 		{0DA30FA0-2E37-46C7-9FCA-7C874FF85665} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}

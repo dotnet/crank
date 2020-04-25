@@ -5,8 +5,8 @@ This is the benchmarking infrastructure used by the .NET team using run includin
 ## Components
 
 The benchmarking infrastructure is made of these components:
-- [benchmarks-agent](src/Microsoft.Benchmarks.Agent) - A web application that contains different scenarios to benchmark.
-- [benchmarks](src/Microsoft.Benchmarks.Controller) - A command-line application that can enqueue jobs and display the results locally (or store them in a database).
+- [benchmarks-agent](src/Microsoft.Benchmarks.Agent) - An application that executes jobs that run as part of a benchmarked.
+- [benchmarks](src/Microsoft.Benchmarks.Controller) - An application that can enqueue jobs and display the results locally (or store them in a database).
 
 There are also some built in jobs:
 - [wrk](src/Microsoft.Benchmarks.Jobs.Wrk) - An http client benchmarking tool. This tool is used when benchmarking TechEmpower https://github.com/wg/wrk.
