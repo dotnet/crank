@@ -1,9 +1,0 @@
-Dockerfile
-.dockerignore
-
-*.sh
-
-bin
-obj
-Properties
-*.csproj.user

@@ -1,5 +1,0 @@
-{
-  "urls": "",
-  "server.urls": "",
-  "protocol": "http" // This will be overriden when benchmarks are run
-}
