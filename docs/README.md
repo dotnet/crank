@@ -7,6 +7,14 @@
 |**[Getting Started](getting_started.md)** | Writing your first benchmark.
 
 
+## Recipes
+
+| Topic | Description|
+|-------|------------|
+|**[Integrating with PowerBI](recipes/powerbi.md)** | Tracking benchmark results with PowerBI.
+|**[Integrating with AzureDevOps](recipes/azdo.md)** | Triggering benchmark runs with Azure Dev Ops.
+|**[Integrating with GitHub actions](recipes/ghactions.md)** | Triggering benchmark runs with Github actions.
+
 ## Reference documentation
 
 | Area | Description |
