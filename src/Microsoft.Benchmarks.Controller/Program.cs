@@ -179,9 +179,6 @@ namespace Microsoft.Benchmarks.Controller
             // ServerJob Options
             var databaseOption = app.Option("--database",
                 "The type of database to run the benchmarks with (PostgreSql, SqlServer or MySql). Default is None.", CommandOptionType.SingleValue);
-            var kestrelThreadCountOption = app.Option("--kestrelThreadCount",
-                "Maps to KestrelServerOptions.ThreadCount.",
-                CommandOptionType.SingleValue);
 
             _outputArchiveOption = app.Option("--output-archive",
                 "Output archive attachment. Format is 'path[;destination]'. Path can be a URL. e.g., " +
