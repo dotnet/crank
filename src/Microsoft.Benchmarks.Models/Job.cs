@@ -218,6 +218,7 @@ namespace Microsoft.Benchmarks.Models
         public string TraceOutput { get; set; }
         public bool DisplayBuild { get; set; }
         public string RequiredOperatingSystem { get; set; }
+        public string RequiredArchitecture { get; set; }
         public bool DiscardResults { get; set; }
         public List<string> BuildFiles { get; set; } = new List<string>();
         public List<string> OutputFiles { get; set; } = new List<string>();
