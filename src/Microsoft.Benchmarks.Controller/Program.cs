@@ -479,22 +479,11 @@ namespace Microsoft.Benchmarks.Controller
 
                             jobsByDependency[jobName] = jobs;
 
-                            // Check that each configured agent endpoint for this service 
-                            // has a compatible OS
-                            if (!String.IsNullOrEmpty(service.Options.RequiredOperatingSystem))
+                            // Check os and architecture requirements
+                            if (! await EnsureServerRequirementsAsync(jobs, service))
                             {
-                                foreach (var job in jobs)
-                                {
-                                    var info = await job.GetInfoAsync();
-
-                                    var os = info["os"]?.ToString();
-
-                                    if (!String.Equals(os, service.Options.RequiredOperatingSystem, StringComparison.OrdinalIgnoreCase))
-                                    {
-                                        Log.Write($"Scenario skipped as the agent doesn't match the OS constraint ({service.Options.RequiredOperatingSystem}) on service '{jobName}'");
-                                        return new ExecutionResult();
-                                    }
-                                }
+                                Log.Write($"Scenario skipped as the agent doesn't match the operating and architecture constraints for '{jobName}' ({String.Join("/", new[] { service.Options.RequiredArchitecture, service.Options.RequiredOperatingSystem })})");
+                                return new ExecutionResult();
                             }
 
                             // Start this service on all configured agent endpoints
@@ -780,20 +769,13 @@ namespace Microsoft.Benchmarks.Controller
 
             var job = new JobConnection(service, new Uri(service.Endpoints.First()));
 
-            // Check that each configured agent endpoint for this service 
-            // has a compatible OS
-            if (!String.IsNullOrEmpty(service.Options.RequiredOperatingSystem))
+            // Check os and architecture requirements
+            if (!await EnsureServerRequirementsAsync(new [] { job } , service))
             {
-                var info = await job.GetInfoAsync();
-
-                var os = info["os"]?.ToString();
-
-                if (!String.Equals(os, service.Options.RequiredOperatingSystem, StringComparison.OrdinalIgnoreCase))
-                {
-                    Log.Write($"Scenario skipped as the agent doesn't match the OS constraint ({service.Options.RequiredOperatingSystem}) on service '{jobName}'");
-                    return new ExecutionResult();
-                }
+                Log.Write($"Scenario skipped as the agent doesn't match the operating and architecture constraints for '{jobName}' ({String.Join("/", new[] { service.Options.RequiredArchitecture, service.Options.RequiredOperatingSystem })})");
+                return new ExecutionResult();
             }
+
 
             // Start this service on the configured agent endpoint
             await job.StartAsync(jobName, _outputArchiveOption, _buildArchiveOption);
@@ -1331,6 +1313,35 @@ namespace Microsoft.Benchmarks.Controller
             }
         }
 
+        private async static Task<bool> EnsureServerRequirementsAsync(IEnumerable<JobConnection> jobs, Job service)
+        {
+            if (String.IsNullOrEmpty(service.Options.RequiredOperatingSystem)
+                && String.IsNullOrEmpty(service.Options.RequiredArchitecture))
+            {
+                return true;
+            }
+
+            foreach (var job in jobs)
+            {
+                var info = await job.GetInfoAsync();
+
+                var os = info["os"]?.ToString();
+                var arch = info["arch"]?.ToString();
+
+                if (!String.IsNullOrEmpty(service.Options.RequiredOperatingSystem) && !String.Equals(os, service.Options.RequiredOperatingSystem, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                if (!String.IsNullOrEmpty(service.Options.RequiredArchitecture) && !String.Equals(arch, service.Options.RequiredArchitecture, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         private static Func<IEnumerable<double>, double> Percentile(int percentile)
         {
             return list =>
@@ -1339,7 +1350,14 @@ namespace Microsoft.Benchmarks.Controller
 
                 var nth = (int)Math.Ceiling((double)orderedList.Length * percentile / 100);
 
-                return orderedList[nth];
+                if (orderedList.Length > nth)
+                {
+                    return orderedList[nth];
+                }
+                else
+                {
+                    return 0;
+                }
             };
         }
 
