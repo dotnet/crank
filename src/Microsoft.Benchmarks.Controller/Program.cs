@@ -1315,34 +1315,33 @@ namespace Microsoft.Benchmarks.Controller
 
         private async static Task<bool> EnsureServerRequirementsAsync(IEnumerable<JobConnection> jobs, Job service)
         {
-            // Check that each configured agent endpoint for this service 
-            // has a compatible OS
-            if (!String.IsNullOrEmpty(service.Options.RequiredOperatingSystem)
-                || !String.IsNullOrEmpty(service.Options.RequiredArchitecture))
+            if (String.IsNullOrEmpty(service.Options.RequiredOperatingSystem)
+                && String.IsNullOrEmpty(service.Options.RequiredArchitecture))
             {
-                foreach (var job in jobs)
+                return true;
+            }
+
+            foreach (var job in jobs)
+            {
+                var info = await job.GetInfoAsync();
+
+                var os = info["os"]?.ToString();
+                var arch = info["arch"]?.ToString();
+
+                if (!String.IsNullOrEmpty(service.Options.RequiredOperatingSystem) && !String.Equals(os, service.Options.RequiredOperatingSystem, StringComparison.OrdinalIgnoreCase))
                 {
-                    var info = await job.GetInfoAsync();
+                    return false;
+                }
 
-                    var os = info["os"]?.ToString();
-                    var arch = info["arch"]?.ToString();
-
-                    if (!String.IsNullOrEmpty(service.Options.RequiredOperatingSystem) && !String.Equals(os, service.Options.RequiredOperatingSystem, StringComparison.OrdinalIgnoreCase))
-                    {
-                        return false;
-                    }
-
-                    if (!String.IsNullOrEmpty(service.Options.RequiredArchitecture) && !String.Equals(arch, service.Options.RequiredArchitecture, StringComparison.OrdinalIgnoreCase))
-                    {
-                        return false;
-                    }
+                if (!String.IsNullOrEmpty(service.Options.RequiredArchitecture) && !String.Equals(arch, service.Options.RequiredArchitecture, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
                 }
             }
 
             return true;
-
-
         }
+
         private static Func<IEnumerable<double>, double> Percentile(int percentile)
         {
             return list =>
