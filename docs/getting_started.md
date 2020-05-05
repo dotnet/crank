@@ -10,7 +10,7 @@ It contains the scenario definitions, describing which applications need to be d
 
 ```yml
 imports:
-    - https://raw.githubusercontent.com/aspnet/perf/master/src/Microsoft.Benchmarks.Jobs.Bombardier/bombardier.yml?token=AAI4T3PMOX4HXFZA3HQXTBK6XMTLO
+    - https://raw.githubusercontent.com/aspnet/Benchmarks/master/src/BombardierClient/bombardier.yml
 
 jobs:
   server:
