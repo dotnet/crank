@@ -1508,7 +1508,17 @@ namespace Microsoft.Benchmarks.Agent
                     buildParameters += $"--build-arg {argument} ";
                 }
 
-                ProcessUtil.Run("docker", $"build --pull {buildParameters} -t {imageName} -f {source.DockerFile} {workingDirectory}", workingDirectory: srcDir, timeout: BuildTimeout, cancellationToken: cancellationToken, log: true);
+                var dockerBuildArguments = $"build --pull {buildParameters} -t {imageName} -f {source.DockerFile} {workingDirectory}";
+
+                job.BuildLog.AddLine("docker " + dockerBuildArguments);
+
+                var buildResults = ProcessUtil.Run("docker", dockerBuildArguments,
+                    workingDirectory: srcDir,
+                    timeout: BuildTimeout,
+                    cancellationToken: cancellationToken,
+                    log: true,
+                    outputDataReceived: text => job.BuildLog.AddLine(text)
+                    );
 
                 stopwatch.Stop();
 
@@ -1522,12 +1532,21 @@ namespace Microsoft.Benchmarks.Agent
                 });
 
                 stopwatch.Reset();
+
+                if (buildResults.ExitCode != 0)
+                {
+                    job.Error = job.BuildLog.ToString();
+                }
             }
             else
             {
                 Log.WriteLine($"Loading docker image {source.DockerLoad} from {srcDir}");
 
-                ProcessUtil.Run("docker", $"load -i {source.DockerLoad} ", workingDirectory: srcDir, timeout: BuildTimeout, cancellationToken: cancellationToken, log: true);
+                var dockerLoadArguments = $"load -i {source.DockerLoad} ";
+
+                job.BuildLog.AddLine("docker " + dockerLoadArguments);
+
+                ProcessUtil.Run("docker", dockerLoadArguments, workingDirectory: srcDir, timeout: BuildTimeout, cancellationToken: cancellationToken, log: true);
             }
 
             if (cancellationToken.IsCancellationRequested)
@@ -1556,6 +1575,8 @@ namespace Microsoft.Benchmarks.Agent
             {
                 StartCollection(workingDirectory, job);
             }
+
+            job.BuildLog.AddLine("docker " + command);
 
             var result = ProcessUtil.Run("docker", $"{command} ", throwOnError: false, onStart: () => stopwatch.Start(), captureOutput: true);
 
