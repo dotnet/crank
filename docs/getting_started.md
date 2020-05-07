@@ -41,6 +41,35 @@ profiles:
         endpoints: 
           - http://localhost:5011
 ```
+## Installing crank
+
+1. Install [.NET Core 3.1](<http://dot.net>).
+2. Install crank via the following command:
+
+    ```text
+    dotnet tool install -g Microsoft.Crank --version "0.1.0-alpha"
+    ```
+
+    ```text
+    dotnet tool install -g Microsoft.Crank.Agent --version "0.1.0-alpha"
+    ```
+
+    OR if you already have Tye installed and want to update:
+
+    ```text
+    dotnet tool update -g Microsoft.Crank --version "0.1.0-alpha"
+    ```
+
+    ```text
+    dotnet tool update -g Microsoft.Crank.Agent --version "0.1.0-alpha"
+    ```
+
+3. Verify the installation was complete by running:
+
+    ```
+    crank --version
+    > 0.1.0-alpha+e3fc0045bd1e5913da935241874761929f1e8465
+    ```
 
 ### Start the agents
 
@@ -64,7 +93,7 @@ Application started. Press Ctrl+C to shut down.
 ...
 ```
 
-At that point the two agents are ready to accepts jobs locally on the ports `5010` and `5011`.
+At that point the two agents are ready to accept jobs locally on the ports `5010` and `5011`.
 
 ### Run a scenario using the controller
 
