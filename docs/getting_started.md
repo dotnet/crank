@@ -49,8 +49,7 @@ To run the benchmark two agents instances need to be running. One for the deploy
 In two different shells, execute these command lines:
 
 ```
-> cd /perf/src/Microsoft.Benchmarks.Agent
-> dotnet run
+> crank-agent
 ...
 Now listening on: http://[::]:5010
 Application started. Press Ctrl+C to shut down.
@@ -58,8 +57,7 @@ Application started. Press Ctrl+C to shut down.
 ```
 
 ```
-> cd /perf/src/Microsoft.Benchmarks.Agent
-> dotnet run
+> crank-agent
 ...
 Now listening on: http://[::]:5011
 Application started. Press Ctrl+C to shut down.
@@ -73,8 +71,7 @@ At that point the two agents are ready to accepts jobs locally on the ports `501
 The scenario definitions file is already created and available.
 
 ```
-> cd /perf/src/Microsoft.Benchmarks.Controller
-> dotnet run -- --config /perf/samples/hello/hello.benchmarks.yml --scenario hello --profile local
+> crank --config /perf/samples/hello/hello.benchmarks.yml --scenario hello --profile local
 
 [04:19:18.388] Running session 'bb96c510c041416c8fb576160ec12ea0' with description ''
 [04:19:18.410] Starting job 'application' ...
