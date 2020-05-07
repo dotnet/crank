@@ -1,4 +1,4 @@
-# 📖 Microsoft.Benchmarks documentation
+# 📖 Microsoft.Crank documentation
 
 ## Tutorials
 
@@ -21,4 +21,4 @@
 |------|-------------|
 |**[benchmarks Commandline Reference](reference/commandline/README.md)** | Documentation for `benchmarks` commands.
 |**[`benchmarks.yaml` Schema](reference/schema.md)** | `benchmarks.yaml` configuration.
-|**[Architecture](reference/architecture.md)** | Architecture of the Microsoft.Benchmarks
+|**[Architecture](reference/architecture.md)** | Architecture of the Microsoft.Crank
