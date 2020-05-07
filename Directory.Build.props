@@ -3,11 +3,11 @@
   <Import Project="build\dependencies.props" />
 
   <PropertyGroup>
-    <Product>Microsoft ASP.NET Core</Product>
-    <RepositoryUrl>https://github.com/aspnet/Benchmarks</RepositoryUrl>
+    <Product>Microsoft Crank</Product>
+    <RepositoryUrl>https://github.com/aspnet/perf</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <RepositoryRoot>$(MSBuildThisFileDirectory)</RepositoryRoot>
-    <!-- this repo does not produce NuGet packages -->
+    <!-- This repository does not produce NuGet packages -->
     <IsPackable>false</IsPackable>
 
     <!-- Repo contains only test code -->
