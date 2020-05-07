@@ -44,7 +44,7 @@ profiles:
 ## Installing crank
 
 1. Install [.NET Core 3.1](<http://dot.net>).
-2. Install crank via the following command:
+2. Install Crank via the following command:
 
     ```text
     dotnet tool install -g Microsoft.Crank --version "0.1.0-alpha"
@@ -54,7 +54,7 @@ profiles:
     dotnet tool install -g Microsoft.Crank.Agent --version "0.1.0-alpha"
     ```
 
-    OR if you already have Tye installed and want to update:
+    OR if you already have Crank installed and want to update:
 
     ```text
     dotnet tool update -g Microsoft.Crank --version "0.1.0-alpha"
