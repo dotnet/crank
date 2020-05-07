@@ -2,7 +2,37 @@
 
 This tutorial shows how to benchmark a simple .NET web application using the __bombardier__ load generation tool.
 
-### Define the scenario
+## Installing crank
+
+1. Install [.NET Core 3.1](<http://dot.net>).
+2. Install Crank via the following command:
+
+    ```text
+    dotnet tool install -g Microsoft.Crank --version "0.1.0-alpha"
+    ```
+
+    ```text
+    dotnet tool install -g Microsoft.Crank.Agent --version "0.1.0-alpha"
+    ```
+
+    OR if you already have Crank installed and want to update:
+
+    ```text
+    dotnet tool update -g Microsoft.Crank --version "0.1.0-alpha"
+    ```
+
+    ```text
+    dotnet tool update -g Microsoft.Crank.Agent --version "0.1.0-alpha"
+    ```
+
+3. Verify the installation was complete by running:
+
+    ```
+    crank --version
+    > 0.1.0-alpha+e3fc0045bd1e5913da935241874761929f1e8465
+    ```
+
+## Define the scenario
 
 The following content is available at https://github.com/aspnet/perf/blob/master/samples/hello/hello.benchmarks.yml
 
@@ -41,37 +71,7 @@ profiles:
         endpoints: 
           - http://localhost:5011
 ```
-## Installing crank
-
-1. Install [.NET Core 3.1](<http://dot.net>).
-2. Install Crank via the following command:
-
-    ```text
-    dotnet tool install -g Microsoft.Crank --version "0.1.0-alpha"
-    ```
-
-    ```text
-    dotnet tool install -g Microsoft.Crank.Agent --version "0.1.0-alpha"
-    ```
-
-    OR if you already have Crank installed and want to update:
-
-    ```text
-    dotnet tool update -g Microsoft.Crank --version "0.1.0-alpha"
-    ```
-
-    ```text
-    dotnet tool update -g Microsoft.Crank.Agent --version "0.1.0-alpha"
-    ```
-
-3. Verify the installation was complete by running:
-
-    ```
-    crank --version
-    > 0.1.0-alpha+e3fc0045bd1e5913da935241874761929f1e8465
-    ```
-
-### Start the agents
+## Start the agents
 
 To run the benchmark two agents instances need to be running. One for the deployment named  __application__ that will host the web application to benchmark, and one for the deployment name __load__ that will host the bombardier load generation. 
 
@@ -95,7 +95,7 @@ Application started. Press Ctrl+C to shut down.
 
 At that point the two agents are ready to accept jobs locally on the ports `5010` and `5011`.
 
-### Run a scenario using the controller
+## Run a scenario using the controller
 
 The scenario definitions file is already created and available.
 
@@ -148,7 +148,7 @@ Max RPS:              221,956
 
 Each deployment (application and load) has then reported their metrics, including the Requests Per Second.
 
-#### Optional: Storing the results
+### Optional: Storing the results
 
 The controller can store the results of a job either in JSON formar or in a SQL Server database.
 
