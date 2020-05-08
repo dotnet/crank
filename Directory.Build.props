@@ -10,7 +10,7 @@
       <StrongNameKeyId>Microsoft</StrongNameKeyId>
   </PropertyGroup>
 
-  <Import Project="build\dependencies.props" />
+  <Import Project="eng\dependencies.props" />
 
   <PropertyGroup>
     <Product>Microsoft Crank</Product>
