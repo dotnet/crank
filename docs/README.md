@@ -7,7 +7,7 @@
 |**[Getting Started](getting_started.md)** | Writing your first benchmark.
 
 
-## Recipes
+## Guides
 
 | Topic | Description|
 |-------|------------|

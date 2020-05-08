@@ -1,5 +1,42 @@
+## Description
 
-### Define the job
+This tutorial shows how to benchmark a simple .NET web application using the __bombardier__ load generation tool.
+
+## Installing crank
+
+1. Install [.NET Core 3.1](<http://dot.net>).
+2. Install Crank via the following command:
+
+    ```text
+    dotnet tool install -g Microsoft.Crank --version "0.1.0-alpha"
+    ```
+
+    ```text
+    dotnet tool install -g Microsoft.Crank.Agent --version "0.1.0-alpha"
+    ```
+
+    OR if you already have Crank installed and want to update:
+
+    ```text
+    dotnet tool update -g Microsoft.Crank --version "0.1.0-alpha"
+    ```
+
+    ```text
+    dotnet tool update -g Microsoft.Crank.Agent --version "0.1.0-alpha"
+    ```
+
+3. Verify the installation was complete by running:
+
+    ```
+    crank --version
+    > 0.1.0-alpha+e3fc0045bd1e5913da935241874761929f1e8465
+    ```
+
+## Define the scenario
+
+The following content is available at https://github.com/aspnet/perf/blob/master/samples/hello/hello.benchmarks.yml
+
+It contains the scenario definitions, describing which applications need to be deployed to run a benchmark.
 
 ```yml
 imports:
@@ -34,17 +71,89 @@ profiles:
         endpoints: 
           - http://localhost:5011
 ```
+## Start the agents
 
-### Run the Agent
+To run the benchmark two agents instances need to be running. One for the deployment named  __application__ that will host the web application to benchmark, and one for the deployment name __load__ that will host the bombardier load generation. 
 
-TBD
+In two different shells, execute these command lines:
 
-### Run a Job using the controller
+```
+> crank-agent
+...
+Now listening on: http://[::]:5010
+Application started. Press Ctrl+C to shut down.
+...
+```
 
-TBD
+```
+> crank-agent
+...
+Now listening on: http://[::]:5011
+Application started. Press Ctrl+C to shut down.
+...
+```
 
-#### Optional: Storing the results
+At that point the two agents are ready to accept jobs locally on the ports `5010` and `5011`.
 
-The controller can store the results of a job by passing a `-q [connectionstring]` argument. The connection
-string must point to an existing SQL Server database. The first time it's called the required table will be created.
+## Run a scenario using the controller
+
+The scenario definitions file is already created and available.
+
+```
+> crank --config /perf/samples/hello/hello.benchmarks.yml --scenario hello --profile local
+
+[04:19:18.388] Running session 'bb96c510c041416c8fb576160ec12ea0' with description ''
+[04:19:18.410] Starting job 'application' ...
+[04:19:18.416] Fetching job: http://localhost:5010/jobs/1
+[04:19:19.444] Job has been selected by the server ...
+[04:19:19.445] Job is now building ...
+[04:19:50.624] Job is running
+[04:19:50.626] Starting job 'load' ...
+[04:19:50.630] Fetching job: http://localhost:5011/jobs/1
+[04:19:51.654] Job has been selected by the server ...
+[04:19:51.655] Job is now building ...
+[04:19:58.748] Job is running
+[04:20:06.891] Stopping job 'load' ...
+[04:20:07.912] Deleting job 'load' ...
+[04:20:07.916] Stopping job 'application' ...
+[04:20:09.922] Deleting job 'application' ...
+
+application
+-------
+
+## Host Process:
+CPU Usage (%):        49
+Raw CPU Usage (%):    591.74
+Working Set (MB):     152
+Build Time (ms):      22,039
+Published Size (KB):  86,543
+
+load
+-------
+
+## Host Process:
+CPU Usage (%):        2
+Raw CPU Usage (%):    18.34
+Working Set (MB):     31
+Build Time (ms):      3,009
+Published Size (KB):  68,072
+
+## Benchmark:
+Requests:             557,601
+Bad responses:        0
+Mean latency (us):    2,288
+Max latency (us):     556,000
+Max RPS:              221,956
+```
+
+Each deployment (application and load) has then reported their metrics, including the Requests Per Second.
+
+### Optional: Storing the results
+
+The controller can store the results of a job either in JSON formar or in a SQL Server database.
+
+Use `--save results.json` to store the results in JSON format. In the case of the bombardier client, this will also contain useful latency information.
+
+Use `--sql [connectionstring] --table [tablename]` arguments to store in the specified SQL Server database. The connection string must point to an existing SQL Server database. The first time it's called the required table will be created.
+
 From there you can create reports using the tools of your choice.
