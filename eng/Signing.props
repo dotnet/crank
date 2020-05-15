@@ -6,7 +6,7 @@
     <_BinaryToExcludeFromSigning Include="CsvHelper.dll" />
     <_BinaryToExcludeFromSigning Include="Fluid.dll" />
     <_BinaryToExcludeFromSigning Include="Irony.dll" />
-    <_BinaryToExcludeFromSigning Include="Newtonsoft.Json" />
+    <_BinaryToExcludeFromSigning Include="Newtonsoft.Json.dll" />
     <_BinaryToExcludeFromSigning Include="YamlDotNet.dll" />
 
     <FileSignInfo Include="@(_BinaryToExcludeFromSigning)" CertificateName="None" />
