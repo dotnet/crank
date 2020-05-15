@@ -9,6 +9,7 @@
     <IsPackable>true</IsPackable>
     <AssemblyName>crank-agent</AssemblyName>
     <ToolCommandName>crank-agent</ToolCommandName>
+    <PackageId>Microsoft.Crank.Agent</PackageId>
   </PropertyGroup>
 
   <ItemGroup>

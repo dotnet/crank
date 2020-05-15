@@ -9,6 +9,7 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <OutputType>Exe</OutputType>
     <Authors>Microsoft</Authors>
+    <PackageId>Microsoft.Crank.Controller</PackageId>
   </PropertyGroup>
 
   <ItemGroup>
