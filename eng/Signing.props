@@ -1,28 +1,13 @@
 <Project>
+  <!--
+    These are third party libraries that we use in this repo. We need to sign them even if they
+    are already signed. However, they must be signed with a 3rd party certificate.
+  -->
   <ItemGroup>
-    <!-- Reset Arcade's defaults. -->
-    <ItemsToSign Remove="@(ItemsToSign)" />
-    <StrongNameSignInfo Remove="@(StrongNameSignInfo)" />
-    <FileExtensionSignInfo Remove="@(FileExtensionSignInfo)" />
-  </ItemGroup>
-
-  <ItemGroup Label="Signing config">
-    <ItemsToSign Include="$(ArtifactsPackagesDir)**\*.nupkg" Exclude="$(ArtifactsPackagesDir)**\*symbols.nupkg" />
-    <ItemsToSign Include="$(VisualStudioSetupOutputPath)**\*.vsix" />
-    <ItemsToSign Include="$(ArtifactsPackagesDir)**\*.jar"  />
-    <ItemsToSign Include="$(ArtifactsDir)installers\$(Configuration)\**\*.zip" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <!-- Exclude the binaries from getting code-signed -->
-
-    <_BinaryToExcludeFromSigning Include="CsvHelper.dll" />
-    <_BinaryToExcludeFromSigning Include="Fluid.dll" />
-    <_BinaryToExcludeFromSigning Include="Irony.dll" />
-    <_BinaryToExcludeFromSigning Include="Newtonsoft.Json.dll" />
-    <_BinaryToExcludeFromSigning Include="YamlDotNet.dll" />
-
-    <FileSignInfo Include="@(_BinaryToExcludeFromSigning)" CertificateName="None" />
-    <SignValidationExclusionList Include="@(_BinaryToExcludeFromSigning)" />
+    <FileSignInfo Include="CsvHelper.dll" CertificateName="3PartySHA2" />
+    <FileSignInfo Include="Fluid.dll" CertificateName="3PartySHA2" />
+    <FileSignInfo Include="Irony.dll" CertificateName="3PartySHA2" />
+    <FileSignInfo Include="Newtonsoft.Json.dll" CertificateName="3PartySHA2" />
+    <FileSignInfo Include="YamlDotNet.dll" CertificateName="3PartySHA2" />
   </ItemGroup>
 </Project>
