@@ -22,8 +22,8 @@ The CLI can also run Benchmarks.NET and other applications then fetch their outp
 ## Components
 
 The benchmarking infrastructure is made of these components:
-- [benchmarks-agent](src/Microsoft.Crank.Agent) - An application that executes jobs that run as part of a benchmarked.
-- [benchmarks](src/Microsoft.Crank.Controller) - An application that can enqueue jobs and display the results locally (or store them in a database).
+- [crank-agent](src/Microsoft.Crank.Agent) - An application that executes jobs that run as part of a benchmarked.
+- [crank](src/Microsoft.Crank.Controller) - An application that can enqueue jobs and display the results locally (or store them in a database).
 
 There are also some built in jobs:
 - [wrk](src/Microsoft.Crank.Jobs.Wrk) - An http client benchmarking tool. This tool is used when benchmarking TechEmpower https://github.com/wg/wrk.

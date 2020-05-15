@@ -2,11 +2,10 @@
 
   <PropertyGroup>
     <Description>Schedules jobs on the benchmarks agent.</Description>
-    <ToolCommandName>benchmarks</ToolCommandName>
-    <AssemblyName>benchmarks</AssemblyName>
+    <ToolCommandName>crank</ToolCommandName>
+    <AssemblyName>crank</AssemblyName>
     <PackAsTool>true</PackAsTool>
     <IsPackable>true</IsPackable>
-    <Version>0.0.8-alpha</Version>
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <OutputType>Exe</OutputType>
     <Authors>Microsoft</Authors>
