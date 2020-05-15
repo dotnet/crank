@@ -1,7 +1,20 @@
 <Project>
   <ItemGroup>
+    <!-- Reset Arcade's defaults. -->
+    <ItemsToSign Remove="@(ItemsToSign)" />
+    <StrongNameSignInfo Remove="@(StrongNameSignInfo)" />
+    <FileExtensionSignInfo Remove="@(FileExtensionSignInfo)" />
+  </ItemGroup>
+
+  <ItemGroup Label="Signing config">
+    <ItemsToSign Include="$(ArtifactsPackagesDir)**\*.nupkg" Exclude="$(ArtifactsPackagesDir)**\*symbols.nupkg" />
+    <ItemsToSign Include="$(VisualStudioSetupOutputPath)**\*.vsix" />
+    <ItemsToSign Include="$(ArtifactsPackagesDir)**\*.jar"  />
+    <ItemsToSign Include="$(ArtifactsDir)installers\$(Configuration)\**\*.zip" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Exclude the binaries from getting code-signed -->
-    <_BinaryToExcludeFromSigning Include="I18N.CJK.dll" />
 
     <_BinaryToExcludeFromSigning Include="CsvHelper.dll" />
     <_BinaryToExcludeFromSigning Include="Fluid.dll" />
