@@ -1,3 +1,15 @@
 <Project>
-  <!-- Arcade currently requires this file, though it doesn't require any content in it I believe. -->
+  <ItemGroup>
+    <!-- Exclude the binaries from getting code-signed -->
+    <_BinaryToExcludeFromSigning Include="I18N.CJK.dll" />
+
+    <_BinaryToExcludeFromSigning Include="CsvHelper.dll" />
+    <_BinaryToExcludeFromSigning Include="Fluid.dll" />
+    <_BinaryToExcludeFromSigning Include="Irony.dll" />
+    <_BinaryToExcludeFromSigning Include="Newtonsoft.Json" />
+    <_BinaryToExcludeFromSigning Include="YamlDotNet.dll" />
+
+    <FileSignInfo Include="@(_BinaryToExcludeFromSigning)" CertificateName="None" />
+    <SignValidationExclusionList Include="@(_BinaryToExcludeFromSigning)" />
+  </ItemGroup>
 </Project>
