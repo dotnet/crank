@@ -2,4 +2,4 @@
   <Commands>
     <Command Name="crank" EntryPoint="crank.dll" Runner="dotnet" />
   </Commands>
-</DotNetCliTool
+</DotNetCliTool>
