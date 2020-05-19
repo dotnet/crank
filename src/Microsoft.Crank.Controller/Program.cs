@@ -1092,24 +1092,9 @@ namespace Microsoft.Crank.Controller
                     throw new Exception($"Could not find a profile named '{profileName}'");
                 }
 
-                var mergeOptions = new JsonMergeSettings { MergeArrayHandling = MergeArrayHandling.Replace, MergeNullValueHandling = MergeNullValueHandling.Merge };
-
                 var profile = (JObject)configuration["Profiles"][profileName];
 
-                // Fix casing
-                if (profile["variables"] != null)
-                {
-                    profile[nameof(Configuration.Variables)] = profile["variables"];
-                    profile.Remove("variables");
-                }
-
-                if (profile["jobs"] != null)
-                {
-                    profile[nameof(Configuration.Jobs)] = profile["jobs"];
-                    profile.Remove("jobs");
-                }
-
-                configuration.Merge(profile, mergeOptions);
+                PatchObject(configuration, profile);
             }
 
             // Apply custom arguments
@@ -1279,6 +1264,9 @@ namespace Microsoft.Crank.Controller
             }
         }
 
+        /// <summary>
+        /// Merges a JObject into another one.
+        /// </summary>
         public static void PatchObject(JObject source, JObject patch)
         {
             foreach (var patchProperty in patch)
@@ -1299,7 +1287,13 @@ namespace Microsoft.Crank.Controller
                     }
                     else if (sourceProperty.Value.Type == JTokenType.Array)
                     {
-                        ((JArray)sourceProperty.Value).Add(patchProperty.Value.DeepClone());
+                        if (patchProperty.Value.Type == JTokenType.Array)
+                        {
+                            foreach(var value in (JArray)patchProperty.Value)
+                            {
+                                ((JArray)sourceProperty.Value).Add(value.DeepClone());
+                            }
+                        }
                     }
                     else
                     {
