@@ -195,7 +195,7 @@ namespace Microsoft.Crank.Controller
             var serverTimeoutOption = app.Option("--server-timeout",
                 "Timeout for server jobs. e.g., 00:05:00", CommandOptionType.SingleValue);
 
-            app.OnExecute(async () =>
+            app.OnExecuteAsync(async (t) =>
             {
                 Log.IsQuiet = quietOption.HasValue();
                 Log.IsVerbose = verboseOption.HasValue();

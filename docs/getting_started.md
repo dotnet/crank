@@ -8,28 +8,18 @@ This tutorial shows how to benchmark a simple .NET web application using the __b
 2. Install Crank via the following command:
 
     ```text
-    dotnet tool install -g Microsoft.Crank --version "0.1.0-alpha"
+    dotnet tool install -g Microsoft.Crank.Controller --version "0.1.0-*" --add-source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-tools/nuget/v3/index.json
     ```
 
     ```text
-    dotnet tool install -g Microsoft.Crank.Agent --version "0.1.0-alpha"
-    ```
-
-    OR if you already have Crank installed and want to update:
-
-    ```text
-    dotnet tool update -g Microsoft.Crank --version "0.1.0-alpha"
-    ```
-
-    ```text
-    dotnet tool update -g Microsoft.Crank.Agent --version "0.1.0-alpha"
+    dotnet tool install -g Microsoft.Crank.Agent --version "0.1.0-*" --add-source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-tools/nuget/v3/index.json
     ```
 
 3. Verify the installation was complete by running:
 
     ```
-    crank --version
-    > 0.1.0-alpha+e3fc0045bd1e5913da935241874761929f1e8465
+    crank
+    > Scenario name must be specified.
     ```
 
 ## Define the scenario
@@ -73,7 +63,7 @@ profiles:
 ```
 ## Start the agents
 
-To run the benchmark two agents instances need to be running. One for the deployment named  __application__ that will host the web application to benchmark, and one for the deployment name __load__ that will host the bombardier load generation. 
+To run the benchmark two agent instances need to be running. One for the deployment named  __application__ that will host the web application to benchmark, and one for the deployment name __load__ that will host the bombardier load generation. 
 
 In two different shells, execute these command lines:
 

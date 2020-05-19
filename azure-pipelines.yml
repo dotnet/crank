@@ -1,178 +1,187 @@
-variables:
-  - name: Build.Repository.Clean
-    value: true
-  - name: _HelixType
-    value: build/product
-  - name: _HelixSource
-    value: pr/dotnet/arcade-minimalci-sample/$(Build.SourceBranch)
-  - name: _HelixTestType
-    value: test/product/
-  - name: _XUnitProject
-    value: $(Build.SourcesDirectory)/Hello.Tests/Hello.Tests.csproj
-  - name: _XUnitTargetFramework
-    value: netcoreapp2.0
-  - name: _XUnitRunnerVersion
-    value: 2.4.1
-  - name: _DotNetCliPackageType
-    value: sdk
-  - name: _DotNetCliVersion
-    value: 2.1.403
-  - name: _HelixAccessToken
-    value: ''
+#
+# See https://docs.microsoft.com/azure/devops/pipelines/yaml-schema for details
+#
 
-resources:
-  containers:
-  - container: LinuxContainer
-    image: microsoft/dotnet-buildtools-prereqs:ubuntu-14.04-cross-0cd4667-20170319080304
+variables:
+  - name: _TeamName
+    value: AspNetCore
+  - name: DOTNET_SKIP_FIRST_TIME_EXPERIENCE
+    value: true
+  - name: _PublishUsingPipelines
+    value: true
+  - name: _BuildConfig
+    value: Release
+
+    # used for post-build phases, internal builds only
+  - ${{ if and(ne(variables['System.TeamProject'], 'public'), notin(variables['Build.Reason'], 'PullRequest')) }}:
+    - group: DotNet-AspNet-SDLValidation-Params
 
 # CI and PR triggers
 trigger:
-- master
+  batch: true
+  branches:
+    include:
+    - master
+    - release/*
 
 pr:
-- master
+  autoCancel: false
+  branches:
+    include:
+    - '*'
 
-jobs:
-- template: /eng/common/templates/job/job.yml
-  parameters:
-    name: Windows_NT
-    enableTelemetry: true
-    enablePublishBuildArtifacts: true
-    helixRepo: dotnet/arcade-minimalci-sample
-    pool:
-      name: NetCorePublic-Pool
-      queue: BuildPool.Windows.10.Amd64.VS2017.Open
-    strategy:
-      matrix:
-        debug_configuration:
-          _BuildConfig: Debug
-        release_configuration:
-          _BuildConfig: Release
-    steps:
-    - script: eng\common\cibuild.cmd
-        -configuration $(_BuildConfig)
-        -prepareMachine
-      name: Build
-      displayName: Build
-      condition: succeeded()
-    - template: /eng/common/templates/steps/send-to-helix.yml
-      parameters:
-        HelixSource: $(_HelixSource)
-        HelixType: $(_HelixTestType)
-        HelixTargetQueues: Windows.10.Amd64.Open;Windows.81.Amd64.Open
-        XUnitProjects: $(_XUnitProject)
-        XUnitPublishTargetFramework: $(_XUnitTargetFramework)
-        XUnitRuntimeTargetFramework: $(_XUnitTargetFramework)
-        XUnitRunnerVersion: $(_XUnitRunnerVersion)
-        IncludeDotNetCli: true
-        DotNetCliPackageType: $(_DotNetCliPackageType)
-        DotNetCliVersion: $(_DotNetCliVersion)
-        EnableXUnitReporter: true
-        WaitForWorkItemCompletion: true
-        Creator: arcade-minimalci-sample
-        HelixAccessToken: $(_HelixAccessToken)
-        condition: eq(variables['_BuildConfig'], 'Debug')
-    - task: PublishBuildArtifacts@1
-      displayName: Publish Logs to VSTS
-      inputs:
-        PathtoPublish: '$(Build.SourcesDirectory)/artifacts/log/$(_BuildConfig)'
-        PublishLocation: Container
-        ArtifactName: $(Agent.Os)_$(Agent.JobName)
-      continueOnError: true
-      condition: always()
+stages:
+- stage: build
+  displayName: Build
+  jobs:
+  - template: /eng/common/templates/jobs/jobs.yml
+    parameters:
+      enableMicrobuild: true
+      enablePublishBuildArtifacts: true
+      enablePublishTestResults: true
+      enablePublishBuildAssets: true
+      enablePublishUsingPipelines: ${{ variables._PublishUsingPipelines }}
+      enableTelemetry: true
+      mergeTestResults: true
+      jobs:
+      - job: Windows
+        pool:
+          ${{ if eq(variables['System.TeamProject'], 'public') }}:
+            name: NetCorePublic-Pool
+            queue: BuildPool.Server.Amd64.VS2019.Open
+          ${{ if ne(variables['System.TeamProject'], 'public') }}:
+            name: NetCoreInternal-Pool
+            queue: BuildPool.Server.Amd64.VS2019
+        variables:
+          
 
-- template: /eng/common/templates/job/job.yml
-  parameters:
-    name: OSX
-    enableTelemetry: true
-    enablePublishBuildArtifacts: true
-    helixRepo: dotnet/arcade-minimalci-sample
-    pool:
-      name: Hosted macOS
-    strategy:
-      matrix:
-        debug_configuration:
-          _BuildConfig: Debug
-        release_configuration:
-          _BuildConfig: Release
-    steps:
-    - script: eng/common/cibuild.sh
-        --configuration $(_BuildConfig)
-        --prepareMachine
-      name: Build
-      displayName: Build
-      condition: succeeded()
-    - template: /eng/common/templates/steps/send-to-helix.yml
-      parameters:
-        HelixSource: $(_HelixSource)
-        HelixType: $(_HelixTestType)
-        HelixTargetQueues: OSX.1013.Amd64.Open;OSX.1014.Amd64.Open;OSX.1015.Amd64.Open
-        XUnitProjects: $(_XUnitProject)
-        XUnitPublishTargetFramework: $(_XUnitTargetFramework)
-        XUnitRuntimeTargetFramework: $(_XUnitTargetFramework)
-        XUnitRunnerVersion: $(_XUnitRunnerVersion)
-        IncludeDotNetCli: true
-        DotNetCliPackageType: $(_DotNetCliPackageType)
-        DotNetCliVersion: $(_DotNetCliVersion)
-        EnableXUnitReporter: true
-        WaitForWorkItemCompletion: true
-        Creator: arcade-minimalci-sample
-        HelixAccessToken: $(_HelixAccessToken)
-        condition: eq(variables['_BuildConfig'], 'Debug')
-    - task: PublishBuildArtifacts@1
-      displayName: Publish Logs to VSTS
-      inputs:
-        PathtoPublish: '$(Build.SourcesDirectory)/artifacts/log/$(_BuildConfig)'
-        PublishLocation: Container
-        ArtifactName: $(Agent.Os)_$(Agent.JobName)
-      continueOnError: true
-      condition: always()
+        # Only enable publishing in official builds.
+        - ${{ if and(ne(variables['System.TeamProject'], 'public'), notin(variables['Build.Reason'], 'PullRequest')) }}:
+          # Publish-Build-Assets provides: MaestroAccessToken, BotAccount-dotnet-maestro-bot-PAT
+          - group: Publish-Build-Assets
+          - name: _OfficialBuildArgs
+            value: /p:DotNetSignType=$(_SignType)
+                   /p:TeamName=$(_TeamName)
+                   /p:DotNetPublishUsingPipelines=$(_PublishUsingPipelines)
+                   /p:OfficialBuildId=$(BUILD.BUILDNUMBER)
+          - name: _SignType
+            value: real
+        # else
+        - ${{ if or(eq(variables['System.TeamProject'], 'public'), in(variables['Build.Reason'], 'PullRequest')) }}:
+          - name: _OfficialBuildArgs
+            value: ''
+          - name: _SignType
+            value: test
+                
+        steps:
+        - checkout: self
+          clean: true
+        - script: eng\common\cibuild.cmd -configuration $(_BuildConfig) -prepareMachine $(_OfficialBuildArgs)
+          displayName: Build and Publish
+        - task: PublishBuildArtifacts@1
+          displayName: Upload TestResults
+          condition: always()
+          continueOnError: true
+          inputs:
+            pathtoPublish: artifacts/TestResults/$(_BuildConfig)/
+            artifactName: $(Agent.Os)_$(Agent.JobName) TestResults
+            artifactType: Container
+            parallel: true
+        - task: PublishBuildArtifacts@1
+          displayName: Upload package artifacts
+          condition: and(succeeded(), eq(variables['system.pullrequest.isfork'], false), eq(variables['_BuildConfig'], 'Release'))
+          inputs:
+            pathtoPublish: artifacts/packages/
+            artifactName: artifacts
+            artifactType: Container
+            parallel: true
 
-- template: /eng/common/templates/job/job.yml
-  parameters:
-    name: Linux
-    enableTelemetry: true
-    enablePublishBuildArtifacts: true
-    helixRepo: dotnet/arcade-minimalci-sample
-    pool:
-      name: Hosted Ubuntu 1604
-    container: LinuxContainer
-    strategy:
-      matrix:
-        debug_configuration:
-          _BuildConfig: Debug
-        release_configuration:
-          _BuildConfig: Release
-    steps:
-    - script: eng/common/cibuild.sh
-        --configuration $(_BuildConfig)
-        --prepareMachine
-      name: Build
-      displayName: Build
-      condition: succeeded()
-    - template: /eng/common/templates/steps/send-to-helix.yml
-      parameters:
-        HelixSource: $(_HelixSource)
-        HelixType: $(_HelixTestType)
-        HelixTargetQueues: Debian.9.Amd64.Open;RedHat.7.Amd64.Open;Ubuntu.1604.Amd64.Open;Ubuntu.1604.Amd64.Open@mcr.microsoft.com/dotnet-buildtools/prereqs:fedora-28-helix-09ca40b-20190508143249
-        XUnitProjects: $(_XUnitProject)
-        XUnitPublishTargetFramework: $(_XUnitTargetFramework)
-        XUnitRuntimeTargetFramework: $(_XUnitTargetFramework)
-        XUnitRunnerVersion: $(_XUnitRunnerVersion)
-        IncludeDotNetCli: true
-        DotNetCliPackageType: $(_DotNetCliPackageType)
-        DotNetCliVersion: $(_DotNetCliVersion)
-        EnableXUnitReporter: true
-        WaitForWorkItemCompletion: true
-        Creator: arcade-minimalci-sample
-        HelixAccessToken: $(_HelixAccessToken)
-        condition: eq(variables['_BuildConfig'], 'Debug')
-    - task: PublishBuildArtifacts@1
-      displayName: Publish Logs to VSTS
-      inputs:
-        PathtoPublish: '$(Build.SourcesDirectory)/artifacts/log/$(_BuildConfig)'
-        PublishLocation: Container
-        ArtifactName: $(Agent.Os)_$(Agent.JobName)
-      continueOnError: true
-      condition: always()
-      
+      - job: Ubuntu_16_04
+        displayName: 'Ubuntu 16.04'
+        pool:
+          vmImage: ubuntu-16.04
+        variables:
+        - name: _SignType
+          value: none
+          
+        - ${{ if and(eq(variables['System.TeamProject'], 'internal'), notin(variables['Build.Reason'], 'PullRequest')) }}:
+          - name: _OfficialBuildArgs
+            value: -p:OfficialBuildId=$(Build.BuildNumber)
+        # else
+        - ${{ if or(eq(variables['System.TeamProject'], 'public'), in(variables['Build.Reason'], 'PullRequest')) }}:
+          - name: _OfficialBuildArgs
+            value: ''
+        steps:
+        - checkout: self
+          clean: true
+        - script: eng/common/cibuild.sh
+            --configuration $(_BuildConfig)
+            --prepareMachine
+            $(_OfficialBuildArgs)
+            /p:DotNetPublishUsingPipelines=$(_PublishUsingPipelines)
+          displayName: Build
+        - task: PublishBuildArtifacts@1
+          displayName: Upload TestResults
+          condition: always()
+          continueOnError: true
+          inputs:
+            pathtoPublish: artifacts/TestResults/$(_BuildConfig)/
+            artifactName: $(Agent.Os)_$(Agent.JobName) TestResults
+            artifactType: Container
+            parallel: true
+
+      - job: macOS_10_14
+        displayName: 'macOS 10.14'
+        pool:
+          vmImage: macOS-10.14
+        variables:
+        - name: _SignType
+          value: none
+        - ${{ if and(eq(variables['System.TeamProject'], 'internal'), notin(variables['Build.Reason'], 'PullRequest')) }}:
+          - name: _OfficialBuildArgs
+            value: -p:OfficialBuildId=$(Build.BuildNumber)
+        # else
+        - ${{ if or(eq(variables['System.TeamProject'], 'public'), in(variables['Build.Reason'], 'PullRequest')) }}:
+          - name: _OfficialBuildArgs
+            value: ''
+        steps:
+        - checkout: self
+          clean: true
+        - script: eng/common/cibuild.sh
+            --configuration $(_BuildConfig)
+            --prepareMachine
+            $(_InternalRuntimeDownloadArgs)
+          displayName: Build
+        - task: PublishBuildArtifacts@1
+          displayName: Upload TestResults
+          condition: always()
+          continueOnError: true
+          inputs:
+            pathtoPublish: artifacts/TestResults/$(_BuildConfig)/
+            artifactName: $(Agent.Os)_$(Agent.JobName) TestResults
+            artifactType: Container
+            parallel: true
+
+- ${{ if and(ne(variables['System.TeamProject'], 'public'), notin(variables['Build.Reason'], 'PullRequest')) }}:
+  - template: eng\common\templates\post-build\post-build.yml
+    parameters:
+      # Symbol validation isn't being very reliable lately. This should be enabled back
+      # once this issue is resolved: https://github.com/dotnet/arcade/issues/2871
+      enableSymbolValidation: false
+      # It's a private repo in github so this won't pass until we create an internal mirror
+      enableSourceLinkValidation: false
+      # This is to enable SDL runs part of Post-Build Validation Stage
+      SDLValidationParameters:
+        enable: true
+        continueOnError: false
+        params: ' -SourceToolsList @("policheck","credscan")
+        -TsaInstanceURL $(_TsaInstanceURL)
+        -TsaProjectName $(_TsaProjectName)
+        -TsaNotificationEmail $(_TsaNotificationEmail)
+        -TsaCodebaseAdmin $(_TsaCodebaseAdmin)
+        -TsaBugAreaPath $(_TsaBugAreaPath)
+        -TsaIterationPath $(_TsaIterationPath)
+        -TsaRepositoryName "Tye"
+        -TsaCodebaseName "Tye"
+        -TsaPublish $True
+        -PoliCheckAdditionalRunConfigParams @("UserExclusionPath < $(Build.SourcesDirectory)/eng/PoliCheckExclusions.xml")'

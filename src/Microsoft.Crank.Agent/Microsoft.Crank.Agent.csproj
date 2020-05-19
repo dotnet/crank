@@ -7,8 +7,9 @@
     <Authors>Microsoft</Authors>
     <PackAsTool>true</PackAsTool>
     <IsPackable>true</IsPackable>
-    <AssemblyName>benchmarks-agent</AssemblyName>
-    <ToolCommandName>benchmarks-agent</ToolCommandName>
+    <AssemblyName>crank-agent</AssemblyName>
+    <ToolCommandName>crank-agent</ToolCommandName>
+    <PackageId>Microsoft.Crank.Agent</PackageId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,9 +17,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="3.0.0-preview7.19315.2" />
-    <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="2.2.0" />
-    <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="2.0.44" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="3.1.4" />
+    <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="3.0.0" />
+    <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="2.0.55" />
     <PackageReference Include="Mono.Posix.NETStandard" Version="1.0.0" />
     <PackageReference Include="NuGet.Versioning" Version="5.5.1" />
   </ItemGroup>
