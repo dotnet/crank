@@ -7,9 +7,11 @@
 # Build configuration. Common values include 'Debug' and 'Release', but the repository may use other names.
 [string]$configuration = if (Test-Path variable:configuration) { $configuration } else { 'Debug' }
 
+# Set to true to opt out of outputting binary log while running in CI
+[bool]$excludeCIBinarylog = if (Test-Path variable:excludeCIBinarylog) { $excludeCIBinarylog } else { $false }
+
 # Set to true to output binary log from msbuild. Note that emitting binary log slows down the build.
-# Binary log must be enabled on CI.
-[bool]$binaryLog = if (Test-Path variable:binaryLog) { $binaryLog } else { $ci }
+[bool]$binaryLog = if (Test-Path variable:binaryLog) { $binaryLog } else { $ci -and !$excludeCIBinarylog }
 
 # Set to true to use the pipelines logger which will enable Azure logging output.
 # https://github.com/Microsoft/azure-pipelines-tasks/blob/master/docs/authoring/commands.md
@@ -603,8 +605,8 @@ function MSBuild() {
 #
 function MSBuild-Core() {
   if ($ci) {
-    if (!$binaryLog) {
-      Write-PipelineTelemetryError -Category 'Build' -Message 'Binary log must be enabled in CI build.'
+    if (!$binaryLog -and !$excludeCIBinarylog) {
+      Write-PipelineTelemetryError -Category 'Build' -Message 'Binary log must be enabled in CI build, or explicitly opted-out from with the -excludeCIBinarylog switch.'
       ExitWithExitCode 1
     }
 
