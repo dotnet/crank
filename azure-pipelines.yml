@@ -174,9 +174,6 @@ stages:
       SDLValidationParameters:
         enable: true
         continueOnError: false
-        SDLValidationParameters:
-        enable: true
-        continueOnError: false
         params: ' -SourceToolsList @("policheck","credscan")
         -TsaInstanceURL $(_TsaInstanceURL)
         -TsaProjectName $(_TsaProjectName)
