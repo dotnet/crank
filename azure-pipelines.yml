@@ -181,7 +181,7 @@ stages:
         -TsaCodebaseAdmin $(_TsaCodebaseAdmin)
         -TsaBugAreaPath $(_TsaBugAreaPath)
         -TsaIterationPath $(_TsaIterationPath)
-        -TsaRepositoryName "Tye"
-        -TsaCodebaseName "Tye"
+        -TsaRepositoryName "Crank"
+        -TsaCodebaseName "Crank"
         -TsaPublish $True
         -PoliCheckAdditionalRunConfigParams @("UserExclusionPath < $(Build.SourcesDirectory)/eng/PoliCheckExclusions.xml")'
