@@ -2,8 +2,7 @@ param(
   [Parameter(Mandatory=$true)][string] $InputPath,              # Full path to directory where NuGet packages to be checked are stored
   [Parameter(Mandatory=$true)][string] $ExtractPath,            # Full path to directory where the packages will be extracted during validation
   [Parameter(Mandatory=$true)][string] $DotnetSymbolVersion,    # Version of dotnet symbol to use
-  [Parameter(Mandatory=$false)][switch] $ContinueOnError,       # If we should keep checking symbols after an error
-  [Parameter(Mandatory=$false)][switch] $Clean                  # Clean extracted symbols directory after checking symbols
+  [Parameter(Mandatory=$false)][switch] $ContinueOnError        # If we should keep checking symbols after an error
 )
 
 function FirstMatchingSymbolDescriptionOrDefault {
@@ -82,14 +81,7 @@ function CountMissingSymbols {
   $ExtractPath = Join-Path -Path $ExtractPath -ChildPath $PackageGuid
   $SymbolsPath = Join-Path -Path $ExtractPath -ChildPath 'Symbols'
   
-  try {
-    [System.IO.Compression.ZipFile]::ExtractToDirectory($PackagePath, $ExtractPath)
-  }
-  catch {
-    Write-Host "Something went wrong extracting $PackagePath"
-    Write-Host $_
-    return -1
-  }
+  [System.IO.Compression.ZipFile]::ExtractToDirectory($PackagePath, $ExtractPath)
 
   Get-ChildItem -Recurse $ExtractPath |
     Where-Object {$RelevantExtensions -contains $_.Extension} |
@@ -123,10 +115,6 @@ function CountMissingSymbols {
         }
       }
     }
-  
-  if ($Clean) {
-    Remove-Item $ExtractPath -Recurse -Force
-  }
   
   Pop-Location
 
@@ -163,7 +151,7 @@ function CheckSymbolsAvailable {
 
       if ($Status -ne 0) {
         Write-PipelineTelemetryError -Category 'CheckSymbols' -Message "Missing symbols for $Status modules in the package $FileName"
-        
+
         if ($ContinueOnError) {
           $TotalFailures++
         }
