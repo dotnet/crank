@@ -22,6 +22,12 @@ namespace Microsoft.Crank.Models
 
         public int Id { get; set; }
 
+        /// <summary>
+        /// Common identifier for all jobs in a scenario.
+        /// Multiple jobs with the same RunId can be started on the same agent
+        /// </summary>
+        public string RunId { get; set; } = Guid.NewGuid().ToString("n");
+
         [JsonConverter(typeof(StringEnumConverter))]
         public Hardware? Hardware { get; set; }
 
@@ -105,6 +111,7 @@ namespace Microsoft.Crank.Models
         /// </summary>
         public Source Source { get; set; } = new Source();
 
+        public string Executable { get; set; }
         public string Arguments { get; set; }
         public bool NoArguments { get; set; } = false;
 
