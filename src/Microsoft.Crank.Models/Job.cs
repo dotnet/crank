@@ -55,9 +55,9 @@ namespace Microsoft.Crank.Models
         
         // A console application doesn't expose and endpoint that can be used to detect it is ready
         public bool IsConsoleApp { get; set; }
-        public string AspNetCoreVersion { get; set; } = "Latest";
-        public string RuntimeVersion { get; set; } = "Latest";
-        public string SdkVersion { get; set; } = "Latest";
+        public string AspNetCoreVersion { get; set; } = "";
+        public string RuntimeVersion { get; set; } = "";
+        public string SdkVersion { get; set; } = "";
         public bool UseMonoRuntime { get; set; } = false;
         public bool NoGlobalJson { get; set; }
         public Database Database { get; set; } = Database.None;
@@ -148,6 +148,7 @@ namespace Microsoft.Crank.Models
         public List<string> BuildArguments { get; set; } = new List<string>();
         public bool NoClean { get; set; }
         public string Framework { get; set; }
+        public string Channel { get; set; }
         public string Error { get; set; }
         [JsonIgnore]
         public RollingLog Output { get; set; } = new RollingLog(10000);

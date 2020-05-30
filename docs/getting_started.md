@@ -8,23 +8,24 @@ This tutorial shows how to benchmark a simple .NET web application using the __b
 2. Install Crank via the following command:
 
     ```text
-    dotnet tool install -g Microsoft.Crank.Controller --version "0.1.0-*" --add-source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-tools/nuget/v3/index.json
-    ```
+    dotnet tool install -g Microsoft.Crank.Controller --version "0.1.0-*" ```
 
     ```text
-    dotnet tool install -g Microsoft.Crank.Agent --version "0.1.0-*" --add-source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-tools/nuget/v3/index.json
+    dotnet tool install -g Microsoft.Crank.Agent --version "0.1.0-*" 
     ```
+
+NB: Preview versions can be installed by adding this NuGet feed source: `--add-source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-tools/nuget/v3/index.json`
 
 3. Verify the installation was complete by running:
 
     ```
     crank
-    > Scenario name must be specified.
+    > No jobs were found. Are you missing the --scenario argument?
     ```
 
 ## Define the scenario
 
-The following content is available at https://github.com/aspnet/perf/blob/master/samples/hello/hello.benchmarks.yml
+The following content is available at https://github.com/dotnet/crank/blob/master/samples/hello/hello.benchmarks.yml
 
 It contains the scenario definitions, describing which applications need to be deployed to run a benchmark.
 
@@ -59,38 +60,32 @@ profiles:
           - http://localhost:5010
       load:
         endpoints: 
-          - http://localhost:5011
+          - http://localhost:5010
 ```
-## Start the agents
+## Start the agent
 
-To run the benchmark two agent instances need to be running. One for the deployment named  __application__ that will host the web application to benchmark, and one for the deployment name __load__ that will host the bombardier load generation. 
+To run the benchmark at least one agent instance needs to be running. It will run the service named  __application__ that will host the web application to benchmark, and the service name __load__ that will host the bombardier load generation.
 
-In two different shells, execute these command lines:
+Ideally, services are deployed on distinct machines but for the sake of this tutorial as single agent is used.
+
+Open a shell and execute these command lines:
 
 ```
 > crank-agent
 ...
 Now listening on: http://[::]:5010
-Application started. Press Ctrl+C to shut down.
 ...
+Agent ready, waiting for jobs...
 ```
 
-```
-> crank-agent
-...
-Now listening on: http://[::]:5011
-Application started. Press Ctrl+C to shut down.
-...
-```
-
-At that point the two agents are ready to accept jobs locally on the ports `5010` and `5011`.
+At that point the agent is ready to accept jobs locally on the port `5010`.
 
 ## Run a scenario using the controller
 
 The scenario definitions file is already created and available.
 
 ```
-> crank --config /perf/samples/hello/hello.benchmarks.yml --scenario hello --profile local
+> crank --config /crank/samples/hello/hello.benchmarks.yml --scenario hello --profile local
 
 [04:19:18.388] Running session 'bb96c510c041416c8fb576160ec12ea0' with description ''
 [04:19:18.410] Starting job 'application' ...
@@ -136,7 +131,7 @@ Max latency (us):     556,000
 Max RPS:              221,956
 ```
 
-Each deployment (application and load) has then reported their metrics, including the Requests Per Second.
+Each service deployed (application and load) have reported their metrics, including the Requests Per Second.
 
 ### Optional: Storing the results
 
