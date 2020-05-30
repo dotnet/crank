@@ -43,6 +43,7 @@ namespace Microsoft.Crank.Controller
 
             _configOption,
             _scenarioOption,
+            _jobOption,
             _profileOption,
             _outputOption,
             _compareOption,
@@ -123,6 +124,7 @@ namespace Microsoft.Crank.Controller
 
             _configOption = app.Option("-c|--config", "Configuration file or url", CommandOptionType.MultipleValue);
             _scenarioOption = app.Option("-s|--scenario", "Scenario to execute", CommandOptionType.SingleValue);
+            _jobOption = app.Option("-j|--job", "Name of job to define", CommandOptionType.MultipleValue);
             _profileOption = app.Option("--profile", "Profile name", CommandOptionType.MultipleValue);
             _outputOption = app.Option("-o|--output", "Output filename", CommandOptionType.SingleValue);
             _compareOption = app.Option("--compare", "An optional filename to compare the results to. Can be used multiple times.", CommandOptionType.MultipleValue);
@@ -249,128 +251,144 @@ namespace Microsoft.Crank.Controller
                     }
                 }
 
-                if (!_scenarioOption.HasValue() && !_compareOption.HasValue())
+                if (!_scenarioOption.HasValue() && !_compareOption.HasValue() && !_jobOption.HasValue())
                 {
-                    Console.Error.WriteLine("Scenario name must be specified.");
+                    Console.Error.WriteLine("No jobs were found. Are you missing the --scenario argument?");
+                    return 1;
+                }
+
+                if (_scenarioOption.HasValue() && _jobOption.HasValue())
+                {
+                    Console.Error.WriteLine("The arguments --scenario and --job can't be used together. They both define which jobs to run.");
                     return 1;
                 }
 
                 var results = new ExecutionResult();
 
                 var scenarioName = _scenarioOption.Value();
+                var jobNames = _jobOption.Values;
 
-                if (scenarioName != null)
+                var variables = new JObject();
+
+                foreach (var variable in _variableOption.Values)
                 {
-                    var variables = new JObject();
+                    var segments = variable.Split('=', 2);
 
-                    foreach (var variable in _variableOption.Values)
+                    if (segments.Length != 2)
                     {
-                        var segments = variable.Split('=', 2);
+                        Console.WriteLine($"Invalid variable argument: '{variable}', format is \"[NAME]=[VALUE]\"");
 
-                        if (segments.Length != 2)
-                        {
-                            Console.WriteLine($"Invalid variable argument: '{variable}', format is \"[NAME]=[VALUE]\"");
-
-                            app.ShowHelp();
-                            return -1;
-                        }
-
-                        // Try to parse as integer, or the value would be a string
-                        if (long.TryParse(segments[1], out var intVariable))
-                        {
-                            variables[segments[0]] = intVariable;
-                        }
-                        else
-                        {
-                            variables[segments[0]] = segments[1];
-                        }
-                    }
-
-                    foreach (var property in _propertyOption.Values)
-                    {
-                        var segments = property.Split('=', 2);
-
-                        if (segments.Length != 2)
-                        {
-                            Console.WriteLine($"Invalid property argument: '{property}', format is \"[NAME]=[VALUE]\"");
-
-                            app.ShowHelp();
-                            return -1;
-                        }
-                    }
-
-                    var configuration = await BuildConfigurationAsync(_configOption.Values, scenarioName, Arguments, variables, _profileOption.Values);
-
-                    var serializer = new Serializer();
-
-                    if (!configuration.Scenarios.TryGetValue(scenarioName, out var scenario))
-                    {
-                        Console.WriteLine($"Unable to find scenario '{scenarioName}'.");
+                        app.ShowHelp();
                         return -1;
                     }
 
-                    // Storing the list of services to run as part of the selected scenario
-                    var dependencies = scenario.Select(x => x.Key).ToArray();
-
-                    // Verifying endpoints
-                    foreach (var jobName in dependencies)
+                    // Try to parse as integer, or the value would be a string
+                    if (long.TryParse(segments[1], out var intVariable))
                     {
-                        var service = configuration.Jobs[jobName];
-
-                        if (!service.Endpoints.Any())
-                        {
-                            Console.WriteLine($"The service '{jobName}' is missing an endpoint to deploy on.");
-                            return -1;
-                        }
-
-                        foreach (var endpoint in service.Endpoints)
-                        {
-                            try
-                            {
-                                using (var cts = new CancellationTokenSource(2000))
-                                {
-                                    var response = _httpClient.GetAsync(endpoint, cts.Token).Result;
-                                    response.EnsureSuccessStatusCode();
-                                }
-                            }
-                            catch
-                            {
-                                Console.WriteLine($"The specified endpoint url '{endpoint}' for '{jobName}' is invalid or not responsive.");
-                                return -1;
-                            }
-                        }
-                    }
-
-                    // Initialize database
-                    if (!String.IsNullOrWhiteSpace(_sqlConnectionString))
-                    {
-                        await JobSerializer.InitializeDatabaseAsync(_sqlConnectionString, _tableName);
-                    }
-
-                    Log.Write($"Running session '{session}' with description '{_descriptionOption.Value()}'");
-
-                    if (_autoflushOption.HasValue())
-                    {
-                        results = await RunAutoFlush(
-                            configuration,
-                            scenarioName,
-                            session,
-                            span
-                            );
+                        variables[segments[0]] = intVariable;
                     }
                     else
                     {
-                        results = await Run(
-                            configuration,
-                            scenarioName,
-                            session,
-                            iterations,
-                            exclude,
-                            shutdownOption.Value(),
-                            span
-                            );
+                        variables[segments[0]] = segments[1];
                     }
                 }
+
+                foreach (var property in _propertyOption.Values)
+                {
+                    var segments = property.Split('=', 2);
+
+                    if (segments.Length != 2)
+                    {
+                        Console.WriteLine($"Invalid property argument: '{property}', format is \"[NAME]=[VALUE]\"");
+
+                        app.ShowHelp();
+                        return -1;
+                    }
+                }
+
+                var configuration = await BuildConfigurationAsync(_configOption.Values, scenarioName, _jobOption.Values, Arguments, variables, _profileOption.Values);
+
+                // Storing the list of services to run as part of the selected scenario
+                var dependencies = String.IsNullOrEmpty(scenarioName)
+                    ? _jobOption.Values.ToArray()
+                    : configuration.Scenarios[scenarioName].Select(x => x.Key).ToArray()
+                    ;
+
+                var serializer = new Serializer();
+
+                string groupId = Guid.NewGuid().ToString("n");
+
+                // Verifying jobs
+                foreach (var jobName in dependencies)
+                {
+                    var service = configuration.Jobs[jobName];
+
+                    service.RunId = groupId;
+
+                    if (String.IsNullOrEmpty(service.Source.Project) &&
+                        String.IsNullOrEmpty(service.Source.DockerFile) &&
+                        String.IsNullOrEmpty(service.Source.DockerLoad) &&
+                        String.IsNullOrEmpty(service.Executable))
+                    {
+                        Console.WriteLine($"The service '{jobName}' is missing some properties to start the job.");
+                        Console.WriteLine($"Check that any of these properties is set: project, executable, dockerFile, dockerLoad");
+                        return -1;
+                    }
+
+                    if (!service.Endpoints.Any())
+                    {
+                        Console.WriteLine($"The service '{jobName}' is missing an endpoint to deploy on.");
+                        return -1;
+                    }
+
+                    foreach (var endpoint in service.Endpoints)
+                    {
+                        try
+                        {
+                            using (var cts = new CancellationTokenSource(2000))
+                            {
+                                var response = _httpClient.GetAsync(endpoint, cts.Token).Result;
+                                response.EnsureSuccessStatusCode();
+                            }
+                        }
+                        catch
+                        {
+                            Console.WriteLine($"The specified endpoint url '{endpoint}' for '{jobName}' is invalid or not responsive.");
+                            return -1;
+                        }
+                    }
+                }
+
+                // Initialize database
+                if (!String.IsNullOrWhiteSpace(_sqlConnectionString))
+                {
+                    await JobSerializer.InitializeDatabaseAsync(_sqlConnectionString, _tableName);
+                }
+
+                Log.Write($"Running session '{session}' with description '{_descriptionOption.Value()}'");
+
+                if (_autoflushOption.HasValue())
+                {
+                    results = await RunAutoFlush(
+                        configuration,
+                        dependencies,
+                        session,
+                        span
+                        );
+                }
+                else
+                {
+                    results = await Run(
+                        configuration,
+                        dependencies,
+                        session,
+                        iterations,
+                        exclude,
+                        shutdownOption.Value(),
+                        span
+                        );
+                }
+
 
                 // Display diff
 
@@ -413,16 +431,21 @@ namespace Microsoft.Crank.Controller
             {
                 return app.Execute(args.Where(x => !String.IsNullOrEmpty(x)).ToArray());
             }
+            catch (ControllerException e)
+            {
+                Console.WriteLine(e.Message);
+                return -1;
+            }
             catch (CommandParsingException e)
             {
-                Console.WriteLine(e.ToString());
+                Console.WriteLine(e.Message);
                 return -1;
             }
         }
 
         private static async Task<ExecutionResult> Run(
             Configuration configuration,
-            string scenarioName,
+            string[] dependencies,
             string session,
             int iterations,
             int exclude,
@@ -430,9 +453,6 @@ namespace Microsoft.Crank.Controller
             TimeSpan span
             )
         {
-            // Storing the list of services to run as part of the selected scenario
-            var dependencies = configuration.Scenarios[scenarioName].Select(x => x.Key).ToArray();
-
             var executionResults = new ExecutionResult();
             var iterationStart = DateTime.UtcNow;
             var jobsByDependency = new Dictionary<string, List<JobConnection>>();
@@ -483,8 +503,8 @@ namespace Microsoft.Crank.Controller
                             if (! await EnsureServerRequirementsAsync(jobs, service))
                             {
                                 Log.Write($"Scenario skipped as the agent doesn't match the operating and architecture constraints for '{jobName}' ({String.Join("/", new[] { service.Options.RequiredArchitecture, service.Options.RequiredOperatingSystem })})");
-                                return new ExecutionResult();
-                            }
+                                        return new ExecutionResult();
+                                    }
 
                             // Start this service on all configured agent endpoints
                             await Task.WhenAll(
@@ -516,7 +536,11 @@ namespace Microsoft.Crank.Controller
                                     {
                                         var state = await job.GetStateAsync();
 
-                                        stop = stop && (state == JobState.Stopped || state == JobState.Failed);
+                                        stop = stop && (
+                                            state == JobState.Stopped ||
+                                            state == JobState.Failed ||
+                                            state == JobState.Deleted
+                                            );
                                     }
 
                                     if (stop)
@@ -537,6 +561,26 @@ namespace Microsoft.Crank.Controller
                                 await Task.WhenAll(jobs.Select(job => job.DeleteAsync()));
                             }
                         }
+
+                        var aJobFailed = false;
+
+                        // Skipped other services if a job has failed
+                        foreach (var job in jobs)
+                        {
+                            var state = await job.GetStateAsync();
+
+                            if (state == JobState.Failed)
+                            {
+                                aJobFailed = true;
+                                break;
+                            }
+                        }
+
+                        if (aJobFailed)
+                        {
+                            Log.Write($"Job has failed, interrupting benchmarks ...");
+                            break;
+                        }
                     }
 
                     // Download traces, before the jobs are stopped
@@ -549,6 +593,12 @@ namespace Microsoft.Crank.Controller
                         }
 
                         var service = configuration.Jobs[jobName];
+
+                        // Skip failed jobs
+                        if (!jobsByDependency.ContainsKey(jobName))
+                        {
+                            continue;
+                        }
 
                         var jobConnections = jobsByDependency[jobName];
 
@@ -603,6 +653,12 @@ namespace Microsoft.Crank.Controller
                     {
                         var service = configuration.Jobs[jobName];
 
+                        // Skip failed jobs
+                        if (!jobsByDependency.ContainsKey(jobName))
+                        {
+                            continue;
+                        }
+
                         var jobs = jobsByDependency[jobName];
 
                         if (!service.WaitForExit)
@@ -630,6 +686,12 @@ namespace Microsoft.Crank.Controller
                     {
                         var service = configuration.Jobs[jobName];
 
+                        // Skip failed jobs
+                        if (!jobsByDependency.ContainsKey(jobName))
+                        {
+                            continue;
+                        }
+
                         var jobConnections = jobsByDependency[jobName];
 
                         if (!service.Options.DiscardResults)
@@ -639,11 +701,11 @@ namespace Microsoft.Crank.Controller
                             Log.Quiet($"-------");
                         }
 
+                        // Convert any json result to an object
+                        NormalizeResults(jobConnections);
+
                         foreach (var jobConnection in jobConnections)
                         {
-                            // Convert any json result to an object
-                            NormalizeResults(jobConnections);
-
                             if (!service.Options.DiscardResults)
                             {
                                 WriteMeasures(jobConnection);
@@ -734,15 +796,12 @@ namespace Microsoft.Crank.Controller
 
         private static async Task<ExecutionResult> RunAutoFlush(
             Configuration configuration,
-            string scenarioName,
+            string[] dependencies,
             string session,
             TimeSpan span
             )
         {
             var executionResults = new ExecutionResult();
-
-            // Storing the list of services to run as part of the selected scenario
-            var dependencies = configuration.Scenarios[scenarioName].Select(x => x.Key).ToArray();
 
             if (dependencies.Length != 1)
             {
@@ -771,10 +830,10 @@ namespace Microsoft.Crank.Controller
 
             // Check os and architecture requirements
             if (!await EnsureServerRequirementsAsync(new [] { job } , service))
-            {
+                {
                 Log.Write($"Scenario skipped as the agent doesn't match the operating and architecture constraints for '{jobName}' ({String.Join("/", new[] { service.Options.RequiredArchitecture, service.Options.RequiredOperatingSystem })})");
-                return new ExecutionResult();
-            }
+                    return new ExecutionResult();
+                }
 
 
             // Start this service on the configured agent endpoint
@@ -792,7 +851,11 @@ namespace Microsoft.Crank.Controller
 
                 await job.TryUpdateJobAsync();
 
-                var stop = job.Job.State == JobState.Stopped || job.Job.State == JobState.Deleted || job.Job.State == JobState.Failed;
+                var stop = 
+                    job.Job.State == JobState.Stopped || 
+                    job.Job.State == JobState.Deleted || 
+                    job.Job.State == JobState.Failed
+                    ;
 
                 if (start + span > DateTime.UtcNow)
                 {
@@ -1009,22 +1072,18 @@ namespace Microsoft.Crank.Controller
         /// Applies all command line argument to alter the configuration files and build a final Configuration instance.
         /// 1- Merges the configuration files in the same order as requested
         /// 2- For each scenario's job, clone it in the Configuration's jobs list
-        /// 3- Path the new job with the scenario's properties
+        /// 3- Patch the new job with the scenario's properties
+        /// 4- Add custom job entries 
         /// </summary>
         public static async Task<Configuration> BuildConfigurationAsync(
             IEnumerable<string> configurationFileOrUrls,
             string scenarioName,
+            IEnumerable<string> customJobs,
             IEnumerable<KeyValuePair<string, string>> arguments,
             JObject commandLineVariables,
             IEnumerable<string> profiles
             )
         {
-
-            if (!configurationFileOrUrls.Any())
-            {
-                return new Configuration();
-            }
-
             JObject configuration = null;
 
             // Merge all configuration sources
@@ -1050,28 +1109,37 @@ namespace Microsoft.Crank.Controller
             // After that point we only modify the concrete instance of Configuration
             if (!configurationInstance.Scenarios.ContainsKey(scenarioName))
             {
-                throw new Exception($"The scenario `{scenarioName}` was not found");
+                var availableScenarios = String.Join("', '", configurationInstance.Scenarios.Keys);
+                throw new ControllerException($"The scenario `{scenarioName}` was not found. Possible values: '{availableScenarios}'");
             }
 
-            var scenario = configurationInstance.Scenarios[scenarioName];
-
-            // Clone each service from the selected scenario inside the Jobs property of the Configuration
-            foreach (var service in scenario)
+            if (!String.IsNullOrEmpty(scenarioName))
             {
-                var jobName = service.Value.Job;
-                var serviceName = service.Key;
+                var scenario = configurationInstance.Scenarios[scenarioName];
 
-                if (!configurationInstance.Jobs.ContainsKey(jobName))
+                // Clone each service from the selected scenario inside the Jobs property of the Configuration
+                foreach (var service in scenario)
                 {
-                    throw new Exception($"The job named `{jobName}` was not found for `{serviceName}`");
+                    var jobName = service.Value.Job;
+                    var serviceName = service.Key;
+
+                    if (!configurationInstance.Jobs.ContainsKey(jobName))
+                    {
+                        throw new ControllerException($"The job named `{jobName}` was not found for `{serviceName}`");
+                    }
+
+                    var jobObject = JObject.FromObject(configurationInstance.Jobs[jobName]);
+                    var dependencyObject = (JObject)configuration["scenarios"][scenarioName][serviceName];
+
+                    PatchObject(jobObject, dependencyObject);
+
+                    configurationInstance.Jobs[serviceName] = jobObject.ToObject<Job>();
                 }
+            }
 
-                var jobObject = JObject.FromObject(configurationInstance.Jobs[jobName]);
-                var dependencyObject = (JObject)configuration["scenarios"][scenarioName][serviceName];
-
-                PatchObject(jobObject, dependencyObject);
-
-                configurationInstance.Jobs[serviceName] = jobObject.ToObject<Job>();
+            foreach (var jobName in customJobs)
+            {
+                configurationInstance.Jobs[jobName] = new Job();
             }
 
             // Force all jobs as self-contained by default. This can be overrided by command line config.
@@ -1089,7 +1157,8 @@ namespace Microsoft.Crank.Controller
             {
                 if (!configurationInstance.Profiles.ContainsKey(profileName))
                 {
-                    throw new Exception($"Could not find a profile named '{profileName}'");
+                    var availableProfiles = String.Join("', '", configurationInstance.Profiles.Keys);
+                    throw new ControllerException($"Could not find a profile named '{profileName}'. Possible values: '{availableProfiles}'");
                 }
 
                 var profile = (JObject)configuration["Profiles"][profileName];
@@ -1110,7 +1179,7 @@ namespace Microsoft.Crank.Controller
 
                     if (node == null)
                     {
-                        throw new Exception($"Could not find part of the configuration path: '{argument}'");
+                        throw new ControllerException($"Could not find part of the configuration path: '{argument}'");
                     }
                 }
 
@@ -1130,7 +1199,7 @@ namespace Microsoft.Crank.Controller
 
                     if (argumentSegments.Length != 2)
                     {
-                        throw new Exception($"Argument value '{argument.Value}' could not assigned to `{segments.Last()}`.");
+                        throw new ControllerException($"Argument value '{argument.Value}' could not assigned to `{segments.Last()}`.");
                     }
 
                     jObject[argumentSegments[0]] = argumentSegments[1];
@@ -1156,7 +1225,7 @@ namespace Microsoft.Crank.Controller
             foreach (var job in result.Jobs.Values)
             {
                 job.NoArguments = true;
-                job.Scenario = scenarioName;
+                job.Scenario = scenarioName ?? "Custom";
             }
 
             return result;
@@ -1210,7 +1279,7 @@ namespace Microsoft.Crank.Controller
                 }
                 catch
                 {
-                    throw new Exception($"Configuration '{configurationFilenameOrUrl}' could not be loaded.");
+                    throw new ControllerException($"Configuration '{configurationFilenameOrUrl}' could not be loaded.");
                 }
 
                 localconfiguration = null;
@@ -1260,7 +1329,7 @@ namespace Microsoft.Crank.Controller
             }
             else
             {
-                throw new Exception($"Invalid file path or url: '{configurationFilenameOrUrl}'");
+                throw new ControllerException($"Invalid file path or url: '{configurationFilenameOrUrl}'");
             }
         }
 
@@ -1289,7 +1358,7 @@ namespace Microsoft.Crank.Controller
                     {
                         if (patchProperty.Value.Type == JTokenType.Array)
                         {
-                            foreach(var value in (JArray)patchProperty.Value)
+                            foreach (var value in (JArray)patchProperty.Value)
                             {
                                 ((JArray)sourceProperty.Value).Add(value.DeepClone());
                             }
@@ -1335,7 +1404,6 @@ namespace Microsoft.Crank.Controller
 
             return true;
         }
-
         private static Func<IEnumerable<double>, double> Percentile(int percentile)
         {
             return list =>
@@ -1346,7 +1414,7 @@ namespace Microsoft.Crank.Controller
 
                 if (orderedList.Length > nth)
                 {
-                    return orderedList[nth];
+                return orderedList[nth];
                 }
                 else
                 {
@@ -1395,6 +1463,12 @@ namespace Microsoft.Crank.Controller
             foreach (var jobName in dependencies)
             {
                 if (configuration.Jobs[jobName].Options.DiscardResults)
+                {
+                    continue;
+                }
+
+                // Skip failed jobs
+                if (!jobsByDependency.ContainsKey(jobName))
                 {
                     continue;
                 }
@@ -1518,6 +1592,8 @@ namespace Microsoft.Crank.Controller
 
             var reduced = new Dictionary<string, object>();
 
+            var maxWidth = jobs.First().Job.Metadata.Max(x => x.ShortDescription.Length) + 2;
+
             foreach (var metadata in jobs.First().Job.Metadata)
             {
                 var reducedValues = groups.SelectMany(x => x)
@@ -1525,7 +1601,7 @@ namespace Microsoft.Crank.Controller
 
                 object reducedValue = null;
 
-                switch (metadata.Aggregate)
+                switch (metadata.Reduce)
                 {
                     case Operation.All:
                         reducedValue = reducedValues.ToArray();
@@ -1573,6 +1649,22 @@ namespace Microsoft.Crank.Controller
                 }
 
                 reduced[metadata.Name] = reducedValue;
+
+                Log.Quiet("");
+                Log.Quiet($"# Summary");
+
+                if (metadata.Format != "object")
+                {
+                    if (!String.IsNullOrEmpty(metadata.Format))
+                    {
+                        Console.WriteLine($"{(metadata.ShortDescription + ":").PadRight(maxWidth)} {Convert.ToDouble(reducedValue).ToString(metadata.Format)}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"{(metadata.ShortDescription + ":").PadRight(maxWidth)} {reducedValue.ToString()}");
+                    }
+                }
+
             }
 
             return reduced;
