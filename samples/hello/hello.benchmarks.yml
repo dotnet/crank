@@ -28,4 +28,4 @@ profiles:
           - http://localhost:5010
       load:
         endpoints: 
-          - http://localhost:5011
+          - http://localhost:5010
