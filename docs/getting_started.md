@@ -8,7 +8,8 @@ This tutorial shows how to benchmark a simple .NET web application using the __b
 2. Install Crank via the following command:
 
     ```text
-    dotnet tool install -g Microsoft.Crank.Controller --version "0.1.0-*" ```
+    dotnet tool install -g Microsoft.Crank.Controller --version "0.1.0-*" 
+    ```
 
     ```text
     dotnet tool install -g Microsoft.Crank.Agent --version "0.1.0-*" 
