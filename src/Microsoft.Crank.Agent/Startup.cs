@@ -430,7 +430,7 @@ namespace Microsoft.Crank.Agent
                      */
 
                     // Select the first job that is not yet Deleted, i.e. 
-                    var group = new Dictionary<Job, JobTracker>();
+                    var group = new Dictionary<Job, JobContext>();
 
                     while (runId == null)
                     {
@@ -445,7 +445,7 @@ namespace Microsoft.Crank.Agent
 
                                 foreach (var job in _jobs.GetAll().Where(x => x.RunId == runId))
                                 {
-                                    group[job] = new JobTracker { job = job };
+                                    group[job] = new JobContext { Job = job };
                                 }
 
                                 break;
@@ -465,7 +465,7 @@ namespace Microsoft.Crank.Agent
                                 if (!group.ContainsKey(job))
                                 {
                                     Log.WriteLine($"Adding job {job.Id} to group");
-                                    group[job] = new JobTracker { job = job };
+                                    group[job] = new JobContext { Job = job };
                                 }
                             }
                         }
@@ -481,28 +481,29 @@ namespace Microsoft.Crank.Agent
 
                         foreach (var job in group.Keys)
                         {
-                            var tracker = group[job];
+                            var context = group[job];
 
-                            Process process = tracker.process;
+                            // Restore context for the current job
+                            var process = context.Process;
 
-                            string workingDirectory = tracker.workingDirectory;
-                            Timer timer = tracker.timer;
-                            var executionLock = tracker.executionLock;
-                            var disposed = tracker.disposed;
-                            string benchmarksDir = tracker.benchmarksDir;
-                            var startMonitorTime = tracker.startMonitorTime;
+                            var workingDirectory = context.WorkingDirectory;
+                            var timer = context.Timer;
+                            var executionLock = context.ExecutionLock;
+                            var disposed = context.Disposed;
+                            var benchmarksDir = context.BenchmarksDir;
+                            var startMonitorTime = context.StartMonitorTime;
 
-                            string tempDir = tracker.tempDir;
-                            string dockerImage = tracker.dockerImage;
-                            string dockerContainerId = tracker.dockerContainerId;
+                            var tempDir = context.TempDir;
+                            var dockerImage = context.DockerImage;
+                            var dockerContainerId = context.DockerContainerId;
 
-                            eventPipeSessionId = tracker.eventPipeSessionId;
-                            eventPipeTask = tracker.eventPipeTask;
-                            eventPipeTerminated = tracker.eventPipeTerminated;
+                            eventPipeSessionId = context.EventPipeSessionId;
+                            eventPipeTask = context.EventPipeTask;
+                            eventPipeTerminated = context.EventPipeTerminated;
 
-                            measurementsSessionId = tracker.measurementsSessionId;
-                            measurementsTask = tracker.measurementsTask;
-                            measurementsTerminated = tracker.measurementsTerminated;
+                            measurementsSessionId = context.MeasurementsSessionId;
+                            measurementsTask = context.MeasurementsTask;
+                            measurementsTerminated = context.MeasurementsTerminated;
 
                             Log.WriteLine($"Processing job {job.Id} in state {job.State}");
 
@@ -1013,6 +1014,15 @@ namespace Microsoft.Crank.Agent
                                     job.State = JobState.Failed;
                                     job.Error = "Job didn't start during the expected delay. Check that it outputs a startup message on the log.";
                                 }
+
+                                if (DateTime.UtcNow - job.LastDriverCommunicationUtc > DriverTimeout)
+                                {
+                                    // The job needs to be deleted
+                                    Log.WriteLine($"Driver didn't communicate for {DriverTimeout}. Halting job.");
+                                    Log.WriteLine($"{job.State} -> Deleting");
+                                    job.State = JobState.Deleting;
+                                }
+
                             }
                             else if (job.State == JobState.Initializing)
                             {
@@ -1105,12 +1115,20 @@ namespace Microsoft.Crank.Agent
                                 }
 
                                 // The driver is supposed to send attachment in the initialize phase
-                                // TODO: Check the last driver communication instead, as if the transfer fails the timeout might be to generous
                                 if (DateTime.UtcNow - startMonitorTime > InitializeTimeout)
                                 {
                                     Log.WriteLine($"Job didn't initialize during the expected delay");
                                     job.State = JobState.Failed;
                                     job.Error = "Job didn't initalize during the expected delay.";
+                                }
+
+                                // Check the driver is still communicating
+                                if (DateTime.UtcNow - job.LastDriverCommunicationUtc > DriverTimeout)
+                                {
+                                    // The job needs to be deleted
+                                    Log.WriteLine($"Driver didn't communicate for {DriverTimeout}. Halting job.");
+                                    Log.WriteLine($"{job.State} -> Deleting");
+                                    job.State = JobState.Deleting;
                                 }
                             }
 
@@ -1153,7 +1171,7 @@ namespace Microsoft.Crank.Agent
                                     {
                                         if (process != null && !measurementsTerminated && !!process.HasExited)
                                         {
-                                            EventPipeClient.StopTracing(process.Id, tracker.measurementsSessionId);
+                                            EventPipeClient.StopTracing(process.Id, context.MeasurementsSessionId);
                                         }
                                     }
                                     catch (EndOfStreamException)
@@ -1324,26 +1342,27 @@ namespace Microsoft.Crank.Agent
                                 job.State = JobState.Deleted;
                             }
 
-                            tracker.process = process;
+                            // Store context for the current job
+                            context.Process = process;
 
-                            tracker.workingDirectory = workingDirectory;
-                            tracker.timer = timer;
-                            tracker.executionLock = executionLock;
-                            tracker.disposed = disposed;
-                            tracker.benchmarksDir = benchmarksDir;
-                            tracker.startMonitorTime = startMonitorTime;
+                            context.WorkingDirectory = workingDirectory;
+                            context.Timer = timer;
+                            context.ExecutionLock = executionLock;
+                            context.Disposed = disposed;
+                            context.BenchmarksDir = benchmarksDir;
+                            context.StartMonitorTime = startMonitorTime;
 
-                            tracker.tempDir = tempDir;
-                            tracker.dockerImage = dockerImage;
-                            tracker.dockerContainerId = dockerContainerId;
+                            context.TempDir = tempDir;
+                            context.DockerImage = dockerImage;
+                            context.DockerContainerId = dockerContainerId;
 
-                            tracker.eventPipeSessionId = eventPipeSessionId;
-                            tracker.eventPipeTask = eventPipeTask;
-                            tracker.eventPipeTerminated = eventPipeTerminated;
+                            context.EventPipeSessionId = eventPipeSessionId;
+                            context.EventPipeTask = eventPipeTask;
+                            context.EventPipeTerminated = eventPipeTerminated;
 
-                            tracker.measurementsSessionId = measurementsSessionId;
-                            tracker.measurementsTask = measurementsTask;
-                            tracker.measurementsTerminated = measurementsTerminated;
+                            context.MeasurementsSessionId = measurementsSessionId;
+                            context.MeasurementsTask = measurementsTask;
+                            context.MeasurementsTerminated = measurementsTerminated;
 
                             await Task.Delay(1000);
                         }
