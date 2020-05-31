@@ -1,5 +1,7 @@
 # Microsoft.Crank
 
+[![Build Status](https://dnceng.visualstudio.com/public/_apis/build/status/dotnet/crank/dotnet-crank-ci-public?branchName=master)](https://dnceng.visualstudio.com/public/_build/latest?definitionId=848&branchName=master)
+
 This is the benchmarking infrastructure used by the .NET team to run benchmarks including (but not limited to) scenarios from the [TechEmpower Web Framework Benchmarks](https://www.techempower.com/benchmarks/).
 
 One of the goals of this system is to give developers a tool that lets them work on performance and measure potential improvements very easily. Some of the capabilities are:
