@@ -2,7 +2,7 @@
 using System.Diagnostics;
 using System.Threading.Tasks;
 
-namespace Microsoft.Crank.Jobs.Wrk
+namespace Microsoft.Crank.Wrk
 {
     class Program
     {
