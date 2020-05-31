@@ -1112,7 +1112,8 @@ namespace Microsoft.Crank.Agent
                                 {
                                     try
                                     {
-                                        if (process != null && !eventPipeTerminated && !!process.HasExited)
+                                        Log.WriteLine($"Stopping measurement event pipes for job {job.Id}");
+                                        if (process != null && !eventPipeTerminated && !process.HasExited)
                                         {
                                             EventPipeClient.StopTracing(process.Id, eventPipeSessionId);
                                         }
@@ -1128,7 +1129,8 @@ namespace Microsoft.Crank.Agent
                                 {
                                     try
                                     {
-                                        if (process != null && !measurementsTerminated && !!process.HasExited)
+                                        Log.WriteLine($"Stopping measurement event pipes for job {job.Id}");
+                                        if (process != null && !measurementsTerminated && !process.HasExited)
                                         {
                                             EventPipeClient.StopTracing(process.Id, measurementsSessionId);
                                         }
@@ -3615,7 +3617,15 @@ namespace Microsoft.Crank.Agent
                 }
                 catch (Exception ex)
                 {
-                    Log.WriteLine($"[ERROR] {ex.ToString()}");
+                    if (ex.Message == "Read past end of stream.")
+                    {
+                        // Expected if the process has exited by itself
+                        // and the event pipe is till trying to read from it
+                    }
+                    else
+                    {
+                        Log.WriteLine($"[ERROR] {ex.ToString()}");
+                    }                    
                 }
                 finally
                 {
@@ -3671,7 +3681,8 @@ namespace Microsoft.Crank.Agent
                         return;
                     }
                     
-                     source = new EventPipeEventSource(binaryReader);
+                    source = new EventPipeEventSource(binaryReader);
+
                     source.Dynamic.All += (eventData) =>
                     {
                         // We only track event counters for System.Runtime
@@ -3718,7 +3729,15 @@ namespace Microsoft.Crank.Agent
                 }
                 catch (Exception ex)
                 {
-                    Log.WriteLine($"[ERROR] {ex.ToString()}");
+                    if (ex.Message == "Read past end of stream.")
+                    {
+                        // Expected if the process has exited by itself
+                        // and the event pipe is till trying to read from it
+                    }
+                    else
+                    {
+                        Log.WriteLine($"[ERROR] {ex.ToString()}");
+                    }                    
                 }
                 finally
                 {
