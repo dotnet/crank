@@ -13,9 +13,9 @@ variables:
 jobs:
   wrk2:
     source:
-      repository: https://github.com/aspnet/benchmarks.git
+      repository: https://github.com/dotnet/crank.git
       branchOrCommit: master
-      project: src/Wrk2Client/Wrk2Client.csproj
+      project: src/Microsoft.Crank.Jobs.Wrk2/Microsoft.Crank.Jobs.Wrk2.csproj
     isConsoleApp: true
     waitForExit: true
     variables:

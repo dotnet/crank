@@ -10,9 +10,9 @@
 jobs:
   wrk:
     source:
-      repository: https://github.com/aspnet/benchmarks.git
+      repository: https://github.com/dotnet/crank.git
       branchOrCommit: master
-      project: src/WrkClient/WrkClient.csproj
+      project: src/Microsoft.Crank.Jobs.Wrk/Microsoft.Crank.Jobs.Wrk.csproj
     isConsoleApp: true
     waitForExit: true
     variables:

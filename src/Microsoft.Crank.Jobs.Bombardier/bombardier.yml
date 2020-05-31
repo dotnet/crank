@@ -10,13 +10,10 @@
 jobs:
   bombardier:
     source:
-      repository: https://github.com/aspnet/benchmarks.git
+      repository: https://github.com/dotnet/crank.git
       branchOrCommit: master
-      project: src/BombardierClient/BombardierClient.csproj
-    readyStateText: Bombardier Client
-    sdkVersion: 3.0.100
-    aspNetCoreVersion: '3.0'
-    runtimeVersion: '3.0'
+      project: src/Microsoft.Crank.Jobs.Bombardier/Microsoft.Crank.Jobs.Bombardier.csproj
+    isConsoleApp: true
     waitForExit: true
     variables:
       connections: 256
