@@ -6,8 +6,9 @@ using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Microsoft.Crank.Jobs;
 
-namespace Microsoft.Crank.Jobs.Wrk
+namespace Microsoft.Crank.Wrk
 {
     static class WrkProcess
     {
