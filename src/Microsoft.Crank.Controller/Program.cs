@@ -1284,7 +1284,28 @@ namespace Microsoft.Crank.Controller
 
                 localconfiguration = null;
 
-                switch (Path.GetExtension(configurationFilenameOrUrl))
+                string configurationExtension = null;
+
+                if (configurationFilenameOrUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Remove any query string to detect the correct extension
+                    var questionMarkIndex = configurationFilenameOrUrl.IndexOf("?");
+                    if (questionMarkIndex != -1)
+                    {
+                        var filename = configurationFilenameOrUrl.Substring(0, questionMarkIndex);
+                        configurationExtension = Path.GetExtension(filename);
+                    }
+                    else
+                    {
+                        configurationExtension = Path.GetExtension(configurationFilenameOrUrl);
+                    }
+                }
+                else
+                {
+                   configurationExtension = Path.GetExtension(configurationFilenameOrUrl);
+                }
+
+                switch (configurationExtension)
                 {
                     case ".json":
                         localconfiguration = JObject.Parse(configurationContent);
@@ -1303,6 +1324,8 @@ namespace Microsoft.Crank.Controller
                         var json = serializer.Serialize(yamlObject);
                         localconfiguration = JObject.Parse(json);
                         break;
+                    default:
+                        throw new ControllerException($"Unsupport configuration format: .");
                 }
 
                 // Process imports
