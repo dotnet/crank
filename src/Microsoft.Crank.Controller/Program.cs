@@ -1320,7 +1320,7 @@ namespace Microsoft.Crank.Controller
                         localconfiguration = JObject.Parse(json);
                         break;
                     default:
-                        throw new ControllerException($"Unsupport configuration format: .");
+                        throw new ControllerException($"Unsupported configuration format: {configurationExtension}");
                 }
 
                 // Process imports

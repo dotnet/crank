@@ -2798,7 +2798,7 @@ namespace Microsoft.Crank.Agent
 
             if (runtimeOptions.ContainsKey("includedFrameworks"))
             {
-                Log.WriteLine("Application is self-contained, skipping runtimconfig");
+                Log.WriteLine("Application is self-contained, skipping runtimeconfig.json");
                 return;
             }
 
