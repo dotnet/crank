@@ -10,7 +10,5 @@ namespace Microsoft.Crank.Models
         HttpSys,
         IISInProcess,
         IISOutOfProcess,
-        Docker,
-        CCore
     }
 }

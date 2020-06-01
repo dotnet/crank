@@ -210,8 +210,6 @@ namespace Microsoft.Crank.Agent.Controllers
                 try
                 {
                     var job = _jobs.Find(id);
-                    job.ClearServerCounters();
-                    job.Counters.Clear();
                     job.Measurements.Clear();
                     _jobs.Update(job);
                     return Ok();

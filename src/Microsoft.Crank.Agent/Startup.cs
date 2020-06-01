@@ -422,7 +422,7 @@ namespace Microsoft.Crank.Agent
                             {
                                 if (!group.ContainsKey(job))
                                 {
-                                    Log.WriteLine($"Adding job {job.Id} to group");
+                                    Log.WriteLine($"Adding job '{job.Service}' ({job.Id}) to group");
                                     group[job] = new JobContext { Job = job };
                                 }
                             }
@@ -441,7 +441,7 @@ namespace Microsoft.Crank.Agent
                         {
                             var context = group[job];
 
-                            Log.WriteLine($"Processing job {job.Id} in state {job.State}");
+                            Log.WriteLine($"Processing job '{job.Service}' ({job.Id}) in state {job.State}");
 
                             // Restore context for the current job
                             var process = context.Process;
@@ -469,7 +469,7 @@ namespace Microsoft.Crank.Agent
                             {
                                 var now = DateTime.UtcNow;
 
-                                Log.WriteLine($"Acquiring Job '{job.Id}'");
+                                Log.WriteLine($"Acquiring Job '{job.Service}' ({job.Id})");
 
                                 // Ensure all local assets are available
                                 await EnsureDotnetInstallExistsAsync();
@@ -477,7 +477,7 @@ namespace Microsoft.Crank.Agent
                                 if (now - job.LastDriverCommunicationUtc > DriverTimeout)
                                 {
                                     // The job needs to be deleted
-                                    Log.WriteLine($"Driver didn't communicate for {DriverTimeout}. Halting job.");
+                                    Log.WriteLine($"Driver didn't communicate for {DriverTimeout}. Halting job '{job.Service}' ({job.Id}).");
                                     Log.WriteLine($"{job.State} -> Deleting");
                                     job.State = JobState.Deleting;
                                 }
@@ -599,14 +599,14 @@ namespace Microsoft.Crank.Agent
                                         job.WebHost == WebHost.IISOutOfProcess)
                                         )
                                     {
-                                        Log.WriteLine($"Skipping job '{job.Id}' with scenario '{job.Scenario}'.");
+                                        Log.WriteLine($"Skipping job '{job.Service}' ({job.Id})");
                                         Log.WriteLine($"'{job.WebHost}' is not supported on this platform.");
                                         Log.WriteLine($"{job.State} -> NotSupported");
                                         job.State = JobState.NotSupported;
                                         continue;
                                     }
 
-                                    Log.WriteLine($"Starting job '{job.Id}' with scenario '{job.Scenario}'");
+                                    Log.WriteLine($"Starting job '{job.Service}' ({job.Id})");
                                     Log.WriteLine($"{job.State} -> Starting");
                                     job.State = JobState.Starting;
 
@@ -741,7 +741,7 @@ namespace Microsoft.Crank.Agent
                                                 // Stops the job in case the driver is not running
                                                 if (now - job.LastDriverCommunicationUtc > DriverTimeout)
                                                 {
-                                                    Log.WriteLine($"[Heartbeat] Driver didn't communicate for {DriverTimeout}. Halting job.");
+                                                    Log.WriteLine($"[Heartbeat] Driver didn't communicate for {DriverTimeout}. Halting job '{job.Service}' ({job.Id}).");
                                                     if (job.State == JobState.Running || job.State == JobState.TraceCollected)
                                                     {
                                                         Log.WriteLine($"{job.State} -> Stopping");
@@ -811,13 +811,6 @@ namespace Microsoft.Crank.Agent
                                                             }
 
                                                             var workingSet = (long)(memory * factor);
-
-                                                            job.AddServerCounter(new ServerCounter
-                                                            {
-                                                                Elapsed = now - startMonitorTime,
-                                                                WorkingSet = workingSet,
-                                                                CpuPercentage = cpu
-                                                            });
 
                                                             job.Measurements.Enqueue(new Measurement
                                                             {
@@ -902,13 +895,6 @@ namespace Microsoft.Crank.Agent
                                                         // Ignore first measure
                                                         if (oldCPUTime != TimeSpan.Zero)
                                                         {
-                                                            job.AddServerCounter(new ServerCounter
-                                                            {
-                                                                Elapsed = now - startMonitorTime,
-                                                                WorkingSet = process.WorkingSet64,
-                                                                CpuPercentage = cpu
-                                                            });
-
                                                             job.Measurements.Enqueue(new Measurement
                                                             {
                                                                 Name = "benchmarks/working-set",
@@ -969,7 +955,7 @@ namespace Microsoft.Crank.Agent
                                 }
                                 catch (Exception e)
                                 {
-                                    Log.WriteLine($"Error starting job '{job.Id}': {e}");
+                                    Log.WriteLine($"Error starting job '{job.Service}' ({job.Id}): {e}");
                                     Log.WriteLine($"{job.State} -> Failed");
                                     job.State = JobState.Failed;
                                     continue;
@@ -977,13 +963,13 @@ namespace Microsoft.Crank.Agent
                             }
                             else if (job.State == JobState.Stopping)
                             {
-                                Log.WriteLine($"Stopping job '{job.Id}' with scenario '{job.Scenario}'");
+                                Log.WriteLine($"Stopping job '{job.Service}' ({job.Id})");
 
                                 await StopJobAsync();
                             }
                             else if (job.State == JobState.Stopped)
                             {
-                                Log.WriteLine($"Job '{job.Id}' has stopped, waiting for the driver to delete it");
+                                Log.WriteLine($"Job '{job.Service}' ({job.Id}) has stopped, waiting for the driver to delete it");
 
                                 if (DateTime.UtcNow - job.LastDriverCommunicationUtc > DriverTimeout)
                                 {
@@ -995,7 +981,7 @@ namespace Microsoft.Crank.Agent
                             }
                             else if (job.State == JobState.Deleting)
                             {
-                                Log.WriteLine($"Deleting job '{job.Id}' with scenario '{job.Scenario}'");
+                                Log.WriteLine($"Deleting job '{job.Service}' ({job.Id})");
 
                                 await DeleteJobAsync();
                             }
@@ -1112,7 +1098,7 @@ namespace Microsoft.Crank.Agent
                                 {
                                     try
                                     {
-                                        Log.WriteLine($"Stopping measurement event pipes for job {job.Id}");
+                                        Log.WriteLine($"Stopping counter event pipes for job '{job.Service}' ({job.Id})");
                                         if (process != null && !eventPipeTerminated && !process.HasExited)
                                         {
                                             EventPipeClient.StopTracing(process.Id, eventPipeSessionId);
@@ -1129,7 +1115,7 @@ namespace Microsoft.Crank.Agent
                                 {
                                     try
                                     {
-                                        Log.WriteLine($"Stopping measurement event pipes for job {job.Id}");
+                                        Log.WriteLine($"Stopping measurement event pipes for job '{job.Service}' ({job.Id})");
                                         if (process != null && !measurementsTerminated && !process.HasExited)
                                         {
                                             EventPipeClient.StopTracing(process.Id, measurementsSessionId);
@@ -3241,53 +3227,7 @@ namespace Microsoft.Crank.Agent
 
             job.BasePath = workingDirectory;
 
-            var arguments = $" --nonInteractive true" +
-                    $" --scenarios {job.Scenario}";
-
-            switch (job.WebHost)
-            {
-                case WebHost.HttpSys:
-                    arguments += " --server HttpSys";
-                    break;
-                case WebHost.KestrelSockets:
-                    arguments += " --server Kestrel --kestrelTransport Sockets";
-                    break;
-                case WebHost.KestrelLibuv:
-                    arguments += " --server Kestrel --kestrelTransport Libuv";
-                    break;
-                case WebHost.IISInProcess:
-                    arguments += " --server IISInProcess";
-                    break;
-                case WebHost.IISOutOfProcess:
-                    arguments += " --server IISOutOfProcess";
-                    break;
-                case WebHost.CCore:
-                    arguments += " --server CCore";
-                    break;
-                default:
-                    arguments += $" --server {job.WebHost}";
-                    break;
-
-            }
-
-            if (job.KestrelThreadCount.HasValue)
-            {
-                arguments += $" --threadCount {job.KestrelThreadCount.Value}";
-            }
-
-            if (!iis)
-            {
-                arguments += $" --server.urls {serverUrl}";
-            }
-
-            arguments += $" --protocol {job.Scheme.ToString().ToLowerInvariant()}";
-
             commandLine += $" {job.Arguments}";
-
-            if (!job.NoArguments)
-            {
-                commandLine += $" {arguments}";
-            }
 
             // Benchmarkdotnet needs the actual cli path to generate its benchmarked app
             commandLine = commandLine.Replace("{{benchmarks-cli}}", executable);
@@ -3626,27 +3566,15 @@ namespace Microsoft.Crank.Agent
                         var payloadFields = (IDictionary<string, object>)(payloadVal["Payload"]);
 
                         var counterName = payloadFields["Name"].ToString();
-                        if (!job.Counters.TryGetValue(counterName, out var values))
-                        {
-                            lock (job.Counters)
-                            {
-                                if (!job.Counters.TryGetValue(counterName, out values))
-                                {
-                                    job.Counters[counterName] = values = new ConcurrentQueue<string>();
-                                }
-                            }
-                        }
 
                         measurement.Name = "runtime-counter/" + counterName;
 
                         switch (payloadFields["CounterType"])
                         {
                             case "Sum":
-                                values.Enqueue(payloadFields["Increment"].ToString());
                                 measurement.Value = payloadFields["Increment"];
                                 break;
                             case "Mean":
-                                values.Enqueue(payloadFields["Mean"].ToString());
                                 measurement.Value = payloadFields["Mean"];
                                 break;
                             default:
@@ -3934,7 +3862,7 @@ namespace Microsoft.Crank.Agent
 
                 job.StartupMainMethod = stopwatch.Elapsed;
 
-                Log.WriteLine($"Running job '{job.Id}' with scenario '{job.Scenario}'");
+                Log.WriteLine($"Running job '{job.Service}' ({job.Id})");
                 job.Url = ComputeServerUrl(hostname, job);
 
                 // Mark the job as running to allow the Client to start the test

@@ -36,9 +36,7 @@ namespace Microsoft.Crank.Models
         [JsonConverter(typeof(StringEnumConverter))]
         public OperatingSystem? OperatingSystem { get; set; }
 
-        public int? KestrelThreadCount { get; set; }
-
-        public string Scenario { get; set; }
+        public string Service { get; set; }
 
         [JsonConverter(typeof(StringEnumConverter))]
         public Scheme Scheme { get; set; }
@@ -67,45 +65,6 @@ namespace Microsoft.Crank.Models
         public TimeSpan BuildTime { get; set; }
         public long PublishedSize { get; set; }
 
-        private IList<ServerCounter> _serverCounter = new List<ServerCounter>();
-
-        public IReadOnlyCollection<ServerCounter> ServerCounters
-        {
-            get
-            {
-                lock (this)
-                {
-                    return _serverCounter.ToArray();
-                }
-            }
-
-            set
-            {
-                lock (this)
-                {
-                    _serverCounter = new List<ServerCounter>(value);
-                }
-            }
-        }
-
-        public Job AddServerCounter(ServerCounter counter)
-        {
-            lock (this)
-            {
-                _serverCounter.Add(counter);
-                return this;
-            }
-        }
-
-        public Job ClearServerCounters()
-        {
-            lock (this)
-            {
-                _serverCounter.Clear();
-                return this;
-            }
-        }
-
         /// <summary>
         /// The source information for the benchmarked application
         /// </summary>
@@ -113,7 +72,6 @@ namespace Microsoft.Crank.Models
 
         public string Executable { get; set; }
         public string Arguments { get; set; }
-        public bool NoArguments { get; set; } = false;
 
         [JsonConverter(typeof(StringEnumConverter))]
         public JobState State { get; set; }
@@ -158,7 +116,6 @@ namespace Microsoft.Crank.Models
         public ulong MemoryLimitInBytes { get; set; }
         public double CpuLimitRatio { get; set; }
         public string CpuSet { get; set; } // e.g., 0 or 0-3 or 1-4,6
-        public ConcurrentDictionary<string, ConcurrentQueue<string>> Counters { get; set; } = new ConcurrentDictionary<string, ConcurrentQueue<string>>();
         public ConcurrentQueue<Measurement> Measurements { get; set; } = new ConcurrentQueue<Measurement>();
         public ConcurrentQueue<MeasurementMetadata> Metadata { get; set; } = new ConcurrentQueue<MeasurementMetadata>();
 
