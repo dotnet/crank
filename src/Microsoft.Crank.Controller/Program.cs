@@ -1142,11 +1142,13 @@ namespace Microsoft.Crank.Controller
                 configurationInstance.Jobs[jobName] = new Job();
             }
 
-            // Force all jobs as self-contained by default. This can be overrided by command line config.
-            // This can't be done in ServerJob for backward compatibility
             foreach (var job in configurationInstance.Jobs)
             {
+                // Force all jobs as self-contained by default. This can be overrided by command line config.
+                // This can't be done in ServerJob for backward compatibility
                 job.Value.SelfContained = true;
+
+                job.Value.Service = job.Key;
             }
 
             // After that point we only modify the JObject representation of Configuration
@@ -1220,13 +1222,6 @@ namespace Microsoft.Crank.Controller
             }
 
             var result = configuration.ToObject<Configuration>();
-
-            // Override default values in ServerJob for backward compatibility as the server would automatically add custom arguments to the applications.
-            foreach (var job in result.Jobs.Values)
-            {
-                job.NoArguments = true;
-                job.Scenario = scenarioName ?? "Custom";
-            }
 
             return result;
         }
