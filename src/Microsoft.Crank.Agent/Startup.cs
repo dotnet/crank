@@ -2,7 +2,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Tracing;
@@ -13,7 +12,6 @@ using System.Net.Http;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Runtime.Loader;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -394,7 +392,7 @@ namespace Microsoft.Crank.Agent
                     {
                         lock (_jobs)
                         {
-                            // Looking for the new groupd of jobs
+                            // Looking for the new group of jobs
                             var next = _jobs.GetAll().FirstOrDefault(x => x.State == JobState.New);
 
                             if (next != null)

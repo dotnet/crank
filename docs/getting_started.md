@@ -32,12 +32,12 @@ It contains the scenario definitions, describing which applications need to be d
 
 ```yml
 imports:
-    - https://raw.githubusercontent.com/aspnet/Benchmarks/master/src/BombardierClient/bombardier.yml
+    - https://raw.githubusercontent.com/dotnet/crank/master/src/Microsoft.Crank.Jobs.Bombardier/bombardier.yml?token=AAI4T3LCX6ET4DCTDLUVJX263U2AK
 
 jobs:
   server:
     source:
-      repository: https://github.com/aspnet/perf
+      repository: https://github.com/dotnet/crank
       branchOrCommit: master
       project: samples/hello/hello.csproj
 
@@ -67,7 +67,7 @@ profiles:
 
 To run the benchmark at least one agent instance needs to be running. It will run the service named  __application__ that will host the web application to benchmark, and the service name __load__ that will host the bombardier load generation.
 
-Ideally, services are deployed on distinct machines but for the sake of this tutorial as single agent is used.
+Ideally, services are deployed on separate machines but for the sake of this tutorial as single agent is used, and both the application and load generation will run locally.
 
 Open a shell and execute these command lines:
 
@@ -95,7 +95,7 @@ The scenario definitions file is already created and available.
 [04:19:19.445] Job is now building ...
 [04:19:50.624] Job is running
 [04:19:50.626] Starting job 'load' ...
-[04:19:50.630] Fetching job: http://localhost:5011/jobs/1
+[04:19:50.630] Fetching job: http://localhost:5010/jobs/2
 [04:19:51.654] Job has been selected by the server ...
 [04:19:51.655] Job is now building ...
 [04:19:58.748] Job is running
@@ -133,13 +133,3 @@ Max RPS:              221,956
 ```
 
 Each service deployed (application and load) have reported their metrics, including the Requests Per Second.
-
-### Optional: Storing the results
-
-The controller can store the results of a job either in JSON formar or in a SQL Server database.
-
-Use `--save results.json` to store the results in JSON format. In the case of the bombardier client, this will also contain useful latency information.
-
-Use `--sql [connectionstring] --table [tablename]` arguments to store in the specified SQL Server database. The connection string must point to an existing SQL Server database. The first time it's called the required table will be created.
-
-From there you can create reports using the tools of your choice.
