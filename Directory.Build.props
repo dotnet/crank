@@ -14,7 +14,7 @@
 
   <PropertyGroup>
     <Product>Microsoft Crank</Product>
-    <RepositoryUrl>https://github.com/aspnet/perf</RepositoryUrl>
+    <RepositoryUrl>https://github.com/dotnet/crank</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <RepositoryRoot>$(MSBuildThisFileDirectory)</RepositoryRoot>
     <!-- This repository does not produce NuGet packages -->
