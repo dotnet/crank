@@ -56,7 +56,7 @@ namespace Microsoft.Crank.Models
         public string AspNetCoreVersion { get; set; } = "";
         public string RuntimeVersion { get; set; } = "";
         public string SdkVersion { get; set; } = "";
-        public bool UseMonoRuntime { get; set; } = false;
+        public string UseMonoRuntime { get; set; } = "";
         public bool NoGlobalJson { get; set; }
         public Database Database { get; set; } = Database.None;
 

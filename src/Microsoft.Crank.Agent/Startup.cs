@@ -76,7 +76,6 @@ namespace Microsoft.Crank.Agent
 
         private static readonly string _latestSdkVersionUrl = "https://aka.ms/dotnet/net5/dev/Sdk/productCommit-win-x64.txt";
         private static readonly string _aspnetSdkVersionUrl = "https://raw.githubusercontent.com/dotnet/aspnetcore/master/global.json";
-        private static readonly string _runtimeMonoPackageUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2/Microsoft.NETCore.App.Runtime.Mono.linux-x64/{0}/Microsoft.NETCore.App.Runtime.Mono.linux-x64.{0}.nupkg";
         private static readonly string[] _runtimeFeedUrls = new string[] {
             "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2",
             "https://dotnetfeed.blob.core.windows.net/dotnet-core/flatcontainer",
@@ -2500,14 +2499,14 @@ namespace Microsoft.Crank.Agent
             }
 
             // Download mono runtime
-            if (job.UseMonoRuntime)
+            if (!string.IsNullOrEmpty(job.UseMonoRuntime))
             {
                 if (!job.SelfContained)
                 {
                     throw new Exception("The job is trying to use the mono runtime but was not configured as self-contained.");
                 }
-
-                await UseMonoRuntimeAsync(runtimeVersion, outputFolder);
+		
+                await UseMonoRuntimeAsync(runtimeVersion, outputFolder, job.UseMonoRuntime);
             }
 
             // Copy all output attachments
@@ -3786,14 +3785,29 @@ namespace Microsoft.Crank.Agent
             }
         }
 
-        private static async Task UseMonoRuntimeAsync(string runtimeVersion, string outputFolder)
+        private static async Task UseMonoRuntimeAsync(string runtimeVersion, string outputFolder, string mode)
         {
-            var monoRuntimeUrl = String.Format(_runtimeMonoPackageUrl, runtimeVersion);
+            if (String.IsNullOrEmpty(mode))
+            {
+                return;
+            }
 
             try
             {
+                var packageName = "";
+                
+                switch (mode) 
+                {
+                    case "jit":
+                        packageName = "Microsoft.NETCore.App.Runtime.Mono.linux-x64".ToLowerInvariant();
+                        break;
+                    case "llvm-jit":
+                        packageName = "Microsoft.NETCore.App.Runtime.Mono.LLVM.AOT.linux-x64".ToLowerInvariant();
+                        break;
+                    default:
+                        throw new Exception("Invalid mono runtime moniker: " + mode);
+                }
 
-                var packageName = "Microsoft.NETCore.App.Runtime.Mono.linux-x64".ToLowerInvariant();
                 var runtimePath = Path.Combine(_rootTempDir, "RuntimePackages", $"{packageName}.{runtimeVersion}.nupkg");
 
                 // Ensure the folder already exists
