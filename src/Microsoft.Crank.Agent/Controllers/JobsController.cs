@@ -308,7 +308,7 @@ namespace Microsoft.Crank.Agent.Controllers
                 return NotFound("Job doesn't exist anymore");
             }
 
-            if (job.State != ServerState.Initializing)
+            if (job.State != JobState.Initializing)
             {
                 Log($"Attachment rejected, job is {job.State}");
                 return StatusCode(500, $"The job can't accept attachment as its state is {job.State}");
