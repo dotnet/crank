@@ -37,32 +37,20 @@ namespace Microsoft.Crank.Jobs.Bombardier
             Console.WriteLine("Bombardier Client");
             Console.WriteLine("args: " + String.Join(' ', args));
 
-            // Extracting duration parameters
-            string warmup = "";
-            string duration = "";
-
+            // Extracting parameters
             var argsList = args.ToList();
 
-            var durationIndex = argsList.FindIndex(x => String.Equals(x, "-d", StringComparison.OrdinalIgnoreCase));
-            if (durationIndex >= 0)
+            TryGetArgumentValue("-w", argsList, out int warmup);
+            TryGetArgumentValue("-d", argsList, out int duration);
+            TryGetArgumentValue("-n", argsList, out int requests);
+
+            if (duration == 0 && requests == 0)
             {
-                duration = argsList[durationIndex + 1];
-                argsList.RemoveAt(durationIndex);
-                argsList.RemoveAt(durationIndex);
-            }
-            else
-            {
-                Console.WriteLine("Couldn't find -d argument");
+                Console.WriteLine("Couldn't find valid -d and -n arguments (integers)");
                 return;
             }
 
-            var warmupIndex = argsList.FindIndex(x => String.Equals(x, "-w", StringComparison.OrdinalIgnoreCase));
-            if (warmupIndex >= 0)
-            {
-                warmup = argsList[warmupIndex + 1];
-                argsList.RemoveAt(warmupIndex);
-                argsList.RemoveAt(warmupIndex);
-            }
+            TryGetArgumentValue("-w", argsList, out warmup);
 
             args = argsList.ToArray();
 
@@ -108,9 +96,9 @@ namespace Microsoft.Crank.Jobs.Bombardier
 
             // Warmup
 
-            if (!String.IsNullOrEmpty(warmup) && warmup != "0s")
+            if (warmup > 0)
             {
-                process.StartInfo.Arguments = $" -d {warmup} {baseArguments}";
+                process.StartInfo.Arguments = $" -d {warmup}s {baseArguments}";
 
                 Console.WriteLine("> bombardier " + process.StartInfo.Arguments);
 
@@ -123,7 +111,10 @@ namespace Microsoft.Crank.Jobs.Bombardier
                 stringBuilder.Clear();
             }
 
-            process.StartInfo.Arguments = $" -d {duration} {baseArguments}";
+            process.StartInfo.Arguments = 
+                requests > 0
+                    ? $" -n {requests} {baseArguments}"
+                    : $" -d {duration}s {baseArguments}";
 
             Console.WriteLine("> bombardier " + process.StartInfo.Arguments);
 
@@ -172,7 +163,25 @@ namespace Microsoft.Crank.Jobs.Bombardier
             BenchmarksEventSource.Measure("bombardier/rps/mean", document["result"]["rps"]["mean"].Value<double>());
 
             BenchmarksEventSource.Measure("bombardier/raw", output);
+        }
 
+        private static bool TryGetArgumentValue(string argName, List<string> argsList, out int value)
+        {
+            var argumentIndex = argsList.FindIndex(arg => string.Equals(arg, argName, StringComparison.OrdinalIgnoreCase));
+            if (argumentIndex >= 0)
+            {
+                string copy = argsList[argumentIndex + 1];
+                argsList.RemoveAt(argumentIndex);
+                argsList.RemoveAt(argumentIndex);
+
+                return int.TryParse(copy, out value) && value > 0;
+            }
+            else
+            {
+                value = default;
+
+                return false;
+            }
         }
     }
 }
