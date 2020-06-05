@@ -100,6 +100,11 @@ namespace Microsoft.Crank.Models
         // Other collection options
         public bool CollectStartup { get; set; }
         public bool CollectCounters { get; set; }
+
+        /// <summary>
+        /// The list of performance counter providers to be collected. Defaults to <c>System.Runtime</c>.
+        /// </summary>
+        public List<string> CounterProviders { get; set; } = new List<string>();
         public string BasePath { get; set; }
         public int ProcessId { get; set; }
         public Dictionary<string, string> EnvironmentVariables { get; set; } = new Dictionary<string, string>();
