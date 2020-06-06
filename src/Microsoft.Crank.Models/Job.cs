@@ -72,6 +72,7 @@ namespace Microsoft.Crank.Models
 
         public string Executable { get; set; }
         public string Arguments { get; set; }
+        public bool NoArguments { get; set; } = true;
 
         [JsonConverter(typeof(StringEnumConverter))]
         public JobState State { get; set; }
