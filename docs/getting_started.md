@@ -63,6 +63,7 @@ profiles:
         endpoints: 
           - http://localhost:5010
 ```
+
 ## Start the agent
 
 To run the benchmark at least one agent instance needs to be running. It will run the service named  __application__ that will host the web application to benchmark, and the service name __load__ that will host the bombardier load generation.
