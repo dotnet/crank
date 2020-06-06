@@ -144,7 +144,7 @@ namespace Microsoft.Crank.Agent
             }
         }
 
-        public static T RetryOnException<T>(int retries, Func<T> operation)
+        public static T RetryOnException<T>(int retries, Func<T> operation, CancellationToken cancellationToken = default)
         {
             var attempts = 0;
             do
@@ -156,14 +156,14 @@ namespace Microsoft.Crank.Agent
                 }
                 catch (Exception e)
                 {
-                    if (attempts == retries + 1)
+                    if (attempts == retries + 1 || cancellationToken.IsCancellationRequested)
                     {
                         throw;
                     }
 
                     Log.WriteLine($"Attempt {attempts} failed: {e.Message}");
                 }
-            } while (true);
+            } while (true );
         }
 
         public static void StopProcess(Process process)
