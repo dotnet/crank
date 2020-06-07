@@ -443,7 +443,6 @@ namespace Microsoft.Crank.Agent
                             var process = context.Process;
 
                             var workingDirectory = context.WorkingDirectory;
-                            var timer = context.Timer;
                             var executionLock = context.ExecutionLock;
                             var disposed = context.Disposed;
                             var benchmarksDir = context.BenchmarksDir;
@@ -711,6 +710,16 @@ namespace Microsoft.Crank.Agent
 
                                     context.Timer = new Timer(async _ =>
                                     {
+                                        // If we couldn't get the lock it means one of 2 things are true:
+                                        // - We're about to dispose so we don't care to run the scan callback anyways.
+                                        // - The previous the computation took long enough that the next scan tried to run in parallel
+                                        // In either case just do nothing and end the timer callback as soon as possible
+
+                                        if (!Monitor.TryEnter(context))
+                                        {
+                                            return;
+                                        }
+
                                         try
                                         {
                                             if (disposed)
@@ -719,104 +728,192 @@ namespace Microsoft.Crank.Agent
                                             }
 
                                             // Pause the timer while we're running
-                                            timer.Change(Timeout.Infinite, Timeout.Infinite);
+                                            context.Timer.Change(Timeout.Infinite, Timeout.Infinite);
 
-                                            var now = DateTime.UtcNow;
-
-                                            // Stops the job in case the driver is not running
-                                            if (now - job.LastDriverCommunicationUtc > DriverTimeout)
+                                            try
                                             {
-                                                Log.WriteLine($"[Heartbeat] Driver didn't communicate for {DriverTimeout}. Halting job '{job.Service}' ({job.Id}).");
-                                                if (job.State == JobState.Running || job.State == JobState.TraceCollected)
+                                                var now = DateTime.UtcNow;
+
+                                                // Stops the job in case the driver is not running
+                                                if (now - job.LastDriverCommunicationUtc > DriverTimeout)
                                                 {
-                                                    Log.WriteLine($"{job.State} -> Stopping");
-                                                    job.State = JobState.Stopping;
-                                                }
-                                            }
-
-                                            if (!String.IsNullOrEmpty(dockerImage))
-                                            {
-                                                // Check the container is still running
-                                                var inspectResult = await ProcessUtil.RunAsync("docker", "inspect -f {{.State.Running}} " + dockerContainerId,
-                                                        captureOutput: true,
-                                                        log: false, throwOnError: false);
-
-                                                if (String.Equals(inspectResult.StandardOutput.Trim(), "false"))
-                                                {
-                                                    Log.WriteLine($"The Docker container has stopped");
-                                                    Log.WriteLine($"{job.State} -> Stopping");
-                                                    job.State = JobState.Stopping;
-                                                }
-                                                else
-                                                {
-                                                    // Get docker stats
-                                                    var result = await ProcessUtil.RunAsync("docker", "container stats --no-stream --format \"{{.CPUPerc}}-{{.MemUsage}}\" " + dockerContainerId,
-                                                            log: false, throwOnError: false, captureOutput: true, captureError: true);
-
-                                                    var stats = result.StandardOutput;
-
-                                                    if (!String.IsNullOrEmpty(stats))
+                                                    Log.WriteLine($"[Heartbeat] Driver didn't communicate for {DriverTimeout}. Halting job '{job.Service}' ({job.Id}).");
+                                                    if (job.State == JobState.Running || job.State == JobState.TraceCollected)
                                                     {
-                                                        var data = stats.Trim().Split('-');
+                                                        Log.WriteLine($"{job.State} -> Stopping");
+                                                        job.State = JobState.Stopping;
+                                                    }
+                                                }
 
-                                                        // Format is {value}%
-                                                        var cpuPercentRaw = data[0];
+                                                if (!String.IsNullOrEmpty(dockerImage))
+                                                {
+                                                    // Check the container is still running
+                                                    var inspectResult = await ProcessUtil.RunAsync("docker", "inspect -f {{.State.Running}} " + dockerContainerId,
+                                                            captureOutput: true,
+                                                            log: false, throwOnError: false);
 
-                                                        // Format is {used}M/GiB/{total}M/GiB
-                                                        var workingSetRaw = data[1];
-                                                        var usedMemoryRaw = workingSetRaw.Split('/')[0].Trim();
-                                                        var cpu = double.Parse(cpuPercentRaw.Trim('%'));
-                                                        var rawCPU = cpu;
+                                                    if (String.Equals(inspectResult.StandardOutput.Trim(), "false"))
+                                                    {
+                                                        Log.WriteLine($"The Docker container has stopped");
+                                                        Log.WriteLine($"{job.State} -> Stopping");
+                                                        job.State = JobState.Stopping;
+                                                    }
+                                                    else
+                                                    {
+                                                        // Get docker stats
+                                                        var result = await ProcessUtil.RunAsync("docker", "container stats --no-stream --format \"{{.CPUPerc}}-{{.MemUsage}}\" " + dockerContainerId,
+                                                                log: false, throwOnError: false, captureOutput: true, captureError: true);
 
-                                                        // On Windows the CPU already takes the number or HT into account
-                                                        if (OperatingSystem == OperatingSystem.Linux)
+                                                        var stats = result.StandardOutput;
+
+                                                        if (!String.IsNullOrEmpty(stats))
                                                         {
-                                                            cpu = cpu / Environment.ProcessorCount;
+                                                            var data = stats.Trim().Split('-');
+
+                                                            // Format is {value}%
+                                                            var cpuPercentRaw = data[0];
+
+                                                            // Format is {used}M/GiB/{total}M/GiB
+                                                            var workingSetRaw = data[1];
+                                                            var usedMemoryRaw = workingSetRaw.Split('/')[0].Trim();
+                                                            var cpu = double.Parse(cpuPercentRaw.Trim('%'));
+                                                            var rawCPU = cpu;
+
+                                                            // On Windows the CPU already takes the number or HT into account
+                                                            if (OperatingSystem == OperatingSystem.Linux)
+                                                            {
+                                                                cpu = cpu / Environment.ProcessorCount;
+                                                            }
+
+                                                            cpu = Math.Round(cpu);
+
+                                                            // MiB, GiB, B ?
+                                                            var factor = 1;
+                                                            double memory;
+
+                                                            if (usedMemoryRaw.EndsWith("GiB"))
+                                                            {
+                                                                factor = 1024 * 1024 * 1024;
+                                                                memory = double.Parse(usedMemoryRaw.Substring(0, usedMemoryRaw.Length - 3));
+                                                            }
+                                                            else if (usedMemoryRaw.EndsWith("MiB"))
+                                                            {
+                                                                factor = 1024 * 1024;
+                                                                memory = double.Parse(usedMemoryRaw.Substring(0, usedMemoryRaw.Length - 3));
+                                                            }
+                                                            else
+                                                            {
+                                                                memory = double.Parse(usedMemoryRaw.Substring(0, usedMemoryRaw.Length - 1));
+                                                            }
+
+                                                            var workingSet = (long)(memory * factor);
+
+                                                            job.Measurements.Enqueue(new Measurement
+                                                            {
+                                                                Name = "benchmarks/working-set",
+                                                                Timestamp = now,
+                                                                Value = Math.Ceiling((double)workingSet / 1024 / 1024) // < 1MB still needs to appear as 1MB
+                                                            });
+
+                                                            job.Measurements.Enqueue(new Measurement
+                                                            {
+                                                                Name = "benchmarks/cpu",
+                                                                Timestamp = now,
+                                                                Value = cpu
+                                                            });
+
+                                                            job.Measurements.Enqueue(new Measurement
+                                                            {
+                                                                Name = "benchmarks/cpu/raw",
+                                                                Timestamp = now,
+                                                                Value = rawCPU
+                                                            });
+
+                                                            if (OperatingSystem == OperatingSystem.Linux)
+                                                            {
+                                                                try
+                                                                {
+                                                                    job.Measurements.Enqueue(new Measurement
+                                                                    {
+                                                                        Name = "benchmarks/swap",
+                                                                        Timestamp = now,
+                                                                        Value = (int)( await GetSwapBytesAsync()) / 1024 / 1024
+                                                                    });
+                                                                }
+                                                                catch (Exception e)
+                                                                {
+                                                                    Log.WriteLine($"[ERROR] Could not get swap memory:" + e.ToString());
+                                                                }
+                                                            }
                                                         }
-
-                                                        cpu = Math.Round(cpu);
-
-                                                        // MiB, GiB, B ?
-                                                        var factor = 1;
-                                                        double memory;
-
-                                                        if (usedMemoryRaw.EndsWith("GiB"))
+                                                    }
+                                                }
+                                                else if (process != null)
+                                                {
+                                                    if (process.HasExited)
+                                                    {
+                                                        if (process.ExitCode != 0)
                                                         {
-                                                            factor = 1024 * 1024 * 1024;
-                                                            memory = double.Parse(usedMemoryRaw.Substring(0, usedMemoryRaw.Length - 3));
-                                                        }
-                                                        else if (usedMemoryRaw.EndsWith("MiB"))
-                                                        {
-                                                            factor = 1024 * 1024;
-                                                            memory = double.Parse(usedMemoryRaw.Substring(0, usedMemoryRaw.Length - 3));
+                                                            Log.WriteLine($"Job failed");
+
+                                                            job.Error = $"Job failed at runtime:\n{job.Output}";
+
+                                                            if (job.State != JobState.Deleting)
+                                                            {
+                                                                Log.WriteLine($"{job.State} -> Failed");
+                                                                job.State = JobState.Failed;
+                                                            }
                                                         }
                                                         else
                                                         {
-                                                            memory = double.Parse(usedMemoryRaw.Substring(0, usedMemoryRaw.Length - 1));
+                                                            Log.WriteLine($"Process has exited ({process.ExitCode})");
+
+                                                            // Don't revert a Deleting state by mistake
+                                                            if (job.State != JobState.Deleting)
+                                                            {
+                                                                Log.WriteLine($"{job.State} -> Stopped");
+                                                                job.State = JobState.Stopped;
+                                                            }
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        // TODO: Accessing the TotalProcessorTime on OSX throws so just leave it as 0 for now
+                                                        // We need to dig into this
+                                                        var newCPUTime = OperatingSystem == OperatingSystem.OSX ? TimeSpan.Zero : process.TotalProcessorTime;
+                                                        var elapsed = now.Subtract(lastMonitorTime).TotalMilliseconds;
+                                                        var rawCpu = (newCPUTime - oldCPUTime).TotalMilliseconds / elapsed * 100;
+                                                        var cpu = Math.Round(rawCpu / Environment.ProcessorCount);
+                                                        lastMonitorTime = now;
+
+                                                        process.Refresh();
+
+                                                        // Ignore first measure
+                                                        if (oldCPUTime != TimeSpan.Zero)
+                                                        {
+                                                            job.Measurements.Enqueue(new Measurement
+                                                            {
+                                                                Name = "benchmarks/working-set",
+                                                                Timestamp = now,
+                                                                Value = Math.Ceiling((double)process.WorkingSet64 / 1024 / 1024) // < 1MB still needs to appear as 1MB
+                                                            });
+
+                                                            job.Measurements.Enqueue(new Measurement
+                                                            {
+                                                                Name = "benchmarks/cpu",
+                                                                Timestamp = now,
+                                                                Value = cpu
+                                                            });
+
+                                                            job.Measurements.Enqueue(new Measurement
+                                                            {
+                                                                Name = "benchmarks/cpu/raw",
+                                                                Timestamp = now,
+                                                                Value = rawCpu
+                                                            });
                                                         }
 
-                                                        var workingSet = (long)(memory * factor);
-
-                                                        job.Measurements.Enqueue(new Measurement
-                                                        {
-                                                            Name = "benchmarks/working-set",
-                                                            Timestamp = now,
-                                                            Value = Math.Ceiling((double)workingSet / 1024 / 1024) // < 1MB still needs to appear as 1MB
-                                                        });
-
-                                                        job.Measurements.Enqueue(new Measurement
-                                                        {
-                                                            Name = "benchmarks/cpu",
-                                                            Timestamp = now,
-                                                            Value = cpu
-                                                        });
-
-                                                        job.Measurements.Enqueue(new Measurement
-                                                        {
-                                                            Name = "benchmarks/cpu/raw",
-                                                            Timestamp = now,
-                                                            Value = rawCPU
-                                                        });
+                                                        oldCPUTime = newCPUTime;
 
                                                         if (OperatingSystem == OperatingSystem.Linux)
                                                         {
@@ -826,7 +923,7 @@ namespace Microsoft.Crank.Agent
                                                                 {
                                                                     Name = "benchmarks/swap",
                                                                     Timestamp = now,
-                                                                    Value = (int)( await GetSwapBytesAsync()) / 1024 / 1024
+                                                                    Value = (await GetSwapBytesAsync()) / 1024 / 1024
                                                                 });
                                                             }
                                                             catch (Exception e)
@@ -837,98 +934,17 @@ namespace Microsoft.Crank.Agent
                                                     }
                                                 }
                                             }
-                                            else if (process != null)
+                                            finally
                                             {
-                                                if (process.HasExited)
-                                                {
-                                                    if (process.ExitCode != 0)
-                                                    {
-                                                        Log.WriteLine($"Job failed");
-
-                                                        job.Error = $"Job failed at runtime:\n{job.Output}";
-
-                                                        if (job.State != JobState.Deleting)
-                                                        {
-                                                            Log.WriteLine($"{job.State} -> Failed");
-                                                            job.State = JobState.Failed;
-                                                        }
-                                                    }
-                                                    else
-                                                    {
-                                                        Log.WriteLine($"Process has exited ({process.ExitCode})");
-
-                                                        // Don't revert a Deleting state by mistake
-                                                        if (job.State != JobState.Deleting)
-                                                        {
-                                                            Log.WriteLine($"{job.State} -> Stopped");
-                                                            job.State = JobState.Stopped;
-                                                        }
-                                                    }
-                                                }
-                                                else
-                                                {
-                                                    // TODO: Accessing the TotalProcessorTime on OSX throws so just leave it as 0 for now
-                                                    // We need to dig into this
-                                                    var newCPUTime = OperatingSystem == OperatingSystem.OSX ? TimeSpan.Zero : process.TotalProcessorTime;
-                                                    var elapsed = now.Subtract(lastMonitorTime).TotalMilliseconds;
-                                                    var rawCpu = (newCPUTime - oldCPUTime).TotalMilliseconds / elapsed * 100;
-                                                    var cpu = Math.Round(rawCpu / Environment.ProcessorCount);
-                                                    lastMonitorTime = now;
-
-                                                    process.Refresh();
-
-                                                    // Ignore first measure
-                                                    if (oldCPUTime != TimeSpan.Zero)
-                                                    {
-                                                        job.Measurements.Enqueue(new Measurement
-                                                        {
-                                                            Name = "benchmarks/working-set",
-                                                            Timestamp = now,
-                                                            Value = Math.Ceiling((double)process.WorkingSet64 / 1024 / 1024) // < 1MB still needs to appear as 1MB
-                                                        });
-
-                                                        job.Measurements.Enqueue(new Measurement
-                                                        {
-                                                            Name = "benchmarks/cpu",
-                                                            Timestamp = now,
-                                                            Value = cpu
-                                                        });
-
-                                                        job.Measurements.Enqueue(new Measurement
-                                                        {
-                                                            Name = "benchmarks/cpu/raw",
-                                                            Timestamp = now,
-                                                            Value = rawCpu
-                                                        });
-                                                    }
-
-                                                    oldCPUTime = newCPUTime;
-
-                                                    if (OperatingSystem == OperatingSystem.Linux)
-                                                    {
-                                                        try
-                                                        {
-                                                            job.Measurements.Enqueue(new Measurement
-                                                            {
-                                                                Name = "benchmarks/swap",
-                                                                Timestamp = now,
-                                                                Value = (await GetSwapBytesAsync()) / 1024 / 1024
-                                                            });
-                                                        }
-                                                        catch (Exception e)
-                                                        {
-                                                            Log.WriteLine($"[ERROR] Could not get swap memory:" + e.ToString());
-                                                        }
-                                                    }
-                                                }
+                                                // Resume once we finished processing all connections
+                                                context.Timer.Change(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
                                             }
                                         }
                                         finally
                                         {
-                                            // Resume once we finished processing all connections
-                                            timer.Change(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+                                            // Exit the lock now
+                                            Monitor.Exit(context);
                                         }
-                                        
                                     }, null, TimeSpan.FromTicks(0), TimeSpan.FromSeconds(1));
 
                                     disposed = false;
@@ -1099,12 +1115,12 @@ namespace Microsoft.Crank.Agent
                                     }
                                 }
 
-                                lock (context.ExecutionLock)
+                                lock (context)
                                 {
                                     disposed = true;
 
-                                    timer?.Dispose();
-                                    timer = null;
+                                    context.Timer?.Dispose();
+                                    context.Timer = null;
                                 }
 
                                 if (process != null && !process.HasExited)
