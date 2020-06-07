@@ -1076,7 +1076,7 @@ namespace Microsoft.Crank.Agent
                                 }
 
                                 // Check if we already passed here
-                                if (timer == null)
+                                if (context.Timer == null)
                                 {
                                     return;
                                 }
@@ -1281,7 +1281,6 @@ namespace Microsoft.Crank.Agent
                             context.Process = process;
 
                             context.WorkingDirectory = workingDirectory;
-                            context.Timer = timer;
                             context.ExecutionLock = executionLock;
                             context.Disposed = disposed;
                             context.BenchmarksDir = benchmarksDir;
