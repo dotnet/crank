@@ -3,6 +3,7 @@
 
 using System;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace Microsoft.Crank.Agent
 {
@@ -12,7 +13,7 @@ namespace Microsoft.Crank.Agent
         private static readonly TimeSpan CheckoutTimeout = TimeSpan.FromSeconds(30);
         private static readonly TimeSpan SubModuleTimeout = TimeSpan.FromSeconds(30);
 
-        public static string Clone(string path, string repository, bool shallow = true, string branch = null)
+        public static async Task<string> CloneAsync(string path, string repository, bool shallow = true, string branch = null)
         {
             Log.WriteLine($"Cloning {repository} with branch '{branch}'");
 
@@ -20,7 +21,7 @@ namespace Microsoft.Crank.Agent
 
             var depth = shallow ? "--depth 1" : "";
 
-            var result = RunGitCommand(path, $"clone -c core.longpaths=true {depth} {branchParam} {repository}", CloneTimeout, retries: 5);
+            var result = await RunGitCommandAsync(path, $"clone -c core.longpaths=true {depth} {branchParam} {repository}", CloneTimeout, retries: 5);
 
             var match = Regex.Match(result.StandardError, @"'(.*)'");
             if (match.Success && match.Groups.Count == 2)
@@ -33,19 +34,19 @@ namespace Microsoft.Crank.Agent
             }
         }
 
-        public static void Checkout(string path, string branchOrCommit)
+        public static Task CheckoutAsync(string path, string branchOrCommit)
         {
-            RunGitCommand(path, $"checkout {branchOrCommit}", CheckoutTimeout, retries: 5);
+            return RunGitCommandAsync(path, $"checkout {branchOrCommit}", CheckoutTimeout, retries: 5);
         }
 
-        public static void InitSubModules(string path)
+        public static Task InitSubModulesAsync(string path)
         {
-            RunGitCommand(path, $"submodule update --init", SubModuleTimeout, retries: 5);
+            return RunGitCommandAsync(path, $"submodule update --init", SubModuleTimeout, retries: 5);
         }
 
-        private static ProcessResult RunGitCommand(string path, string command, TimeSpan? timeout, bool throwOnError = true, int retries = 0)
+        private static Task<ProcessResult> RunGitCommandAsync(string path, string command, TimeSpan? timeout, bool throwOnError = true, int retries = 0)
         {
-            return ProcessUtil.RetryOnException(retries, () => ProcessUtil.Run("git", command, timeout, workingDirectory: path, throwOnError: throwOnError, captureOutput: true, captureError: true));
+            return ProcessUtil.RetryOnExceptionAsync(retries, () => ProcessUtil.RunAsync("git", command, timeout, workingDirectory: path, throwOnError: throwOnError, captureOutput: true, captureError: true));
         }
     }
 }

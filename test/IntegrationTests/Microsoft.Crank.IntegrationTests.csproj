@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <AssemblyName>Microsoft.Crank.IntegrationTests</AssemblyName>
+    <IsTestProject>true</IsTestProject>
+    <IsUnitTestProject>true</IsUnitTestProject>
+    <TestRunnerName>XUnit</TestRunnerName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Microsoft.Crank.Agent\Microsoft.Crank.Agent.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Crank.Controller\Microsoft.Crank.Controller.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="assets\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Remove="assets\**\*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Hello Include="$(MSBuildProjectDirectory)\..\..\samples\hello\**\*" />
+    <Bombardier Include="$(MSBuildProjectDirectory)\..\..\src\Microsoft.Crank.Jobs.Bombardier\**\*" />
+  </ItemGroup>
+
+  <Target Name="CopyFiles" AfterTargets="BeforeBuild">
+    <Copy SourceFiles="@(Hello)" DestinationFolder="$(OutputPath)\hello" />
+    <Copy SourceFiles="@(Bombardier)" DestinationFolder="$(OutputPath)\bombardier" />
+  </Target>
+
+</Project>
