@@ -17,7 +17,7 @@ namespace Microsoft.Crank.Agent
 
         public string WorkingDirectory { get; set; }
         public Timer Timer { get; set; }
-        public object ExecutionLock = new object();
+        public object ExecutionLock { get; set; } = new object();
         public bool Disposed { get; set; }
         public string BenchmarksDir { get; set; }
         public DateTime StartMonitorTime { get; set; } = DateTime.UtcNow;
@@ -28,10 +28,10 @@ namespace Microsoft.Crank.Agent
 
         public ulong EventPipeSessionId { get; set; }
         public Task EventPipeTask { get; set; }
-        public bool EventPipeTerminated = false;
+        public bool EventPipeTerminated { get; set; }
 
         public ulong MeasurementsSessionId { get; set; }
         public Task MeasurementsTask { get; set; }
-        public bool MeasurementsTerminated = false;
+        public bool MeasurementsTerminated { get; set; }
     }
 }
