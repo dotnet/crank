@@ -12,12 +12,9 @@ namespace Microsoft.Crank.Agent
     public class JobContext
     {
         public Job Job { get; set; }
-
         public Process Process { get; set; }
-
         public string WorkingDirectory { get; set; }
         public Timer Timer { get; set; }
-        public object ExecutionLock { get; set; } = new object();
         public bool Disposed { get; set; }
         public string BenchmarksDir { get; set; }
         public DateTime StartMonitorTime { get; set; } = DateTime.UtcNow;

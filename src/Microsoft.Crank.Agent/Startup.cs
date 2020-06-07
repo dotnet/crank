@@ -714,9 +714,7 @@ namespace Microsoft.Crank.Agent
                                         // - The previous the computation took long enough that the next scan tried to run in parallel
                                         // In either case just do nothing and end the timer callback as soon as possible
 
-                                        var localContext = context;
-
-                                        if (!Monitor.TryEnter(localContext.ExecutionLock))
+                                        if (!Monitor.TryEnter(_synLock))
                                         {
                                             return;
                                         }
@@ -943,8 +941,7 @@ namespace Microsoft.Crank.Agent
                                         }
                                         finally
                                         {
-                                            // Exit the lock now
-                                            Monitor.Exit(localContext.ExecutionLock);
+                                            Monitor.Exit(_synLock);
                                         }
                                     }, null, TimeSpan.FromTicks(0), TimeSpan.FromSeconds(1));
 
@@ -1116,7 +1113,7 @@ namespace Microsoft.Crank.Agent
                                     }
                                 }
 
-                                Monitor.Enter(context.ExecutionLock);
+                                Monitor.Enter(_synLock);
 
                                 try
                                 {
@@ -1127,7 +1124,7 @@ namespace Microsoft.Crank.Agent
                                 }
                                 finally
                                 {
-                                    Monitor.Exit(context.ExecutionLock);
+                                    Monitor.Exit(_synLock);
                                 }
 
                                 if (process != null && !process.HasExited)
