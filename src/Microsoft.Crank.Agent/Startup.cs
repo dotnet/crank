@@ -443,7 +443,6 @@ namespace Microsoft.Crank.Agent
                             var process = context.Process;
 
                             var workingDirectory = context.WorkingDirectory;
-                            var executionLock = context.ExecutionLock;
                             var disposed = context.Disposed;
                             var benchmarksDir = context.BenchmarksDir;
                             var startMonitorTime = context.StartMonitorTime;
@@ -715,7 +714,9 @@ namespace Microsoft.Crank.Agent
                                         // - The previous the computation took long enough that the next scan tried to run in parallel
                                         // In either case just do nothing and end the timer callback as soon as possible
 
-                                        if (!Monitor.TryEnter(context))
+                                        var localContext = context;
+
+                                        if (!Monitor.TryEnter(localContext.ExecutionLock))
                                         {
                                             return;
                                         }
@@ -943,7 +944,7 @@ namespace Microsoft.Crank.Agent
                                         finally
                                         {
                                             // Exit the lock now
-                                            Monitor.Exit(context);
+                                            Monitor.Exit(localContext.ExecutionLock);
                                         }
                                     }, null, TimeSpan.FromTicks(0), TimeSpan.FromSeconds(1));
 
@@ -1281,7 +1282,6 @@ namespace Microsoft.Crank.Agent
                             context.Process = process;
 
                             context.WorkingDirectory = workingDirectory;
-                            context.ExecutionLock = executionLock;
                             context.Disposed = disposed;
                             context.BenchmarksDir = benchmarksDir;
                             context.StartMonitorTime = startMonitorTime;
