@@ -1116,12 +1116,18 @@ namespace Microsoft.Crank.Agent
                                     }
                                 }
 
-                                lock (context)
+                                Monitor.Enter(context.ExecutionLock);
+
+                                try
                                 {
                                     disposed = true;
 
                                     context.Timer?.Dispose();
                                     context.Timer = null;
+                                }
+                                finally
+                                {
+                                    Monitor.Exit(context.ExecutionLock);
                                 }
 
                                 if (process != null && !process.HasExited)
