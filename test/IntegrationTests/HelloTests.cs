@@ -18,9 +18,9 @@ namespace Microsoft.Crank.IntegrationTests
         public HelloTests(ITestOutputHelper output)
         {
             _output = output;
-            _crankDirectory = Path.GetDirectoryName(typeof(BuildTests).Assembly.Location).Replace("Microsoft.Crank.IntegrationTests", "Microsoft.Crank.Controller");
-            _crankAgentDirectory = Path.GetDirectoryName(typeof(BuildTests).Assembly.Location).Replace("Microsoft.Crank.IntegrationTests", "Microsoft.Crank.Agent");
-            _crankTestsDirectory = Path.GetDirectoryName(typeof(BuildTests).Assembly.Location);
+            _crankDirectory = Path.GetDirectoryName(typeof(HelloTests).Assembly.Location).Replace("Microsoft.Crank.IntegrationTests", "Microsoft.Crank.Controller");
+            _crankAgentDirectory = Path.GetDirectoryName(typeof(HelloTests).Assembly.Location).Replace("Microsoft.Crank.IntegrationTests", "Microsoft.Crank.Agent");
+            _crankTestsDirectory = Path.GetDirectoryName(typeof(HelloTests).Assembly.Location);
             _output.WriteLine($"Running tests in {_crankDirectory}");
         }
 
