@@ -715,7 +715,11 @@ namespace Microsoft.Crank.Agent
                                         // - We're about to dispose so we don't care to run the scan callback anyways.
                                         // - The previous the computation took long enough that the next scan tried to run in parallel
                                         // In either case just do nothing and end the timer callback as soon as possible
-                                        if (!Monitor.TryEnter(executionLock))
+
+                                        // copy lock in the lambda
+                                        var localLock = executionLock;
+
+                                        if (!Monitor.TryEnter(localLock))
                                         {
                                             return;
                                         }
@@ -943,7 +947,7 @@ namespace Microsoft.Crank.Agent
                                         finally
                                         {
                                             // Exit the lock now
-                                            Monitor.Exit(executionLock);
+                                            Monitor.Exit(localLock);
                                         }
                                     }, null, TimeSpan.FromTicks(0), TimeSpan.FromSeconds(1));
 
@@ -1115,7 +1119,7 @@ namespace Microsoft.Crank.Agent
                                     }
                                 }
 
-                                lock (executionLock)
+                                lock (job)
                                 {
                                     disposed = true;
 

@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- We need the Agent to be built before the tests run -->
     <ProjectReference Include="..\..\src\Microsoft.Crank.Agent\Microsoft.Crank.Agent.csproj" />
   </ItemGroup>
 
