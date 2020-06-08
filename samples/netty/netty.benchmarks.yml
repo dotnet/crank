@@ -13,7 +13,7 @@ jobs:
       dockerFile: frameworks/Java/netty/netty.dockerfile
       dockerImageName: netty
       dockerContextDirectory: frameworks/Java/netty
-    readyStateText: Httpd started.
+    port: 8080
 
 scenarios:
   netty:
