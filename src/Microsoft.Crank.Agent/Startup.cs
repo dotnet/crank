@@ -443,7 +443,6 @@ namespace Microsoft.Crank.Agent
                             var process = context.Process;
 
                             var workingDirectory = context.WorkingDirectory;
-                            var disposed = context.Disposed;
                             var benchmarksDir = context.BenchmarksDir;
                             var startMonitorTime = context.StartMonitorTime;
 
@@ -721,7 +720,7 @@ namespace Microsoft.Crank.Agent
 
                                         try
                                         {
-                                            if (disposed)
+                                            if (context.Disposed)
                                             {
                                                 return;
                                             }
@@ -945,7 +944,6 @@ namespace Microsoft.Crank.Agent
                                         }
                                     }, null, TimeSpan.FromTicks(0), TimeSpan.FromSeconds(1));
 
-                                    disposed = false;
                                 }
                                 catch (Exception e)
                                 {
@@ -1117,7 +1115,7 @@ namespace Microsoft.Crank.Agent
 
                                 try
                                 {
-                                    disposed = true;
+                                    context.Disposed = true;
 
                                     context.Timer?.Dispose();
                                     context.Timer = null;
@@ -1285,7 +1283,6 @@ namespace Microsoft.Crank.Agent
                             context.Process = process;
 
                             context.WorkingDirectory = workingDirectory;
-                            context.Disposed = disposed;
                             context.BenchmarksDir = benchmarksDir;
                             context.StartMonitorTime = startMonitorTime;
 
