@@ -25,10 +25,22 @@ In cases where you want to iterate quickly on an application, it's easier to do 
 
 The `source` property of a job has a `localFolder` property that can be set to a local folder. 
 
-The following command line is altering the scenario by redefining the `source` property of the **server** job. Because we are only sending the folder containing the project, we also need to redefine the project file location relative to the new root.
+The file `/crank/samples/local/local.benchmarks.yml` demonstrates how to use this property instead.
+
+```yml
+  server:
+    source:
+      localFolder: ../../samples/hello
+      project: hello.csproj
+    readyStateText: Application started.
+```
+
+The path is relative to the configuration file that contains it.
+
+Run the following command line to execute this job.
 
 ```
-> crank --config /crank/samples/hello/hello.benchmarks.yml --scenario hello --profile local --server.source.localFolder "/crank/samples/hello" --server.source.project "hello.csproj"
+> crank --config /crank/samples/hello/hello.benchmarks.yml --scenario hello --profile local
 ```
 
 With these new arguments, Crank will zip and upload the contents of the `/crank/samples/hello` folder when the scenario is executed. The agent won't have to clone a repository.
@@ -49,7 +61,8 @@ public static void Main(string[] args)
 Execute the following command:
 
 ```
-> crank --config /crank/samples/hello/hello.benchmarks.yml --scenario hello --profile local --application.source.localFolder "/crank/samples/hello" --application.source.project "hello.csproj" --application.options.displayOutput true
+> crank --config /crank/samples/hello/hello.benchmarks.yml --scenario hello --profile local
+--application.options.displayOutput true
 ```
 
 Notice the `--application.options.displayOutput` argument which will stream the output of the application from the agent:

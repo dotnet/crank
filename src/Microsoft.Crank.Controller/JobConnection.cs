@@ -127,7 +127,7 @@ namespace Microsoft.Crank.Controller
                         var tempFilename = Path.GetTempFileName();
                         File.Delete(tempFilename);
 
-                        Log.Write("Zipping the source folder in " + tempFilename);
+                        Log.Write($"Using local folder: {Job.Source.LocalFolder}'");
 
                         var sourceDir = Job.Source.LocalFolder;
 
