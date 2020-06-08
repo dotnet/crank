@@ -707,7 +707,7 @@ namespace Microsoft.Crank.Agent
                                     var lastMonitorTime = startMonitorTime;
                                     var oldCPUTime = TimeSpan.Zero;
 
-                                    context.Timer = new Timer(async _ =>
+                                    context.Timer = new Timer(_ =>
                                     {
                                         // If we couldn't get the lock it means one of 2 things are true:
                                         // - We're about to dispose so we don't care to run the scan callback anyways.
@@ -747,9 +747,9 @@ namespace Microsoft.Crank.Agent
                                                 if (!String.IsNullOrEmpty(dockerImage))
                                                 {
                                                     // Check the container is still running
-                                                    var inspectResult = await ProcessUtil.RunAsync("docker", "inspect -f {{.State.Running}} " + dockerContainerId,
+                                                    var inspectResult = ProcessUtil.RunAsync("docker", "inspect -f {{.State.Running}} " + dockerContainerId,
                                                             captureOutput: true,
-                                                            log: false, throwOnError: false);
+                                                            log: false, throwOnError: false).GetAwaiter().GetResult();
 
                                                     if (String.Equals(inspectResult.StandardOutput.Trim(), "false"))
                                                     {
@@ -760,8 +760,8 @@ namespace Microsoft.Crank.Agent
                                                     else
                                                     {
                                                         // Get docker stats
-                                                        var result = await ProcessUtil.RunAsync("docker", "container stats --no-stream --format \"{{.CPUPerc}}-{{.MemUsage}}\" " + dockerContainerId,
-                                                                log: false, throwOnError: false, captureOutput: true, captureError: true);
+                                                        var result = ProcessUtil.RunAsync("docker", "container stats --no-stream --format \"{{.CPUPerc}}-{{.MemUsage}}\" " + dockerContainerId,
+                                                                log: false, throwOnError: false, captureOutput: true, captureError: true).GetAwaiter().GetResult();
 
                                                         var stats = result.StandardOutput;
 
@@ -828,7 +828,7 @@ namespace Microsoft.Crank.Agent
                                                                 Value = rawCPU
                                                             });
 
-                                                            if (OperatingSystem == OperatingSystem.Linux)
+                                                            if (job.CollectSwapMempry && OperatingSystem == OperatingSystem.Linux)
                                                             {
                                                                 try
                                                                 {
@@ -836,7 +836,7 @@ namespace Microsoft.Crank.Agent
                                                                     {
                                                                         Name = "benchmarks/swap",
                                                                         Timestamp = now,
-                                                                        Value = (int)( await GetSwapBytesAsync()) / 1024 / 1024
+                                                                        Value = GetSwapBytesAsync().GetAwaiter().GetResult() / 1024 / 1024
                                                                     });
                                                                 }
                                                                 catch (Exception e)
@@ -914,7 +914,7 @@ namespace Microsoft.Crank.Agent
 
                                                         oldCPUTime = newCPUTime;
 
-                                                        if (OperatingSystem == OperatingSystem.Linux)
+                                                        if (job.CollectSwapMempry && OperatingSystem == OperatingSystem.Linux)
                                                         {
                                                             try
                                                             {
@@ -922,7 +922,7 @@ namespace Microsoft.Crank.Agent
                                                                 {
                                                                     Name = "benchmarks/swap",
                                                                     Timestamp = now,
-                                                                    Value = (await GetSwapBytesAsync()) / 1024 / 1024
+                                                                    Value = GetSwapBytesAsync().GetAwaiter().GetResult() / 1024 / 1024
                                                                 });
                                                             }
                                                             catch (Exception e)

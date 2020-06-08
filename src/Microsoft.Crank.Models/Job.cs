@@ -96,6 +96,7 @@ namespace Microsoft.Crank.Models
         // Perfview/Perfcollect
         public bool Collect { get; set; }
         public string CollectArguments { get; set; }
+        public bool CollectSwapMempry { get; set; }
         public string PerfViewTraceFile { get; set; }
 
         // Other collection options
