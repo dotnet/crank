@@ -4,9 +4,8 @@ imports:
 jobs:
   server:
     source:
-      repository: https://github.com/dotnet/crank
-      branchOrCommit: master
-      project: samples/hello/hello.csproj
+      localFolder: ../../samples/hello
+      project: hello.csproj
     readyStateText: Application started.
 
 scenarios:
