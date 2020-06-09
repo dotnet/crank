@@ -695,7 +695,7 @@ namespace Microsoft.Crank.Agent
 
                                             try
                                             {
-                                                if (context.Disposed)
+                                                if (context.Disposed || context.Timer == null)
                                                 {
                                                     return;
                                                 }
