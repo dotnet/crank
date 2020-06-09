@@ -620,17 +620,17 @@ namespace Microsoft.Crank.Agent
 
                                     if (job.Source.IsDocker())
                                     {
-                                        buildAndRunTask = Task.Run(async () => 
+                                        buildAndRunTask = Task.Run(async () =>
                                         {
                                             (dockerContainerId, dockerImage, workingDirectory) = await DockerBuildAndRun(tempDir, job, dockerHostname, cancellationToken: cts.Token);
                                         });
                                     }
                                     else
                                     {
-                                        buildAndRunTask = Task.Run(async () => 
+                                        buildAndRunTask = Task.Run(async () =>
                                         {
                                             var benchmarksDir = await CloneRestoreAndBuild(tempDir, job, _dotnethome, cts.Token);
-                                            
+
                                             if (job.State != JobState.Failed && benchmarksDir != null)
                                             {
                                                 process = await StartProcess(hostname, Path.Combine(tempDir, benchmarksDir), job, _dotnethome);
@@ -641,7 +641,7 @@ namespace Microsoft.Crank.Agent
 
                                                 workingDirectory = process.StartInfo.WorkingDirectory;
                                             }
-                                        });   
+                                        });
                                     }
 
                                     while (job.State != JobState.Failed && !buildAndRunTask.IsCompleted)
@@ -672,7 +672,7 @@ namespace Microsoft.Crank.Agent
                                             cts.Cancel();
                                             await buildAndRunTask;
                                         }
-                                    }       
+                                    }
 
                                     if (job.State != JobState.Failed)
                                     {
@@ -680,41 +680,48 @@ namespace Microsoft.Crank.Agent
                                         var lastMonitorTime = startMonitorTime;
                                         var oldCPUTime = TimeSpan.Zero;
 
-                                      timer = new Timer(_ =>
+                                        context.Timer = new Timer(_ =>
                                         {
-                                          
-                                        if (!Monitor.TryEnter(_synLock))
-                                        {
-                                            return;
-                                        }
 
-                                        if (context.Disposed)
-                                        {
-                                            return;
-                                        }
-                                      
-                                        // Pause the timer while we're running
-                                        context.Timer.Change(Timeout.Infinite, Timeout.Infinite);
+                                            // If we couldn't get the lock it means one of 2 things are true:
+                                            // - We're about to dispose so we don't care to run the scan callback anyways.
+                                            // - The previous the computation took long enough that the next scan tried to run in parallel
+                                            // In either case just do nothing and end the timer callback as soon as possible
 
-                                        try
-                                        {
-                                            var now = DateTime.UtcNow;
-
-
-                                            // Stops the job in case the driver is not running
-                                            if (now - job.LastDriverCommunicationUtc > DriverTimeout)
+                                            if (!Monitor.TryEnter(_synLock))
                                             {
-                                                Log.WriteLine($"[Heartbeat] Driver didn't communicate for {DriverTimeout}. Halting job '{job.Service}' ({job.Id}).");
-                                                if (job.State == JobState.Running || job.State == JobState.TraceCollected)
-                                                {
-                                                    Log.WriteLine($"{job.State} -> Stopping");
-                                                    job.State = JobState.Stopping;
-                                                }
+                                                return;
                                             }
+
+                                            try
+                                            {
+                                                if (context.Disposed)
+                                                {
+                                                    return;
+                                                }
+
+                                                // Pause the timer while we're running
+                                                context.Timer.Change(Timeout.Infinite, Timeout.Infinite);
+
+                                                try
+                                                {
+                                                    var now = DateTime.UtcNow;
+
+
+                                                    // Stops the job in case the driver is not running
+                                                    if (now - job.LastDriverCommunicationUtc > DriverTimeout)
+                                                    {
+                                                        Log.WriteLine($"[Heartbeat] Driver didn't communicate for {DriverTimeout}. Halting job '{job.Service}' ({job.Id}).");
+                                                        if (job.State == JobState.Running || job.State == JobState.TraceCollected)
+                                                        {
+                                                            Log.WriteLine($"{job.State} -> Stopping");
+                                                            job.State = JobState.Stopping;
+                                                        }
+                                                    }
 
                                                     if (!String.IsNullOrEmpty(dockerImage))
                                                     {
-                                                      // Check the container is still running
+                                                        // Check the container is still running
                                                         var inspectResult = ProcessUtil.RunAsync("docker", "inspect -f {{.State.Running}} " + dockerContainerId,
                                                                 captureOutput: true,
                                                                 log: false, throwOnError: false).GetAwaiter().GetResult();
@@ -728,9 +735,9 @@ namespace Microsoft.Crank.Agent
                                                         }
                                                         else
                                                         {
-                                                          // Get docker stats
-                                                          var result = ProcessUtil.RunAsync("docker", "container stats --no-stream --format \"{{.CPUPerc}}-{{.MemUsage}}\" " + dockerContainerId,
-                                                                  log: false, throwOnError: false, captureOutput: true, captureError: true).GetAwaiter().GetResult();
+                                                            // Get docker stats
+                                                            var result = ProcessUtil.RunAsync("docker", "container stats --no-stream --format \"{{.CPUPerc}}-{{.MemUsage}}\" " + dockerContainerId,
+                                                                    log: false, throwOnError: false, captureOutput: true, captureError: true).GetAwaiter().GetResult();
 
                                                             var stats = result.StandardOutput;
 
@@ -775,7 +782,7 @@ namespace Microsoft.Crank.Agent
                                                                 }
 
                                                                 var workingSet = (long)(memory * factor);
-                                                              
+
                                                                 job.Measurements.Enqueue(new Measurement
                                                                 {
                                                                     Name = "benchmarks/working-set",
@@ -797,22 +804,22 @@ namespace Microsoft.Crank.Agent
                                                                     Value = rawCPU
                                                                 });
 
-                                                            if (job.CollectSwapMemory && OperatingSystem == OperatingSystem.Linux)
-                                                            {
-                                                                try
+                                                                if (job.CollectSwapMemory && OperatingSystem == OperatingSystem.Linux)
                                                                 {
-                                                                    job.Measurements.Enqueue(new Measurement
+                                                                    try
                                                                     {
-                                                                        Name = "benchmarks/swap",
-                                                                        Timestamp = now,
-                                                                        Value = GetSwapBytesAsync().GetAwaiter().GetResult() / 1024 / 1024
-                                                                    });
+                                                                        job.Measurements.Enqueue(new Measurement
+                                                                        {
+                                                                            Name = "benchmarks/swap",
+                                                                            Timestamp = now,
+                                                                            Value = GetSwapBytesAsync().GetAwaiter().GetResult() / 1024 / 1024
+                                                                        });
+                                                                    }
+                                                                    catch (Exception e)
+                                                                    {
+                                                                        Log.WriteLine($"[ERROR] Could not get swap memory:" + e.ToString());
+                                                                    }
                                                                 }
-                                                                catch (Exception e)
-                                                                {
-                                                                    Log.WriteLine($"[ERROR] Could not get swap memory:" + e.ToString());
-                                                                }
-                                                              }
                                                             }
                                                         }
                                                     }
@@ -878,21 +885,26 @@ namespace Microsoft.Crank.Agent
                                                                     Name = "benchmarks/cpu/raw",
                                                                     Timestamp = now,
                                                                     Value = rawCpu
+                                                                });
+
+                                                                oldCPUTime = newCPUTime;
+
+                                                                if (job.CollectSwapMemory && OperatingSystem == OperatingSystem.Linux)
+                                                                {
+                                                                    try
+                                                                    {
+                                                                        job.Measurements.Enqueue(new Measurement
+                                                                        {
+                                                                            Name = "benchmarks/swap",
+                                                                            Timestamp = now,
+                                                                            Value = GetSwapBytesAsync().GetAwaiter().GetResult() / 1024 / 1024
+                                                                        });
+                                                                    }
+                                                                    catch (Exception e)
+                                                                    {
+                                                                        Log.WriteLine($"[ERROR] Could not get swap memory:" + e.ToString());
+                                                                    }
                                                                 }
-                                                                                         
-                                                            oldCPUTime = newCPUTime;
-                                                                                         
-                                                        if (job.CollectSwapMemory && OperatingSystem == OperatingSystem.Linux)
-                                                        {
-                                                            try
-                                                            {
-                                                                Name = "benchmarks/swap",
-                                                                Timestamp = now,
-                                                                Value = GetSwapBytesAsync().GetAwaiter().GetResult() / 1024 / 1024
-                                                            }
-                                                            catch (Exception e)
-                                                            {
-                                                                Log.WriteLine($"[ERROR] Could not get swap memory:" + e.ToString());
                                                             }
                                                         }
                                                     }
@@ -900,16 +912,14 @@ namespace Microsoft.Crank.Agent
                                                 finally
                                                 {
                                                     // Resume once we finished processing all connections
-                                                    timer.Change(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+                                                    context.Timer.Change(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
                                                 }
-                                            
-                                        }
-                                        finally
-                                        {
-                                            Monitor.Exit(_synLock);
-                                        }
-                                    }, null, TimeSpan.FromTicks(0), TimeSpan.FromSeconds(1));
-
+                                            }
+                                            finally
+                                            {
+                                                Monitor.Exit(_synLock);
+                                            }
+                                        }, null, TimeSpan.FromTicks(0), TimeSpan.FromSeconds(1));
                                     }
                                 }
                                 catch (Exception e)
@@ -2064,7 +2074,7 @@ namespace Microsoft.Crank.Agent
                         log: false,
                         workingDirectory: _dotnetInstallPath,
                         environmentVariables: env,
-                                cancellationToken: cancellationToken), 
+                                cancellationToken: cancellationToken),
                             cancellationToken);
 
                         _installedSdks.Add(sdkVersion);
@@ -2080,7 +2090,7 @@ namespace Microsoft.Crank.Agent
                         log: false,
                         workingDirectory: _dotnetInstallPath,
                         environmentVariables: env,
-                                cancellationToken: cancellationToken), 
+                                cancellationToken: cancellationToken),
                             cancellationToken);
 
                         _installedDotnetRuntimes.Add(runtimeVersion);
@@ -2103,7 +2113,7 @@ namespace Microsoft.Crank.Agent
                                 log: false,
                                 workingDirectory: _dotnetInstallPath,
                                 environmentVariables: env,
-                                    cancellationToken: cancellationToken), 
+                                    cancellationToken: cancellationToken),
                                 cancellationToken);
 
                                 _installedDesktopRuntimes.Add(desktopVersion);
@@ -2138,7 +2148,7 @@ namespace Microsoft.Crank.Agent
                         log: false,
                         workingDirectory: _dotnetInstallPath,
                         environmentVariables: env,
-                                cancellationToken: cancellationToken), 
+                                cancellationToken: cancellationToken),
                             cancellationToken);
 
                         _installedAspNetRuntimes.Add(aspNetCoreVersion);
@@ -2156,10 +2166,10 @@ namespace Microsoft.Crank.Agent
                         log: false,
                         workingDirectory: _dotnetInstallPath,
                         environmentVariables: env,
-                                cancellationToken: cancellationToken), 
+                                cancellationToken: cancellationToken),
                             cancellationToken);
 
-                      _installedSdks.Add(sdkVersion);
+                        _installedSdks.Add(sdkVersion);
                     }
 
                     if (!_installedDotnetRuntimes.Contains(runtimeVersion))
@@ -2172,7 +2182,7 @@ namespace Microsoft.Crank.Agent
                         log: false,
                         workingDirectory: _dotnetInstallPath,
                         environmentVariables: env,
-                                cancellationToken: cancellationToken), 
+                                cancellationToken: cancellationToken),
                             cancellationToken);
 
                         _installedDotnetRuntimes.Add(runtimeVersion);
@@ -2189,7 +2199,7 @@ namespace Microsoft.Crank.Agent
                         log: false,
                         workingDirectory: _dotnetInstallPath,
                         environmentVariables: env,
-                                cancellationToken: cancellationToken), 
+                                cancellationToken: cancellationToken),
                             cancellationToken);
 
                         _installedAspNetRuntimes.Add(aspNetCoreVersion);
@@ -2495,7 +2505,7 @@ namespace Microsoft.Crank.Agent
                 {
                     throw new Exception("The job is trying to use the mono runtime but was not configured as self-contained.");
                 }
-		
+
                 await UseMonoRuntimeAsync(runtimeVersion, outputFolder, job.UseMonoRuntime);
             }
 
@@ -2780,7 +2790,7 @@ namespace Microsoft.Crank.Agent
             Log.WriteLine($"Patching {Path.GetFileName(runtimeConfigFilename)} ");
 
             var runtimeObject = JObject.Parse(File.ReadAllText(runtimeConfigFilename));
-            
+
             var runtimeOptions = runtimeObject["runtimeOptions"] as JObject;
 
             if (runtimeOptions.ContainsKey("includedFrameworks"))
@@ -2791,11 +2801,11 @@ namespace Microsoft.Crank.Agent
 
             // Remove exising "framework" (singular) node
             runtimeOptions.Remove("framework");
-            
+
             // Create the "frameworks" property instead
             var frameworks = new JArray();
             runtimeOptions.TryAdd("frameworks", frameworks);
-            
+
             frameworks.Add(
                     new JObject(
                         new JProperty("name", "Microsoft.NETCore.App"),
@@ -3485,7 +3495,7 @@ namespace Microsoft.Crank.Agent
 
         private static readonly Dictionary<string, MeasurementMetadata[]> MetadataProviders = new Dictionary<string, MeasurementMetadata[]>
         {
-            ["System.Runtime"] = new MeasurementMetadata[] 
+            ["System.Runtime"] = new MeasurementMetadata[]
             {
                 new MeasurementMetadata { Source = "System.Runtime", Name = "runtime-counter/cpu-usage", LongDescription = "Amount of time the process has utilized the CPU (ms)", ShortDescription = "CPU Usage (%)", Format = "n0", Aggregate = Operation.Max, Reduce = Operation.Max },
                 new MeasurementMetadata { Source = "System.Runtime", Name = "runtime-counter/working-set", LongDescription = "Amount of working set used by the process (MB)", ShortDescription = "Working Set (MB)", Format = "n0", Aggregate = Operation.Max, Reduce = Operation.Max },
@@ -3591,7 +3601,7 @@ namespace Microsoft.Crank.Agent
                         {
                             job.Metadata.Enqueue(metadata);
                         }
-                    }                
+                    }
                 }
 
                 Log.WriteLine($"Listening to counter event pipes (providers: {string.Join(", ", job.CounterProviders)})");
@@ -3614,7 +3624,7 @@ namespace Microsoft.Crank.Agent
                     Stream binaryReader = null;
 
                     var retries = 10;
-                    while (retries-- > 0) 
+                    while (retries-- > 0)
                     {
                         try
                         {
@@ -3725,7 +3735,7 @@ namespace Microsoft.Crank.Agent
                     Stream binaryReader = null;
 
                     var retries = 10;
-                    while (retries-- > 0) 
+                    while (retries-- > 0)
                     {
                         try
                         {
@@ -3744,7 +3754,7 @@ namespace Microsoft.Crank.Agent
                         Log.WriteLine("[ERROR] Failed to create measurements event pipe client");
                         return;
                     }
-                    
+
                     source = new EventPipeEventSource(binaryReader);
 
                     source.Dynamic.All += (eventData) =>
@@ -3801,7 +3811,7 @@ namespace Microsoft.Crank.Agent
                     else
                     {
                         Log.WriteLine($"[ERROR] {ex.ToString()}");
-                    }                    
+                    }
                 }
                 finally
                 {
@@ -3888,8 +3898,8 @@ namespace Microsoft.Crank.Agent
             try
             {
                 var packageName = "";
-                
-                switch (mode) 
+
+                switch (mode)
                 {
                     case "jit":
                         packageName = "Microsoft.NETCore.App.Runtime.Mono.linux-x64".ToLowerInvariant();
@@ -4444,9 +4454,9 @@ namespace Microsoft.Crank.Agent
                 if (File.Exists(GetDotNetExecutable(_dotnethome)))
                 {
                     ProcessUtil.RunAsync(
-                        GetDotNetExecutable(_dotnethome), 
-                        "build-server shutdown", 
-                        workingDirectory: _dotnethome, 
+                        GetDotNetExecutable(_dotnethome),
+                        "build-server shutdown",
+                        workingDirectory: _dotnethome,
                         timeout: TimeSpan.FromSeconds(20),
                         log: true).GetAwaiter().GetResult();
                 }
