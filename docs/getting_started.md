@@ -15,7 +15,15 @@ This tutorial shows how to benchmark a simple .NET web application using the __b
     > dotnet tool install -g Microsoft.Crank.Agent --version "0.1.0-*" 
     ```
 
-NB: Preview versions can be installed by adding this NuGet feed source: `--add-source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-tools/nuget/v3/index.json`
+    NB: Preview versions can be installed by running this command line:
+
+    ```text
+    > dotnet tool install -g Microsoft.Crank.Controller --version "0.1.0-*" --add-source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-tools/nuget/v3/index.json
+    ```
+    
+    ```text
+    > dotnet tool install -g Microsoft.Crank.Agent --version "0.1.0-*" --add-source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-tools/nuget/v3/index.json
+    ```
 
 3. Verify the installation was complete by running:
 
