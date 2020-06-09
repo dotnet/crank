@@ -171,6 +171,9 @@ namespace Microsoft.Crank.Models
         // Custom StartTimeout for the server job
         public TimeSpan StartTimeout { get; set; } = TimeSpan.Zero;
 
+        // Custom build timeout
+        public TimeSpan BuildTimeout { get; set; } = TimeSpan.Zero;
+
         public Options Options { get; set; } = new Options();
 
         public List<string> Features { get; set; } = new List<string>();
