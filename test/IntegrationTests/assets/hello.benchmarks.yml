@@ -1,0 +1,34 @@
+jobs:
+  server:
+    source:
+      localFolder: '../hello'
+      project: hello.csproj
+    readyStateText: Application started.
+  bombardier:
+    source:
+      localFolder: '../bombardier'
+      project: Microsoft.Crank.Jobs.Bombardier.csproj
+    isConsoleApp: true
+    waitForExit: true
+    
+scenarios:
+  hello:
+    application:
+      job: server
+    load:
+      job: bombardier
+      variables:
+        serverPort: 5000
+        path: /
+
+profiles:
+  local:
+    variables:
+      serverUri: http://localhost
+    jobs: 
+      application:
+        endpoints: 
+          - http://localhost:5010
+      load:
+        endpoints: 
+          - http://localhost:5010
