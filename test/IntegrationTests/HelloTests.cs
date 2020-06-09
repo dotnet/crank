@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
+using Microsoft.Crank.Agent;
 
 namespace Microsoft.Crank.IntegrationTests
 {
@@ -88,6 +89,7 @@ namespace Microsoft.Crank.IntegrationTests
                 workingDirectory: _crankAgentDirectory,
                 captureOutput: true,
                 throwOnError: false,
+                timeout: TimeSpan.FromMinutes(5),
                 cancellationToken: stopAgentCts.Token,
                 outputDataReceived: t => 
                 { 
@@ -110,6 +112,7 @@ namespace Microsoft.Crank.IntegrationTests
                 $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local", 
                 workingDirectory: _crankTestsDirectory,
                 captureOutput: true,
+                timeout: TimeSpan.FromMinutes(5),
                 throwOnError: false,
                 outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); } 
             );
