@@ -1,12 +1,12 @@
 jobs:
   server:
     source:
-      localFolder: './hello'
+      localFolder: '../hello'
       project: hello.csproj
     readyStateText: Application started.
   bombardier:
     source:
-      localFolder: './bombardier'
+      localFolder: '../bombardier'
       project: Microsoft.Crank.Jobs.Bombardier.csproj
     isConsoleApp: true
     waitForExit: true
