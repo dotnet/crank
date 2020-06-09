@@ -14,7 +14,10 @@ namespace Microsoft.Crank.Agent
 {
     public static class ProcessUtil
     {
-        public static ProcessResult Run(
+        [DllImport("libc", SetLastError = true, EntryPoint = "kill")]
+        private static extern int sys_kill(int pid, int sig);
+
+        public static async Task<ProcessResult> RunAsync(
             string filename, 
             string arguments, 
             TimeSpan? timeout = null, 
@@ -23,15 +26,12 @@ namespace Microsoft.Crank.Agent
             IDictionary<string, string> environmentVariables = null, 
             Action<string> outputDataReceived = null,
             bool log = false,
-            Action onStart = null,
+            Action<int> onStart = null,
             CancellationToken cancellationToken = default(CancellationToken),
             bool captureOutput = false,
             bool captureError = false
-            )
+        )
         {
-            var standardOutput = new StringBuilder();
-            var standardError = new StringBuilder();
-
             var logWorkingDirectory = workingDirectory ?? Directory.GetCurrentDirectory();
 
             if (log)
@@ -39,7 +39,7 @@ namespace Microsoft.Crank.Agent
                 Log.WriteLine($"[{logWorkingDirectory}] {filename} {arguments}");
             }
 
-            var process = new Process()
+            using var process = new Process()
             {
                 StartInfo =
                 {
@@ -48,103 +48,118 @@ namespace Microsoft.Crank.Agent
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
+                    CreateNoWindow = true,
                 },
+                EnableRaisingEvents = true
             };
 
-            using (process)
+            if (workingDirectory != null)
             {
-                if (workingDirectory != null)
-                {
-                    process.StartInfo.WorkingDirectory = workingDirectory;
-                }
+                process.StartInfo.WorkingDirectory = workingDirectory;
+            }
 
-                if (environmentVariables != null)
+            if (environmentVariables != null)
+            {
+                foreach (var kvp in environmentVariables)
                 {
-                    foreach (var kvp in environmentVariables)
+                    process.StartInfo.Environment.Add(kvp);
+                }
+            }
+
+            var outputBuilder = new StringBuilder();
+            process.OutputDataReceived += (_, e) =>
+            {
+                if (e.Data != null)
+                {
+                    if (captureOutput)
                     {
-                        process.StartInfo.Environment.Add(kvp);
+                        outputBuilder.AppendLine(e.Data);
                     }
-                }
 
-                process.OutputDataReceived += (_, e) =>
-                {
                     if (outputDataReceived != null)
                     {
                         outputDataReceived.Invoke(e.Data);
-                    }
-
-                    if (captureOutput)
-                    {
-                        standardOutput.AppendLine(e.Data);
                     }
 
                     if (log)
                     {
                         Log.WriteLine(e.Data);
                     }
-                };
+                }
+            };
 
-                process.ErrorDataReceived += (_, e) =>
+            var errorBuilder = new StringBuilder();
+            process.ErrorDataReceived += (_, e) =>
+            {
+                if (e.Data != null)
                 {
+                    if (captureError)
+                    {
+                        errorBuilder.AppendLine(e.Data);
+                    }
+
                     if (outputDataReceived != null)
                     {
                         outputDataReceived.Invoke(e.Data);
                     }
 
-                    if (captureError)
-                    {
-                        standardError.AppendLine(e.Data);
-                    }
-
                     Log.WriteLine("[STDERR] " + e.Data);
-                };
-
-                onStart?.Invoke();
-                process.Start();
-
-                process.BeginOutputReadLine();
-                process.BeginErrorReadLine();
-
-                var start = DateTime.UtcNow;
-
-                while (true)
-                {
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        StopProcess(process);
-                        break;
-                    }
-
-                    if (timeout.HasValue && (DateTime.UtcNow - start > timeout.Value))
-                    {
-                        StopProcess(process);
-                        break;
-                    }
-                    
-                    if (process.HasExited)
-                    {
-                        break;
-                    }
-
-                    Thread.Sleep(500);
                 }
+            };
 
+            var processLifetimeTask = new TaskCompletionSource<ProcessResult>();
+
+            process.Exited += (_, e) =>
+            {
                 if (throwOnError && process.ExitCode != 0)
                 {
-                    throw new InvalidOperationException($"Command {filename} {arguments} returned exit code {process.ExitCode}");
+                    processLifetimeTask.TrySetException(new InvalidOperationException($"Command {filename} {arguments} returned exit code {process.ExitCode}"));
                 }
-                
-
-                if (log)
+                else
                 {
-                    Log.WriteLine($"Exit code: {process.ExitCode}");
+                    processLifetimeTask.TrySetResult(new ProcessResult(process.ExitCode, outputBuilder.ToString(), errorBuilder.ToString()));
+                }
+            };
+
+            onStart?.Invoke(process.Id);
+            process.Start();
+
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+
+            var cancelledTcs = new TaskCompletionSource<object>();
+            await using var _ = cancellationToken.Register(() => cancelledTcs.TrySetResult(null));
+
+            var result = await Task.WhenAny(processLifetimeTask.Task, cancelledTcs.Task, Task.Delay(timeout.HasValue ? (int)timeout.Value.TotalMilliseconds : -1));
+
+            if (result != processLifetimeTask.Task)
+            {
+                if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    sys_kill(process.Id, sig: 2); // SIGINT
+
+                    var cancel = new CancellationTokenSource();
+
+                    await Task.WhenAny(processLifetimeTask.Task, Task.Delay(TimeSpan.FromSeconds(5), cancel.Token));
+
+                    cancel.Cancel();
                 }
 
-                return new ProcessResult(process.ExitCode, standardOutput.ToString(), standardError.ToString());
+                if (!process.HasExited)
+                {
+                    process.CloseMainWindow();
+
+                    if (!process.HasExited)
+                    {
+                        process.Kill();
+                    }
+                }
             }
+
+            return await processLifetimeTask.Task;
         }
 
-        public static T RetryOnException<T>(int retries, Func<T> operation, CancellationToken cancellationToken = default)
+        public static async Task<T> RetryOnExceptionAsync<T>(int retries, Func<Task<T>> operation, CancellationToken cancellationToken = default)
         {
             var attempts = 0;
             do
@@ -152,7 +167,7 @@ namespace Microsoft.Crank.Agent
                 try
                 {
                     attempts++;
-                    return operation();
+                    return await operation();
                 }
                 catch (Exception e)
                 {
@@ -164,52 +179,6 @@ namespace Microsoft.Crank.Agent
                     Log.WriteLine($"Attempt {attempts} failed: {e.Message}");
                 }
             } while (true );
-        }
-
-        public static void StopProcess(Process process)
-        {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            {
-                Mono.Unix.Native.Syscall.kill(process.Id, Mono.Unix.Native.Signum.SIGINT);
-
-                // Tentatively invoke SIGINT
-                var waitForShutdownDelay = Task.Delay(TimeSpan.FromSeconds(5));
-                while (!process.HasExited && !waitForShutdownDelay.IsCompletedSuccessfully)
-                {
-                    Thread.Sleep(200);
-                }
-            }
-
-            if (!process.HasExited)
-            {
-                Log.WriteLine($"Forcing process to stop ...");
-                process.CloseMainWindow();
-
-                if (!process.HasExited)
-                {
-                    process.Kill();
-                }
-
-                process.Dispose();
-
-                do
-                {
-                    Log.WriteLine($"Waiting for process {process.Id} to stop ...");
-
-                    Thread.Sleep(1000);
-
-                    try
-                    {
-                        process = Process.GetProcessById(process.Id);
-                        process.Refresh();
-                    }
-                    catch
-                    {
-                        process = null;
-                    }
-
-                } while (process != null && !process.HasExited);
-            }
         }
     }
 }

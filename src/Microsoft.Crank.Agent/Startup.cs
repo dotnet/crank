@@ -347,7 +347,7 @@ namespace Microsoft.Crank.Agent
 
             try
             {
-                await EnsureDotnetInstallExistsAsync();
+                CreateTemporaryFolders();
 
                 Log.WriteLine($"Agent ready, waiting for jobs...");
 
@@ -386,7 +386,7 @@ namespace Microsoft.Crank.Agent
                     // Select the first job that is not yet Deleted, i.e. 
                     var group = new Dictionary<Job, JobContext>();
 
-                    while (runId == null)
+                    while (runId == null && !cancellationToken.IsCancellationRequested)
                     {
                         lock (_jobs)
                         {
@@ -443,9 +443,6 @@ namespace Microsoft.Crank.Agent
                             var process = context.Process;
 
                             var workingDirectory = context.WorkingDirectory;
-                            var timer = context.Timer;
-                            var executionLock = context.ExecutionLock;
-                            var disposed = context.Disposed;
                             var benchmarksDir = context.BenchmarksDir;
                             var startMonitorTime = context.StartMonitorTime;
 
@@ -623,17 +620,17 @@ namespace Microsoft.Crank.Agent
 
                                     if (job.Source.IsDocker())
                                     {
-                                        buildAndRunTask = Task.Run(async () => 
+                                        buildAndRunTask = Task.Run(async () =>
                                         {
                                             (dockerContainerId, dockerImage, workingDirectory) = await DockerBuildAndRun(tempDir, job, dockerHostname, cancellationToken: cts.Token);
                                         });
                                     }
                                     else
                                     {
-                                        buildAndRunTask = Task.Run(async () => 
+                                        buildAndRunTask = Task.Run(async () =>
                                         {
                                             var benchmarksDir = await CloneRestoreAndBuild(tempDir, job, _dotnethome, cts.Token);
-                                            
+
                                             if (job.State != JobState.Failed && benchmarksDir != null)
                                             {
                                                 process = await StartProcess(hostname, Path.Combine(tempDir, benchmarksDir), job, _dotnethome);
@@ -644,7 +641,7 @@ namespace Microsoft.Crank.Agent
 
                                                 workingDirectory = process.StartInfo.WorkingDirectory;
                                             }
-                                        });   
+                                        });
                                     }
 
                                     while (job.State != JobState.Failed && !buildAndRunTask.IsCompleted)
@@ -675,7 +672,7 @@ namespace Microsoft.Crank.Agent
                                             cts.Cancel();
                                             await buildAndRunTask;
                                         }
-                                    }       
+                                    }
 
                                     if (job.State != JobState.Failed)
                                     {
@@ -683,30 +680,33 @@ namespace Microsoft.Crank.Agent
                                         var lastMonitorTime = startMonitorTime;
                                         var oldCPUTime = TimeSpan.Zero;
 
-                                        timer = new Timer(_ =>
+                                        context.Timer = new Timer(_ =>
                                         {
+
                                             // If we couldn't get the lock it means one of 2 things are true:
                                             // - We're about to dispose so we don't care to run the scan callback anyways.
                                             // - The previous the computation took long enough that the next scan tried to run in parallel
                                             // In either case just do nothing and end the timer callback as soon as possible
-                                            if (!Monitor.TryEnter(executionLock))
+
+                                            if (!Monitor.TryEnter(_synLock))
                                             {
                                                 return;
                                             }
 
                                             try
                                             {
-                                                if (disposed)
+                                                if (context.Disposed || context.Timer == null)
                                                 {
                                                     return;
                                                 }
 
                                                 // Pause the timer while we're running
-                                                timer.Change(Timeout.Infinite, Timeout.Infinite);
+                                                context.Timer.Change(Timeout.Infinite, Timeout.Infinite);
 
                                                 try
                                                 {
                                                     var now = DateTime.UtcNow;
+
 
                                                     // Stops the job in case the driver is not running
                                                     if (now - job.LastDriverCommunicationUtc > DriverTimeout)
@@ -722,9 +722,10 @@ namespace Microsoft.Crank.Agent
                                                     if (!String.IsNullOrEmpty(dockerImage))
                                                     {
                                                         // Check the container is still running
-                                                        var inspectResult = ProcessUtil.Run("docker", "inspect -f {{.State.Running}} " + dockerContainerId,
+                                                        var inspectResult = ProcessUtil.RunAsync("docker", "inspect -f {{.State.Running}} " + dockerContainerId,
                                                                 captureOutput: true,
-                                                                log: false, throwOnError: false);
+                                                                log: false, throwOnError: false).GetAwaiter().GetResult();
+
 
                                                         if (String.Equals(inspectResult.StandardOutput.Trim(), "false"))
                                                         {
@@ -735,8 +736,8 @@ namespace Microsoft.Crank.Agent
                                                         else
                                                         {
                                                             // Get docker stats
-                                                            var result = ProcessUtil.Run("docker", "container stats --no-stream --format \"{{.CPUPerc}}-{{.MemUsage}}\" " + dockerContainerId,
-                                                                    log: false, throwOnError: false, captureOutput: true, captureError: true);
+                                                            var result = ProcessUtil.RunAsync("docker", "container stats --no-stream --format \"{{.CPUPerc}}-{{.MemUsage}}\" " + dockerContainerId,
+                                                                    log: false, throwOnError: false, captureOutput: true, captureError: true).GetAwaiter().GetResult();
 
                                                             var stats = result.StandardOutput;
 
@@ -803,7 +804,7 @@ namespace Microsoft.Crank.Agent
                                                                     Value = rawCPU
                                                                 });
 
-                                                                if (OperatingSystem == OperatingSystem.Linux)
+                                                                if (job.CollectSwapMemory && OperatingSystem == OperatingSystem.Linux)
                                                                 {
                                                                     try
                                                                     {
@@ -811,7 +812,7 @@ namespace Microsoft.Crank.Agent
                                                                         {
                                                                             Name = "benchmarks/swap",
                                                                             Timestamp = now,
-                                                                            Value = (int)GetSwapBytes() / 1024 / 1024
+                                                                            Value = GetSwapBytesAsync().GetAwaiter().GetResult() / 1024 / 1024
                                                                         });
                                                                     }
                                                                     catch (Exception e)
@@ -885,24 +886,24 @@ namespace Microsoft.Crank.Agent
                                                                     Timestamp = now,
                                                                     Value = rawCpu
                                                                 });
-                                                            }
 
-                                                            oldCPUTime = newCPUTime;
+                                                                oldCPUTime = newCPUTime;
 
-                                                            if (OperatingSystem == OperatingSystem.Linux)
-                                                            {
-                                                                try
+                                                                if (job.CollectSwapMemory && OperatingSystem == OperatingSystem.Linux)
                                                                 {
-                                                                    job.Measurements.Enqueue(new Measurement
+                                                                    try
                                                                     {
-                                                                        Name = "benchmarks/swap",
-                                                                        Timestamp = now,
-                                                                        Value = (int)GetSwapBytes() / 1024 / 1024
-                                                                    });
-                                                                }
-                                                                catch (Exception e)
-                                                                {
-                                                                    Log.WriteLine($"[ERROR] Could not get swap memory:" + e.ToString());
+                                                                        job.Measurements.Enqueue(new Measurement
+                                                                        {
+                                                                            Name = "benchmarks/swap",
+                                                                            Timestamp = now,
+                                                                            Value = GetSwapBytesAsync().GetAwaiter().GetResult() / 1024 / 1024
+                                                                        });
+                                                                    }
+                                                                    catch (Exception e)
+                                                                    {
+                                                                        Log.WriteLine($"[ERROR] Could not get swap memory:" + e.ToString());
+                                                                    }
                                                                 }
                                                             }
                                                         }
@@ -911,17 +912,14 @@ namespace Microsoft.Crank.Agent
                                                 finally
                                                 {
                                                     // Resume once we finished processing all connections
-                                                    timer.Change(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+                                                    context.Timer.Change(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
                                                 }
                                             }
                                             finally
                                             {
-                                                // Exit the lock now
-                                                Monitor.Exit(executionLock);
+                                                Monitor.Exit(_synLock);
                                             }
                                         }, null, TimeSpan.FromTicks(0), TimeSpan.FromSeconds(1));
-
-                                        disposed = false;
                                     }
                                 }
                                 catch (Exception e)
@@ -1050,11 +1048,11 @@ namespace Microsoft.Crank.Agent
                                 {
                                     var controller = GetCGroupController(job);
 
-                                    ProcessUtil.Run("cgdelete", $"cpu,memory,cpuset:{controller}", log: true, throwOnError: false);
+                                    await ProcessUtil.RunAsync("cgdelete", $"cpu,memory,cpuset:{controller}", log: true, throwOnError: false);
                                 }
 
                                 // Check if we already passed here
-                                if (timer == null)
+                                if (context.Timer == null)
                                 {
                                     return;
                                 }
@@ -1093,12 +1091,18 @@ namespace Microsoft.Crank.Agent
                                     }
                                 }
 
-                                lock (executionLock)
-                                {
-                                    disposed = true;
+                                Monitor.Enter(_synLock);
 
-                                    timer?.Dispose();
-                                    timer = null;
+                                try
+                                {
+                                    context.Disposed = true;
+
+                                    context.Timer?.Dispose();
+                                    context.Timer = null;
+                                }
+                                finally
+                                {
+                                    Monitor.Exit(_synLock);
                                 }
 
                                 if (process != null && !process.HasExited)
@@ -1223,14 +1227,14 @@ namespace Microsoft.Crank.Agent
                                 else if (!String.IsNullOrEmpty(dockerImage))
                                 {
 
-                                    DockerCleanUp(dockerContainerId, dockerImage, job);
+                                    await DockerCleanUpAsync(dockerContainerId, dockerImage, job);
                                 }
 
                                 // Running AfterScript
                                 if (!String.IsNullOrEmpty(job.AfterScript))
                                 {
                                     var segments = job.AfterScript.Split(' ', 2);
-                                    var processResult = ProcessUtil.Run(segments[0], segments.Length > 1 ? segments[1] : "", log: true, workingDirectory: workingDirectory);
+                                    var processResult = await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", log: true, workingDirectory: workingDirectory);
 
                                     // TODO: Update the output with the result of AfterScript, and change the driver so that it polls the job a last time even when the job is stopped
                                     // if there is an AfterScript
@@ -1259,9 +1263,6 @@ namespace Microsoft.Crank.Agent
                             context.Process = process;
 
                             context.WorkingDirectory = workingDirectory;
-                            context.Timer = timer;
-                            context.ExecutionLock = executionLock;
-                            context.Disposed = disposed;
                             context.BenchmarksDir = benchmarksDir;
                             context.StartMonitorTime = startMonitorTime;
 
@@ -1485,18 +1486,18 @@ namespace Microsoft.Crank.Agent
             {
                 var branchAndCommit = source.BranchOrCommit.Split('#', 2);
 
-                var dir = Git.Clone(path, source.Repository, shallow: branchAndCommit.Length == 1, branch: branchAndCommit[0]);
+                var dir = await Git.CloneAsync(path, source.Repository, shallow: branchAndCommit.Length == 1, branch: branchAndCommit[0]);
 
                 srcDir = Path.Combine(path, dir);
 
                 if (branchAndCommit.Length > 1)
                 {
-                    Git.Checkout(srcDir, branchAndCommit[1]);
+                    await Git.CheckoutAsync(srcDir, branchAndCommit[1]);
                 }
 
                 if (source.InitSubmodules)
                 {
-                    Git.InitSubModules(srcDir);
+                    await Git.InitSubModulesAsync(srcDir);
                 }
             }
             else
@@ -1517,7 +1518,7 @@ namespace Microsoft.Crank.Agent
             if (!String.IsNullOrEmpty(job.BeforeScript))
             {
                 var segments = job.BeforeScript.Split(' ', 2);
-                var processResult = ProcessUtil.Run(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: workingDirectory, log: true, outputDataReceived: text => job.Output.AddLine(text));
+                var processResult = await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: workingDirectory, log: true, outputDataReceived: text => job.Output.AddLine(text));
             }
 
             // Copy build files before building/publishing
@@ -1556,7 +1557,7 @@ namespace Microsoft.Crank.Agent
 
                 job.BuildLog.AddLine("docker " + dockerBuildArguments);
 
-                var buildResults = ProcessUtil.Run("docker", dockerBuildArguments,
+                var buildResults = await ProcessUtil.RunAsync("docker", dockerBuildArguments,
                     workingDirectory: srcDir,
                     cancellationToken: cancellationToken,
                     log: true,
@@ -1589,7 +1590,7 @@ namespace Microsoft.Crank.Agent
 
                 job.BuildLog.AddLine("docker " + dockerLoadArguments);
 
-                ProcessUtil.Run("docker", dockerLoadArguments, workingDirectory: srcDir, cancellationToken: cancellationToken, log: true);
+                await ProcessUtil.RunAsync("docker", dockerLoadArguments, workingDirectory: srcDir, cancellationToken: cancellationToken, log: true);
             }
 
             if (cancellationToken.IsCancellationRequested)
@@ -1605,10 +1606,10 @@ namespace Microsoft.Crank.Agent
             }
 
             // Stop container in case it failed to stop earlier
-            ProcessUtil.Run("docker", $"stop {imageName}", throwOnError: false);
+            await ProcessUtil.RunAsync("docker", $"stop {imageName}", throwOnError: false);
 
             // Delete container if the same name already exists
-            ProcessUtil.Run("docker", $"rm {imageName}", throwOnError: false);
+            await ProcessUtil.RunAsync("docker", $"rm {imageName}", throwOnError: false);
 
             var command = OperatingSystem == OperatingSystem.Linux
                 ? $"run -d {environmentArguments} {job.Arguments} --mount type=bind,source=/mnt,target=/tmp --name {imageName} --privileged --network host {imageName} {source.DockerCommand}"
@@ -1621,7 +1622,7 @@ namespace Microsoft.Crank.Agent
 
             job.BuildLog.AddLine("docker " + command);
 
-            var result = ProcessUtil.Run("docker", $"{command} ", throwOnError: false, onStart: () => stopwatch.Start(), captureOutput: true);
+            var result = await ProcessUtil.RunAsync("docker", $"{command} ", throwOnError: false, onStart: _ => stopwatch.Start(), captureOutput: true);
 
             var containerId = result.StandardOutput.Trim();
 
@@ -1825,20 +1826,20 @@ namespace Microsoft.Crank.Agent
             return false;
         }
 
-        private static void DockerCleanUp(string containerId, string imageName, Job job)
+        private static async Task DockerCleanUpAsync(string containerId, string imageName, Job job)
         {
             var finalState = JobState.Stopped;
 
             try
             {
                 var state = "";
-                ProcessUtil.Run("docker", "inspect -f {{.State.Running}} " + containerId, throwOnError: false, outputDataReceived: text => state += text + "\n");
+                await ProcessUtil.RunAsync("docker", "inspect -f {{.State.Running}} " + containerId, throwOnError: false, outputDataReceived: text => state += text + "\n");
 
                 // container is already stopped
                 if (state.Contains("false"))
                 {
                     var exitCode = "";
-                    ProcessUtil.Run("docker", "inspect -f {{.State.ExitCode}} " + containerId, throwOnError: false, outputDataReceived: text => exitCode += text + "\n");
+                    await ProcessUtil.RunAsync("docker", "inspect -f {{.State.ExitCode}} " + containerId, throwOnError: false, outputDataReceived: text => exitCode += text + "\n");
 
                     if (exitCode.Trim() != "0")
                     {
@@ -1849,7 +1850,7 @@ namespace Microsoft.Crank.Agent
                 }
                 else
                 {
-                    ProcessUtil.Run("docker", $"stop {containerId}", throwOnError: false);
+                    await ProcessUtil.RunAsync("docker", $"stop {containerId}", throwOnError: false);
                 }
             }
             finally
@@ -1858,12 +1859,12 @@ namespace Microsoft.Crank.Agent
                 {
                     if (job.NoClean)
                     {
-                        ProcessUtil.Run("docker", $"rmi --force --no-prune {imageName}", throwOnError: false);
+                        await ProcessUtil.RunAsync("docker", $"rmi --force --no-prune {imageName}", throwOnError: false);
                     }
                     else
                     {
-                        ProcessUtil.Run("docker", $"rm {imageName}", throwOnError: false);
-                        ProcessUtil.Run("docker", $"rmi --force {imageName}", throwOnError: false);
+                        await ProcessUtil.RunAsync("docker", $"rm {imageName}", throwOnError: false);
+                        await ProcessUtil.RunAsync("docker", $"rmi --force {imageName}", throwOnError: false);
                     }
                 }
                 catch (Exception e)
@@ -1910,11 +1911,11 @@ namespace Microsoft.Crank.Agent
                 //
                 // Note that this is also going to de-dupe the repos if the same one was specified twice at
                 // the command-line (last first to support overrides).
-                var repos = new HashSet<Source>(SourceRepoComparer.Instance);
+                var repositories = new HashSet<Source>(SourceRepoComparer.Instance);
 
-                repos.Add(job.Source);
+                repositories.Add(job.Source);
 
-                foreach (var source in repos)
+                foreach (var source in repositories)
                 {
                     if (cancellationToken.IsCancellationRequested)
                     {
@@ -1923,7 +1924,7 @@ namespace Microsoft.Crank.Agent
 
                     var branchAndCommit = source.BranchOrCommit.Split('#', 2);
 
-                    var dir = Git.Clone(path, source.Repository, shallow: branchAndCommit.Length == 1, branch: branchAndCommit[0], cancellationToken);
+                    var dir = await Git.CloneAsync(path, source.Repository, shallow: branchAndCommit.Length == 1, branch: branchAndCommit[0], cancellationToken);
 
                     var srcDir = Path.Combine(path, dir);
 
@@ -1934,12 +1935,12 @@ namespace Microsoft.Crank.Agent
 
                     if (branchAndCommit.Length > 1)
                     {
-                        Git.Checkout(srcDir, branchAndCommit[1], cancellationToken);
+                        await Git.CheckoutAsync(srcDir, branchAndCommit[1], cancellationToken);
                     }
 
                     if (source.InitSubmodules)
                     {
-                        Git.InitSubModules(srcDir, cancellationToken);
+                        await Git.InitSubModulesAsync(srcDir, cancellationToken);
                     }
                 }
             }
@@ -2069,12 +2070,11 @@ namespace Microsoft.Crank.Agent
                         Log.WriteLine($"Installing {dotnetInstallStep} ...");
 
                         // Install latest SDK version (and associated runtime)
-                        ProcessUtil.RetryOnException(3, () => 
-                            ProcessUtil.Run("powershell", $"-NoProfile -ExecutionPolicy unrestricted [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; .\\dotnet-install.ps1 -Version {sdkVersion} -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome}",
-                                log: false,
-                                workingDirectory: _dotnetInstallPath,
-                                environmentVariables: env,
-                                cancellationToken: cancellationToken), 
+                        await ProcessUtil.RetryOnExceptionAsync(3, () => ProcessUtil.RunAsync("powershell", $"-NoProfile -ExecutionPolicy unrestricted [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; .\\dotnet-install.ps1 -Version {sdkVersion} -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome}",
+                        log: false,
+                        workingDirectory: _dotnetInstallPath,
+                        environmentVariables: env,
+                                cancellationToken: cancellationToken),
                             cancellationToken);
 
                         _installedSdks.Add(sdkVersion);
@@ -2086,12 +2086,11 @@ namespace Microsoft.Crank.Agent
                         Log.WriteLine($"Installing {dotnetInstallStep} ...");
 
                         // Install runtimes required for this scenario
-                        ProcessUtil.RetryOnException(3, () => 
-                            ProcessUtil.Run("powershell", $"-NoProfile -ExecutionPolicy unrestricted [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; .\\dotnet-install.ps1 -Version {runtimeVersion} -Runtime dotnet -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome}",
-                                log: false,
-                                workingDirectory: _dotnetInstallPath,
-                                environmentVariables: env,
-                                cancellationToken: cancellationToken), 
+                        await ProcessUtil.RetryOnExceptionAsync(3, () => ProcessUtil.RunAsync("powershell", $"-NoProfile -ExecutionPolicy unrestricted [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; .\\dotnet-install.ps1 -Version {runtimeVersion} -Runtime dotnet -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome}",
+                        log: false,
+                        workingDirectory: _dotnetInstallPath,
+                        environmentVariables: env,
+                                cancellationToken: cancellationToken),
                             cancellationToken);
 
                         _installedDotnetRuntimes.Add(runtimeVersion);
@@ -2110,13 +2109,12 @@ namespace Microsoft.Crank.Agent
                                 dotnetInstallStep = $"Desktop runtime '{desktopVersion}'";
                                 Log.WriteLine($"Installing {dotnetInstallStep} ...");
 
-                                ProcessUtil.RetryOnException(3, () => 
-                                    ProcessUtil.Run("powershell", $"-NoProfile -ExecutionPolicy unrestricted [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; .\\dotnet-install.ps1 -Version {desktopVersion} -Runtime windowsdesktop -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome}",
-                                        log: false,
-                                        workingDirectory: _dotnetInstallPath,
-                                        environmentVariables: env,
-                                        cancellationToken: cancellationToken), 
-                                    cancellationToken);
+                                await ProcessUtil.RetryOnExceptionAsync(3, () => ProcessUtil.RunAsync("powershell", $"-NoProfile -ExecutionPolicy unrestricted [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; .\\dotnet-install.ps1 -Version {desktopVersion} -Runtime windowsdesktop -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome}",
+                                log: false,
+                                workingDirectory: _dotnetInstallPath,
+                                environmentVariables: env,
+                                    cancellationToken: cancellationToken),
+                                cancellationToken);
 
                                 _installedDesktopRuntimes.Add(desktopVersion);
                             }
@@ -2146,12 +2144,11 @@ namespace Microsoft.Crank.Agent
                         Log.WriteLine($"Installing {dotnetInstallStep} ...");
 
                         // Install aspnet runtime required for this scenario
-                        ProcessUtil.RetryOnException(3, () => 
-                            ProcessUtil.Run("powershell", $"-NoProfile -ExecutionPolicy unrestricted [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; .\\dotnet-install.ps1 -Version {aspNetCoreVersion} -Runtime aspnetcore -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome}",
-                                log: false,
-                                workingDirectory: _dotnetInstallPath,
-                                environmentVariables: env,
-                                cancellationToken: cancellationToken), 
+                        await ProcessUtil.RetryOnExceptionAsync(3, () => ProcessUtil.RunAsync("powershell", $"-NoProfile -ExecutionPolicy unrestricted [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; .\\dotnet-install.ps1 -Version {aspNetCoreVersion} -Runtime aspnetcore -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome}",
+                        log: false,
+                        workingDirectory: _dotnetInstallPath,
+                        environmentVariables: env,
+                                cancellationToken: cancellationToken),
                             cancellationToken);
 
                         _installedAspNetRuntimes.Add(aspNetCoreVersion);
@@ -2165,13 +2162,13 @@ namespace Microsoft.Crank.Agent
                         Log.WriteLine($"Installing {dotnetInstallStep} ...");
 
                         // Install latest SDK version (and associated runtime)
-                        ProcessUtil.RetryOnException(3, () => 
-                            ProcessUtil.Run("/usr/bin/env", $"bash dotnet-install.sh --version {sdkVersion} --no-path --skip-non-versioned-files --install-dir {dotnetHome}",
-                                log: false,
-                                workingDirectory: _dotnetInstallPath,
-                                environmentVariables: env,
-                                cancellationToken: cancellationToken), 
+                        await ProcessUtil.RetryOnExceptionAsync(3, () => ProcessUtil.RunAsync("/usr/bin/env", $"bash dotnet-install.sh --version {sdkVersion} --no-path --skip-non-versioned-files --install-dir {dotnetHome}",
+                        log: false,
+                        workingDirectory: _dotnetInstallPath,
+                        environmentVariables: env,
+                                cancellationToken: cancellationToken),
                             cancellationToken);
+
                         _installedSdks.Add(sdkVersion);
                     }
 
@@ -2181,12 +2178,11 @@ namespace Microsoft.Crank.Agent
                         Log.WriteLine($"Installing {dotnetInstallStep} ...");
 
                         // Install required runtime
-                        ProcessUtil.RetryOnException(3, () => 
-                            ProcessUtil.Run("/usr/bin/env", $"bash dotnet-install.sh --version {runtimeVersion} --runtime dotnet --no-path --skip-non-versioned-files --install-dir {dotnetHome}",
-                                log: false,
-                                workingDirectory: _dotnetInstallPath,
-                                environmentVariables: env,
-                                cancellationToken: cancellationToken), 
+                        await ProcessUtil.RetryOnExceptionAsync(3, () => ProcessUtil.RunAsync("/usr/bin/env", $"bash dotnet-install.sh --version {runtimeVersion} --runtime dotnet --no-path --skip-non-versioned-files --install-dir {dotnetHome}",
+                        log: false,
+                        workingDirectory: _dotnetInstallPath,
+                        environmentVariables: env,
+                                cancellationToken: cancellationToken),
                             cancellationToken);
 
                         _installedDotnetRuntimes.Add(runtimeVersion);
@@ -2199,12 +2195,11 @@ namespace Microsoft.Crank.Agent
                         Log.WriteLine($"Installing {dotnetInstallStep} ...");
 
                         // Install required runtime
-                        ProcessUtil.RetryOnException(3, () => 
-                            ProcessUtil.Run("/usr/bin/env", $"bash dotnet-install.sh --version {aspNetCoreVersion} --runtime aspnetcore --no-path --skip-non-versioned-files --install-dir {dotnetHome}",
-                                log: false,
-                                workingDirectory: _dotnetInstallPath,
-                                environmentVariables: env,
-                                cancellationToken: cancellationToken), 
+                        await ProcessUtil.RetryOnExceptionAsync(3, () => ProcessUtil.RunAsync("/usr/bin/env", $"bash dotnet-install.sh --version {aspNetCoreVersion} --runtime aspnetcore --no-path --skip-non-versioned-files --install-dir {dotnetHome}",
+                        log: false,
+                        workingDirectory: _dotnetInstallPath,
+                        environmentVariables: env,
+                                cancellationToken: cancellationToken),
                             cancellationToken);
 
                         _installedAspNetRuntimes.Add(aspNetCoreVersion);
@@ -2370,7 +2365,7 @@ namespace Microsoft.Crank.Agent
                 var stopwatch = new Stopwatch();
                 stopwatch.Start();
 
-                var buildResults = ProcessUtil.Run(dotnetExecutable, arguments,
+                var buildResults = await ProcessUtil.RunAsync(dotnetExecutable, arguments,
                     workingDirectory: benchmarkedApp,
                     environmentVariables: env,
                     throwOnError: false,
@@ -2510,7 +2505,7 @@ namespace Microsoft.Crank.Agent
                 {
                     throw new Exception("The job is trying to use the mono runtime but was not configured as self-contained.");
                 }
-		
+
                 await UseMonoRuntimeAsync(runtimeVersion, outputFolder, job.UseMonoRuntime);
             }
 
@@ -2795,7 +2790,7 @@ namespace Microsoft.Crank.Agent
             Log.WriteLine($"Patching {Path.GetFileName(runtimeConfigFilename)} ");
 
             var runtimeObject = JObject.Parse(File.ReadAllText(runtimeConfigFilename));
-            
+
             var runtimeOptions = runtimeObject["runtimeOptions"] as JObject;
 
             if (runtimeOptions.ContainsKey("includedFrameworks"))
@@ -2806,11 +2801,11 @@ namespace Microsoft.Crank.Agent
 
             // Remove exising "framework" (singular) node
             runtimeOptions.Remove("framework");
-            
+
             // Create the "frameworks" property instead
             var frameworks = new JArray();
             runtimeOptions.TryAdd("frameworks", frameworks);
-            
+
             frameworks.Add(
                     new JObject(
                         new JProperty("name", "Microsoft.NETCore.App"),
@@ -3191,7 +3186,7 @@ namespace Microsoft.Crank.Agent
             if (!String.IsNullOrEmpty(job.BeforeScript))
             {
                 var segments = job.BeforeScript.Split(' ', 2);
-                var result = ProcessUtil.Run(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: workingDirectory, log: true, outputDataReceived: text => job.Output.AddLine(text));
+                var result = await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: workingDirectory, log: true, outputDataReceived: text => job.Output.AddLine(text));
             }
 
             var commandLine = benchmarksDll ?? "";
@@ -3249,7 +3244,7 @@ namespace Microsoft.Crank.Agent
             {
                 var controller = GetCGroupController(job);
 
-                var cgcreate = ProcessUtil.Run("cgcreate", $"-g memory,cpu,cpuset:{controller}", log: true);
+                var cgcreate = await ProcessUtil.RunAsync("cgcreate", $"-g memory,cpu,cpuset:{controller}", log: true);
 
                 if (cgcreate.ExitCode > 0)
                 {
@@ -3259,33 +3254,33 @@ namespace Microsoft.Crank.Agent
 
                 if (job.MemoryLimitInBytes > 0)
                 {
-                    ProcessUtil.Run("cgset", $"-r memory.limit_in_bytes={job.MemoryLimitInBytes} {controller}", log: true);
+                    await ProcessUtil.RunAsync("cgset", $"-r memory.limit_in_bytes={job.MemoryLimitInBytes} {controller}", log: true);
                 }
                 else
                 {
-                    ProcessUtil.Run("cgset", $"-r memory.limit_in_bytes=-1 {controller}", log: true);
+                    await ProcessUtil.RunAsync("cgset", $"-r memory.limit_in_bytes=-1 {controller}", log: true);
                 }
 
                 if (job.CpuLimitRatio > 0)
                 {
                     // Ensure the cfs_period_us is the same as what docker would use
-                    ProcessUtil.Run("cgset", $"-r cpu.cfs_period_us={_defaultDockerCfsPeriod} {controller}", log: true);
-                    ProcessUtil.Run("cgset", $"-r cpu.cfs_quota_us={Math.Floor(job.CpuLimitRatio * _defaultDockerCfsPeriod)} {controller}", log: true);
+                    await ProcessUtil.RunAsync("cgset", $"-r cpu.cfs_period_us={_defaultDockerCfsPeriod} {controller}", log: true);
+                    await ProcessUtil.RunAsync("cgset", $"-r cpu.cfs_quota_us={Math.Floor(job.CpuLimitRatio * _defaultDockerCfsPeriod)} {controller}", log: true);
                 }
                 else
                 {
-                    ProcessUtil.Run("cgset", $"-r cpu.cfs_quota_us=-1 {controller}", log: true);
+                    await ProcessUtil.RunAsync("cgset", $"-r cpu.cfs_quota_us=-1 {controller}", log: true);
                 }
 
 
                 if (!String.IsNullOrEmpty(job.CpuSet))
                 {
 
-                    ProcessUtil.Run("cgset", $"-r cpuset.cpus={job.CpuSet} {controller}", log: true);
+                    await ProcessUtil.RunAsync("cgset", $"-r cpuset.cpus={job.CpuSet} {controller}", log: true);
                 }
                 else
                 {
-                    ProcessUtil.Run("cgset", $"-r cpuset.cpus=0-{Environment.ProcessorCount - 1} {controller}", log: true);
+                    await ProcessUtil.RunAsync("cgset", $"-r cpuset.cpus=0-{Environment.ProcessorCount - 1} {controller}", log: true);
                 }
 
                 // The cpuset.mems value for the 'benchmarks' controller needs to match the root one
@@ -3293,7 +3288,7 @@ namespace Microsoft.Crank.Agent
                 var memsRoot = File.ReadAllText("/sys/fs/cgroup/cpuset/cpuset.mems");
 
                 // Both cpus and mems need to be initialized
-                ProcessUtil.Run("cgset", $"-r cpuset.mems={memsRoot} {controller}", log: true);
+                await ProcessUtil.RunAsync("cgset", $"-r cpuset.mems={memsRoot} {controller}", log: true);
 
                 commandLine = $"-g memory,cpu,cpuset:{controller} {executable} {commandLine}";
                 executable = "cgexec";
@@ -3500,7 +3495,7 @@ namespace Microsoft.Crank.Agent
 
         private static readonly Dictionary<string, MeasurementMetadata[]> MetadataProviders = new Dictionary<string, MeasurementMetadata[]>
         {
-            ["System.Runtime"] = new MeasurementMetadata[] 
+            ["System.Runtime"] = new MeasurementMetadata[]
             {
                 new MeasurementMetadata { Source = "System.Runtime", Name = "runtime-counter/cpu-usage", LongDescription = "Amount of time the process has utilized the CPU (ms)", ShortDescription = "CPU Usage (%)", Format = "n0", Aggregate = Operation.Max, Reduce = Operation.Max },
                 new MeasurementMetadata { Source = "System.Runtime", Name = "runtime-counter/working-set", LongDescription = "Amount of working set used by the process (MB)", ShortDescription = "Working Set (MB)", Format = "n0", Aggregate = Operation.Max, Reduce = Operation.Max },
@@ -3606,7 +3601,7 @@ namespace Microsoft.Crank.Agent
                         {
                             job.Metadata.Enqueue(metadata);
                         }
-                    }                
+                    }
                 }
 
                 Log.WriteLine($"Listening to counter event pipes (providers: {string.Join(", ", job.CounterProviders)})");
@@ -3629,7 +3624,7 @@ namespace Microsoft.Crank.Agent
                     Stream binaryReader = null;
 
                     var retries = 10;
-                    while (retries-- > 0) 
+                    while (retries-- > 0)
                     {
                         try
                         {
@@ -3740,7 +3735,7 @@ namespace Microsoft.Crank.Agent
                     Stream binaryReader = null;
 
                     var retries = 10;
-                    while (retries-- > 0) 
+                    while (retries-- > 0)
                     {
                         try
                         {
@@ -3759,7 +3754,7 @@ namespace Microsoft.Crank.Agent
                         Log.WriteLine("[ERROR] Failed to create measurements event pipe client");
                         return;
                     }
-                    
+
                     source = new EventPipeEventSource(binaryReader);
 
                     source.Dynamic.All += (eventData) =>
@@ -3816,7 +3811,7 @@ namespace Microsoft.Crank.Agent
                     else
                     {
                         Log.WriteLine($"[ERROR] {ex.ToString()}");
-                    }                    
+                    }
                 }
                 finally
                 {
@@ -3903,8 +3898,8 @@ namespace Microsoft.Crank.Agent
             try
             {
                 var packageName = "";
-                
-                switch (mode) 
+
+                switch (mode)
                 {
                     case "jit":
                         packageName = "Microsoft.NETCore.App.Runtime.Mono.linux-x64".ToLowerInvariant();
@@ -4049,14 +4044,14 @@ namespace Microsoft.Crank.Agent
             }
         }
 
-        private static double GetSwapBytes()
+        private static async Task<long> GetSwapBytesAsync()
         {
-            var result = ProcessUtil.Run("cat", "/proc/meminfo", throwOnError: false, captureOutput: true);
+            var result = await ProcessUtil.RunAsync("cat", "/proc/meminfo", throwOnError: false, captureOutput: true);
 
             // SwapTotal:       8388604 kB
             // SwapFree:        8310012 kB
 
-            int swapTotal = 0, swapFree = 0;
+            long swapTotal = 0, swapFree = 0;
             bool totalFound = false, freeFound = false;
 
             using (var sr = new StringReader(result.StandardOutput))
@@ -4090,9 +4085,9 @@ namespace Microsoft.Crank.Agent
 
             return swapkB * 1024;
 
-            int ParseMeminfo(string line)
+            long ParseMeminfo(string line)
             {
-                return int.Parse(line.Split(':', StringSplitOptions.RemoveEmptyEntries)[1].Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)[0]);
+                return long.Parse(line.Split(':', StringSplitOptions.RemoveEmptyEntries)[1].Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)[0]);
             }
         }
 
@@ -4354,10 +4349,8 @@ namespace Microsoft.Crank.Agent
             return failed ? -1 : 0;
         }
 
-        public static Task EnsureDotnetInstallExistsAsync()
+        public static void CreateTemporaryFolders()
         {
-            Log.WriteLine($"Checking requirements...");
-
             if (String.IsNullOrEmpty(_rootTempDir))
             {
                 // From the /tmp folder (in Docker, should be mounted to /mnt/benchmarks) use a specific 'benchmarksserver' root folder to isolate from other services
@@ -4377,8 +4370,13 @@ namespace Microsoft.Crank.Agent
             {
                 _dotnethome = GetTempDir();
             }
+        }
 
-            // Add a Nuget.config for the self-contained deployments to be able to find the runtime packages on the CI feeds
+        public static Task EnsureDotnetInstallExistsAsync()
+        {
+            Log.WriteLine($"Checking requirements...");
+
+            // Add a NuGet.config for the self-contained deployments to be able to find the runtime packages on the CI feeds
 
             var rootNugetConfig = Path.Combine(_rootTempDir, "NuGet.Config");
 
@@ -4455,7 +4453,12 @@ namespace Microsoft.Crank.Agent
                 // If dotnet hasn't yet been installed, don't try to shutdown the build servers
                 if (File.Exists(GetDotNetExecutable(_dotnethome)))
                 {
-                    ProcessUtil.Run(GetDotNetExecutable(_dotnethome), "build-server shutdown", workingDirectory: _dotnethome, log: true);
+                    ProcessUtil.RunAsync(
+                        GetDotNetExecutable(_dotnethome),
+                        "build-server shutdown",
+                        workingDirectory: _dotnethome,
+                        timeout: TimeSpan.FromSeconds(20),
+                        log: true).GetAwaiter().GetResult();
                 }
 
                 if (_cleanup && Directory.Exists(_rootTempDir))

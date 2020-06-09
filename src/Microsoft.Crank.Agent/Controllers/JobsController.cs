@@ -503,62 +503,59 @@ namespace Microsoft.Crank.Agent.Controllers
         }
 
         [HttpGet("{id}/fetch")]
-        public IActionResult Fetch(int id)
+        public async Task<IActionResult> Fetch(int id)
         {
-            lock (_jobs)
+            try
             {
-                try
+                var job = _jobs.Find(id);
+
+                Log($"Driver fetching published application '{id}'");
+
+                if (String.IsNullOrEmpty(job.Source.DockerFile))
                 {
-                    var job = _jobs.Find(id);
+                    var zipPath = Path.Combine(Directory.GetParent(job.BasePath).FullName, "published.zip");
+                    ZipFile.CreateFromDirectory(job.BasePath, zipPath);
 
-                    Log($"Driver fetching published application '{id}'");
+                    return File(System.IO.File.OpenRead(zipPath), "application/object");
+                }
+                else
+                {
+                    var tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("n"));
+                    Directory.CreateDirectory(tempDirectory);
 
-                    if (String.IsNullOrEmpty(job.Source.DockerFile))
+                    try
                     {
-                        var zipPath = Path.Combine(Directory.GetParent(job.BasePath).FullName, "published.zip");
-                        ZipFile.CreateFromDirectory(job.BasePath, zipPath);
+                        // docker cp mycontainer:/src/. target
+
+                        if (String.IsNullOrEmpty(job.Source.DockerFetchPath))
+                        {
+                            return BadRequest("The Docker fetch path was not provided in the job");
+                        }
+
+                        var sourceFolder = Path.Combine(job.Source.DockerFetchPath, ".");
+
+                        // Delete container if the same name already exists
+                        await ProcessUtil.RunAsync("docker", $"cp {job.Source.GetNormalizedImageName()}:{sourceFolder} {tempDirectory}", throwOnError: false);
+
+                        var zipPath = Path.Combine(Directory.GetParent(job.BasePath).FullName, "fetch.zip");
+                        ZipFile.CreateFromDirectory(tempDirectory, zipPath);
 
                         return File(System.IO.File.OpenRead(zipPath), "application/object");
                     }
-                    else
+                    finally
                     {
-                        var tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("n"));
-                        Directory.CreateDirectory(tempDirectory);
-
-                        try
-                        {
-                            // docker cp mycontainer:/src/. target
-
-                            if (String.IsNullOrEmpty(job.Source.DockerFetchPath))
-                            {
-                                return BadRequest("The Docker fetch path was not provided in the job");
-                            }
-
-                            var sourceFolder = Path.Combine(job.Source.DockerFetchPath, ".");
-
-                            // Delete container if the same name already exists
-                            ProcessUtil.Run("docker", $"cp {job.Source.GetNormalizedImageName()}:{sourceFolder} {tempDirectory}", throwOnError: false);
-
-                            var zipPath = Path.Combine(Directory.GetParent(job.BasePath).FullName, "fetch.zip");
-                            ZipFile.CreateFromDirectory(tempDirectory, zipPath);
-
-                            return File(System.IO.File.OpenRead(zipPath), "application/object");
-                        }
-                        finally
-                        {
-                            Response.RegisterForDispose(new TempFolder(tempDirectory));
-                        }
+                        Response.RegisterForDispose(new TempFolder(tempDirectory));
                     }
                 }
-                catch
-                {
-                    return NotFound();
-                }
+            }
+            catch
+            {
+                return NotFound();
             }
         }
 
         [HttpGet("{id}/download")]
-        public IActionResult Download(int id, string path)
+        public async Task<IActionResult> Download(int id, string path)
         {
             try
             {
@@ -596,7 +593,7 @@ namespace Microsoft.Crank.Agent.Controllers
                         var destinationFilename = Path.Combine(tempDirectory, Path.GetFileName(path));
 
                         // Delete container if the same name already exists
-                        var result = ProcessUtil.Run("docker", $"cp {job.Source.GetNormalizedImageName()}:{path} {destinationFilename}", throwOnError: false, log: true);
+                        var result = await ProcessUtil.RunAsync("docker", $"cp {job.Source.GetNormalizedImageName()}:{path} {destinationFilename}", throwOnError: false, log: true);
 
                         return File(System.IO.File.OpenRead(destinationFilename), "application/object");
                     }

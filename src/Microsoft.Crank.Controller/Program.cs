@@ -1340,7 +1340,6 @@ namespace Microsoft.Crank.Controller
                             {
                                 var localFolder = source["localFolder"].ToString();
 
-                                Log.Write("localFolder: " + localFolder);
                                 if (!localFolder.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                                 {
                                     var configurationFilename = new FileInfo(configurationFilenameOrUrl).FullName;
