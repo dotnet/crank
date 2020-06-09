@@ -1327,6 +1327,36 @@ namespace Microsoft.Crank.Controller
                         throw new ControllerException($"Unsupported configuration format: {configurationExtension}");
                 }
 
+                // Resolves local paths
+                if (!configurationFilenameOrUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase) && localconfiguration.ContainsKey("jobs"))
+                {
+                    foreach (JProperty job in localconfiguration["jobs"])
+                    {
+                        var jobObject = (JObject)job.Value;
+                        if (jobObject.ContainsKey("source"))
+                        {
+                            var source =  (JObject)jobObject["source"];
+                            if (source.ContainsKey("localFolder"))
+                            {
+                                var localFolder = source["localFolder"].ToString();
+
+                                Log.Write("localFolder: " + localFolder);
+                                if (!localFolder.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    var configurationFilename = new FileInfo(configurationFilenameOrUrl).FullName;
+                                    var resolvedFilename = new FileInfo(Path.Combine(Path.GetDirectoryName(configurationFilename), localFolder)).FullName;
+  
+                                    source["localFolder"] = resolvedFilename;
+                                }
+                            }
+                            else
+                            {
+                                Log.Write(source.ToString());
+                            }
+                        }
+                    }
+                }
+
                 // Process imports
                 if (localconfiguration.ContainsKey("imports"))
                 {
