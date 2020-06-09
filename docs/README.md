@@ -5,7 +5,7 @@
 | Topic | Description |
 |-------|-------------|
 |**[Getting Started](getting_started.md)** | Writing your first benchmark.
-|**[Benchmarking Docker containers](benchmarking_docker.md)** | Writing your first benchmark.
+|**[Benchmarking Docker containers](benchmarking_docker.md)** | Run Docker containers.
 
 ## Guides
 
