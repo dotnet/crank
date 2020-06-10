@@ -11,9 +11,7 @@ namespace Microsoft.Crank.Controller
     {
         public bool Resolve(NodeEvent nodeEvent, ref Type currentType)
         {
-            var scalar = nodeEvent as Scalar;
-
-            if (scalar != null)
+            if (nodeEvent is Scalar scalar && scalar.IsPlainImplicit)
             {
                 if (decimal.TryParse(scalar.Value, NumberStyles.Any, CultureInfo.InvariantCulture, out var value))
                 {
