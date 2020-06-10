@@ -476,22 +476,18 @@ namespace Microsoft.Crank.Controller
                             jobsByDependency[jobName] = jobs;
 
                             // Check os and architecture requirements
-                            if (! await EnsureServerRequirementsAsync(jobs, service))
+                            if (!await EnsureServerRequirementsAsync(jobs, service))
                             {
                                 Log.Write($"Scenario skipped as the agent doesn't match the operating and architecture constraints for '{jobName}' ({String.Join("/", new[] { service.Options.RequiredArchitecture, service.Options.RequiredOperatingSystem })})");
-                                        return new ExecutionResult();
-                                    }
+                                return new ExecutionResult();
+                            }
 
                             // Start this service on all configured agent endpoints
                             await Task.WhenAll(
                                 jobs.Select(job =>
                                 {
                                     // Start job on agent
-                                    return job.StartAsync(
-                                                jobName,
-                                                _outputArchiveOption,
-                                                _buildArchiveOption
-                                            );
+                                    return job.StartAsync(jobName);
                                 })
                             );
 
@@ -805,15 +801,14 @@ namespace Microsoft.Crank.Controller
             var job = new JobConnection(service, new Uri(service.Endpoints.First()));
 
             // Check os and architecture requirements
-            if (!await EnsureServerRequirementsAsync(new [] { job } , service))
-                {
+            if (!await EnsureServerRequirementsAsync(new[] { job }, service))
+            {
                 Log.Write($"Scenario skipped as the agent doesn't match the operating and architecture constraints for '{jobName}' ({String.Join("/", new[] { service.Options.RequiredArchitecture, service.Options.RequiredOperatingSystem })})");
-                    return new ExecutionResult();
-                }
-
+                return new ExecutionResult();
+            }
 
             // Start this service on the configured agent endpoint
-            await job.StartAsync(jobName, _outputArchiveOption, _buildArchiveOption);
+            await job.StartAsync(jobName);
 
             // Start threads that will keep the jobs alive
             job.StartKeepAlive();
@@ -827,9 +822,9 @@ namespace Microsoft.Crank.Controller
 
                 await job.TryUpdateJobAsync();
 
-                var stop = 
-                    job.Job.State == JobState.Stopped || 
-                    job.Job.State == JobState.Deleted || 
+                var stop =
+                    job.Job.State == JobState.Stopped ||
+                    job.Job.State == JobState.Deleted ||
                     job.Job.State == JobState.Failed
                     ;
 
@@ -1273,7 +1268,7 @@ namespace Microsoft.Crank.Controller
                 }
                 else
                 {
-                   configurationExtension = Path.GetExtension(configurationFilenameOrUrl);
+                    configurationExtension = Path.GetExtension(configurationFilenameOrUrl);
                 }
 
                 switch (configurationExtension)
@@ -1288,7 +1283,7 @@ namespace Microsoft.Crank.Controller
                         var deserializer = new DeserializerBuilder()
                             .WithNodeTypeResolver(new JsonTypeResolver())
                             .Build();
-                            
+
                         var yamlObject = deserializer.Deserialize(new StringReader(configurationContent));
 
                         var serializer = new SerializerBuilder()
@@ -1300,7 +1295,7 @@ namespace Microsoft.Crank.Controller
                         json = JObject.Parse(json).ToString(Formatting.Indented);
                         localconfiguration = JObject.Parse(json);
 
-                        var schemaJson= File.ReadAllText(Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "benchmarks.schema.json"));
+                        var schemaJson = File.ReadAllText(Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "benchmarks.schema.json"));
                         var schema = JSchema.Parse(schemaJson);
                         bool valid = localconfiguration.IsValid(schema, out IList<ValidationError> errorMessages);
 
@@ -1325,7 +1320,7 @@ namespace Microsoft.Crank.Controller
                         var jobObject = (JObject)job.Value;
                         if (jobObject.ContainsKey("source"))
                         {
-                            var source =  (JObject)jobObject["source"];
+                            var source = (JObject)jobObject["source"];
                             if (source.ContainsKey("localFolder"))
                             {
                                 var localFolder = source["localFolder"].ToString();
@@ -1334,7 +1329,7 @@ namespace Microsoft.Crank.Controller
                                 {
                                     var configurationFilename = new FileInfo(configurationFilenameOrUrl).FullName;
                                     var resolvedFilename = new FileInfo(Path.Combine(Path.GetDirectoryName(configurationFilename), localFolder)).FullName;
-  
+
                                     source["localFolder"] = resolvedFilename;
                                 }
                             }
@@ -1451,7 +1446,7 @@ namespace Microsoft.Crank.Controller
 
                 if (orderedList.Length > nth)
                 {
-                return orderedList[nth];
+                    return orderedList[nth];
                 }
                 else
                 {
@@ -1800,7 +1795,7 @@ namespace Microsoft.Crank.Controller
                 }
             }
         }
-    
+
         private static async Task CheckUpdateAsync()
         {
             var packageVersionUrl = "https://api.nuget.org/v3-flatcontainer/microsoft.crank.controller/index.json";
@@ -1813,7 +1808,7 @@ namespace Microsoft.Crank.Controller
                 var last = versions.FirstOrDefault().ToString();
 
                 var attribute = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>();
-                
+
                 if (new NuGetVersion(last) > new NuGetVersion(attribute.InformationalVersion))
                 {
                     Console.ForegroundColor = ConsoleColor.DarkYellow;
