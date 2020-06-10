@@ -1292,7 +1292,9 @@ namespace Microsoft.Crank.Controller
 
                         var json = serializer.Serialize(yamlObject);
                         // Format json in case the schema validation fails and we need to render error line numbers
-                        json = JObject.Parse(json).ToString(Formatting.Indented);
+                        localconfiguration = JObject.Parse(json);
+                        localconfiguration.AddFirst(new JProperty("$schema", "https://raw.githubusercontent.com/aspnet/Benchmarks/master/src/BenchmarksDriver2/benchmarks.schema.json"));
+                        json = localconfiguration.ToString(Formatting.Indented);
                         localconfiguration = JObject.Parse(json);
 
                         var schemaJson = File.ReadAllText(Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "benchmarks.schema.json"));
