@@ -22,6 +22,7 @@ using Newtonsoft.Json.Serialization;
 using NuGet.Versioning;
 using YamlDotNet.Serialization;
 using System.Reflection;
+using System.Text;
 
 namespace Microsoft.Crank.Controller
 {
@@ -1303,10 +1304,23 @@ namespace Microsoft.Crank.Controller
 
                         if (!valid)
                         {
-                            var validationFilename = Path.Combine(Path.GetTempPath(), "crankvalidation.json");
+                            var validationFilename = Path.Combine(Path.GetTempPath(), "crank-debug.json");
                             File.WriteAllText(validationFilename, json);
-                            var error = String.Join("\r\n", errorMessages.Select(m => $"{m.Message} ({m.LineNumber}, {m.LinePosition})"));
-                            throw new ControllerException($"Invalid configuration file {configurationFilenameOrUrl}\r\n\r\nIntermediate file created at '{validationFilename}'\r\n{error}");
+
+                            var lines = json.Split(new [] { '\n', '\r'}, StringSplitOptions.RemoveEmptyEntries);
+
+                            var errorBuilder = new StringBuilder();
+
+                            errorBuilder.AppendLine($"Invalid configuration file '{configurationFilenameOrUrl}'");
+                            errorBuilder.AppendLine($"Debug file created at '{validationFilename}");
+
+                            foreach (var error in errorMessages)
+                            {
+                                errorBuilder.AppendLine($"at [{error.LineNumber}, {error.LinePosition}]: {error.Message}");
+                                errorBuilder.AppendLine($"  {lines[error.LineNumber - 1]}");
+                            }
+
+                            throw new ControllerException(errorBuilder.ToString());
                         }
 
                         break;
