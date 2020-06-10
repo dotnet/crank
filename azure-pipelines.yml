@@ -25,7 +25,7 @@ trigger:
     - release/*
 
 pr:
-  autoCancel: false
+  autoCancel: true
   branches:
     include:
     - '*'
@@ -45,6 +45,7 @@ stages:
       mergeTestResults: true
       jobs:
       - job: Windows
+        enabled: ${{ and(eq(variables['System.TeamProject'], 'internal'), notin(variables['Build.Reason'], 'PullRequest')) }}:
         pool:
           ${{ if eq(variables['System.TeamProject'], 'public') }}:
             name: NetCorePublic-Pool
