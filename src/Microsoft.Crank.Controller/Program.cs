@@ -17,6 +17,7 @@ using Fluid.Values;
 using McMaster.Extensions.CommandLineUtils;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Schema;
 using Newtonsoft.Json.Serialization;
 using NuGet.Versioning;
 using YamlDotNet.Serialization;
@@ -26,8 +27,6 @@ namespace Microsoft.Crank.Controller
 {
     public class Program
     {
-        private static TimeSpan _timeout = TimeSpan.FromMinutes(5);
-
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
 
@@ -40,9 +39,6 @@ namespace Microsoft.Crank.Controller
         private const string _defaultTraceArguments = "BufferSizeMB=1024;CircularMB=1024;clrEvents=JITSymbols;kernelEvents=process+thread+ImageLoad+Profile";
 
         private static CommandOption
-            _outputArchiveOption,
-            _buildArchiveOption,
-
             _configOption,
             _scenarioOption,
             _jobOption,
@@ -115,9 +111,9 @@ namespace Microsoft.Crank.Controller
 
             var app = new CommandLineApplication()
             {
-                Name = "BenchmarksDriver",
-                FullName = "ASP.NET Benchmark Driver",
-                Description = "Driver for ASP.NET Benchmarks",
+                Name = "Crank",
+                FullName = "ASP.NET Benchmarks Controller",
+                Description = "Crank orchestrates benchmark jobs on Crank agents.",
                 ResponseFileHandling = ResponseFileHandling.ParseArgsAsSpaceSeparated,
                 OptionsComparison = StringComparison.OrdinalIgnoreCase,
             };
@@ -173,41 +169,11 @@ namespace Microsoft.Crank.Controller
                 "Quiet output, only the results are displayed", CommandOptionType.NoValue);
             var iterationsOption = app.Option("-i|--iterations",
                 "The number of iterations.", CommandOptionType.SingleValue);
-            var excludeOption = app.Option("-x|--exclude",
-                "The number of best and worst jobs to skip.", CommandOptionType.SingleValue);
-            var shutdownOption = app.Option("--before-shutdown",
-                "An endpoint to call before the application has shut down.", CommandOptionType.SingleValue);
-            var benchmarkdotnetOption = app.Option("--benchmarkdotnet",
-                "Runs a BenchmarkDotNet application, with an optional filter. e.g., --benchmarkdotnet, --benchmarkdotnet:*MyBenchmark*", CommandOptionType.SingleOrNoValue);
-
-            // ServerJob Options
-            var databaseOption = app.Option("--database",
-                "The type of database to run the benchmarks with (PostgreSql, SqlServer or MySql). Default is None.", CommandOptionType.SingleValue);
-
-            _outputArchiveOption = app.Option("--output-archive",
-                "Output archive attachment. Format is 'path[;destination]'. Path can be a URL. e.g., " +
-                "\"--output-archive c:\\build\\Microsoft.AspNetCore.Mvc.zip\", " +
-                "\"--output-archive http://raw/github.com/pictures.zip;wwwroot\\pictures\"",
-                CommandOptionType.MultipleValue);
-            _buildArchiveOption = app.Option("--build-archive",
-                "Build archive attachment. Format is 'path[;destination]'. Path can be a URL. e.g., " +
-                "\"--build-archive c:\\build\\Microsoft.AspNetCore.Mvc.zip\", " +
-                "\"--build-archive http://raw/github.com/pictures.zip;wwwroot\\pictures\"",
-                CommandOptionType.MultipleValue);
-            var buildArguments = app.Option("-ba|--build-arg",
-                "Defines custom build arguments to use with the benchmarked application e.g., -b \"/p:foo=bar\" --build-arg \"quiet\"", CommandOptionType.MultipleValue);
-            var serverTimeoutOption = app.Option("--server-timeout",
-                "Timeout for server jobs. e.g., 00:05:00", CommandOptionType.SingleValue);
 
             app.OnExecuteAsync(async (t) =>
             {
                 Log.IsQuiet = quietOption.HasValue();
                 Log.IsVerbose = verboseOption.HasValue();
-
-                if (serverTimeoutOption.HasValue())
-                {
-                    TimeSpan.TryParse(serverTimeoutOption.Value(), out _timeout);
-                }
 
                 var session = _sessionOption.Value();
                 var iterations = 1;
@@ -255,7 +221,15 @@ namespace Microsoft.Crank.Controller
 
                 if (!_scenarioOption.HasValue() && !_compareOption.HasValue() && !_jobOption.HasValue())
                 {
-                    Console.Error.WriteLine("No jobs were found. Are you missing the --scenario argument?");
+                    if (!_configOption.HasValue())
+                    {
+                        app.ShowHelp();
+                    }
+                    else
+                    {
+                        Console.Error.WriteLine("No jobs were found. Are you missing the --scenario argument?");
+                    }
+
                     return 1;
                 }
 
@@ -388,7 +362,6 @@ namespace Microsoft.Crank.Controller
                         session,
                         iterations,
                         exclude,
-                        shutdownOption.Value(),
                         span
                         );
                 }
@@ -453,7 +426,6 @@ namespace Microsoft.Crank.Controller
             string session,
             int iterations,
             int exclude,
-            string shutdownEndpoint,
             TimeSpan span
             )
         {
@@ -1107,7 +1079,7 @@ namespace Microsoft.Crank.Controller
                 }
             }
 
-            // Roundtrip the JObject such that it contains all the exta properties of the Configuration class that are not in the configuration file
+            // Roundtrip the JObject such that it contains all the extra properties of the Configuration class that are not in the configuration file
             var configurationInstance = configuration.ToObject<Configuration>();
 
             // After that point we only modify the concrete instance of Configuration
@@ -1313,7 +1285,10 @@ namespace Microsoft.Crank.Controller
                     case ".yml":
                     case ".yaml":
 
-                        var deserializer = new DeserializerBuilder().Build();
+                        var deserializer = new DeserializerBuilder()
+                            .WithNodeTypeResolver(new JsonTypeResolver())
+                            .Build();
+                            
                         var yamlObject = deserializer.Deserialize(new StringReader(configurationContent));
 
                         var serializer = new SerializerBuilder()
@@ -1321,7 +1296,22 @@ namespace Microsoft.Crank.Controller
                             .Build();
 
                         var json = serializer.Serialize(yamlObject);
+                        // Format json in case the schema validation fails and we need to render error line numbers
+                        json = JObject.Parse(json).ToString(Formatting.Indented);
                         localconfiguration = JObject.Parse(json);
+
+                        var schemaJson= File.ReadAllText(Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "benchmarks.schema.json"));
+                        var schema = JSchema.Parse(schemaJson);
+                        bool valid = localconfiguration.IsValid(schema, out IList<ValidationError> errorMessages);
+
+                        if (!valid)
+                        {
+                            var validationFilename = Path.Combine(Path.GetTempPath(), "crankvalidation.json");
+                            File.WriteAllText(validationFilename, json);
+                            var error = String.Join("\r\n", errorMessages.Select(m => $"{m.Message} ({m.LineNumber}, {m.LinePosition})"));
+                            throw new ControllerException($"Invalid configuration file {configurationFilenameOrUrl}\r\n\r\nIntermediate file created at '{validationFilename}'\r\n{error}");
+                        }
+
                         break;
                     default:
                         throw new ControllerException($"Unsupported configuration format: {configurationExtension}");
@@ -1347,10 +1337,6 @@ namespace Microsoft.Crank.Controller
   
                                     source["localFolder"] = resolvedFilename;
                                 }
-                            }
-                            else
-                            {
-                                Log.Write(source.ToString());
                             }
                         }
                     }
