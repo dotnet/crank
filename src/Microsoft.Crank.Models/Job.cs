@@ -197,5 +197,7 @@ namespace Microsoft.Crank.Models
         public bool DiscardResults { get; set; }
         public List<string> BuildFiles { get; set; } = new List<string>();
         public List<string> OutputFiles { get; set; } = new List<string>();
+        public List<string> BuildArchives { get; set; } = new List<string>();
+        public List<string> OutputArchives { get; set; } = new List<string>();
     }
 }

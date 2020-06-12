@@ -17,17 +17,17 @@ using Fluid.Values;
 using McMaster.Extensions.CommandLineUtils;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Schema;
 using Newtonsoft.Json.Serialization;
 using NuGet.Versioning;
 using YamlDotNet.Serialization;
 using System.Reflection;
+using System.Text;
 
 namespace Microsoft.Crank.Controller
 {
     public class Program
     {
-        private static TimeSpan _timeout = TimeSpan.FromMinutes(5);
-
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
 
@@ -40,9 +40,6 @@ namespace Microsoft.Crank.Controller
         private const string _defaultTraceArguments = "BufferSizeMB=1024;CircularMB=1024;clrEvents=JITSymbols;kernelEvents=process+thread+ImageLoad+Profile";
 
         private static CommandOption
-            _outputArchiveOption,
-            _buildArchiveOption,
-
             _configOption,
             _scenarioOption,
             _jobOption,
@@ -115,9 +112,9 @@ namespace Microsoft.Crank.Controller
 
             var app = new CommandLineApplication()
             {
-                Name = "BenchmarksDriver",
-                FullName = "ASP.NET Benchmark Driver",
-                Description = "Driver for ASP.NET Benchmarks",
+                Name = "Crank",
+                FullName = "ASP.NET Benchmarks Controller",
+                Description = "Crank orchestrates benchmark jobs on Crank agents.",
                 ResponseFileHandling = ResponseFileHandling.ParseArgsAsSpaceSeparated,
                 OptionsComparison = StringComparison.OrdinalIgnoreCase,
             };
@@ -173,41 +170,11 @@ namespace Microsoft.Crank.Controller
                 "Quiet output, only the results are displayed", CommandOptionType.NoValue);
             var iterationsOption = app.Option("-i|--iterations",
                 "The number of iterations.", CommandOptionType.SingleValue);
-            var excludeOption = app.Option("-x|--exclude",
-                "The number of best and worst jobs to skip.", CommandOptionType.SingleValue);
-            var shutdownOption = app.Option("--before-shutdown",
-                "An endpoint to call before the application has shut down.", CommandOptionType.SingleValue);
-            var benchmarkdotnetOption = app.Option("--benchmarkdotnet",
-                "Runs a BenchmarkDotNet application, with an optional filter. e.g., --benchmarkdotnet, --benchmarkdotnet:*MyBenchmark*", CommandOptionType.SingleOrNoValue);
-
-            // ServerJob Options
-            var databaseOption = app.Option("--database",
-                "The type of database to run the benchmarks with (PostgreSql, SqlServer or MySql). Default is None.", CommandOptionType.SingleValue);
-
-            _outputArchiveOption = app.Option("--output-archive",
-                "Output archive attachment. Format is 'path[;destination]'. Path can be a URL. e.g., " +
-                "\"--output-archive c:\\build\\Microsoft.AspNetCore.Mvc.zip\", " +
-                "\"--output-archive http://raw/github.com/pictures.zip;wwwroot\\pictures\"",
-                CommandOptionType.MultipleValue);
-            _buildArchiveOption = app.Option("--build-archive",
-                "Build archive attachment. Format is 'path[;destination]'. Path can be a URL. e.g., " +
-                "\"--build-archive c:\\build\\Microsoft.AspNetCore.Mvc.zip\", " +
-                "\"--build-archive http://raw/github.com/pictures.zip;wwwroot\\pictures\"",
-                CommandOptionType.MultipleValue);
-            var buildArguments = app.Option("-ba|--build-arg",
-                "Defines custom build arguments to use with the benchmarked application e.g., -b \"/p:foo=bar\" --build-arg \"quiet\"", CommandOptionType.MultipleValue);
-            var serverTimeoutOption = app.Option("--server-timeout",
-                "Timeout for server jobs. e.g., 00:05:00", CommandOptionType.SingleValue);
 
             app.OnExecuteAsync(async (t) =>
             {
                 Log.IsQuiet = quietOption.HasValue();
                 Log.IsVerbose = verboseOption.HasValue();
-
-                if (serverTimeoutOption.HasValue())
-                {
-                    TimeSpan.TryParse(serverTimeoutOption.Value(), out _timeout);
-                }
 
                 var session = _sessionOption.Value();
                 var iterations = 1;
@@ -255,7 +222,15 @@ namespace Microsoft.Crank.Controller
 
                 if (!_scenarioOption.HasValue() && !_compareOption.HasValue() && !_jobOption.HasValue())
                 {
-                    Console.Error.WriteLine("No jobs were found. Are you missing the --scenario argument?");
+                    if (!_configOption.HasValue())
+                    {
+                        app.ShowHelp();
+                    }
+                    else
+                    {
+                        Console.Error.WriteLine("No jobs were found. Are you missing the --scenario argument?");
+                    }
+
                     return 1;
                 }
 
@@ -388,7 +363,6 @@ namespace Microsoft.Crank.Controller
                         session,
                         iterations,
                         exclude,
-                        shutdownOption.Value(),
                         span
                         );
                 }
@@ -453,7 +427,6 @@ namespace Microsoft.Crank.Controller
             string session,
             int iterations,
             int exclude,
-            string shutdownEndpoint,
             TimeSpan span
             )
         {
@@ -504,22 +477,18 @@ namespace Microsoft.Crank.Controller
                             jobsByDependency[jobName] = jobs;
 
                             // Check os and architecture requirements
-                            if (! await EnsureServerRequirementsAsync(jobs, service))
+                            if (!await EnsureServerRequirementsAsync(jobs, service))
                             {
                                 Log.Write($"Scenario skipped as the agent doesn't match the operating and architecture constraints for '{jobName}' ({String.Join("/", new[] { service.Options.RequiredArchitecture, service.Options.RequiredOperatingSystem })})");
-                                        return new ExecutionResult();
-                                    }
+                                return new ExecutionResult();
+                            }
 
                             // Start this service on all configured agent endpoints
                             await Task.WhenAll(
                                 jobs.Select(job =>
                                 {
                                     // Start job on agent
-                                    return job.StartAsync(
-                                                jobName,
-                                                _outputArchiveOption,
-                                                _buildArchiveOption
-                                            );
+                                    return job.StartAsync(jobName);
                                 })
                             );
 
@@ -833,15 +802,14 @@ namespace Microsoft.Crank.Controller
             var job = new JobConnection(service, new Uri(service.Endpoints.First()));
 
             // Check os and architecture requirements
-            if (!await EnsureServerRequirementsAsync(new [] { job } , service))
-                {
+            if (!await EnsureServerRequirementsAsync(new[] { job }, service))
+            {
                 Log.Write($"Scenario skipped as the agent doesn't match the operating and architecture constraints for '{jobName}' ({String.Join("/", new[] { service.Options.RequiredArchitecture, service.Options.RequiredOperatingSystem })})");
-                    return new ExecutionResult();
-                }
-
+                return new ExecutionResult();
+            }
 
             // Start this service on the configured agent endpoint
-            await job.StartAsync(jobName, _outputArchiveOption, _buildArchiveOption);
+            await job.StartAsync(jobName);
 
             // Start threads that will keep the jobs alive
             job.StartKeepAlive();
@@ -855,9 +823,9 @@ namespace Microsoft.Crank.Controller
 
                 await job.TryUpdateJobAsync();
 
-                var stop = 
-                    job.Job.State == JobState.Stopped || 
-                    job.Job.State == JobState.Deleted || 
+                var stop =
+                    job.Job.State == JobState.Stopped ||
+                    job.Job.State == JobState.Deleted ||
                     job.Job.State == JobState.Failed
                     ;
 
@@ -1107,7 +1075,7 @@ namespace Microsoft.Crank.Controller
                 }
             }
 
-            // Roundtrip the JObject such that it contains all the exta properties of the Configuration class that are not in the configuration file
+            // Roundtrip the JObject such that it contains all the extra properties of the Configuration class that are not in the configuration file
             var configurationInstance = configuration.ToObject<Configuration>();
 
             // After that point we only modify the concrete instance of Configuration
@@ -1301,7 +1269,7 @@ namespace Microsoft.Crank.Controller
                 }
                 else
                 {
-                   configurationExtension = Path.GetExtension(configurationFilenameOrUrl);
+                    configurationExtension = Path.GetExtension(configurationFilenameOrUrl);
                 }
 
                 switch (configurationExtension)
@@ -1313,7 +1281,10 @@ namespace Microsoft.Crank.Controller
                     case ".yml":
                     case ".yaml":
 
-                        var deserializer = new DeserializerBuilder().Build();
+                        var deserializer = new DeserializerBuilder()
+                            .WithNodeTypeResolver(new JsonTypeResolver())
+                            .Build();
+
                         var yamlObject = deserializer.Deserialize(new StringReader(configurationContent));
 
                         var serializer = new SerializerBuilder()
@@ -1321,7 +1292,37 @@ namespace Microsoft.Crank.Controller
                             .Build();
 
                         var json = serializer.Serialize(yamlObject);
+                        // Format json in case the schema validation fails and we need to render error line numbers
                         localconfiguration = JObject.Parse(json);
+                        localconfiguration.AddFirst(new JProperty("$schema", "https://raw.githubusercontent.com/aspnet/Benchmarks/master/src/BenchmarksDriver2/benchmarks.schema.json"));
+                        json = localconfiguration.ToString(Formatting.Indented);
+                        localconfiguration = JObject.Parse(json);
+
+                        var schemaJson = File.ReadAllText(Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "benchmarks.schema.json"));
+                        var schema = JSchema.Parse(schemaJson);
+                        bool valid = localconfiguration.IsValid(schema, out IList<ValidationError> errorMessages);
+
+                        if (!valid)
+                        {
+                            var validationFilename = Path.Combine(Path.GetTempPath(), "crank-debug.json");
+                            File.WriteAllText(validationFilename, json);
+
+                            var lines = json.Split(new [] { '\n', '\r'}, StringSplitOptions.RemoveEmptyEntries);
+
+                            var errorBuilder = new StringBuilder();
+
+                            errorBuilder.AppendLine($"Invalid configuration file '{configurationFilenameOrUrl}'");
+                            errorBuilder.AppendLine($"Debug file created at '{validationFilename}");
+
+                            foreach (var error in errorMessages)
+                            {
+                                errorBuilder.AppendLine($"at [{error.LineNumber}, {error.LinePosition}]: {error.Message}");
+                                errorBuilder.AppendLine($"  {lines[error.LineNumber - 1]}");
+                            }
+
+                            throw new ControllerException(errorBuilder.ToString());
+                        }
+
                         break;
                     default:
                         throw new ControllerException($"Unsupported configuration format: {configurationExtension}");
@@ -1335,7 +1336,7 @@ namespace Microsoft.Crank.Controller
                         var jobObject = (JObject)job.Value;
                         if (jobObject.ContainsKey("source"))
                         {
-                            var source =  (JObject)jobObject["source"];
+                            var source = (JObject)jobObject["source"];
                             if (source.ContainsKey("localFolder"))
                             {
                                 var localFolder = source["localFolder"].ToString();
@@ -1344,13 +1345,9 @@ namespace Microsoft.Crank.Controller
                                 {
                                     var configurationFilename = new FileInfo(configurationFilenameOrUrl).FullName;
                                     var resolvedFilename = new FileInfo(Path.Combine(Path.GetDirectoryName(configurationFilename), localFolder)).FullName;
-  
+
                                     source["localFolder"] = resolvedFilename;
                                 }
-                            }
-                            else
-                            {
-                                Log.Write(source.ToString());
                             }
                         }
                     }
@@ -1465,7 +1462,7 @@ namespace Microsoft.Crank.Controller
 
                 if (orderedList.Length > nth)
                 {
-                return orderedList[nth];
+                    return orderedList[nth];
                 }
                 else
                 {
@@ -1814,7 +1811,7 @@ namespace Microsoft.Crank.Controller
                 }
             }
         }
-    
+
         private static async Task CheckUpdateAsync()
         {
             var packageVersionUrl = "https://api.nuget.org/v3-flatcontainer/microsoft.crank.controller/index.json";
@@ -1827,7 +1824,7 @@ namespace Microsoft.Crank.Controller
                 var last = versions.FirstOrDefault().ToString();
 
                 var attribute = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>();
-                
+
                 if (new NuGetVersion(last) > new NuGetVersion(attribute.InformationalVersion))
                 {
                     Console.ForegroundColor = ConsoleColor.DarkYellow;
