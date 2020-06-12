@@ -16,13 +16,20 @@
     <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="3.0.0" />
     <PackageReference Include="System.Data.SqlClient" Version="4.8.1" />
     <PackageReference Include="CsvHelper" Version="12.1.2" />
-    <PackageReference Include="Fluid.Core" Version="1.0.0-beta-9608" />
-    <PackageReference Include="YamlDotNet" Version="8.0.0" />
+    <PackageReference Include="Fluid.Core" Version="1.0.0-beta-9660" />
+    <PackageReference Include="YamlDotNet" Version="8.1.2" />
+    <PackageReference Include="Newtonsoft.Json.Schema" Version="3.0.13" />
     <PackageReference Include="NuGet.Versioning" Version="5.6.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Crank.Models\Microsoft.Crank.Models.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="benchmarks.schema.json" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Remove="benchmarks.schema.json" />
+  </ItemGroup>
+
 
 </Project>

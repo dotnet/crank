@@ -56,9 +56,7 @@ namespace Microsoft.Crank.Controller
         public Job Job { get; private set; }
 
         public async Task<string> StartAsync(
-            string jobName,
-            CommandOption _outputArchiveOption,
-            CommandOption _buildArchiveOption
+            string jobName
             )
         {
             _jobName = jobName;
@@ -152,80 +150,75 @@ namespace Microsoft.Crank.Controller
                     }
 
                     // Upload custom package contents
-                    if (_outputArchiveOption.HasValue())
+                    foreach (var outputArchiveValue in Job.Options.OutputArchives)
                     {
-                        foreach (var outputArchiveValue in _outputArchiveOption.Values)
+                        var outputFileSegments = outputArchiveValue.Split(';', 2, StringSplitOptions.RemoveEmptyEntries);
+
+                        string localArchiveFilename = outputFileSegments[0];
+
+                        var tempFolder = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+
+                        if (Directory.Exists(tempFolder))
                         {
-                            var outputFileSegments = outputArchiveValue.Split(';', 2, StringSplitOptions.RemoveEmptyEntries);
+                            Directory.Delete(tempFolder, true);
+                        }
 
-                            string localArchiveFilename = outputFileSegments[0];
+                        Directory.CreateDirectory(tempFolder);
 
-                            var tempFolder = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+                        _temporaryFolders.Add(tempFolder);
 
-                            if (Directory.Exists(tempFolder))
-                            {
-                                Directory.Delete(tempFolder, true);
-                            }
+                        // Download the archive, while pinging the server to keep the job alive
+                        if (outputArchiveValue.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                        {
+                            localArchiveFilename = await DownloadTemporaryFileAsync(localArchiveFilename, _serverJobUri);
+                        }
 
-                            Directory.CreateDirectory(tempFolder);
+                        ZipFile.ExtractToDirectory(localArchiveFilename, tempFolder);
 
-                            _temporaryFolders.Add(tempFolder);
-
-                            // Download the archive, while pinging the server to keep the job alive
-                            if (outputArchiveValue.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                            {
-                                localArchiveFilename = await DownloadTemporaryFileAsync(localArchiveFilename, _serverJobUri);
-                            }
-
-                            ZipFile.ExtractToDirectory(localArchiveFilename, tempFolder);
-
-                            if (outputFileSegments.Length > 1)
-                            {
-                                Job.Options.OutputFiles.Add(Path.Combine(tempFolder, "*.*") + ";" + outputFileSegments[1]);
-                            }
-                            else
-                            {
-                                Job.Options.OutputFiles.Add(Path.Combine(tempFolder, "*.*"));
-                            }
+                        if (outputFileSegments.Length > 1)
+                        {
+                            Job.Options.OutputFiles.Add(Path.Combine(tempFolder, "*.*") + ";" + outputFileSegments[1]);
+                        }
+                        else
+                        {
+                            Job.Options.OutputFiles.Add(Path.Combine(tempFolder, "*.*"));
                         }
                     }
+                
 
                     // Upload custom build package contents
-                    if (_buildArchiveOption.HasValue())
+                    foreach (var buildArchiveValue in Job.Options.BuildArchives)
                     {
-                        foreach (var buildArchiveValue in _buildArchiveOption.Values)
+                        var buildFileSegments = buildArchiveValue.Split(';', 2, StringSplitOptions.RemoveEmptyEntries);
+
+                        string localArchiveFilename = buildFileSegments[0];
+
+                        var tempFolder = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+
+                        if (Directory.Exists(tempFolder))
                         {
-                            var buildFileSegments = buildArchiveValue.Split(';', 2, StringSplitOptions.RemoveEmptyEntries);
+                            Directory.Delete(tempFolder, true);
+                        }
 
-                            string localArchiveFilename = buildFileSegments[0];
+                        Directory.CreateDirectory(tempFolder);
 
-                            var tempFolder = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+                        _temporaryFolders.Add(tempFolder);
 
-                            if (Directory.Exists(tempFolder))
-                            {
-                                Directory.Delete(tempFolder, true);
-                            }
+                        // Download the archive, while pinging the server to keep the job alive
+                        if (buildArchiveValue.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                        {
+                            localArchiveFilename = await DownloadTemporaryFileAsync(localArchiveFilename, _serverJobUri);
+                        }
 
-                            Directory.CreateDirectory(tempFolder);
+                        ZipFile.ExtractToDirectory(localArchiveFilename, tempFolder);
 
-                            _temporaryFolders.Add(tempFolder);
-
-                            // Download the archive, while pinging the server to keep the job alive
-                            if (buildArchiveValue.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                            {
-                                localArchiveFilename = await DownloadTemporaryFileAsync(localArchiveFilename, _serverJobUri);
-                            }
-
-                            ZipFile.ExtractToDirectory(localArchiveFilename, tempFolder);
-
-                            if (buildFileSegments.Length > 1)
-                            {
-                                Job.Options.BuildFiles.Add(Path.Combine(tempFolder, "*.*") + ";" + buildFileSegments[1]);
-                            }
-                            else
-                            {
-                                Job.Options.BuildFiles.Add(Path.Combine(tempFolder, "*.*"));
-                            }
+                        if (buildFileSegments.Length > 1)
+                        {
+                            Job.Options.BuildFiles.Add(Path.Combine(tempFolder, "*.*") + ";" + buildFileSegments[1]);
+                        }
+                        else
+                        {
+                            Job.Options.BuildFiles.Add(Path.Combine(tempFolder, "*.*"));
                         }
                     }
 
