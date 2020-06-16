@@ -8,6 +8,7 @@
     <FileSignInfo Include="Fluid.dll" CertificateName="3PartySHA2" />
     <FileSignInfo Include="Irony.dll" CertificateName="3PartySHA2" />
     <FileSignInfo Include="Newtonsoft.Json.dll" CertificateName="3PartySHA2" />
+    <FileSignInfo Include="Newtonsoft.Json.Schema.dll" CertificateName="3PartySHA2" />
     <FileSignInfo Include="YamlDotNet.dll" CertificateName="3PartySHA2" />
   </ItemGroup>
 </Project>
