@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Crank.Jobs;
 
@@ -16,6 +17,46 @@ namespace Microsoft.Crank.Wrk
 {
     static class WrkProcess
     {
+        public static async Task MeasureFirstRequest(string[] args)
+        {
+            var url = args.FirstOrDefault(arg => arg.StartsWith("http", StringComparison.OrdinalIgnoreCase));
+
+            if (url == null)
+            {
+                Console.WriteLine("URL not found, skipping first request");
+                return;
+            }
+
+            // Configuring the http client to trust the self-signed certificate
+            var httpClientHandler = new HttpClientHandler();
+            httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+            httpClientHandler.MaxConnectionsPerServer = 1;
+            using(var httpClient = new HttpClient(httpClientHandler))
+            {
+                var cts = new CancellationTokenSource(5000);
+                var httpMessage = new HttpRequestMessage(HttpMethod.Get, url);
+
+                var stopwatch = new Stopwatch();
+                stopwatch.Start();
+
+                try
+                {
+                    using (var response = await httpClient.SendAsync(httpMessage, cts.Token))
+                    {
+                        var elapsed = stopwatch.ElapsedMilliseconds;
+                        Console.WriteLine($"{elapsed} ms");
+
+                        BenchmarksEventSource.Log.Metadata("http/firstrequest", "max", "max", "First Request (ms)", "Time to first request in ms", "n0");
+                        BenchmarksEventSource.Measure("http/firstrequest", elapsed);
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    Console.WriteLine("A timeout occurred while measuring the first request");
+                }
+            }
+        }
+
         public static async Task RunAsync(string fileName, string[] args)
         {
             // Do we need to parse latency?
