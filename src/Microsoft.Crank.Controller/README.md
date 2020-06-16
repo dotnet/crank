@@ -71,6 +71,8 @@ Options:
   --[JOB].collectCounters <true|false>                                     Whether to collect dotnet counters.
   --[JOB].counterProviders <provider>                                      The name of a performance counter provider from which to collect. e.g., System.Runtime (default if none is set), Microsoft-AspNetCore-Server-Kestrel, Microsoft.AspNetCore.Hosting, Microsoft.AspNetCore.Http.Connections, Grpc.AspNetCore.Server, Grpc.Net.client, Npgsql
   --[JOB].collectStartup <true|false>                                      Whether to include the startup phase in the traces, i.e after the application is launched and before it is marked as ready. For a web application it means before it is ready to accept requests.
+  --[JOB].collect <true|false>                                             Whether to collect native traces. Uses PerfView on Windows and Perf/PerfCollect on Linux.
+  --[JOB].collectArguments <arguments>                                     Native traces arguments, e.g., "BufferSizeMB=1024;CircularMB=1024;clrEvents=JITSymbols;kernelEvents=process+thread+ImageLoad+Profile"
 
   ## Environment
 
