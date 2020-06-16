@@ -142,6 +142,17 @@ namespace Microsoft.Crank.Controller
             _repeatOption = app.Option("--repeat", "The job to repeat using the '--span' argument.", CommandOptionType.SingleValue);
             _spanOption = app.Option("--span", "The duration while the job is repeated.", CommandOptionType.SingleValue);
 
+            app.Command("compare", compareCmd =>
+            {
+                compareCmd.Description = "Compares result files";
+                var files = compareCmd.Argument("Files", "Files to compare", multipleValues: true).IsRequired();
+
+                compareCmd.OnExecute(() =>
+                {
+                    return ResultComparer.Compare(files.Values);
+                });
+            });
+
             // Extract dynamic arguments
             for (var i = 0; i < args.Length; i++)
             {
@@ -373,34 +384,17 @@ namespace Microsoft.Crank.Controller
 
                 if (_compareOption.HasValue())
                 {
-                    foreach (var filename in _compareOption.Values)
-                    {
-                        if (!File.Exists(filename))
-                        {
-                            Log.Write($"Diff source file not found: '{new FileInfo(filename).FullName}'", notime: true);
-                            return -1;
-                        }
-                    }
-
-                    var compareResults = _compareOption.Values.Select(filename => JsonConvert.DeserializeObject<JobResults>(File.ReadAllText(filename))).ToList();
-
-                    compareResults.Add(results.JobResults);
-
-                    var resultNames = _compareOption.Values.Select(filename => Path.GetFileNameWithoutExtension(filename)).ToList();
+                    var jobName = "Current";
 
                     if (_scenarioOption.HasValue())
                     {
                         if (_outputOption.HasValue())
                         {
-                            resultNames.Add(Path.GetFileNameWithoutExtension(_outputOption.Value()));
-                        }
-                        else
-                        {
-                            resultNames.Add("Current");
+                            jobName = Path.GetFileNameWithoutExtension(_outputOption.Value());
                         }
                     }
 
-                    DisplayDiff(compareResults, resultNames);
+                    ResultComparer.Compare(_compareOption.Values, results.JobResults, jobName);
                 }
 
                 return results.ReturnCode;
@@ -911,115 +905,6 @@ namespace Microsoft.Crank.Controller
             await job.DeleteAsync();
 
             return executionResults;
-        }
-
-        private static void DisplayDiff(IEnumerable<JobResults> allResults, IEnumerable<string> allNames)
-        {
-            // Use the first job results as the reference for metadata:
-            var firstJob = allResults.First();
-
-            foreach (var jobEntry in firstJob.Jobs)
-            {
-                var jobName = jobEntry.Key;
-                var jobResult = jobEntry.Value;
-
-                Console.WriteLine();
-
-                var table = new ResultTable(allNames.Count() * 2 + 1 - 1); // two columns per job, minus the first job, plus the description
-
-                table.Headers.Add(jobName);
-
-                foreach (var name in allNames)
-                {
-                    table.Headers.Add(name);
-
-                    if (name != allNames.First())
-                    {
-                        table.Headers.Add(""); // percentage
-                    }
-                }
-
-                foreach (var metadata in jobResult.Metadata)
-                {
-                    if (!jobResult.Results.ContainsKey(metadata.Name))
-                    {
-                        continue;
-                    }
-
-                    // We don't render the result if it's a raw object
-
-                    if (metadata.Format == "object")
-                    {
-                        continue;
-                    }
-
-                    var row = table.AddRow();
-
-                    var cell = new Cell();
-
-                    cell.Elements.Add(new CellElement() { Text = metadata.ShortDescription, Alignment = CellTextAlignment.Left });
-
-                    row.Add(cell);
-
-                    foreach (var result in allResults)
-                    {
-                        // Skip jobs that have no data for this measure
-                        if (!result.Jobs.ContainsKey(jobName))
-                        {
-                            row.Add(new Cell());
-                            row.Add(new Cell());
-
-                            continue;
-                        }
-
-                        var job = result.Jobs[jobName];
-
-                        if (!String.IsNullOrEmpty(metadata.Format))
-                        {
-                            var measure = Convert.ToDouble(job.Results.ContainsKey(metadata.Name) ? job.Results[metadata.Name] : 0);
-                            var previous = Convert.ToDouble(jobResult.Results.ContainsKey(metadata.Name) ? jobResult.Results[metadata.Name] : 0);
-
-                            var improvement = measure == 0
-                            ? 0
-                            : (measure - previous) / previous * 100;
-
-                            row.Add(cell = new Cell());
-
-                            cell.Elements.Add(new CellElement { Text = Convert.ToDouble(measure).ToString(metadata.Format), Alignment = CellTextAlignment.Right });
-
-                            // Don't render % on baseline job
-                            if (firstJob != result)
-                            {
-                                row.Add(cell = new Cell());
-
-                                if (measure != 0)
-                                {
-                                    var sign = improvement > 0 ? "+" : "";
-                                    cell.Elements.Add(new CellElement { Text = $"{sign}{improvement:n2}%", Alignment = CellTextAlignment.Right });
-                                }
-                            }
-                        }
-                        else
-                        {
-                            var measure = job.Results.ContainsKey(metadata.Name) ? job.Results[metadata.Name] : 0;
-
-                            row.Add(cell = new Cell());
-                            cell.Elements.Add(new CellElement { Text = measure.ToString(), Alignment = CellTextAlignment.Right });
-
-                            // Don't render % on baseline job
-                            if (firstJob != result)
-                            {
-                                row.Add(new Cell());
-                            }
-
-                        }
-                    }
-                }
-
-                table.Render(Console.Out);
-
-                Console.WriteLine();
-            }
         }
 
         public static JObject MergeVariables(params object[] variableObjects)
