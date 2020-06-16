@@ -902,8 +902,6 @@ namespace Microsoft.Crank.Agent
                                                                     Value = rawCpu
                                                                 });
 
-                                                                oldCPUTime = newCPUTime;
-
                                                                 if (job.CollectSwapMemory && OperatingSystem == OperatingSystem.Linux)
                                                                 {
                                                                     try
@@ -921,6 +919,8 @@ namespace Microsoft.Crank.Agent
                                                                     }
                                                                 }
                                                             }
+
+                                                            oldCPUTime = newCPUTime;
                                                         }
                                                     }
                                                 }
