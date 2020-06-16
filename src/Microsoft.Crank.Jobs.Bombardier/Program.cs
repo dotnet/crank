@@ -9,6 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Benchmarks;
 using Newtonsoft.Json.Linq;
@@ -40,6 +41,9 @@ namespace Microsoft.Crank.Jobs.Bombardier
         {
             Console.WriteLine("Bombardier Client");
             Console.WriteLine("args: " + String.Join(' ', args));
+
+            Console.Write("Measuring first request ... ");
+            await MeasureFirstRequest(args);
 
             // Extracting parameters
             var argsList = args.ToList();
@@ -187,5 +191,39 @@ namespace Microsoft.Crank.Jobs.Bombardier
                 return false;
             }
         }
+
+        public static async Task MeasureFirstRequest(string[] args)
+        {
+            var url = args.FirstOrDefault(arg => arg.StartsWith("http", StringComparison.OrdinalIgnoreCase));
+
+            if (url == null)
+            {
+                Console.WriteLine("URL not found, skipping first request");
+                return;
+            }
+
+            var cts = new CancellationTokenSource(5000);
+            var httpMessage = new HttpRequestMessage(HttpMethod.Get, url);
+
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            try
+            {
+                using (var response = await _httpClient.SendAsync(httpMessage, cts.Token))
+                {
+                    var elapsed = stopwatch.ElapsedMilliseconds;
+                    Console.WriteLine($"{elapsed} ms");
+
+                    BenchmarksEventSource.Log.Metadata("http/firstrequest", "max", "max", "First Request (ms)", "Time to first request in ms", "n0");
+                    BenchmarksEventSource.Measure("http/firstrequest", elapsed);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("A timeout occurred while measuring the first request");
+            }
+        }
+
     }
 }

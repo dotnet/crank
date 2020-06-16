@@ -17,6 +17,9 @@ namespace Microsoft.Crank.Wrk
             Console.WriteLine("WRK Client");
             Console.WriteLine("args: " + string.Join(' ', args));
 
+            Console.Write("Measuring first request ... ");
+            await WrkProcess.MeasureFirstRequest(args);
+
             using var process = Process.Start("chmod", "+x " + WrkFilename);
             process.WaitForExit();
 
