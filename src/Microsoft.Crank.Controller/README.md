@@ -77,9 +77,11 @@ Options:
   ## Environment
 
   --[JOB].environmentVariables <key=value>                                 An environment variable key/value pair to assign to the process. Can be used multiple times to define multiple values.
-  --[JOB].memoryLimitInBytes <bytes>                                       The amount of memory available for the process.
   --[JOB].options.requiredOperatingSystem <linux|windows|osx>              The operating system the job can only run on.
   --[JOB].options.requiredArchitecture <x64|arm64>                         The architecture the job can only run on.
+  --[JOB].memoryLimitInBytes <bytes>                                       The amount of memory available for the process.
+  --[JOB].cpuSet <cpu-set>                                                 The list of CPUs available for the process, e.g., "0", "0-3", "1,3-4"
+  --[JOB].cpuLimitRatio <number>                                           The amount of CPU available for the process, e.g., "0.5". For a 12 cores machines this value would result in 50% out of 1200% total available CPU time.
 
   ## Debugging
 
