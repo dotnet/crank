@@ -1181,9 +1181,6 @@ namespace Microsoft.Crank.Controller
                         var json = serializer.Serialize(yamlObject);
                         // Format json in case the schema validation fails and we need to render error line numbers
                         localconfiguration = JObject.Parse(json);
-                        localconfiguration.AddFirst(new JProperty("$schema", "https://raw.githubusercontent.com/aspnet/Benchmarks/master/src/BenchmarksDriver2/benchmarks.schema.json"));
-                        json = localconfiguration.ToString(Formatting.Indented);
-                        localconfiguration = JObject.Parse(json);
 
                         var schemaJson = File.ReadAllText(Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "benchmarks.schema.json"));
                         var schema = new Manatee.Json.Serialization.JsonSerializer().Deserialize<JsonSchema>(JsonValue.Parse(schemaJson));
@@ -1193,14 +1190,17 @@ namespace Microsoft.Crank.Controller
 
                         if (!validationResults.IsValid)
                         {
-                            var validationFilename = Path.Combine(Path.GetTempPath(), "crank-debug.json");
-                            File.WriteAllText(validationFilename, json);
+                            // Create a json debug file with the schema
+                            localconfiguration.AddFirst(new JProperty("$schema", "https://raw.githubusercontent.com/aspnet/Benchmarks/master/src/BenchmarksDriver2/benchmarks.schema.json"));
+
+                            var debugFilename = Path.Combine(Path.GetTempPath(), "crank-debug.json");
+                            File.WriteAllText(debugFilename, localconfiguration.ToString(Formatting.Indented));
 
                             var errorBuilder = new StringBuilder();
 
                             errorBuilder.AppendLine($"Invalid configuration file '{configurationFilenameOrUrl}' at '{validationResults.InstanceLocation}'");
                             errorBuilder.AppendLine($"{validationResults.ErrorMessage}");
-                            errorBuilder.AppendLine($"Debug file created at '{validationFilename}'");
+                            errorBuilder.AppendLine($"Debug file created at '{debugFilename}'");
 
                             throw new ControllerException(errorBuilder.ToString());
                         }
