@@ -86,12 +86,7 @@ namespace Microsoft.Crank.Wrk
             Console.Write("Downloading wrk ... ");
             var wrkFilename = Path.GetFileName(WrkUrl);
 
-            // Configuring the http client to trust the self-signed certificate
-            var httpClientHandler = new HttpClientHandler();
-            httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-            httpClientHandler.MaxConnectionsPerServer = 1;
-
-            using (var httpClient = new HttpClient(httpClientHandler))
+            using (var httpClient = new HttpClient())
             using (var downloadStream = await httpClient.GetStreamAsync(WrkUrl))
             using (var fileStream = File.Create(wrkFilename))
             {
