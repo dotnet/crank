@@ -18,12 +18,13 @@ using Fluid.Values;
 using McMaster.Extensions.CommandLineUtils;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Newtonsoft.Json.Schema;
 using Newtonsoft.Json.Serialization;
 using NuGet.Versioning;
 using YamlDotNet.Serialization;
 using System.Reflection;
 using System.Text;
+using Manatee.Json.Schema;
+using Manatee.Json;
 
 namespace Microsoft.Crank.Controller
 {
@@ -1185,25 +1186,24 @@ namespace Microsoft.Crank.Controller
                         localconfiguration = JObject.Parse(json);
 
                         var schemaJson = File.ReadAllText(Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "benchmarks.schema.json"));
-                        var schema = JSchema.Parse(schemaJson);
-                        bool valid = localconfiguration.IsValid(schema, out IList<ValidationError> errorMessages);
+                        var schema = new Manatee.Json.Serialization.JsonSerializer().Deserialize<JsonSchema>(JsonValue.Parse(schemaJson));
 
-                        if (!valid)
+                        var jsonToValidate = JsonValue.Parse(json);
+                        var validationResults = schema.Validate(jsonToValidate).Flatten();
+
+                        if (!validationResults.IsValid)
                         {
                             var validationFilename = Path.Combine(Path.GetTempPath(), "crank-debug.json");
                             File.WriteAllText(validationFilename, json);
 
-                            var lines = json.Split(new [] { '\n', '\r'}, StringSplitOptions.RemoveEmptyEntries);
-
                             var errorBuilder = new StringBuilder();
 
                             errorBuilder.AppendLine($"Invalid configuration file '{configurationFilenameOrUrl}'");
-                            errorBuilder.AppendLine($"Debug file created at '{validationFilename}");
+                            errorBuilder.AppendLine($"Debug file created at '{validationFilename}'");
 
-                            foreach (var error in errorMessages)
+                            foreach (var error in validationResults.NestedResults)
                             {
-                                errorBuilder.AppendLine($"at [{error.LineNumber}, {error.LinePosition}]: {error.Message}");
-                                errorBuilder.AppendLine($"  {lines[error.LineNumber - 1]}");
+                                errorBuilder.AppendLine(error.ErrorMessage);
                             }
 
                             throw new ControllerException(errorBuilder.ToString());
