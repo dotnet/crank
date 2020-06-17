@@ -1189,7 +1189,7 @@ namespace Microsoft.Crank.Controller
                         var schema = new Manatee.Json.Serialization.JsonSerializer().Deserialize<JsonSchema>(JsonValue.Parse(schemaJson));
 
                         var jsonToValidate = JsonValue.Parse(json);
-                        var validationResults = schema.Validate(jsonToValidate).Flatten();
+                        var validationResults = schema.Validate(jsonToValidate, new JsonSchemaOptions { OutputFormat = SchemaValidationOutputFormat.Detailed });
 
                         if (!validationResults.IsValid)
                         {
@@ -1198,13 +1198,9 @@ namespace Microsoft.Crank.Controller
 
                             var errorBuilder = new StringBuilder();
 
-                            errorBuilder.AppendLine($"Invalid configuration file '{configurationFilenameOrUrl}'");
+                            errorBuilder.AppendLine($"Invalid configuration file '{configurationFilenameOrUrl}' at '{validationResults.InstanceLocation}'");
+                            errorBuilder.AppendLine($"{validationResults.ErrorMessage}");
                             errorBuilder.AppendLine($"Debug file created at '{validationFilename}'");
-
-                            foreach (var error in validationResults.NestedResults)
-                            {
-                                errorBuilder.AppendLine(error.ErrorMessage);
-                            }
 
                             throw new ControllerException(errorBuilder.ToString());
                         }
