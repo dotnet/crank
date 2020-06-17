@@ -18,17 +18,33 @@ namespace Microsoft.Crank.Jobs.Wrk2
 {
     class Program
     {
-        static string Wrk2Filename = "./wrk2";
+        const string Wrk2Url = "https://aspnetbenchmarks.blob.core.windows.net/tools/wrk2";
 
         static async Task Main(string[] args)
         {
             Console.WriteLine("WRK2 Client");
             Console.WriteLine("args: " + String.Join(' ', args));
 
+            Console.Write("Downloading wrk2 ... ");
+            var wrk2Filename = Path.GetFileName(Wrk2Url);
+
+            // Configuring the http client to trust the self-signed certificate
+            var httpClientHandler = new HttpClientHandler();
+            httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+            httpClientHandler.MaxConnectionsPerServer = 1;
+
+            using (var httpClient = new HttpClient(httpClientHandler))
+            using (var downloadStream = await httpClient.GetStreamAsync(Wrk2Url))
+            using (var fileStream = File.Create(wrk2Filename))
+            {
+                await downloadStream.CopyToAsync(fileStream);
+                Process.Start("chmod", "+x " + wrk2Filename);
+            }
+
             Console.Write("Measuring first request ... ");
             await MeasureFirstRequest(args);
 
-            Process.Start("chmod", "+x " + Wrk2Filename);
+            Process.Start("chmod", "+x " + wrk2Filename);
 
             // Do we need to parse latency?
             var parseLatency = args.Any(x => x == "--latency" || x == "-L");
@@ -67,7 +83,7 @@ namespace Microsoft.Crank.Jobs.Wrk2
             var process = new Process()
             {
                 StartInfo = {
-                    FileName = Wrk2Filename,
+                    FileName = wrk2Filename,
                     RedirectStandardOutput = true,
                     UseShellExecute = false,
                 },
