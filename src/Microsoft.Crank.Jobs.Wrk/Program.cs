@@ -3,27 +3,29 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
-using System.Diagnostics;
 using System.Threading.Tasks;
 
 namespace Microsoft.Crank.Wrk
 {
     class Program
     {
-        const string WrkFilename = "./wrk";
-
-        static async Task Main(string[] args)
+        static async Task<int> Main(string[] args)
         {
             Console.WriteLine("WRK Client");
             Console.WriteLine("args: " + string.Join(' ', args));
 
-            Console.Write("Measuring first request ... ");
+            if (Environment.OSVersion.Platform == PlatformID.Unix)
+            {
+                Console.WriteLine("Platform not supported");
+                return -1;
+            }
+
             await WrkProcess.MeasureFirstRequest(args);
+            
+            await WrkProcess.DownloadWrkAsync();
+            await WrkProcess.RunAsync(args);
 
-            using var process = Process.Start("chmod", "+x " + WrkFilename);
-            process.WaitForExit();
-
-            await WrkProcess.RunAsync(WrkFilename, args);
+            return 0;
         }
     }
 }
