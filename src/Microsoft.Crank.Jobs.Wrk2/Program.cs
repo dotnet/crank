@@ -25,21 +25,10 @@ namespace Microsoft.Crank.Jobs.Wrk2
             Console.WriteLine("WRK2 Client");
             Console.WriteLine("args: " + String.Join(' ', args));
 
-            Console.Write("Downloading wrk2 ... ");
-            var wrk2Filename = Path.GetFileName(Wrk2Url);
-
-            using (var httpClient = new HttpClient())
-            using (var downloadStream = await httpClient.GetStreamAsync(Wrk2Url))
-            using (var fileStream = File.Create(wrk2Filename))
-            {
-                await downloadStream.CopyToAsync(fileStream);
-                Process.Start("chmod", "+x " + wrk2Filename);
-            }
+            var wrk2Filename = await DownloadWrk2Async();
 
             Console.Write("Measuring first request ... ");
             await MeasureFirstRequest(args);
-
-            Process.Start("chmod", "+x " + wrk2Filename);
 
             // Do we need to parse latency?
             var parseLatency = args.Any(x => x == "--latency" || x == "-L");
@@ -398,6 +387,40 @@ namespace Microsoft.Crank.Jobs.Wrk2
                     Console.WriteLine("A timeout occurred while measuring the first request");
                 }
             }
+        }
+
+        public static async Task<string> DownloadWrk2Async()
+        {
+            Console.Write("Downloading wrk2 ... ");
+            var wrk2Filename = Path.GetFileName(Wrk2Url);
+
+            // Search for cached file
+            var cacheFolder = Path.Combine(Path.GetTempPath(), ".benchmarks");
+
+            if (!Directory.Exists(cacheFolder))
+            {
+                Directory.CreateDirectory(cacheFolder);
+            }
+
+            var cacheFilename = Path.Combine(cacheFolder, wrk2Filename);
+
+            if (!File.Exists(cacheFilename))
+            {
+                using (var httpClient = new HttpClient())
+                using (var downloadStream = await httpClient.GetStreamAsync(Wrk2Url))
+                using (var fileStream = File.Create(wrk2Filename))
+                {
+                    await downloadStream.CopyToAsync(fileStream);
+                }
+            }
+            else
+            {
+                File.Copy(cacheFilename, wrk2Filename);
+            }
+
+            Process.Start("chmod", "+x " + wrk2Filename);
+
+            return wrk2Filename;
         }
     }
 }

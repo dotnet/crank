@@ -86,13 +86,31 @@ namespace Microsoft.Crank.Wrk
             Console.Write("Downloading wrk ... ");
             var wrkFilename = Path.GetFileName(WrkUrl);
 
-            using (var httpClient = new HttpClient())
-            using (var downloadStream = await httpClient.GetStreamAsync(WrkUrl))
-            using (var fileStream = File.Create(wrkFilename))
+            // Search for cached file
+            var cacheFolder = Path.Combine(Path.GetTempPath(), ".benchmarks");
+
+            if (!Directory.Exists(cacheFolder))
             {
-                await downloadStream.CopyToAsync(fileStream);
-                Process.Start("chmod", "+x " + wrkFilename);
+                Directory.CreateDirectory(cacheFolder);
             }
+
+            var cacheFilename = Path.Combine(cacheFolder, wrkFilename);
+
+            if (!File.Exists(cacheFilename))
+            {
+                using (var httpClient = new HttpClient())
+                using (var downloadStream = await httpClient.GetStreamAsync(WrkUrl))
+                using (var fileStream = File.Create(wrkFilename))
+                {
+                    await downloadStream.CopyToAsync(fileStream);
+                }
+            }
+            else
+            {
+                File.Copy(cacheFilename, wrkFilename);
+            }
+
+            Process.Start("chmod", "+x " + wrkFilename);
         }
 
         static async Task ProcessScriptFile(string[] args, string tempScriptFile)
