@@ -17,6 +17,8 @@ namespace Microsoft.Crank.Wrk
 {
     static class WrkProcess
     {
+        const string WrkUrl = "https://aspnetbenchmarks.blob.core.windows.net/tools/wrk";
+
         public static async Task MeasureFirstRequest(string[] args)
         {
             var url = args.FirstOrDefault(arg => arg.StartsWith("http", StringComparison.OrdinalIgnoreCase));
@@ -31,7 +33,8 @@ namespace Microsoft.Crank.Wrk
             var httpClientHandler = new HttpClientHandler();
             httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
             httpClientHandler.MaxConnectionsPerServer = 1;
-            using(var httpClient = new HttpClient(httpClientHandler))
+
+            using (var httpClient = new HttpClient(httpClientHandler))
             {
                 var cts = new CancellationTokenSource(5000);
                 var httpMessage = new HttpRequestMessage(HttpMethod.Get, url);
@@ -57,7 +60,7 @@ namespace Microsoft.Crank.Wrk
             }
         }
 
-        public static async Task RunAsync(string fileName, string[] args)
+        public static async Task RunAsync(string[] args)
         {
             // Do we need to parse latency?
             var parseLatency = args.Any(x => x == "--latency" || x == "-L");
@@ -65,8 +68,9 @@ namespace Microsoft.Crank.Wrk
 
             try
             {
+                var wrkFilename = Path.GetFileName(WrkUrl);
                 await ProcessScriptFile(args, tempScriptFile);
-                RunCore(fileName, args, parseLatency);
+                RunCore(wrkFilename, args, parseLatency);
             }
             finally
             {
@@ -75,6 +79,38 @@ namespace Microsoft.Crank.Wrk
                     File.Delete(tempScriptFile);
                 }
             }
+        }
+
+        public static async Task DownloadWrkAsync()
+        {
+            Console.Write("Downloading wrk ... ");
+            var wrkFilename = Path.GetFileName(WrkUrl);
+
+            // Search for cached file
+            var cacheFolder = Path.Combine(Path.GetTempPath(), ".benchmarks");
+
+            if (!Directory.Exists(cacheFolder))
+            {
+                Directory.CreateDirectory(cacheFolder);
+            }
+
+            var cacheFilename = Path.Combine(cacheFolder, wrkFilename);
+
+            if (!File.Exists(cacheFilename))
+            {
+                using (var httpClient = new HttpClient())
+                using (var downloadStream = await httpClient.GetStreamAsync(WrkUrl))
+                using (var fileStream = File.Create(wrkFilename))
+                {
+                    await downloadStream.CopyToAsync(fileStream);
+                }
+            }
+            else
+            {
+                File.Copy(cacheFilename, wrkFilename);
+            }
+
+            Process.Start("chmod", "+x " + wrkFilename);
         }
 
         static async Task ProcessScriptFile(string[] args, string tempScriptFile)
