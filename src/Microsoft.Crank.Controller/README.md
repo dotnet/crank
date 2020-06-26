@@ -27,7 +27,7 @@ Options:
   --no-measurements                                              Don't record measurements in the stored document.
 
   --repeat <job>                                                 The job to repeat using the '--duration' argument.
-  --duration <HH:mm:ss>                                          The duration while the job is repeated.
+  --span <HH:mm:ss>                                              The duration while the job is repeated.
   --auto-flush                                                   Runs a single long-running job and flushes measurements automatically.
 
   These options are specific to a Job service named [JOB]
