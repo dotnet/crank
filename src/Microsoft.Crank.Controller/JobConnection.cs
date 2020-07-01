@@ -122,6 +122,10 @@ namespace Microsoft.Crank.Controller
                 {
                     Log.Write($"Job has been selected by the server ...");
 
+                    // Start the keep-alive loop before uploading any file as slow networks could otherwise
+                    // trigger driver timeouts
+                    StartKeepAlive();
+
                     // Uploading source code
                     if (!String.IsNullOrEmpty(Job.Source.LocalFolder))
                     {
@@ -702,7 +706,7 @@ namespace Microsoft.Crank.Controller
             }
             catch (Exception e)
             {
-                throw new InvalidOperationException($"An error occured while uploading a file.", e);
+                throw new InvalidOperationException($"An error occurred while uploading a file.", e);
             }
 
             return 0;
