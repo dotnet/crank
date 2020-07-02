@@ -1620,15 +1620,19 @@ namespace Microsoft.Crank.Agent
                 environmentArguments += $"--env {env.Key}={env.Value} ";
             }
 
+            var containerName = $"{imageName}-{job.Id}";
+
+            // TODO: Clean previous images 
+
             // Stop container in case it failed to stop earlier
-            await ProcessUtil.RunAsync("docker", $"stop {imageName}", throwOnError: false);
+            // await ProcessUtil.RunAsync("docker", $"stop {cont}", throwOnError: false);
 
             // Delete container if the same name already exists
-            await ProcessUtil.RunAsync("docker", $"rm {imageName}", throwOnError: false);
+            // await ProcessUtil.RunAsync("docker", $"rm {imageName}", throwOnError: false);
 
             var command = OperatingSystem == OperatingSystem.Linux
-                ? $"run -d {environmentArguments} {job.Arguments} --mount type=bind,source=/mnt,target=/tmp --name {imageName} --privileged --network host {imageName} {source.DockerCommand}"
-                : $"run -d {environmentArguments} {job.Arguments} --name {imageName} --network SELF --ip {hostname} {imageName} {source.DockerCommand}";
+                ? $"run -d {environmentArguments} {job.Arguments} --label benchmarks --mount type=bind,source=/mnt,target=/tmp --name {containerName} --privileged --network host {imageName} {source.DockerCommand}"
+                : $"run -d {environmentArguments} {job.Arguments} --label benchmarks --name {containerName} --network SELF --ip {hostname} {imageName} {source.DockerCommand}";
 
             if (job.Collect && job.CollectStartup)
             {
@@ -1872,13 +1876,14 @@ namespace Microsoft.Crank.Agent
             {
                 try
                 {
+                    await ProcessUtil.RunAsync("docker", $"rm --force {containerId}", throwOnError: false);
+
                     if (job.NoClean)
                     {
                         await ProcessUtil.RunAsync("docker", $"rmi --force --no-prune {imageName}", throwOnError: false);
                     }
                     else
-                    {
-                        await ProcessUtil.RunAsync("docker", $"rm {imageName}", throwOnError: false);
+                    {                        
                         await ProcessUtil.RunAsync("docker", $"rmi --force {imageName}", throwOnError: false);
                     }
                 }
