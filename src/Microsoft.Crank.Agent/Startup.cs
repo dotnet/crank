@@ -3004,6 +3004,7 @@ namespace Microsoft.Crank.Agent
                     break;
 
                 case "netcoreapp5.0":
+                case "net5.0":
 
                     await DownloadFileAsync(String.Format(_aspNetCoreDependenciesUrl, "master/eng/Versions.props"), aspNetCoreDependenciesPath, maxRetries: 5, timeout: 10);
                     latestRuntimeVersion = XDocument.Load(aspNetCoreDependenciesPath).Root
