@@ -335,15 +335,15 @@ namespace Microsoft.Crank.Controller
                     {
                         try
                         {
-                            using (var cts = new CancellationTokenSource(2000))
+                            using (var cts = new CancellationTokenSource(10000))
                             {
-                                var response = _httpClient.GetAsync(endpoint, cts.Token).Result;
+                                var response = await _httpClient.GetAsync(endpoint, cts.Token);
                                 response.EnsureSuccessStatusCode();
                             }
                         }
-                        catch
+                        catch (Exception e)
                         {
-                            Console.WriteLine($"The specified endpoint url '{endpoint}' for '{jobName}' is invalid or not responsive.");
+                            Console.WriteLine($"The specified endpoint url '{endpoint}' for '{jobName}' is invalid or not responsive: \"{e.Message}\"");
                             return -1;
                         }
                     }
