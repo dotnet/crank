@@ -233,13 +233,17 @@ namespace Microsoft.Crank.Controller
                     }
                 }
 
-                if (!_scenarioOption.HasValue() && !_compareOption.HasValue() && !_jobOption.HasValue())
+                if (!_configOption.HasValue())
                 {
-                    if (!_configOption.HasValue())
+                    if (!_jobOption.HasValue())
                     {
                         app.ShowHelp();
+                        return 1;
                     }
-                    else
+                }
+                else
+                {
+                    if (!_scenarioOption.HasValue())
                     {
                         Console.Error.WriteLine("No jobs were found. Are you missing the --scenario argument?");
                     }
