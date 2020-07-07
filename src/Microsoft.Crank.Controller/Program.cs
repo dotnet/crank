@@ -246,9 +246,8 @@ namespace Microsoft.Crank.Controller
                     if (!_scenarioOption.HasValue())
                     {
                         Console.Error.WriteLine("No jobs were found. Are you missing the --scenario argument?");
+                        return 1;
                     }
-
-                    return 1;
                 }
 
                 if (_scenarioOption.HasValue() && _jobOption.HasValue())
