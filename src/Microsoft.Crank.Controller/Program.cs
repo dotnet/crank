@@ -696,11 +696,13 @@ namespace Microsoft.Crank.Controller
                 if (_outputOption.HasValue())
                 {
                     var filename = _outputOption.Value();
+                    
                     var directory = Path.GetDirectoryName(filename);
-                    if(!Directory.Exists(directory))
+                    if (!Directory.Exists(directory))
                     {
                         Directory.CreateDirectory(directory);
                     }
+                    
                     var index = 1;
 
                     // If running in a span, create a unique filename for each run
