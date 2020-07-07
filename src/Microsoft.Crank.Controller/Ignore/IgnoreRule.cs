@@ -20,7 +20,7 @@ namespace Microsoft.Crank.Controller.Ignore
             Path = path.Replace('\\', '/');
         }
 
-        public bool IsDirectory => true;
+        public bool IsDirectory => false;
 
         public string Path { get; }
 
@@ -37,7 +37,7 @@ namespace Microsoft.Crank.Controller.Ignore
             Path = path.Replace('\\', '/');
         }
 
-        public bool IsDirectory => false;
+        public bool IsDirectory => true;
 
         public string Path { get; }
         public override string ToString()
