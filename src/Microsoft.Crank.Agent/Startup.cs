@@ -2526,7 +2526,12 @@ namespace Microsoft.Crank.Agent
                     throw new Exception("The job is trying to use the mono runtime but was not configured as self-contained.");
                 }
 
-                await UseMonoRuntimeAsync(runtimeVersion, outputFolder, job.UseMonoRuntime);
+                await UseMonoRuntimeAsync(runtimeVersion, outputFolder, job.UseMonoRuntime, job.Hardware);
+
+                if (job.UseMonoRuntime.Equals("llvm-aot"))
+                {
+                    await AOT4Mono(sdkVersion, runtimeVersion, outputFolder);
+                }
             }
 
             // Copy all output attachments
@@ -3910,24 +3915,35 @@ namespace Microsoft.Crank.Agent
             }
         }
 
-        private static async Task UseMonoRuntimeAsync(string runtimeVersion, string outputFolder, string mode)
+        private static async Task UseMonoRuntimeAsync(string runtimeVersion, string outputFolder, string mode, Hardware? hardware)
         {
             if (String.IsNullOrEmpty(mode))
             {
                 return;
             }
 
+            string pkgNameSuffix = "";
+            if (hardware == Hardware.ARM64)
+            {
+                pkgNameSuffix = "arm64";
+            }
+            else
+            {
+                pkgNameSuffix = "x64";
+            }
+
             try
             {
                 var packageName = "";
-
-                switch (mode)
+                
+                switch (mode) 
                 {
                     case "jit":
-                        packageName = "Microsoft.NETCore.App.Runtime.Mono.linux-x64".ToLowerInvariant();
+                        packageName = $"Microsoft.NETCore.App.Runtime.Mono.linux-{pkgNameSuffix}".ToLowerInvariant();
                         break;
                     case "llvm-jit":
-                        packageName = "Microsoft.NETCore.App.Runtime.Mono.LLVM.AOT.linux-x64".ToLowerInvariant();
+                    case "llvm-aot":
+                        packageName = $"Microsoft.NETCore.App.Runtime.Mono.LLVM.AOT.linux-{pkgNameSuffix}".ToLowerInvariant();
                         break;
                     default:
                         throw new Exception("Invalid mono runtime moniker: " + mode);
@@ -3970,13 +3986,10 @@ namespace Microsoft.Crank.Agent
 
                 using (var archive = ZipFile.OpenRead(runtimePath))
                 {
-                    var systemCoreLib = archive.GetEntry("runtimes/linux-x64/lib/netcoreapp5.0/System.Private.CoreLib.dll");
-                    systemCoreLib?.ExtractToFile(Path.Combine(outputFolder, "System.Private.CoreLib.dll"), true);
+                    var systemCoreLib = archive.GetEntry($"runtimes/linux-{pkgNameSuffix}/native/System.Private.CoreLib.dll");
+                    systemCoreLib.ExtractToFile(Path.Combine(outputFolder, "System.Private.CoreLib.dll"), true);
 
-                    systemCoreLib = archive.GetEntry("runtimes/linux-x64/native/System.Private.CoreLib.dll");
-                    systemCoreLib?.ExtractToFile(Path.Combine(outputFolder, "System.Private.CoreLib.dll"), true);
-
-                    var libcoreclr = archive.GetEntry("runtimes/linux-x64/native/libcoreclr.so");
+                    var libcoreclr = archive.GetEntry($"runtimes/linux-{pkgNameSuffix}/native/libcoreclr.so");
                     libcoreclr.ExtractToFile(Path.Combine(outputFolder, "libcoreclr.so"), true);
                 }
             }
@@ -3985,6 +3998,108 @@ namespace Microsoft.Crank.Agent
                 Log.WriteLine("ERROR: Failed to download mono runtime. " + e.ToString());
                 throw;
             }
+        }
+
+        private static async Task AOT4Mono(string dotnetSdkVersion, string runtimeVersion, string outputFolder)
+        {
+            try
+            {
+                var fileName = "/bin/bash";
+
+                //Download dotnet sdk package
+                var dotnetMonoPath = Path.Combine(_rootTempDir, "dotnet-mono", $"dotnet-sdk-{dotnetSdkVersion}-linux-x64.tar.gz");
+                var packageName = "Microsoft.NETCore.App.Runtime.Mono.LLVM.AOT.linux-x64".ToLowerInvariant();
+                var runtimePath = Path.Combine(_rootTempDir, "RuntimePackages", $"{packageName}.{runtimeVersion}.nupkg");
+                var llvmExtractDir = Path.Combine(Path.GetDirectoryName(runtimePath), "mono-llvm");
+		
+                if (!Directory.Exists(Path.GetDirectoryName(dotnetMonoPath)))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(dotnetMonoPath));
+
+                    Log.WriteLine($"Downloading dotnet skd package for mono AOT");
+
+                    var found = false;
+                    var url = $"https://dotnetcli.azureedge.net/dotnet/Sdk/{dotnetSdkVersion}/dotnet-sdk-{dotnetSdkVersion}-linux-x64.tar.gz";
+
+                    if (await DownloadFileAsync(url, dotnetMonoPath, maxRetries: 3, timeout: 60, throwOnError: false))
+                    {
+                        found = true;
+                    }
+
+                    if (!found)
+                    {
+                        throw new Exception("dotnet sdk package not found");
+                    }
+                    else
+                    {
+                        var strCmdTar = $"tar -xf dotnet-sdk-{dotnetSdkVersion}-linux-x64.tar.gz";
+                        var resultTar = await ProcessUtil.RunAsync(fileName, ConvertCmd2Arg(strCmdTar),
+                                                        workingDirectory: Path.GetDirectoryName(dotnetMonoPath),
+                                                        log: true);
+                    }
+
+                    Log.WriteLine($"Patching local dotnet with mono runtime and extracting llvm");
+
+                    var strCmdGetVer = "./dotnet --list-runtimes | grep -i \"Microsoft.NETCore.App\"";
+                    var resultGetVer = await ProcessUtil.RunAsync(fileName, ConvertCmd2Arg(strCmdGetVer),
+                                                       workingDirectory: Path.GetDirectoryName(dotnetMonoPath),
+                                                       log: true,
+                                                       captureOutput: true);
+                    var MicrosoftNETCoreAppPackageVersion = resultGetVer.StandardOutput.Split(' ')[1];
+
+                    if (Directory.Exists(llvmExtractDir))
+                    {
+                        Directory.Delete(llvmExtractDir);
+                    }
+                    Directory.CreateDirectory(llvmExtractDir);
+
+                    using (var archive = ZipFile.OpenRead(runtimePath))
+                    {
+                        var systemCoreLib = archive.GetEntry("runtimes/linux-x64/native/System.Private.CoreLib.dll");
+                        systemCoreLib.ExtractToFile(Path.Combine(Path.GetDirectoryName(dotnetMonoPath), "shared", "Microsoft.NETCore.App", MicrosoftNETCoreAppPackageVersion, "System.Private.CoreLib.dll"), true);
+
+                        var libcoreclr = archive.GetEntry("runtimes/linux-x64/native/libcoreclr.so");
+                        libcoreclr.ExtractToFile(Path.Combine(Path.GetDirectoryName(dotnetMonoPath), "shared", "Microsoft.NETCore.App", MicrosoftNETCoreAppPackageVersion, "libcoreclr.so"), true);
+
+                        var llcExe = archive.GetEntry("runtimes/linux-x64/native/llc");
+                        llcExe.ExtractToFile(Path.Combine(llvmExtractDir, "llc"), true);
+
+                        var optExe = archive.GetEntry("runtimes/linux-x64/native/opt");
+                        optExe.ExtractToFile(Path.Combine(llvmExtractDir, "opt"), true);
+                    }
+                    var strCmdChmod = "chmod +x opt llc";
+                    var resultChmod = await ProcessUtil.RunAsync(fileName, ConvertCmd2Arg(strCmdChmod),
+                                                      workingDirectory: llvmExtractDir,
+                                                      log: true);
+
+                }
+                else
+                {
+                    Log.WriteLine($"Found local dotnet with mono runtime at '{Path.GetDirectoryName(dotnetMonoPath)}'");
+                }
+
+                Log.WriteLine("Pre-compile assemblies inside publish folder");
+
+                var strCmdPreCompile = $@"for assembly in {outputFolder}/*.dll; do
+                                              PATH={llvmExtractDir}:${{PATH}} MONO_ENV_OPTIONS=--aot=llvm,mcpu=native ./dotnet $assembly;
+                                           done";
+                var resultPreCompile = await ProcessUtil.RunAsync(fileName, ConvertCmd2Arg(strCmdPreCompile),
+                                                   workingDirectory: Path.GetDirectoryName(dotnetMonoPath),
+                                                   log: true,
+                                                   captureOutput: true);
+            }
+            catch (Exception e)
+            {
+                Log.WriteLine("ERROR: Failed to AOT for mono. " + e.ToString());
+                throw;
+            }
+        }
+
+        private static string ConvertCmd2Arg(string cmd)
+        {
+            cmd.Replace("\"", "\"\"");
+            var result = $"-c \"{cmd}\"";
+            return result;
         }
 
         private static bool MarkAsRunning(string hostname, Job job, Stopwatch stopwatch)
