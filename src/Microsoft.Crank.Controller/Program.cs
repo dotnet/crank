@@ -698,7 +698,7 @@ namespace Microsoft.Crank.Controller
                     var filename = _outputOption.Value();
                     
                     var directory = Path.GetDirectoryName(filename);
-                    if (!Directory.Exists(directory))
+                    if (!String.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                     {
                         Directory.CreateDirectory(directory);
                     }
