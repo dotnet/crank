@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Schedules jobs on the benchmarks agent.</Description>
+    <ToolCommandName>benchmarks</ToolCommandName>
+    <AssemblyName>benchmarks</AssemblyName>
+    <PackAsTool>true</PackAsTool>
+    <IsPackable>true</IsPackable>
+    <Version>0.0.8-alpha</Version>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <Authors>Microsoft</Authors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="2.2.1" />
+    <PackageReference Include="System.Data.SqlClient" Version="$(CoreFxVersion)" />
+    <PackageReference Include="CsvHelper" Version="12.1.2" />
+    <PackageReference Include="Fluid.Core" Version="1.0.0-beta-9608" />
+    <PackageReference Include="YamlDotNet" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Benchmarks.Models\Microsoft.Benchmarks.Models.csproj" />
+  </ItemGroup>
+
+</Project>
