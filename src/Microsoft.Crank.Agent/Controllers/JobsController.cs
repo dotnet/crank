@@ -284,6 +284,14 @@ namespace Microsoft.Crank.Agent.Controllers
         public IActionResult Start(int id)
         {
             var job = _jobs.Find(id);
+
+            
+            if (job.State != JobState.Initializing)
+            {
+                Log($"Start rejected, job is {job.State}");
+                return StatusCode(500, $"The job can't be started as its state is {job.State}");
+            }
+
             job.State = JobState.Waiting;
             _jobs.Update(job);
 
@@ -319,7 +327,7 @@ namespace Microsoft.Crank.Agent.Controllers
 
             using (var fs = System.IO.File.Create(tempFilename))
             {
-                await Request.Body.CopyToAsync(fs);
+                await Request.Body.CopyToAsync(fs, Request.HttpContext.RequestAborted);
             }
 
             job.Attachments.Add(new Attachment
@@ -347,7 +355,7 @@ namespace Microsoft.Crank.Agent.Controllers
 
             using (var fs = System.IO.File.Create(tempFilename))
             {
-                await Request.Body.CopyToAsync(fs);
+                await Request.Body.CopyToAsync(fs, Request.HttpContext.RequestAborted);
             }
 
             job.Source.SourceCode = new Attachment
@@ -375,7 +383,7 @@ namespace Microsoft.Crank.Agent.Controllers
 
             using (var fs = System.IO.File.Create(tempFilename))
             {
-                await Request.Body.CopyToAsync(fs);
+                await Request.Body.CopyToAsync(fs, Request.HttpContext.RequestAborted);
             }
 
             job.BuildAttachments.Add(new Attachment
