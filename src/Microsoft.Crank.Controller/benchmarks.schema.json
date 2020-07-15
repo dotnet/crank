@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "http://microsoft.com/aspnet/benchmarks",
+  "$id": "http://microsoft.com/dotnet/crank",
   "type": "object",
   "title": ".NET Benchmarks Labs JSON Schema",
 
@@ -19,7 +19,7 @@
               "title": "The github repository containing the source.",
               "default": "",
               "examples": [
-                "https://github.com/aspnet/benchmarks.git"
+                "https://github.com/dotnet/crank.git"
               ],
               "pattern": "^(.*)$"
             },

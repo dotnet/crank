@@ -15,7 +15,7 @@ It has a scenario called **netty** comprised of an _application_ job based on a 
 
 ```yml
 imports:
-  - https://raw.githubusercontent.com/dotnet/crank/master/src/Microsoft.Crank.Jobs.Wrk/wrk.yml?token=AAI4T3NRKQTVLI2YOUJVCB2633AIM
+  - https://raw.githubusercontent.com/dotnet/crank/master/src/Microsoft.Crank.Jobs.Wrk/wrk.yml
 
 variables:
   localEndpoint: http://localhost:5010
