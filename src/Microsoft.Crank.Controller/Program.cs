@@ -143,6 +143,13 @@ namespace Microsoft.Crank.Controller
             _repeatOption = app.Option("--repeat", "The job to repeat using the '--span' argument.", CommandOptionType.SingleValue);
             _spanOption = app.Option("--span", "The duration while the job is repeated.", CommandOptionType.SingleValue);
 
+            var verboseOption = app.Option("-v|--verbose",
+                "Verbose output", CommandOptionType.NoValue);
+            var quietOption = app.Option("--quiet",
+                "Quiet output, only the results are displayed", CommandOptionType.NoValue);
+            var iterationsOption = app.Option("-i|--iterations",
+                "The number of iterations.", CommandOptionType.SingleValue);
+
             app.Command("compare", compareCmd =>
             {
                 compareCmd.Description = "Compares result files";
@@ -174,15 +181,6 @@ namespace Microsoft.Crank.Controller
                     }
                 }
             }
-
-            // Driver Options
-
-            var verboseOption = app.Option("-v|--verbose",
-                "Verbose output", CommandOptionType.NoValue);
-            var quietOption = app.Option("--quiet",
-                "Quiet output, only the results are displayed", CommandOptionType.NoValue);
-            var iterationsOption = app.Option("-i|--iterations",
-                "The number of iterations.", CommandOptionType.SingleValue);
 
             app.OnExecuteAsync(async (t) =>
             {

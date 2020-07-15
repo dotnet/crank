@@ -85,6 +85,22 @@ namespace Microsoft.Crank.Controller
 
             while (true)
             {
+                var state = await GetStateAsync();
+
+                if (state == JobState.Failed)
+                {
+                    throw new Exception("Error while queuing job");
+                }
+                else if (state == JobState.Initializing)
+                {
+                    break;
+                }
+
+                await Task.Delay(1000);
+            }
+
+            while (true)
+            {
                 Log.Verbose($"GET {_serverJobUri}...");
                 response = await _httpClient.GetAsync(_serverJobUri);
                 responseContent = await response.Content.ReadAsStringAsync();
@@ -99,17 +115,6 @@ namespace Microsoft.Crank.Controller
                 {
                     throw new Exception($"Invalid server version ({Job.ServerVersion}), please update your server to match this driver version.");
                 }
-
-                // REVIEW: Why are these required
-                //if (!Job.Hardware.HasValue)
-                //{
-                //    throw new InvalidOperationException("Server is required to set ServerJob.Hardware.");
-                //}
-
-                //if (String.IsNullOrWhiteSpace(Job.HardwareVersion))
-                //{
-                //    throw new InvalidOperationException("Server is required to set ServerJob.HardwareVersion.");
-                //}
 
                 if (!Job.OperatingSystem.HasValue)
                 {
@@ -287,8 +292,6 @@ namespace Microsoft.Crank.Controller
                     Log.Verbose($"{(int)response.StatusCode} {response.StatusCode}");
                     response.EnsureSuccessStatusCode();
 
-                    Job = JsonConvert.DeserializeObject<Job>(responseContent);
-
                     Log.Write($"Job is now building ...");
 
                     break;
@@ -305,35 +308,26 @@ namespace Microsoft.Crank.Controller
             // "start" => "build"
             // + new start call
 
+            var currentState = await GetStateAsync();
+
             while (true)
             {
-                var previousJob = Job;
+                var previouState = currentState;
+                currentState = await GetStateAsync();
 
-                Log.Verbose($"GET {_serverJobUri}...");
-                response = await _httpClient.GetAsync(_serverJobUri);
-                responseContent = await response.Content.ReadAsStringAsync();
+                // Job = JsonConvert.DeserializeObject<Job>(responseContent);
 
-                Log.Verbose($"{(int)response.StatusCode} {response.StatusCode} {responseContent}");
-
-                if (response.StatusCode == HttpStatusCode.NotFound)
+                if (currentState == JobState.Running)
                 {
-                    throw new Exception("Job not found");
-                }
-
-                Job = JsonConvert.DeserializeObject<Job>(responseContent);
-
-
-                if (Job.State == JobState.Running)
-                {
-                    if (previousJob.State != JobState.Running)
+                    if (previouState != JobState.Running)
                     {
-                        Log.Write($"Job is running");
+                        Log.Write($"Job is running...");
                         _runningUtc = DateTime.UtcNow;
                     }
 
-                    return Job.Url;
+                    return _serverJobUri;
                 }
-                else if (Job.State == JobState.Failed)
+                else if (currentState == JobState.Failed)
                 {
                     Log.Write($"Job failed on benchmark server, stopping...");
 
@@ -342,12 +336,12 @@ namespace Microsoft.Crank.Controller
                     // Returning will also send a Delete message to the server
                     return null;
                 }
-                else if (Job.State == JobState.NotSupported)
+                else if (currentState == JobState.NotSupported)
                 {
                     Log.Write("Server does not support this job configuration.");
                     return null;
                 }
-                else if (Job.State == JobState.Stopped)
+                else if (currentState == JobState.Stopped)
                 {
                     Log.Write($"Job finished");
 
@@ -358,7 +352,7 @@ namespace Microsoft.Crank.Controller
                         return Job.Url;
                     }
 
-                    throw new Exception("Job finished unnexpectedly");
+                    throw new Exception("Job finished unexpectedly");
                 }
                 else
                 {
@@ -536,9 +530,10 @@ namespace Microsoft.Crank.Controller
                             await StopAsync();
                         }
                     }
-                    catch
+                    catch (Exception e)
                     {
                         Log.Write($"Could not ping the server, retrying ...");
+                        Log.Verbose(e.ToString());
                     }
                     finally
                     {
