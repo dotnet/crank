@@ -8,28 +8,17 @@ This tutorial shows how to benchmark a simple .NET web application using the __b
 2. Install Crank via the following command:
 
     ```text
-    > dotnet tool install -g Microsoft.Crank.Controller --version "0.1.0-*" 
+    dotnet tool install -g Microsoft.Crank.Controller --version "0.1.0-*" 
     ```
 
     ```text
-    > dotnet tool install -g Microsoft.Crank.Agent --version "0.1.0-*" 
-    ```
-
-    NB: Preview versions can be installed by running this command line:
-
-    ```text
-    > dotnet tool install -g Microsoft.Crank.Controller --version "0.1.0-*" --add-source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-tools/nuget/v3/index.json
-    ```
-    
-    ```text
-    > dotnet tool install -g Microsoft.Crank.Agent --version "0.1.0-*" --add-source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-tools/nuget/v3/index.json
+    dotnet tool install -g Microsoft.Crank.Agent --version "0.1.0-*" 
     ```
 
 3. Verify the installation was complete by running:
 
     ```
-    > crank
-    No jobs were found. Are you missing the --scenario argument?
+    crank
     ```
 
 ## Define the scenario
@@ -40,7 +29,7 @@ It contains the scenario definitions, describing which applications need to be d
 
 ```yml
 imports:
-    - https://raw.githubusercontent.com/dotnet/crank/master/src/Microsoft.Crank.Jobs.Bombardier/bombardier.yml?token=AAI4T3LCX6ET4DCTDLUVJX263U2AK
+    - https://raw.githubusercontent.com/dotnet/crank/master/src/Microsoft.Crank.Jobs.Bombardier/bombardier.yml
 
 jobs:
   server:
