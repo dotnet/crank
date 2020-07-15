@@ -110,6 +110,7 @@ namespace Microsoft.Crank.Models
         public List<string> CounterProviders { get; set; } = new List<string>();
         public string BasePath { get; set; }
         public int ProcessId { get; set; }
+        public int ChildProcessId { get; set; }
         public Dictionary<string, string> EnvironmentVariables { get; set; } = new Dictionary<string, string>();
         public List<string> BuildArguments { get; set; } = new List<string>();
         public bool NoClean { get; set; }

@@ -111,6 +111,9 @@ namespace Microsoft.Crank.Jobs.Wrk2
             Console.WriteLine("> wrk2 " + process.StartInfo.Arguments);
 
             process.Start();
+
+            BenchmarksEventSource.SetChildProcessId(process.Id);
+            
             process.BeginOutputReadLine();
             process.WaitForExit();
 

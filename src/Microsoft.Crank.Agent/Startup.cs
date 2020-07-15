@@ -870,22 +870,30 @@ namespace Microsoft.Crank.Agent
                                                         {
                                                             // TODO: Accessing the TotalProcessorTime on OSX throws so just leave it as 0 for now
                                                             // We need to dig into this
-                                                            var newCPUTime = OperatingSystem == OperatingSystem.OSX ? TimeSpan.Zero : process.TotalProcessorTime;
+                                                            var trackProcess = job.ChildProcessId == 0
+                                                                ? process
+                                                                : Process.GetProcessById(job.ChildProcessId)
+                                                                ;
+
+                                                            var newCPUTime = OperatingSystem == OperatingSystem.OSX
+                                                                ? TimeSpan.Zero
+                                                                : trackProcess.TotalProcessorTime;
+                                                                                                                    
                                                             var elapsed = now.Subtract(lastMonitorTime).TotalMilliseconds;
                                                             var rawCpu = (newCPUTime - oldCPUTime).TotalMilliseconds / elapsed * 100;
                                                             var cpu = Math.Round(rawCpu / Environment.ProcessorCount);
                                                             lastMonitorTime = now;
 
-                                                            process.Refresh();
+                                                            trackProcess.Refresh();
 
                                                             // Ignore first measure
-                                                            if (oldCPUTime != TimeSpan.Zero)
+                                                            if (oldCPUTime != TimeSpan.Zero && cpu <= 100)
                                                             {
                                                                 job.Measurements.Enqueue(new Measurement
                                                                 {
                                                                     Name = "benchmarks/working-set",
                                                                     Timestamp = now,
-                                                                    Value = Math.Ceiling((double)process.WorkingSet64 / 1024 / 1024) // < 1MB still needs to appear as 1MB
+                                                                    Value = Math.Ceiling((double)trackProcess.WorkingSet64 / 1024 / 1024) // < 1MB still needs to appear as 1MB
                                                                 });
 
                                                                 job.Measurements.Enqueue(new Measurement
@@ -3419,6 +3427,15 @@ namespace Microsoft.Crank.Agent
                                 StartDotNetTrace(process.Id, job);
                             }
                         }
+                    }
+
+                    // Detect the app is wrapping a child process
+                    var processIdMarker = "##ChildProcessId:";
+                    if (e.Data.StartsWith(processIdMarker) 
+                        && int.TryParse(e.Data.Substring(processIdMarker.Length), out var childProcessId))
+                    {
+                        Log.WriteLine($"Tracking child process id: {childProcessId}");
+                        job.ChildProcessId = childProcessId;
                     }
                 }
             };
