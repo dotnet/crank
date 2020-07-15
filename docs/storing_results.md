@@ -11,7 +11,7 @@ Some jobs can provide more information when the results are stored than on the c
 The following example executes the __hello__ sample benchmark and stores the results in a file named `results.json`. We assume the agent is running locally.
 
 ```
-> crank --config /crank/samples/hello/hello.benchmarks.yml --scenario hello --profile local --output results.json 
+crank --config /crank/samples/hello/hello.benchmarks.yml --scenario hello --profile local --output results.json 
 ```
 
 And the file should contain some content similar to this:

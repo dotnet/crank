@@ -61,7 +61,7 @@ public static void Main(string[] args)
 Execute the following command:
 
 ```
-> crank --config /crank/samples/hello/hello.benchmarks.yml --scenario hello --profile local
+crank --config /crank/samples/hello/hello.benchmarks.yml --scenario hello --profile local
 --application.options.displayOutput true
 ```
 
