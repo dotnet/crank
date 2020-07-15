@@ -127,6 +127,9 @@ namespace Microsoft.Crank.Jobs.Bombardier
             Console.WriteLine("> bombardier " + process.StartInfo.Arguments);
 
             process.Start();
+            
+            BenchmarksEventSource.SetChildProcessId(process.Id);
+
             process.BeginOutputReadLine();
             process.WaitForExit();
 

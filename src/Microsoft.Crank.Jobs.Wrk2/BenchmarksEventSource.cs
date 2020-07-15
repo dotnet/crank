@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using System;
 using System.Diagnostics.Tracing;
 
 namespace Microsoft.Crank.Jobs
@@ -58,6 +59,11 @@ namespace Microsoft.Crank.Jobs
         public void Metadata(string name, string aggregate, string reduce, string shortDescription, string longDescription, string format)
         {
             WriteEvent(5, name, aggregate, reduce, shortDescription, longDescription, format);
+        }
+
+        public static void SetChildProcessId(int pid)
+        {
+            Console.Error.WriteLine($"##ChildProcessId:{pid}");
         }
     }
 }
