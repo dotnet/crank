@@ -4,7 +4,7 @@ This guide shows how to run a Docker job and benchmark it.
 
 ## Prerequisites
 
-1. You should have followed the [Getting Started](getting_started) tutorial, and have `crank` and `crank-agent` tools available.
+1. You should have followed the [Getting Started](getting_started.md) tutorial, and have `crank` and `crank-agent` tools available.
 2. The sample requires an agent running on a **Linux** machine with Docker installed, or at least on Windows with either Docker for Windows or WSL. 
 
 ## Define the scenario
