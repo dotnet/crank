@@ -61,8 +61,7 @@ public static void Main(string[] args)
 Execute the following command:
 
 ```
-crank --config /crank/samples/hello/hello.benchmarks.yml --scenario hello --profile local
---application.options.displayOutput true
+> crank --config /crank/samples/hello/hello.benchmarks.yml --scenario hello --profile local --application.options.displayOutput true
 ```
 
 Notice the `--application.options.displayOutput` argument which will stream the output of the application from the agent:
