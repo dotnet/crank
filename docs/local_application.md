@@ -4,9 +4,9 @@ This tutorial explains how to send local source files to an agent instead of clo
 
 ## Prerequisites
 
-1. You should have followed the [Getting Started](getting_started) tutorial, and have `crank` and `crank-agent` tools available.
-2. You have a local clone of the Crank repository
-3. The agent is running locally
+1. You should have followed the [Getting Started](getting_started.md) tutorial, and have `crank` and `crank-agent` tools available;
+2. You have a local clone of the Crank repository;
+3. The agent is running locally.
 
 ## Define the scenario
 
