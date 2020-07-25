@@ -40,7 +40,7 @@ The path is relative to the configuration file that contains it.
 Run the following command line to execute this job.
 
 ```
-> crank --config /crank/samples/hello/hello.benchmarks.yml --scenario hello --profile local
+> crank --config /crank/samples/local/local.benchmarks.yml --scenario hello --profile local
 ```
 
 With these new arguments, Crank will zip and upload the contents of the `/crank/samples/hello` folder when the scenario is executed. The agent won't have to clone a repository.
