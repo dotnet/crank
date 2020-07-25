@@ -118,13 +118,22 @@ namespace Microsoft.Crank.Controller.Ignore
             // A leading slash matches the beginning of the pathname. For example, "/*.c" matches "cat-file.c" but not "mozilla-sha1/sha1.c".
             if (rule.StartsWith("/"))
             {
-                rule = "^" + rule.TrimStart('/');
+                rule = "^" + rule;
+            }
+            else
+            {
+                rule = "(/|^)" + rule;
             }
 
             if (rule.EndsWith('/'))
             {
                 ignoreRule._matchFile = false;
-                rule = rule.TrimEnd('/');
+            }
+            else
+            {
+                // match the whole word, either before / or the end of the string
+                // i.e., "foo" matches "/foo", "bar/foo" but not "foobar"
+                rule = rule + "(/|$)";
             }
 
             // A trailing "/**" matches everything inside.
@@ -133,6 +142,8 @@ namespace Microsoft.Crank.Controller.Ignore
                 ignoreRule._matchDir = false;
             }
 
+            // A double asterisk matches zero or more directories. 
+            // The pattern is to look for any chars, including /
             rule = rule.Replace("**", ".*");
 
             // "*" matches anything except "/"
