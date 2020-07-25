@@ -81,7 +81,8 @@ namespace Microsoft.Crank.Controller
 
             Log.Write($"Fetching job: {_serverJobUri}");
 
-            // Waiting for the job to be selected, then upload custom files and send the start
+            // When a job is submitted it has the state New
+            // Waiting for the job to be selected (Initializing), then upload custom files and send the start
 
             while (true)
             {
