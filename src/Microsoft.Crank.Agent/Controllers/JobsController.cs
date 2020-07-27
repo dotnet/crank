@@ -45,7 +45,7 @@ namespace Microsoft.Crank.Agent.Controllers
                 return _jobs.GetAll().Where(IsActive).Select(x => new JobResult(x, this.Url));
             }
 
-            bool IsActive(ServerJob job)
+            bool IsActive(Job job)
             {
                 return job.State == JobState.New
                     || job.State == JobState.Waiting
