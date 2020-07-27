@@ -19,12 +19,14 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         git \
         procps \
-        cgroup-bin
+        cgroup-bin \
+        curl
 
 # Install perfcollect
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         zip \
+        unzip \
         linux-perf \
         lttng-tools \
         lttng-modules-dkms \
