@@ -59,6 +59,8 @@ namespace Microsoft.Crank.Controller
 
         public Job Job { get; private set; }
 
+        public string ServerJobUri => _serverJobUri;
+
         public async Task<string> StartAsync(
             string jobName
             )
@@ -112,7 +114,7 @@ namespace Microsoft.Crank.Controller
 
                 #region Ensure the job is valid
 
-                if (Job.ServerVersion < 3)
+                if (Job.ServerVersion < 4)
                 {
                     throw new Exception($"Invalid server version ({Job.ServerVersion}), please update your server to match this driver version.");
                 }
@@ -124,7 +126,7 @@ namespace Microsoft.Crank.Controller
 
                 #endregion
 
-                if (Job?.State == JobState.Initializing)
+                if (Job.State == JobState.Initializing)
                 {
                     Log.Write($"Job has been selected by the server ...");
 
@@ -853,5 +855,21 @@ namespace Microsoft.Crank.Controller
 
             return JsonConvert.DeserializeObject<Dictionary<string, object>>(response);
         }
+
+        /// <summary>
+        /// Returns the list of active jobs.
+        /// </summary>
+        public async Task<IEnumerable<JobView>> GetQueueAsync()
+        {
+            Log.Verbose($"GET {_serverJobsUri} ...");
+            var response = await _httpClient.GetAsync(_serverJobsUri);
+            response.EnsureSuccessStatusCode();
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            Log.Verbose($"{(int)response.StatusCode} {response.StatusCode} {responseContent}");
+
+            return JsonConvert.DeserializeObject<JobView[]>(responseContent);
+        }        
     }
 }
