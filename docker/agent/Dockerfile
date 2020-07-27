@@ -39,4 +39,4 @@ ADD https://raw.githubusercontent.com/sebastienros/perfview/sebros/sigint/src/pe
 RUN chmod +x /usr/bin/perfcollect
 
 
-ENTRYPOINT [ "/app/crank-agent" ]
+ENTRYPOINT [ "/app/crank-agent", "--url", "http://*:5001" ]
