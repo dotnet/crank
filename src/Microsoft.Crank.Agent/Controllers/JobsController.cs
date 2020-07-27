@@ -3,14 +3,12 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Crank.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -30,14 +28,33 @@ namespace Microsoft.Crank.Agent.Controllers
             _jobs = jobs;
         }
 
-        public IEnumerable<Job> GetAll()
+        [HttpGet("all")]
+        public IEnumerable<JobResult> GetAll()
         {
             lock (_jobs)
             {
-                return _jobs.GetAll();
+                return _jobs.GetAll().Select(x => new JobResult(x, this.Url));
             }
         }
 
+        [HttpGet("")]
+        public IEnumerable<JobResult> GetQueue()
+        {
+            lock (_jobs)
+            {
+                return _jobs.GetAll().Where(IsActive).Select(x => new JobResult(x, this.Url));
+            }
+
+            bool IsActive(ServerJob job)
+            {
+                return job.State == JobState.New
+                    || job.State == JobState.Waiting
+                    || job.State == JobState.Initializing
+                    || job.State == JobState.Starting
+                    || job.State == JobState.Running
+                    ;
+            }
+        }
         [HttpGet("{id}/touch")]
         public IActionResult Touch(int id)
         {
