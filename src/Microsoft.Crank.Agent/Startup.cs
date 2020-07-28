@@ -1564,7 +1564,12 @@ namespace Microsoft.Crank.Agent
 
                 job.BuildLog.AddLine("docker " + dockerLoadArguments);
 
-                await ProcessUtil.RunAsync("docker", dockerLoadArguments, workingDirectory: srcDir, cancellationToken: cancellationToken, log: true);
+                await ProcessUtil.RunAsync("docker", dockerLoadArguments, 
+                    workingDirectory: srcDir, 
+                    cancellationToken: cancellationToken, 
+                    log: true,
+                    outputDataReceived: text => job.BuildLog.AddLine(text)
+                );
             }
 
             if (cancellationToken.IsCancellationRequested)
@@ -1590,7 +1595,7 @@ namespace Microsoft.Crank.Agent
             // await ProcessUtil.RunAsync("docker", $"rm {imageName}", throwOnError: false);
 
             var command = OperatingSystem == OperatingSystem.Linux
-                ? $"run -d {environmentArguments} {job.Arguments} --label benchmarks --mount type=bind,source=/mnt,target=/tmp --name {containerName} --privileged --network host {imageName} {source.DockerCommand}"
+                ? $"run -d {environmentArguments} {job.Arguments} --label benchmarks --name {containerName} --privileged --network host {imageName} {source.DockerCommand}"
                 : $"run -d {environmentArguments} {job.Arguments} --label benchmarks --name {containerName} --network SELF --ip {hostname} {imageName} {source.DockerCommand}";
 
             if (job.Collect && job.CollectStartup)
@@ -1600,7 +1605,13 @@ namespace Microsoft.Crank.Agent
 
             job.BuildLog.AddLine("docker " + command);
 
-            var result = await ProcessUtil.RunAsync("docker", $"{command} ", throwOnError: false, onStart: _ => stopwatch.Start(), captureOutput: true);
+            var result = await ProcessUtil.RunAsync("docker", $"{command} ", 
+                throwOnError: true, 
+                onStart: _ => stopwatch.Start(), 
+                captureOutput: true,
+                log: true,
+                outputDataReceived: text => job.BuildLog.AddLine(text)
+            );
 
             var containerId = result.StandardOutput.Trim();
 
