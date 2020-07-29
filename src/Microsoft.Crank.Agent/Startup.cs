@@ -2027,10 +2027,13 @@ namespace Microsoft.Crank.Agent
             {
                 targetFramework = job.Framework;
             }
+
             // If no version is set for runtime, check project's default tfm
             else if (!IsVersionPrefix(job.RuntimeVersion))
             {
-                targetFramework = ResolveProjectTFM(job, benchmarkedApp, targetFramework);
+                var projectFileName = Path.Combine(benchmarkedApp, Path.GetFileName(FormatPathSeparators(job.Source.Project)));
+
+                targetFramework = ResolveProjectTFM(job, projectFileName, targetFramework);
             }
 
             PatchProjectFrameworkReference(job, benchmarkedApp);
@@ -2571,10 +2574,8 @@ namespace Microsoft.Crank.Agent
             }
         }
 
-        private static string GetAssemblyName(Job job, string benchmarkedApp)
+        private static string GetAssemblyName(Job job, string projectFileName)
         {
-            var projectFileName = Path.Combine(benchmarkedApp, FormatPathSeparators(job.Source.Project));
-
             if (File.Exists(projectFileName))
             {
                 var project = XDocument.Load(projectFileName);
@@ -2592,10 +2593,8 @@ namespace Microsoft.Crank.Agent
 
             return Path.GetFileNameWithoutExtension(FormatPathSeparators(job.Source.Project));
         }
-        private static string ResolveProjectTFM(Job job, string benchmarkedApp, string targetFramework)
+        private static string ResolveProjectTFM(Job job, string projectFileName, string targetFramework)
         {
-            var projectFileName = Path.Combine(benchmarkedApp, Path.GetFileName(FormatPathSeparators(job.Source.Project)));
-
             if (File.Exists(projectFileName))
             {
                 var project = XDocument.Load(projectFileName);
@@ -3220,6 +3219,8 @@ namespace Microsoft.Crank.Agent
             var scheme = (job.Scheme == Scheme.H2 || job.Scheme == Scheme.Https) ? "https" : "http";
             var serverUrl = $"{scheme}://{hostname}:{job.Port}";
             var executable = GetDotNetExecutable(dotnetHome);
+
+            var projectFileName = Path.Combine(benchmarksRepo, FormatPathSeparators(job.Source.Project));
             var assemblyName = GetAssemblyName(job, benchmarksRepo);
 
             var benchmarksDll = !String.IsNullOrEmpty(assemblyName)
