@@ -821,65 +821,81 @@ namespace Microsoft.Crank.Agent
                                                         {
                                                             // TODO: Accessing the TotalProcessorTime on OSX throws so just leave it as 0 for now
                                                             // We need to dig into this
-                                                            var trackProcess = job.ChildProcessId == 0
-                                                                ? process
-                                                                : Process.GetProcessById(job.ChildProcessId)
-                                                                ;
-
-                                                            var newCPUTime = OperatingSystem == OperatingSystem.OSX
-                                                                ? TimeSpan.Zero
-                                                                : trackProcess.TotalProcessorTime;
-                                                                                                                    
-                                                            var elapsed = now.Subtract(lastMonitorTime).TotalMilliseconds;
-                                                            var rawCpu = (newCPUTime - oldCPUTime).TotalMilliseconds / elapsed * 100;
-                                                            var cpu = Math.Round(rawCpu / Environment.ProcessorCount);
-                                                            lastMonitorTime = now;
-
-                                                            trackProcess.Refresh();
-
-                                                            // Ignore first measure
-                                                            if (oldCPUTime != TimeSpan.Zero && cpu <= 100)
+                                                            Process trackProcess = null;
+                                                            
+                                                            if (job.ChildProcessId != 0)
                                                             {
-                                                                job.Measurements.Enqueue(new Measurement
+                                                                try
                                                                 {
-                                                                    Name = "benchmarks/working-set",
-                                                                    Timestamp = now,
-                                                                    Value = Math.Ceiling((double)trackProcess.WorkingSet64 / 1024 / 1024) // < 1MB still needs to appear as 1MB
-                                                                });
-
-                                                                job.Measurements.Enqueue(new Measurement
+                                                                    trackProcess = Process.GetProcessById(job.ChildProcessId);
+                                                                }
+                                                                catch
                                                                 {
-                                                                    Name = "benchmarks/cpu",
-                                                                    Timestamp = now,
-                                                                    Value = cpu
-                                                                });
-
-                                                                job.Measurements.Enqueue(new Measurement
-                                                                {
-                                                                    Name = "benchmarks/cpu/raw",
-                                                                    Timestamp = now,
-                                                                    Value = rawCpu
-                                                                });
-
-                                                                if (job.CollectSwapMemory && OperatingSystem == OperatingSystem.Linux)
-                                                                {
-                                                                    try
-                                                                    {
-                                                                        job.Measurements.Enqueue(new Measurement
-                                                                        {
-                                                                            Name = "benchmarks/swap",
-                                                                            Timestamp = now,
-                                                                            Value = GetSwapBytesAsync().GetAwaiter().GetResult() / 1024 / 1024
-                                                                        });
-                                                                    }
-                                                                    catch (Exception e)
-                                                                    {
-                                                                        Log.WriteLine($"[ERROR] Could not get swap memory:" + e.ToString());
-                                                                    }
+                                                                    // child process is done    
                                                                 }
                                                             }
+                                                            else
+                                                            {
+                                                                trackProcess = process;
+                                                            }
 
-                                                            oldCPUTime = newCPUTime;
+                                                            if (trackProcess != null)
+                                                            {
+                                                                var newCPUTime = OperatingSystem == OperatingSystem.OSX
+                                                                    ? TimeSpan.Zero
+                                                                    : trackProcess.TotalProcessorTime;
+                                                                                                                        
+                                                                var elapsed = now.Subtract(lastMonitorTime).TotalMilliseconds;
+                                                                var rawCpu = (newCPUTime - oldCPUTime).TotalMilliseconds / elapsed * 100;
+                                                                var cpu = Math.Round(rawCpu / Environment.ProcessorCount);
+                                                                lastMonitorTime = now;
+
+                                                                trackProcess.Refresh();
+
+                                                                // Ignore first measure
+                                                                if (oldCPUTime != TimeSpan.Zero && cpu <= 100)
+                                                                {
+                                                                    job.Measurements.Enqueue(new Measurement
+                                                                    {
+                                                                        Name = "benchmarks/working-set",
+                                                                        Timestamp = now,
+                                                                        Value = Math.Ceiling((double)trackProcess.WorkingSet64 / 1024 / 1024) // < 1MB still needs to appear as 1MB
+                                                                    });
+
+                                                                    job.Measurements.Enqueue(new Measurement
+                                                                    {
+                                                                        Name = "benchmarks/cpu",
+                                                                        Timestamp = now,
+                                                                        Value = cpu
+                                                                    });
+
+                                                                    job.Measurements.Enqueue(new Measurement
+                                                                    {
+                                                                        Name = "benchmarks/cpu/raw",
+                                                                        Timestamp = now,
+                                                                        Value = rawCpu
+                                                                    });
+
+                                                                    if (job.CollectSwapMemory && OperatingSystem == OperatingSystem.Linux)
+                                                                    {
+                                                                        try
+                                                                        {
+                                                                            job.Measurements.Enqueue(new Measurement
+                                                                            {
+                                                                                Name = "benchmarks/swap",
+                                                                                Timestamp = now,
+                                                                                Value = GetSwapBytesAsync().GetAwaiter().GetResult() / 1024 / 1024
+                                                                            });
+                                                                        }
+                                                                        catch (Exception e)
+                                                                        {
+                                                                            Log.WriteLine($"[ERROR] Could not get swap memory:" + e.ToString());
+                                                                        }
+                                                                    }
+                                                                }
+
+                                                                oldCPUTime = newCPUTime;
+                                                            }
                                                         }
                                                     }
                                                 }
