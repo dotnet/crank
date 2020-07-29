@@ -595,7 +595,7 @@ namespace Microsoft.Crank.Agent
                                     {
                                         buildAndRunTask = Task.Run(async () =>
                                         {
-                                            var benchmarksDir = await CloneRestoreAndBuild(tempDir, job, _dotnethome, cts.Token);
+                                            benchmarksDir = await CloneRestoreAndBuild(tempDir, job, _dotnethome, cts.Token);
 
                                             if (job.State != JobState.Failed && benchmarksDir != null)
                                             {
