@@ -2561,7 +2561,7 @@ namespace Microsoft.Crank.Agent
 
         private static string GetAssemblyName(Job job, string benchmarkedApp)
         {
-            var projectFileName = Path.Combine(benchmarkedApp, Path.GetFileName(FormatPathSeparators(job.Source.Project)));
+            var projectFileName = Path.Combine(benchmarkedApp, FormatPathSeparators(job.Source.Project));
 
             if (File.Exists(projectFileName))
             {
