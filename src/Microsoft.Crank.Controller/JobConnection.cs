@@ -104,13 +104,7 @@ namespace Microsoft.Crank.Controller
 
             while (true)
             {
-                Log.Verbose($"GET {_serverJobUri}...");
-                response = await _httpClient.GetAsync(_serverJobUri);
-                responseContent = await response.Content.ReadAsStringAsync();
-
-                response.EnsureSuccessStatusCode();
-
-                Job = JsonConvert.DeserializeObject<Job>(responseContent);
+                Job = await GetJobAsync();
 
                 #region Ensure the job is valid
 
@@ -318,8 +312,6 @@ namespace Microsoft.Crank.Controller
                 var previouState = currentState;
                 currentState = await GetStateAsync();
 
-                // Job = JsonConvert.DeserializeObject<Job>(responseContent);
-
                 if (currentState == JobState.Running)
                 {
                     if (previouState != JobState.Running)
@@ -333,6 +325,9 @@ namespace Microsoft.Crank.Controller
                 else if (currentState == JobState.Failed)
                 {
                     Log.Write($"Job failed on benchmark server, stopping...");
+
+                    // Refreshing Job state to display the error
+                    Job = await GetJobAsync();
 
                     Log.Write(Job.Error, notime: true, error: true);
 
@@ -870,6 +865,18 @@ namespace Microsoft.Crank.Controller
             Log.Verbose($"{(int)response.StatusCode} {response.StatusCode} {responseContent}");
 
             return JsonConvert.DeserializeObject<JobView[]>(responseContent);
-        }        
+        }      
+        
+        public async Task<Job> GetJobAsync()
+        {
+            Log.Verbose($"GET {_serverJobUri}...");
+            
+            var response = await _httpClient.GetAsync(_serverJobUri);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            response.EnsureSuccessStatusCode();
+
+            return JsonConvert.DeserializeObject<Job>(responseContent);
+        }  
     }
 }

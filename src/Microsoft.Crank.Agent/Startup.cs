@@ -638,6 +638,18 @@ namespace Microsoft.Crank.Agent
                                             cts.Cancel();
                                             await buildAndRunTask;
                                         }
+
+                                        if (buildAndRunTask.IsFaulted)
+                                        {
+                                            Log.WriteLine($"An unexpected error occurred while building the job. {buildAndRunTask.Exception}");
+                                            job.Error = $"An unexpected error occurred while building the job: {buildAndRunTask.Exception.Message}";
+
+                                            Log.WriteLine($"{job.State} -> Failed");
+                                            job.State = JobState.Failed;
+
+                                            cts.Cancel();
+                                            await buildAndRunTask;
+                                        }
                                     }
 
                                     if (job.State != JobState.Failed)
@@ -2789,7 +2801,7 @@ namespace Microsoft.Crank.Agent
 
                     var globalJson = "{ \"sdk\": { \"version\": \"" + sdkVersion + "\" } }";
                     File.WriteAllText(Path.Combine(benchmarkedApp, "global.json"), globalJson);
-                }
+                    }
                 else
                 {
                     // File found, we need to update it
