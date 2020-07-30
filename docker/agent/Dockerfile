@@ -7,10 +7,10 @@ ENV DOTNET_CLI_TELEMETRY_OPTOUT 1
 
 # Build self contained
 
-RUN dotnet publish -c Release src/Microsoft.Crank.Agent -r linux-x64 --output /app
+RUN dotnet publish -c Release src/Microsoft.Crank.Agent --output /app
 
 # Build runtime image
-FROM mcr.microsoft.com/dotnet/core/runtime-deps:3.1
+FROM mcr.microsoft.com/dotnet/core/aspnet:3.1
 
 # Install dependencies
 RUN apt-get update \
