@@ -66,6 +66,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
             var bombardierUrl = _bombardierUrls[Environment.OSVersion.Platform];
             var bombardierFileName = Path.GetFileName(bombardierUrl);
 
+            Console.WriteLine($"Downloading bombardier from {bombardierUrl} to {bombardierFileName}");
             using (var downloadStream = await _httpClient.GetStreamAsync(bombardierUrl))
             using (var fileStream = File.Create(bombardierFileName))
             {
