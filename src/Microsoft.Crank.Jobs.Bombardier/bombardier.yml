@@ -10,7 +10,7 @@
 jobs:
   bombardier:
     source:
-      repository: https://github.com/dotnet/crank.git
+      repository: https://github.com/rr-wfm/crank.git
       branchOrCommit: master
       project: src/Microsoft.Crank.Jobs.Bombardier/Microsoft.Crank.Jobs.Bombardier.csproj
     isConsoleApp: true

@@ -25,6 +25,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
         {
             { PlatformID.Win32NT, "https://github.com/codesenberg/bombardier/releases/download/v1.2.4/bombardier-windows-amd64.exe" },
             { PlatformID.Unix, "https://github.com/codesenberg/bombardier/releases/download/v1.2.4/bombardier-linux-amd64" },
+            { PlatformID.MacOSX, "https://github.com/codesenberg/bombardier/releases/download/v1.2.4/bombardier-darwin-amd64" }
         };
 
         static Program()
