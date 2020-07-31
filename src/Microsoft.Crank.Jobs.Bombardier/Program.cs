@@ -70,7 +70,8 @@ namespace Microsoft.Crank.Jobs.Bombardier
             using (var fileStream = File.Create(bombardierFileName))
             {
                 await downloadStream.CopyToAsync(fileStream);
-                if (Environment.OSVersion.Platform == PlatformID.Unix)
+                if (Environment.OSVersion.Platform == PlatformID.Unix ||
+                    Environment.OSVersion.Platform == PlatformID.MacOSX)
                 {
                     Process.Start("chmod", "+x " + bombardierFileName);
                 }
