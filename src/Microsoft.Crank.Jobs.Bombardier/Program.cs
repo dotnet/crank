@@ -89,6 +89,12 @@ namespace Microsoft.Crank.Jobs.Bombardier
                     Console.WriteLine($"Setting execute permission on exeecutable {bombardierFileName}");
                     Process.Start("chmod", "+x " + bombardierFileName);
                 }
+
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                {
+                    Console.WriteLine($"Allow running bombardier");
+                    Process.Start("spctl", "--add " + bombardierFileName);
+                }
             }
 
             var baseArguments = String.Join(' ', args.ToArray()) + " --print r --format json";
