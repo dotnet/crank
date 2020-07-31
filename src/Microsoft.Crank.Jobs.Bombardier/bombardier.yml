@@ -11,7 +11,7 @@ jobs:
   bombardier:
     source:
       repository: https://github.com/rr-wfm/crank.git
-      branchOrCommit: master
+      branchOrCommit: feature/bombardier-macos
       project: src/Microsoft.Crank.Jobs.Bombardier/Microsoft.Crank.Jobs.Bombardier.csproj
     isConsoleApp: true
     waitForExit: true
