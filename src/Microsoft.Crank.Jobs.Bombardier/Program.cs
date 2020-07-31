@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,12 +21,6 @@ namespace Microsoft.Crank.Jobs.Bombardier
     {
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
-
-        private static Dictionary<PlatformID, string> _bombardierUrls = new Dictionary<PlatformID, string>()
-        {
-            { PlatformID.Win32NT, "https://github.com/codesenberg/bombardier/releases/download/v1.2.4/bombardier-windows-amd64.exe" },
-            { PlatformID.Unix, "https://github.com/codesenberg/bombardier/releases/download/v1.2.4/bombardier-linux-amd64" },
-        };
 
         static Program()
         {
@@ -62,16 +57,43 @@ namespace Microsoft.Crank.Jobs.Bombardier
 
             args = argsList.ToArray();
 
-            var bombardierUrl = _bombardierUrls[Environment.OSVersion.Platform];
+            string bombardierUrl = null;
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                bombardierUrl = "https://github.com/codesenberg/bombardier/releases/download/v1.2.4/bombardier-windows-amd64.exe";
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                bombardierUrl = "https://github.com/codesenberg/bombardier/releases/download/v1.2.4/bombardier-linux-amd64";
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                bombardierUrl = "https://github.com/codesenberg/bombardier/releases/download/v1.2.4/bombardier-darwin-amd64";
+            }
+            else
+            {
+                Console.WriteLine("Unsupported platform");
+                return;
+            }
+
             var bombardierFileName = Path.GetFileName(bombardierUrl);
 
+            Console.WriteLine($"Downloading bombardier from {bombardierUrl} to {bombardierFileName}");
             using (var downloadStream = await _httpClient.GetStreamAsync(bombardierUrl))
             using (var fileStream = File.Create(bombardierFileName))
             {
                 await downloadStream.CopyToAsync(fileStream);
-                if (Environment.OSVersion.Platform == PlatformID.Unix)
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ||
+                    RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                 {
+                    Console.WriteLine($"Setting execute permission on executable {bombardierFileName}");
                     Process.Start("chmod", "+x " + bombardierFileName);
+                }
+
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                {
+                    Console.WriteLine($"Allow running bombardier");
+                    Process.Start("spctl", "--add " + bombardierFileName);
                 }
             }
 
