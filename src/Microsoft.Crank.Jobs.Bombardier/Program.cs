@@ -86,7 +86,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ||
                     RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                 {
-                    Console.WriteLine($"Setting execute permission on exeecutable {bombardierFileName}");
+                    Console.WriteLine($"Setting execute permission on executable {bombardierFileName}");
                     Process.Start("chmod", "+x " + bombardierFileName);
                 }
 
