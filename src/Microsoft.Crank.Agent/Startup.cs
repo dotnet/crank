@@ -853,6 +853,18 @@ namespace Microsoft.Crank.Agent
 
                                                             if (trackProcess != null)
                                                             {
+                                                                try
+                                                                {
+                                                                    trackProcess.Refresh();
+                                                                }
+                                                                catch
+                                                                {
+                                                                    trackProcess = null;
+                                                                }
+                                                            }
+
+                                                            if (trackProcess != null)
+                                                            {
                                                                 var newCPUTime = OperatingSystem == OperatingSystem.OSX
                                                                     ? TimeSpan.Zero
                                                                     : trackProcess.TotalProcessorTime;
@@ -861,8 +873,6 @@ namespace Microsoft.Crank.Agent
                                                                 var rawCpu = (newCPUTime - oldCPUTime).TotalMilliseconds / elapsed * 100;
                                                                 var cpu = Math.Round(rawCpu / Environment.ProcessorCount);
                                                                 lastMonitorTime = now;
-
-                                                                trackProcess.Refresh();
 
                                                                 // Ignore first measure
                                                                 if (oldCPUTime != TimeSpan.Zero && cpu <= 100)
@@ -2022,6 +2032,8 @@ namespace Microsoft.Crank.Agent
 
             ConvertLegacyVersions(ref targetFramework, ref runtimeVersion, ref aspNetCoreVersion);
 
+            var projectFileName = Path.Combine(benchmarkedApp, Path.GetFileName(FormatPathSeparators(job.Source.Project)));
+
             // If a specific framework is set, use it instead of the detected one
             if (!String.IsNullOrEmpty(job.Framework))
             {
@@ -2031,12 +2043,10 @@ namespace Microsoft.Crank.Agent
             // If no version is set for runtime, check project's default tfm
             else if (!IsVersionPrefix(job.RuntimeVersion))
             {
-                var projectFileName = Path.Combine(benchmarkedApp, Path.GetFileName(FormatPathSeparators(job.Source.Project)));
-
                 targetFramework = ResolveProjectTFM(job, projectFileName, targetFramework);
             }
 
-            PatchProjectFrameworkReference(job, benchmarkedApp);
+            PatchProjectFrameworkReference(job, projectFileName);
 
             // If a specific channel is set, use it instead of the detected one
             if (!String.IsNullOrEmpty(job.Channel))
@@ -2377,9 +2387,9 @@ namespace Microsoft.Crank.Agent
             {
                 outputFolder = Path.Combine(benchmarkedApp, "published");
 
-                var projectFileName = Path.GetFileName(FormatPathSeparators(job.Source.Project));
+                var projectName = Path.GetFileName(FormatPathSeparators(job.Source.Project));
 
-                var arguments = $"publish {projectFileName} -c Release -o {outputFolder} {buildParameters}";
+                var arguments = $"publish {projectName} -c Release -o {outputFolder} {buildParameters}";
 
                 Log.WriteLine($"Publishing application in {outputFolder} with: \n {arguments}");
 
@@ -2635,10 +2645,8 @@ namespace Microsoft.Crank.Agent
             return !String.IsNullOrEmpty(version) && char.IsDigit(version[0]);
         }
 
-        private static void PatchProjectFrameworkReference(Job job, string benchmarkedApp)
+        private static void PatchProjectFrameworkReference(Job job, string projectFileName)
         {
-            var projectFileName = Path.Combine(benchmarkedApp, Path.GetFileName(FormatPathSeparators(job.Source.Project)));
-
             if (File.Exists(projectFileName))
             {
                 Log.WriteLine("Patching project file with Framework References");
@@ -3221,7 +3229,7 @@ namespace Microsoft.Crank.Agent
             var executable = GetDotNetExecutable(dotnetHome);
 
             var projectFileName = Path.Combine(benchmarksRepo, FormatPathSeparators(job.Source.Project));
-            var assemblyName = GetAssemblyName(job, benchmarksRepo);
+            var assemblyName = GetAssemblyName(job, projectFileName);
 
             var benchmarksDll = !String.IsNullOrEmpty(assemblyName)
                 ? Path.Combine(workingDirectory, "published", $"{assemblyName}.dll")
