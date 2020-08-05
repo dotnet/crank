@@ -20,6 +20,22 @@ RUN apt-get update \
         cgroup-bin \
         curl
 
+# Build and install h2load. Required as there isn't a way to distribute h2load as a single file to download
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        g++ make binutils autoconf automake autotools-dev libtool pkg-config \
+        zlib1g-dev libcunit1-dev libssl-dev libxml2-dev libev-dev libevent-dev libjansson-dev \
+        libc-ares-dev libjemalloc-dev libsystemd-dev \
+        cython python3-dev python-setuptools
+
+ENV NGHTTP2_VERSION 1.41.0
+RUN cd /tmp \
+    && curl -L "https://github.com/nghttp2/nghttp2/releases/download/v${NGHTTP2_VERSION}/nghttp2-${NGHTTP2_VERSION}.tar.gz" -o "nghttp2-${NGHTTP2_VERSION}.tar.gz" \
+    && tar -zxvf "nghttp2-${NGHTTP2_VERSION}.tar.gz" \
+    && cd /tmp/nghttp2-$NGHTTP2_VERSION \
+    && ./configure \
+    && make
+
 # Install docker client
 ENV DOCKER_VERSION 17.09.0-ce
 RUN cd /tmp \
