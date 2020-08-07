@@ -685,7 +685,6 @@ namespace Microsoft.Crank.Agent
                                                 {
                                                     var now = DateTime.UtcNow;
 
-
                                                     // Stops the job in case the driver is not running
                                                     if (now - job.LastDriverCommunicationUtc > DriverTimeout)
                                                     {
@@ -920,6 +919,10 @@ namespace Microsoft.Crank.Agent
                                                             }
                                                         }
                                                     }
+                                                }
+                                                catch
+                                                {
+                                                    Log.WriteLine("An error occurred while tracking a process. Continuing...");
                                                 }
                                                 finally
                                                 {
