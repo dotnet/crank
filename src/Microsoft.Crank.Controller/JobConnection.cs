@@ -239,9 +239,11 @@ namespace Microsoft.Crank.Controller
                         {
                             var buildFileSegments = buildFileValue.Split(';', 2, StringSplitOptions.RemoveEmptyEntries);
 
-                            foreach (var resolvedFile in Directory.GetFiles(Path.GetDirectoryName(buildFileSegments[0]), Path.GetFileName(buildFileSegments[0]), SearchOption.AllDirectories))
-                            {
-                                var resolvedFileWithDestination = resolvedFile;
+                            var shouldSearchRecursively = buildFileSegments[0].Contains("**");
+                            buildFileSegments[0] = buildFileSegments[0].Replace("**\\", "").Replace("**/", "");
+
+                            foreach (var resolvedFile in Directory.GetFiles(Path.GetDirectoryName(buildFileSegments[0]), Path.GetFileName(buildFileSegments[0]), shouldSearchRecursively ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly))
+                            {                                var resolvedFileWithDestination = resolvedFile;
 
                                 if (buildFileSegments.Length > 1)
                                 {
@@ -265,7 +267,10 @@ namespace Microsoft.Crank.Controller
                         {
                             var outputFileSegments = outputFileValue.Split(';', 2, StringSplitOptions.RemoveEmptyEntries);
 
-                            foreach (var resolvedFile in Directory.GetFiles(Path.GetDirectoryName(outputFileSegments[0]), Path.GetFileName(outputFileSegments[0]), SearchOption.AllDirectories))
+                            var shouldSearchRecursively = outputFileSegments[0].Contains("**");
+                            outputFileSegments[0] = outputFileSegments[0].Replace("**\\", "").Replace("**/", "");
+
+                            foreach (var resolvedFile in Directory.GetFiles(Path.GetDirectoryName(outputFileSegments[0]), Path.GetFileName(outputFileSegments[0]), shouldSearchRecursively ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly))
                             {
                                 var resolvedFileWithDestination = resolvedFile;
 
@@ -664,7 +669,7 @@ namespace Microsoft.Crank.Controller
 
         private static async Task<int> UploadFileAsync(string filename, Job serverJob, string uri)
         {
-            Log.Write($"Uploading {filename} to {uri}");
+            Log.Write($"Uploading {filename}");
 
             try
             {
