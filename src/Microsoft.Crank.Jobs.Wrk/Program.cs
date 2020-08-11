@@ -16,7 +16,7 @@ namespace Microsoft.Crank.Wrk
 
             if (Environment.OSVersion.Platform == PlatformID.Unix)
             {
-                Console.WriteLine("Platform not supported");
+                Console.WriteLine($"Platform not supported: {Environment.OSVersion.Platform}");
                 return -1;
             }
 
