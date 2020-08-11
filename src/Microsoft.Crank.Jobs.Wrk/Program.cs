@@ -23,9 +23,7 @@ namespace Microsoft.Crank.Wrk
             await WrkProcess.MeasureFirstRequest(args);
             
             await WrkProcess.DownloadWrkAsync();
-            await WrkProcess.RunAsync(args);
-
-            return 0;
+            return await WrkProcess.RunAsync(args);
         }
     }
 }

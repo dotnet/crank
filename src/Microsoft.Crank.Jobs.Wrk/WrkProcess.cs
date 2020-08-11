@@ -60,7 +60,7 @@ namespace Microsoft.Crank.Wrk
             }
         }
 
-        public static async Task RunAsync(string[] args)
+        public static async Task<int> RunAsync(string[] args)
         {
             // Do we need to parse latency?
             var parseLatency = args.Any(x => x == "--latency" || x == "-L");
@@ -70,7 +70,11 @@ namespace Microsoft.Crank.Wrk
             {
                 var wrkFilename = Path.GetFileName(WrkUrl);
                 await ProcessScriptFile(args, tempScriptFile);
-                RunCore(wrkFilename, args, parseLatency);
+                return RunCore(wrkFilename, args, parseLatency);
+            }
+            catch
+            {
+                return -1;
             }
             finally
             {
@@ -134,7 +138,7 @@ namespace Microsoft.Crank.Wrk
             }
         }
 
-        static void RunCore(string fileName, string[] args, bool parseLatency)
+        static int RunCore(string fileName, string[] args, bool parseLatency)
         {
             // Extracting duration parameters
             string warmup = "";
@@ -152,7 +156,7 @@ namespace Microsoft.Crank.Wrk
             else
             {
                 Console.WriteLine("Couldn't find -d argument");
-                return;
+                return -1;
             }
 
             var warmupIndex = argsList.FindIndex(x => String.Equals(x, "-w", StringComparison.OrdinalIgnoreCase));
@@ -228,6 +232,11 @@ namespace Microsoft.Crank.Wrk
                 output = stringBuilder.ToString();
             }
 
+            if (process.ExitCode != 0)
+            {
+                return process.ExitCode;
+            }
+
             BenchmarksEventSource.Log.Metadata("wrk/rps/mean", "max", "sum", "Requests/sec", "Requests per second", "n0");
             BenchmarksEventSource.Log.Metadata("wrk/requests", "max", "sum", "Requests", "Total number of requests", "n0");
             BenchmarksEventSource.Log.Metadata("wrk/latency/mean", "max", "sum", "Mean latency (ms)", "Mean latency (ms)", "n2");
@@ -271,6 +280,8 @@ namespace Microsoft.Crank.Wrk
                 BenchmarksEventSource.Measure("wrk/latency/90", ReadLatency(Regex.Match(output, string.Format(LatencyPattern, "90%"))));
                 BenchmarksEventSource.Measure("wrk/latency/99", ReadLatency(Regex.Match(output, string.Format(LatencyPattern, "99%"))));
             }
+
+            return 0;
         }
 
         private static int ReadRequests(Match responseCountMatch)
