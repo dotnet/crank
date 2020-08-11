@@ -20,7 +20,7 @@ namespace Microsoft.Crank.Jobs.Wrk2
     {
         const string Wrk2Url = "https://aspnetbenchmarks.blob.core.windows.net/tools/wrk2";
 
-        static async Task Main(string[] args)
+        static async Task<int> Main(string[] args)
         {
             Console.WriteLine("WRK2 Client");
             Console.WriteLine("args: " + String.Join(' ', args));
@@ -49,7 +49,7 @@ namespace Microsoft.Crank.Jobs.Wrk2
             else
             {
                 Console.WriteLine("Couldn't find -d argument");
-                return;
+                return -1;
             }
 
             var warmupIndex = argsList.FindIndex(x => String.Equals(x, "-w", StringComparison.OrdinalIgnoreCase));
@@ -99,6 +99,11 @@ namespace Microsoft.Crank.Jobs.Wrk2
 
                 process.Start();
                 process.WaitForExit();
+
+                if (process.ExitCode != 0)
+                {
+                    return process.ExitCode;
+                }
             }
             
             lock (stringBuilder)
@@ -116,6 +121,11 @@ namespace Microsoft.Crank.Jobs.Wrk2
             
             process.BeginOutputReadLine();
             process.WaitForExit();
+
+            if (process.ExitCode != 0)
+            {
+                return process.ExitCode;
+            }
 
             string output;
 
@@ -213,6 +223,8 @@ namespace Microsoft.Crank.Jobs.Wrk2
                     BenchmarksEventSource.Measure("wrk2/latency/distribution", doc.ToString());
                 }
             }
+
+            return 0;
         }
 
         private static TimeSpan ReadDuration(Match responseCountMatch)

@@ -32,7 +32,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
             _httpClient = new HttpClient(_httpClientHandler);
         }
 
-        static async Task Main(string[] args)
+        static async Task<int> Main(string[] args)
         {
             Console.WriteLine("Bombardier Client");
             Console.WriteLine("args: " + String.Join(' ', args));
@@ -50,7 +50,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
             if (duration == 0 && requests == 0)
             {
                 Console.WriteLine("Couldn't find valid -d and -n arguments (integers)");
-                return;
+                return -1;
             }
 
             TryGetArgumentValue("-w", argsList, out warmup);
@@ -73,7 +73,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
             else
             {
                 Console.WriteLine("Unsupported platform");
-                return;
+                return -1;
             }
 
             var bombardierFileName = Path.GetFileName(bombardierUrl);
@@ -134,6 +134,11 @@ namespace Microsoft.Crank.Jobs.Bombardier
 
                 process.Start();
                 process.WaitForExit();
+
+                if (process.ExitCode != 0)
+                {
+                    return process.ExitCode;
+                }
             }
 
             lock (stringBuilder)
@@ -154,6 +159,11 @@ namespace Microsoft.Crank.Jobs.Bombardier
 
             process.BeginOutputReadLine();
             process.WaitForExit();
+
+            if (process.ExitCode != 0)
+            {
+                return process.ExitCode;
+            }
 
             string output;
 
@@ -196,6 +206,8 @@ namespace Microsoft.Crank.Jobs.Bombardier
             BenchmarksEventSource.Measure("bombardier/rps/mean", document["result"]["rps"]["mean"].Value<double>());
 
             BenchmarksEventSource.Measure("bombardier/raw", output);
+
+            return 0;
         }
 
         private static bool TryGetArgumentValue(string argName, List<string> argsList, out int value)
