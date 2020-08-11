@@ -99,6 +99,8 @@ namespace Microsoft.Crank.Agent
 
         private static readonly IJobRepository _jobs = new InMemoryJobRepository();
         private static string _rootTempDir;
+
+        private static string _buildPath;
         private static string _dotnethome;
         private static bool _cleanup = true;
         private static Process perfCollectProcess;
@@ -212,7 +214,8 @@ namespace Microsoft.Crank.Agent
                 "The connection string for SqlServer.", CommandOptionType.SingleValue);
             var mongoDbConnectionStringOption = app.Option("--mongodb",
                 "The connection string for MongoDb.", CommandOptionType.SingleValue);
-
+            var buildPathOption = app.Option("--buildpath", "The path where applications are built.", CommandOptionType.SingleValue);
+            
             app.OnExecute(() =>
             {
                 if (noCleanupOption.HasValue())
@@ -251,6 +254,21 @@ namespace Microsoft.Crank.Agent
                 else
                 {
                     Hardware = Hardware.Unknown;
+                }
+
+                if (!buildPathOption.HasValue())
+                {
+                    // If no custom build path is provided, use the current user's temp dir
+                    _buildPath = Path.Combine(Path.GetTempPath(), "benchmarks-agent");
+                }
+                else
+                {
+                    _buildPath = buildPathOption.Value();
+                }
+
+                if (!Directory.Exists(_buildPath))
+                {
+                    Directory.CreateDirectory(_buildPath);
                 }
 
                 var url = urlOption.HasValue() ? urlOption.Value() : _defaultUrl;
@@ -4548,7 +4566,7 @@ namespace Microsoft.Crank.Agent
                 // From the /tmp folder (in Docker, should be mounted to /mnt/benchmarks) use a specific 'benchmarksserver' root folder to isolate from other services
                 // that use the temp folder, and create a sub-folder (process-id) for each server running.
                 // The cron job is responsible for cleaning the folders
-                _rootTempDir = Path.Combine(Path.GetTempPath(), "benchmarks-agent", $"benchmarks-server-{Process.GetCurrentProcess().Id}");
+                _rootTempDir = Path.Combine(_buildPath, $"benchmarks-server-{Process.GetCurrentProcess().Id}");
 
                 if (Directory.Exists(_rootTempDir))
                 {
