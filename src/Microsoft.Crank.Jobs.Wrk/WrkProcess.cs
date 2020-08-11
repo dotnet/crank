@@ -207,6 +207,11 @@ namespace Microsoft.Crank.Wrk
 
                 process.Start();
                 process.WaitForExit();
+
+                if (process.ExitCode != 0)
+                {
+                    return process.ExitCode;
+                }
             }
 
             lock (stringBuilder)
@@ -225,16 +230,16 @@ namespace Microsoft.Crank.Wrk
             process.BeginOutputReadLine();
             process.WaitForExit();
 
+            if (process.ExitCode != 0)
+            {
+                return process.ExitCode;
+            }
+
             string output;
 
             lock (stringBuilder)
             {
                 output = stringBuilder.ToString();
-            }
-
-            if (process.ExitCode != 0)
-            {
-                return process.ExitCode;
             }
 
             BenchmarksEventSource.Log.Metadata("wrk/rps/mean", "max", "sum", "Requests/sec", "Requests per second", "n0");
