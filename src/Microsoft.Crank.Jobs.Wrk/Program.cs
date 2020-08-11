@@ -11,14 +11,14 @@ namespace Microsoft.Crank.Wrk
     {
         static async Task<int> Main(string[] args)
         {
-            Console.WriteLine("WRK Client");
-            Console.WriteLine("args: " + string.Join(' ', args));
-
-            if (Environment.OSVersion.Platform == PlatformID.Unix)
+            if (Environment.OSVersion.Platform != PlatformID.Unix)
             {
                 Console.WriteLine($"Platform not supported: {Environment.OSVersion.Platform}");
                 return -1;
             }
+
+            Console.WriteLine("WRK Client");
+            Console.WriteLine("args: " + string.Join(' ', args));
 
             await WrkProcess.MeasureFirstRequest(args);
             
