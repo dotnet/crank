@@ -601,6 +601,15 @@ namespace Microsoft.Crank.Controller
 
                                         await Task.WhenAll(jobs.Select(job => job.TryUpdateJobAsync()));
 
+                                        // Display error message if job failed
+                                        foreach (var job in jobs)
+                                        {
+                                            if (!String.IsNullOrEmpty(job.Job.Error))
+                                            {
+                                                Log.Write(job.Job.Error, notime: true, error: true);
+                                            }
+                                        }
+
                                         await Task.WhenAll(jobs.Select(job => job.DownloadAssetsAsync(jobName)));
 
                                         await Task.WhenAll(jobs.Select(job => job.DeleteAsync()));
