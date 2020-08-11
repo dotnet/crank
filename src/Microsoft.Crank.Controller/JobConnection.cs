@@ -81,7 +81,7 @@ namespace Microsoft.Crank.Controller
 
             _serverJobUri = new Uri(_serverUri, response.Headers.Location).ToString();
 
-            Log.Write($"Fetching job: {_serverJobUri}");
+            Log.Write($"Submitted job: {_serverJobUri}");
 
             // When a job is submitted it has the state New
             // Waiting for the job to be selected (Initializing), then upload custom files and send the start
@@ -289,7 +289,7 @@ namespace Microsoft.Crank.Controller
                     Log.Verbose($"{(int)response.StatusCode} {response.StatusCode}");
                     response.EnsureSuccessStatusCode();
 
-                    Log.Write($"Job is now building ...");
+                    Log.Write($"Job is now building ... {_serverJobUri}/buildlog");
 
                     break;
                 }
@@ -316,7 +316,7 @@ namespace Microsoft.Crank.Controller
                 {
                     if (previouState != JobState.Running)
                     {
-                        Log.Write($"Job is running...");
+                        Log.Write($"Job is running ... {_serverJobUri}/output");
                         _runningUtc = DateTime.UtcNow;
                     }
 
