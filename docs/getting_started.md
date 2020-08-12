@@ -131,3 +131,5 @@ Max RPS:              221,956
 ```
 
 Each service deployed (application and load) have reported their metrics, including the Requests Per Second.
+
+If you want to run development version, folow instructions [here](development.md).
