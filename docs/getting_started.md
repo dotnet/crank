@@ -131,3 +131,5 @@ Max RPS:              221,956
 ```
 
 Each service deployed (application and load) have reported their metrics, including the Requests Per Second.
+
+Note: The agent and controller can also be executed [directly from source](development.md) if dotnet tools can't be installed.
