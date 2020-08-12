@@ -1,12 +1,17 @@
-Running development version
-===========================
+## Running from source
 
-If you want to try latest and greatest crank you can run agent from `src\Microsoft.Crank.Agent` folder by simply running
+Crank can be started from its source code by executing these commands:
 
-    cd src\Microsoft.Crank.Agent
-    dotnet run
+### Crank Agent
 
-To run development version of crank
+```
+cd ./src/Microsoft.Crank.Agent
+dotnet run
+```
 
-    cd Microsoft.Crank.Controller
-    dotnet run  --config ../../samples/hello/hello.benchmarks.yml --scenario hello --profile local --application.options.displayOutput true
+### Crank Controller
+
+```
+cd ./src/Microsoft.Crank.Controller
+dotnet run  --config ../../samples/hello/hello.benchmarks.yml --scenario hello --profile local
+```
