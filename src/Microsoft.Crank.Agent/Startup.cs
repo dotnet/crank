@@ -215,7 +215,7 @@ namespace Microsoft.Crank.Agent
             var mongoDbConnectionStringOption = app.Option("--mongodb",
                 "The connection string for MongoDb.", CommandOptionType.SingleValue);
             var buildPathOption = app.Option("--build-path", "The path where applications are built.", CommandOptionType.SingleValue);
-            var Option = app.Option("--build-timeout", "Maximum duration of build task in minutes. Default 10 minutes.",
+            var buildTimeoutOption = app.Option("--build-timeout", "Maximum duration of build task in minutes. Default 10 minutes.",
                 CommandOptionType.SingleValue);
 
             app.OnExecute(() =>
