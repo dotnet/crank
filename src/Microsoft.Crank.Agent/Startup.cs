@@ -215,7 +215,9 @@ namespace Microsoft.Crank.Agent
             var mongoDbConnectionStringOption = app.Option("--mongodb",
                 "The connection string for MongoDb.", CommandOptionType.SingleValue);
             var buildPathOption = app.Option("--buildpath", "The path where applications are built.", CommandOptionType.SingleValue);
-            
+            var maxBuildTimeoutOption = app.Option("--max-build-timeout", "Maximum duration of build task in minutes. Default 10 minutes.",
+                CommandOptionType.SingleValue);
+
             app.OnExecute(() =>
             {
                 if (noCleanupOption.HasValue())
@@ -254,6 +256,14 @@ namespace Microsoft.Crank.Agent
                 else
                 {
                     Hardware = Hardware.Unknown;
+                }
+
+                if (maxBuildTimeoutOption.HasValue())
+                {
+                    if (int.TryParse(maxBuildTimeoutOption.Value(), out var maxBuildTimeout))
+                    {
+                        DefaultBuildTimeout = TimeSpan.FromMinutes(maxBuildTimeout);
+                    }
                 }
 
                 if (!buildPathOption.HasValue())
