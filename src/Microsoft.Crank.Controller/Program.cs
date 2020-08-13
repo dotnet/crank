@@ -1966,7 +1966,7 @@ namespace Microsoft.Crank.Controller
                             cell.Elements.Add(new CellElement(stringValue, CellTextAlignment.Left));
                         }
 
-                                // Render charts
+                        // Render charts
                         if (_renderChartOption.HasValue())
                         {
                             try
@@ -2016,12 +2016,14 @@ namespace Microsoft.Crank.Controller
                     else
                     {
                         row.Add(new Cell());
-                        row.Add(new Cell());
+
+                        if (_renderChartOption.HasValue())
+                        {
+                            row.Add(new Cell());
+                        }
                     }            
                 }
             }
-
-            // Console.Write(JsonConvert.SerializeObject(table, Formatting.Indented));
             
             table.RemoveEmptyRows(1);
             table.Render(Console.Out);
