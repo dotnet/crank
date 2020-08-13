@@ -35,7 +35,7 @@ RUN cd /tmp \
     && cd /tmp/nghttp2-$NGHTTP2_VERSION \
     && ./configure \
     && make \
-    && make intall    
+    && make install    
 
 # Install docker client
 ENV DOCKER_VERSION 17.09.0-ce
