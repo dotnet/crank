@@ -58,7 +58,10 @@ namespace Microsoft.Crank.Controller
             _excludeMeasurementsOption,
             _autoflushOption,
             _repeatOption,
-            _spanOption
+            _spanOption,
+            _renderChartOption,
+            _chartTypeOption,
+            _chartScaleOption
             ;
 
         // The dynamic arguments that will alter the configurations
@@ -92,6 +95,9 @@ namespace Microsoft.Crank.Controller
             FluidValue.SetTypeMapping<JValue>(o => FluidValue.Create(((JValue)o).Value));
             FluidValue.SetTypeMapping<DateTime>(o => new ObjectValue(o));
         }
+
+        private static char[] barChartChars = " ▁▂▃▄▅▆▇█".ToCharArray();
+        private static char[] hexChartChars = " 123456789ABCDEF".ToCharArray();
 
         public static int Main(string[] args)
         {
@@ -142,6 +148,9 @@ namespace Microsoft.Crank.Controller
             _autoflushOption = app.Option("--auto-flush", "Runs a single long-running job and flushes measurements automatically.", CommandOptionType.NoValue);
             _repeatOption = app.Option("--repeat", "The job to repeat using the '--span' argument.", CommandOptionType.SingleValue);
             _spanOption = app.Option("--span", "The duration while the job is repeated.", CommandOptionType.SingleValue);
+            _renderChartOption = app.Option("--chart", "Renders a chart for multi-value results.", CommandOptionType.NoValue);
+            _chartTypeOption = app.Option("--chart-type", "Type of chart to render. Values are 'bar' (default) or 'hex'", CommandOptionType.SingleValue);
+            _chartScaleOption = app.Option("--chart-scale", "Scale for chart. Values are 'off' (default) or 'auto'. When scale is off, the min value starts at 0.", CommandOptionType.SingleValue);
 
             var verboseOption = app.Option("-v|--verbose",
                 "Verbose output", CommandOptionType.NoValue);
@@ -760,22 +769,13 @@ namespace Microsoft.Crank.Controller
 
                         var jobConnections = jobsByDependency[jobName];
 
-                        if (!service.Options.DiscardResults)
-                        {
-                            Log.Quiet("");
-                            Log.Quiet($"{jobName}");
-                            Log.Quiet($"-------");
-                        }
-
                         // Convert any json result to an object
                         NormalizeResults(jobConnections);
 
-                        foreach (var jobConnection in jobConnections)
+                        if (!service.Options.DiscardResults)
                         {
-                            if (!service.Options.DiscardResults)
-                            {
-                                WriteMeasures(jobConnection);
-                            }
+                            Console.WriteLine();
+                            WriteMeasuresTable(jobName, jobConnections);
                         }
                     }
 
@@ -1825,6 +1825,208 @@ namespace Microsoft.Crank.Controller
                     }
                 }
             }
+        }
+
+        private static void WriteMeasuresTable(string jobName, IList<JobConnection> jobConnections)
+        {
+            // 1 column per jobConnection
+            var table = new ResultTable(1 + jobConnections.Count()); 
+
+            if (_renderChartOption.HasValue())
+            {
+                table = new ResultTable(table.Columns + 1); 
+            }
+
+            table.Headers.Add(jobName);
+
+            foreach (var jobConnection in jobConnections)
+            {
+                if (jobConnections.Count > 1)
+                {
+                    table.Headers.Add($"#{jobConnections.IndexOf(jobConnection) + 1}");
+
+                    if (_renderChartOption.HasValue())
+                    {
+                        table.Headers.Add(""); // chart
+                    }                    
+                }
+                else
+                {
+                    table.Headers.Add("");
+
+                    if (_renderChartOption.HasValue())
+                    {
+                        table.Headers.Add(""); // chart
+                    }
+                }
+            }
+           
+            foreach (var jobConnection in jobConnections)
+            {
+                var jobIndex = jobConnections.IndexOf(jobConnection);
+                var isFirstJobConnection = jobIndex == 0;
+
+                // Group by name for easy lookup
+                var measurements = jobConnection.Job.Measurements.GroupBy(x => x.Name).ToDictionary(x => x.Key, x => x.ToList());
+
+                foreach (var metadata in jobConnection.Job.Metadata)
+                {
+                    var row = table.AddRow();
+
+                    if (isFirstJobConnection)
+                    {
+                        var cell = new Cell();
+
+                        cell.Elements.Add(new CellElement() { Text = metadata.ShortDescription, Alignment = CellTextAlignment.Left });
+
+                        row.Add(cell);
+                    }
+
+                    if (!measurements.ContainsKey(metadata.Name))
+                    {
+                        // Add empty cell
+                        row.Add(new Cell());
+                        
+                        if (_renderChartOption.HasValue())
+                        {
+                            row.Add(new Cell()); // chart
+                        }
+                        
+                        continue;
+                    }
+
+                    object result = 0;
+
+                    switch (metadata.Aggregate)
+                    {
+                        case Operation.All:
+                            result = measurements[metadata.Name].Select(x => x.Value).ToArray();
+                            break;
+
+                        case Operation.First:
+                            result = measurements[metadata.Name].First().Value;
+                            break;
+
+                        case Operation.Last:
+                            result = measurements[metadata.Name].Last().Value;
+                            break;
+
+                        case Operation.Avg:
+                            result = measurements[metadata.Name].Average(x => Convert.ToDouble(x.Value));
+                            break;
+
+                        case Operation.Count:
+                            result = measurements[metadata.Name].Count();
+                            break;
+
+                        case Operation.Max:
+                            result = measurements[metadata.Name].Max(x => Convert.ToDouble(x.Value));
+                            break;
+
+                        case Operation.Median:
+                            result = Percentile(50)(measurements[metadata.Name].Select(x => Convert.ToDouble(x.Value)));
+                            break;
+
+                        case Operation.Min:
+                            result = measurements[metadata.Name].Min(x => Convert.ToDouble(x.Value));
+                            break;
+
+                        case Operation.Sum:
+                            result = measurements[metadata.Name].Sum(x => Convert.ToDouble(x.Value));
+                            break;
+
+                        case Operation.Delta:
+                            result = measurements[metadata.Name].Max(x => Convert.ToDouble(x.Value)) - measurements[metadata.Name].Min(x => Convert.ToDouble(x.Value));
+                            break;
+
+                        default:
+                            result = measurements[metadata.Name].First().Value;
+                            break;
+                    }
+
+                    // We don't render the result if it's a raw object
+                    if (metadata.Format != "object")
+                    {
+                        var cell = new Cell();
+                        row.Add(cell);
+
+                        if (!String.IsNullOrEmpty(metadata.Format))
+                        {
+                            cell.Elements.Add(new CellElement(Convert.ToDouble(result).ToString(metadata.Format), CellTextAlignment.Right));
+                        }
+                        else
+                        {
+                            var maxLength = 30;
+                            var stringValue = result.ToString();
+                            if (stringValue.Length > maxLength)
+                            {
+                                stringValue = stringValue.Substring(0, maxLength - 3) + "...";
+                            }
+
+                            cell.Elements.Add(new CellElement(stringValue, CellTextAlignment.Left));
+                        }
+
+                        // Render charts
+                        if (_renderChartOption.HasValue())
+                        {
+                            try
+                            {
+                                var autoScale = _chartScaleOption.HasValue() && _chartScaleOption.Value() == "auto";
+
+                                Console.OutputEncoding = Encoding.UTF8;
+
+                                var chars = _chartTypeOption.HasValue() && _chartTypeOption.Value() == "hex" 
+                                    ? hexChartChars
+                                    : barChartChars
+                                    ;
+
+                                var values = measurements[metadata.Name].Select(x => Convert.ToDouble(x.Value)).ToArray();
+                                
+                                // Exclude zeros from min value so we can use a blank space for exact zeros
+                                var min = values.Where(x => x != 0).Min();
+                                var max = values.Max();
+                                var delta = autoScale ? max - min : max;
+                                var step = delta / (chars.Length - 1);
+
+                                var normalizedValues = values.Select(x => x == 0 ? 0 : (int) Math.Round((x - (autoScale ? min : 0)) / step));
+
+                                if (step != 0 && values.Length > 1)
+                                {
+                                    if (normalizedValues.All(x => x >= 0 && x < chars.Length))
+                                    {
+                                        var chart = new String(normalizedValues.Select(x => chars[x]).ToArray());
+                                        row.Add(new Cell(new CellElement(chart, CellTextAlignment.Left)));
+                                    }
+                                    else
+                                    {
+                                        row.Add(new Cell());    
+                                    }                            
+                                }
+                                else
+                                {
+                                    row.Add(new Cell());
+                                }
+                            }
+                            catch
+                            {
+                                row.Add(new Cell());
+                            }
+                        }
+                    }
+                    else
+                    {
+                        row.Add(new Cell());
+
+                        if (_renderChartOption.HasValue())
+                        {
+                            row.Add(new Cell());
+                        }
+                    }            
+                }
+            }
+            
+            table.RemoveEmptyRows(1);
+            table.Render(Console.Out);
         }
 
         private static async Task CheckUpdateAsync()

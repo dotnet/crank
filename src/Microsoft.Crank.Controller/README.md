@@ -30,6 +30,11 @@ Options:
   --span <HH:mm:ss>                                              The duration while the job is repeated.
   --auto-flush                                                   Runs a single long-running job and flushes measurements automatically.
 
+  --chart                                                        Renders a chart for multi-value results.
+  --chart-type [bar (default) | hex]                             Type of chart to render. Values are 'bar' (default) or 'hex'
+  --chart-scale [off (default)| auto]                            Scale for chart. Values are 'off' (default) or 'auto'. When scale is off, the min value starts at 0.
+
+  -- [off (default)| auto]
   These options are specific to a Job service named [JOB]
 
   --[JOB].endpoints <url>                                                  An endpoint on which to deploy the job definition, e.g., http://asp-perf-lin:5001. Can be used multiple times.

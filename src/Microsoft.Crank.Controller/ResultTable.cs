@@ -57,6 +57,11 @@ namespace Microsoft.Crank.Controller
             return results.ToArray();
         }
 
+        public void RemoveEmptyRows(int startIndex = 0)
+        {
+            Rows.RemoveAll(row => row.Skip(startIndex).All(cell => cell.Elements.All(x => String.IsNullOrEmpty(x.Text))));
+        }
+
         public void Render(TextWriter writer)
         {
             Render(writer, CalculateColumnWidths());
@@ -138,11 +143,34 @@ namespace Microsoft.Crank.Controller
 
     public class Cell
     {
+        public Cell(params CellElement[] elements)
+        {
+            if (elements != null)
+            {
+                Elements.AddRange(elements);
+            }
+        }
+
         public List<CellElement> Elements { get; } = new List<CellElement>();
     }
 
     public class CellElement
     {
+        public CellElement()
+        {
+        }
+
+        public CellElement(string text)
+        {
+            Text = text;
+        }
+
+        public CellElement(string text, CellTextAlignment alignment)
+        {
+            Text = text;
+            Alignment = alignment;
+        }
+
         public string Text { get; set; }
         public CellTextAlignment Alignment { get; set; }
     }
