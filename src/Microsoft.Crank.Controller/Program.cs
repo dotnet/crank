@@ -213,6 +213,14 @@ namespace Microsoft.Crank.Controller
                     Console.WriteLine($"The options --iterations and --span can't be used together.");
                     return -1;
                 }
+                else
+                {
+                    if (!Int32.TryParse(iterationsOption.Value(), out iterations) || iterations < 1)
+                    {
+                        Console.WriteLine($"Invalid value for iterations arguments. A positive integer was expected.");
+                        return -1;
+                    }
+                }
 
                 if (_spanOption.HasValue() && !TimeSpan.TryParse(_spanOption.Value(), out span))
                 {
@@ -843,17 +851,17 @@ namespace Microsoft.Crank.Controller
 
             TimeSpan GetRemainingTime()
             {
-                return span - GetEllapsedTime();
+                return span - GetElapsedTime();
             }
 
-            TimeSpan GetEllapsedTime()
+            TimeSpan GetElapsedTime()
             {
                 return DateTime.UtcNow - iterationStart;
             }
 
             bool IsSpanOver()
             {
-                return span == TimeSpan.Zero || GetEllapsedTime() > span;
+                return span == TimeSpan.Zero || GetElapsedTime() > span;
             }
 
             bool SpanShouldKeepJobRunning(string jobName)
