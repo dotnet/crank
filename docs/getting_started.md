@@ -21,6 +21,10 @@ This tutorial shows how to benchmark a simple .NET web application using the __b
     crank
     ```
 
+Note: The agent is not required locally to execute a benchmark if it's already installed on a remote
+server. These steps only assume that you are getting started with __crank__ and that the agent
+isn't available anywhere else yet.
+
 ## Define the scenario
 
 The following content is available at https://github.com/dotnet/crank/blob/master/samples/hello/hello.benchmarks.yml

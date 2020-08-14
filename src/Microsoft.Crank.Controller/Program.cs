@@ -365,7 +365,7 @@ namespace Microsoft.Crank.Controller
                     await JobSerializer.InitializeDatabaseAsync(_sqlConnectionString, _tableName);
                 }
 
-                await CheckUpdateAsync();
+                await VersionChecker.CheckUpdateAsync(_httpClient);
 
                 Log.Write($"Running session '{session}' with description '{_descriptionOption.Value()}'");
 
@@ -2027,31 +2027,6 @@ namespace Microsoft.Crank.Controller
             
             table.RemoveEmptyRows(1);
             table.Render(Console.Out);
-        }
-
-        private static async Task CheckUpdateAsync()
-        {
-            var packageVersionUrl = "https://api.nuget.org/v3-flatcontainer/microsoft.crank.controller/index.json";
-
-            try
-            {
-                var content = await _httpClient.GetStringAsync(packageVersionUrl);
-                var document = JObject.Parse(content);
-                var versions = (JArray)document["versions"];
-                var last = versions.FirstOrDefault().ToString();
-
-                var attribute = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>();
-
-                if (new NuGetVersion(last) > new NuGetVersion(attribute.InformationalVersion))
-                {
-                    Console.ForegroundColor = ConsoleColor.DarkYellow;
-                    Console.WriteLine($"A new version is available on NuGet.org ({last}). Run 'dotnet tool update Microsoft.Crank.Controller -g' to update");
-                    Console.ResetColor();
-                }
-            }
-            catch
-            {
-            }
-        }
+        }        
     }
 }
