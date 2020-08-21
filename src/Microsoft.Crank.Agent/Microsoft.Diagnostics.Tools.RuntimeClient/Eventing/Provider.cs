@@ -3,35 +3,72 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.Tracing;
+using System.Linq;
 
 namespace Microsoft.Diagnostics.Tools.RuntimeClient
 {
-    public struct Provider
+    public sealed class EventPipeProvider
     {
-        public Provider(
-            string name,
-            ulong keywords = ulong.MaxValue,
-            EventLevel eventLevel = EventLevel.Verbose,
-            string filterData = null)
+        public EventPipeProvider(string name, EventLevel eventLevel, long keywords = 0, IDictionary<string, string> arguments = null)
         {
-            if (string.IsNullOrWhiteSpace(name))
-                throw new ArgumentNullException(nameof(name));
             Name = name;
-            Keywords = keywords;
             EventLevel = eventLevel;
-            FilterData = string.IsNullOrWhiteSpace(filterData) ? null : filterData;
+            Keywords = keywords;
+            Arguments = arguments;
         }
 
-        public ulong Keywords { get; }
+        public long Keywords { get; }
 
         public EventLevel EventLevel { get; }
 
         public string Name { get; }
 
-        public string FilterData { get; }
+        public IDictionary<string, string> Arguments { get; }
 
-        public override string ToString() =>
-            $"{Name}:0x{Keywords:X16}:{(uint)EventLevel}{(FilterData == null ? "" : $":{FilterData}")}";
+        public override string ToString()
+        {
+            return $"{Name}:0x{Keywords:X16}:{(uint)EventLevel}{(Arguments == null ? "" : $":{GetArgumentString()}")}";
+        }
+        
+        public override bool Equals(object obj)
+        {
+            if (obj == null || GetType() != obj.GetType())
+            {
+                return false;
+            }
+            
+            return this == (EventPipeProvider)obj;
+        }
+
+        public override int GetHashCode()
+        {
+            int hash = 0;
+            hash ^= this.Name.GetHashCode();
+            hash ^= this.Keywords.GetHashCode();
+            hash ^= this.EventLevel.GetHashCode();
+            hash ^= GetArgumentString().GetHashCode();
+            return hash;
+        }
+
+        public static bool operator ==(EventPipeProvider left, EventPipeProvider right)
+        {
+            return left.ToString() == right.ToString();
+        }
+
+        public static bool operator !=(EventPipeProvider left, EventPipeProvider right)
+        {
+            return !(left == right);    
+        }
+
+        internal string GetArgumentString()
+        {
+            if (Arguments == null)
+            {
+                return "";
+            }
+            return string.Join(";", Arguments.Select(a => $"{a.Key}={a.Value}"));
+        }
     }
 }
