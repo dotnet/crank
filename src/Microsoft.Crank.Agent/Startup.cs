@@ -3713,13 +3713,15 @@ namespace Microsoft.Crank.Agent
                 try
                 {
                     var providerList = job.CounterProviders
-                        .Select(p => new Provider(
+                        .Select(p => new EventPipeProvider(
                             name: p,
                             eventLevel: EventLevel.Informational,
-                            filterData: "EventCounterIntervalSec=1"))
+                            arguments: new Dictionary<string, string>() 
+                                { { "EventCounterIntervalSec", "1" } })
+                        )
                         .ToList();
 
-                    var configuration = new SessionConfiguration(
+                    var configuration = new EventPipeSessionConfiguration(
                             circularBufferSizeMB: 1000,
                             format: EventPipeSerializationFormat.NetTrace,
                             providers: providerList);
@@ -3823,14 +3825,14 @@ namespace Microsoft.Crank.Agent
 
                 try
                 {
-                    var providerList = new List<Provider>()
+                    var providerList = new List<EventPipeProvider>()
                         {
-                            new Provider(
+                            new EventPipeProvider(
                                 name: "Benchmarks",
                                 eventLevel: EventLevel.Verbose),
                         };
 
-                    var configuration = new SessionConfiguration(
+                    var configuration = new EventPipeSessionConfiguration(
                             circularBufferSizeMB: 1000,
                             format: EventPipeSerializationFormat.NetTrace,
                             providers: providerList);
@@ -4468,30 +4470,70 @@ namespace Microsoft.Crank.Agent
         /// A profile name, or a list of comma separated EventPipe providers to be enabled.
         /// c.f. https://github.com/dotnet/diagnostics/blob/master/documentation/dotnet-trace-instructions.md
         /// </param>
-        private static async Task<int> Collect(ManualResetEvent shouldExit, int processId, FileInfo output, uint buffersize, string providers, TimeSpan duration)
+        private static async Task<int> Collect(ManualResetEvent shouldExit, int processId, FileInfo output, int buffersize, string providers, TimeSpan duration)
         {
             if (String.IsNullOrWhiteSpace(providers))
             {
                 providers = "cpu-sampling";
             }
 
-            if (!TraceExtensions.DotNETRuntimeProfiles.TryGetValue(providers, out var providerCollection))
+            var providerArguments = providers.Split(new [] { ',', ' '}, StringSplitOptions.RemoveEmptyEntries);
+
+            IEnumerable<EventPipeProvider> providerCollection = new List<EventPipeProvider>();
+
+            foreach (var providerArgument in providerArguments)
             {
-                providerCollection = TraceExtensions.ToProviders(providers).ToArray();
+                // Is it a profile (cpu-sampling, ...)?
+                if (TraceExtensions.DotNETRuntimeProfiles.TryGetValue(providerArgument, out var profile))
+                {
+                    Log.WriteLine($"Adding dotnet-trace profiles: {providerArgument}");
+                    providerCollection = TraceExtensions.Merge(providerCollection, profile);
+                }
+                else
+                {
+                    // Is it a CLREvent set (GC+GCHandle)?
+                    var clrEvents = TraceExtensions.ToCLREventPipeProviders(providerArgument);
+                    if (clrEvents.Any())
+                    {
+                        Log.WriteLine($"Adding dotnet-trace clrEvents: {providerArgument}");
+                        providerCollection = TraceExtensions.Merge(providerCollection, clrEvents);
+                    }
+                    else
+                    {
+                        // Is it a known provider (KnownProviderName[:Keywords[:Level][:KeyValueArgs]])?
+                        var knownProvider = TraceExtensions.ToProvider(providerArgument);
+                        if (knownProvider.Any())
+                        {
+                            Log.WriteLine($"Adding dotnet-trace provider: {providerArgument}");
+                            providerCollection = TraceExtensions.Merge(providerCollection, knownProvider);
+                        }
+                    }
+                }
             }
 
-            if (providerCollection.Length <= 0)
+
+            if (!providerCollection.Any())
             {
                 Log.WriteLine($"Tracing arguments not valid: {providers}");
 
                 return -1;
             }
+            else
+            {
+                Log.WriteLine($"dotnet-trace providers: ");
+
+
+                foreach (var provider in providerCollection)
+                {
+                    Log.WriteLine(provider.ToString());
+                }
+            }
 
             var process = Process.GetProcessById(processId);
-            var configuration = new SessionConfiguration(
+            var configuration = new EventPipeSessionConfiguration(
                 circularBufferSizeMB: buffersize,
                 format: EventPipeSerializationFormat.NetTrace,
-                providers: providerCollection);
+                providers: providerCollection.ToList().AsReadOnly());
 
             var shouldStopAfterDuration = duration != default(TimeSpan);
             var failed = false;
