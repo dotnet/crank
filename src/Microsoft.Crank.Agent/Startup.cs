@@ -738,7 +738,7 @@ namespace Microsoft.Crank.Agent
                                                             Log.WriteLine($"{job.State} -> Stopping");
                                                             job.State = JobState.Stopping;
                                                         }
-                                                        else
+                                                        else if (job.State == JobState.Running)
                                                         {
                                                             // Get docker stats
                                                             var result = ProcessUtil.RunAsync("docker", "container stats --no-stream --format \"{{.CPUPerc}}-{{.MemUsage}}\" " + dockerContainerId,
@@ -856,7 +856,7 @@ namespace Microsoft.Crank.Agent
                                                                 }
                                                             }
                                                         }
-                                                        else
+                                                        else if (job.State == JobState.Running)
                                                         {
                                                             // TODO: Accessing the TotalProcessorTime on OSX throws so just leave it as 0 for now
                                                             // We need to dig into this
@@ -1048,6 +1048,8 @@ namespace Microsoft.Crank.Agent
                                     job.State = JobState.TraceCollected;
                                 }
 
+                                StopCounters();
+
                             }
                             else if (job.State == JobState.Starting)
                             {
@@ -1084,6 +1086,50 @@ namespace Microsoft.Crank.Agent
                                 }
                             }
 
+                            void StopCounters()
+                            {
+                                // Releasing EventPipe
+                                if (eventPipeTask != null)
+                                {
+                                    try
+                                    {
+                                        Log.WriteLine($"Stopping counter event pipes for job '{job.Service}' ({job.Id})");
+                                        if (process != null && !eventPipeTerminated && !process.HasExited)
+                                        {
+                                            EventPipeClient.StopTracing(process.Id, eventPipeSessionId);
+                                        }
+                                    }
+                                    catch (EndOfStreamException)
+                                    {
+                                        // If the app we're monitoring exits abruptly, this may throw in which case we just swallow the exception and exit gracefully.
+                                    }
+                                                                        
+                                    eventPipeTask = null;
+                                }
+                            }
+
+                            void StopMeasurement()
+                            {
+                                // Releasing Measurements
+                                if (measurementsTask != null)
+                                {
+                                    try
+                                    {
+                                        Log.WriteLine($"Stopping measurement event pipes for job '{job.Service}' ({job.Id})");
+                                        if (process != null && !measurementsTerminated && !process.HasExited)
+                                        {
+                                            EventPipeClient.StopTracing(process.Id, measurementsSessionId);
+                                        }
+                                    }
+                                    catch (EndOfStreamException)
+                                    {
+                                        // If the app we're monitoring exits abruptly, this may throw in which case we just swallow the exception and exit gracefully.
+                                    }
+
+                                    measurementsTask = null;
+                                }
+                            }
+
                             async Task StopJobAsync()
                             {
                                 // Delete the benchmarks group
@@ -1100,40 +1146,10 @@ namespace Microsoft.Crank.Agent
                                     return;
                                 }
 
-                                // Releasing EventPipe
-                                if (eventPipeTask != null)
-                                {
-                                    try
-                                    {
-                                        Log.WriteLine($"Stopping counter event pipes for job '{job.Service}' ({job.Id})");
-                                        if (process != null && !eventPipeTerminated && !process.HasExited)
-                                        {
-                                            EventPipeClient.StopTracing(process.Id, eventPipeSessionId);
-                                        }
-                                    }
-                                    catch (EndOfStreamException)
-                                    {
-                                        // If the app we're monitoring exits abruptly, this may throw in which case we just swallow the exception and exit gracefully.
-                                    }
-                                }
+                                StopCounters();
 
-                                // Releasing Measurements
-                                if (measurementsTask != null)
-                                {
-                                    try
-                                    {
-                                        Log.WriteLine($"Stopping measurement event pipes for job '{job.Service}' ({job.Id})");
-                                        if (process != null && !measurementsTerminated && !process.HasExited)
-                                        {
-                                            EventPipeClient.StopTracing(process.Id, measurementsSessionId);
-                                        }
-                                    }
-                                    catch (EndOfStreamException)
-                                    {
-                                        // If the app we're monitoring exits abruptly, this may throw in which case we just swallow the exception and exit gracefully.
-                                    }
-                                }
-
+                                StopMeasurement();
+                                
                                 Monitor.Enter(_synLock);
 
                                 try
