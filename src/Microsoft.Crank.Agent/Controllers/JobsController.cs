@@ -425,7 +425,8 @@ namespace Microsoft.Crank.Agent.Controllers
                 {
                     var job = _jobs.Find(id);
                     Log($"Sending {job.PerfViewTraceFile}");
-                    return File(System.IO.File.OpenRead(job.PerfViewTraceFile), "application/object");
+                    
+                    return new GZipFileResult(job.PerfViewTraceFile);
                 }
                 catch(Exception e)
                 {
@@ -516,7 +517,7 @@ namespace Microsoft.Crank.Agent.Controllers
 
                     foreach (var file in Directory.GetFiles(job.BasePath, "*.netperf"))
                     {
-                        return File(System.IO.File.OpenRead(file), "application/object");
+                        return new GZipFileResult(file);
                     }
 
                     return NotFound();
@@ -605,7 +606,7 @@ namespace Microsoft.Crank.Agent.Controllers
 
                     Log($"Uploading {path} ({new FileInfo(fullPath).Length / 1024 + 1} KB)");
 
-                    return File(System.IO.File.OpenRead(fullPath), "application/object");
+                    return new GZipFileResult(fullPath);
                 }
                 else
                 {
@@ -621,7 +622,7 @@ namespace Microsoft.Crank.Agent.Controllers
                         // Delete container if the same name already exists
                         var result = await ProcessUtil.RunAsync("docker", $"cp {job.Source.GetNormalizedImageName()}:{path} {destinationFilename}", throwOnError: false, log: true);
 
-                        return File(System.IO.File.OpenRead(destinationFilename), "application/object");
+                        return new GZipFileResult(destinationFilename);
                     }
                     finally
                     {
