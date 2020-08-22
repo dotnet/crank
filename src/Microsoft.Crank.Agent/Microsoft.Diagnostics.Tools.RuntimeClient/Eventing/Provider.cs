@@ -11,7 +11,7 @@ namespace Microsoft.Diagnostics.Tools.RuntimeClient
 {
     public sealed class EventPipeProvider
     {
-        public EventPipeProvider(string name, EventLevel eventLevel, long keywords = 0, IDictionary<string, string> arguments = null)
+        public EventPipeProvider(string name, EventLevel eventLevel, long keywords = -1, IDictionary<string, string> arguments = null)
         {
             Name = name;
             EventLevel = eventLevel;

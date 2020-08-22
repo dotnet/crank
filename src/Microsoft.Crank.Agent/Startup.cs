@@ -3532,7 +3532,7 @@ namespace Microsoft.Crank.Agent
             {
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
-                    Log.WriteLine($"Creating job oject with memory limits: {job.MemoryLimitInBytes}");
+                    Log.WriteLine($"Creating job object with memory limits: {job.MemoryLimitInBytes}");
 
                     var manager = new ChildProcessManager(job.MemoryLimitInBytes);
                     manager.AddProcess(process);
