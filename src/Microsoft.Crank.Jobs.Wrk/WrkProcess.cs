@@ -169,7 +169,7 @@ namespace Microsoft.Crank.Wrk
 
             args = argsList.ToArray();
 
-            var baseArguments = String.Join(' ', args.ToArray());
+            var baseArguments = "\"" + String.Join("\" \"", args.ToArray()) + "\"";
 
             var process = new Process()
             {
