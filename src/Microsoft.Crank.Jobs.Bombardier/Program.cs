@@ -97,7 +97,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
                 }
             }
 
-            var baseArguments = String.Join(' ', args.ToArray()) + " --print r --format json";
+            var baseArguments = "\"" + String.Join("\" \"", args.ToArray()) + "\"" + " --print r --format json";
 
             var process = new Process()
             {
