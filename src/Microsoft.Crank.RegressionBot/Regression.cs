@@ -1,25 +1,15 @@
-﻿using System;
+﻿// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for more information.
+
+using System;
 
 namespace Microsoft.Crank.RegressionBot
 {
     public class Regression
     {
-        public DateTimeOffset DateTimeUtc { get; set; }
-        public string Scenario { get; set; }
-        public string Hardware { get; set; }
-        public string OperatingSystem { get; set; }
-        public string Scheme { get; set; }
-        public string WebHost { get; set; }
-        public int[] Values { get; set; }
-        public double Stdev { get; set; }
-        public string Session { get; set; }
-        public string PreviousAspNetCoreVersion { get; set; }
-        public string CurrentAspNetCoreVersion { get; set; }
-        public string PreviousDotnetCoreVersion { get; set; }
-        public string CurrentDotnetCoreVersion { get; set; }
-        public int Errors { get; set; }
-
-        public string[] AspNetCoreHashes { get; set; }
-        public string[] DotnetCoreHashes { get; set; }
+        public BenchmarksResult Result { get; set; }
+        public double Deviation { get; set; }
+        public double StandardDeviation { get; set; }
     }
 }

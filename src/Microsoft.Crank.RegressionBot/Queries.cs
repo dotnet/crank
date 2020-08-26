@@ -1,7 +1,20 @@
-﻿namespace Microsoft.Crank.RegressionBot
+﻿// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for more information.
+
+namespace Microsoft.Crank.RegressionBot
 {
     public class Queries
     {
+        public const string LatestBenchmarks = @"
+            SELECT * 
+            FROM [dbo].[@table]
+            WHERE   
+                [DateTimeUtc] > @startDate
+                AND [Excluded] = 0
+            ORDER BY [DateTimeUtc] DESC
+        ";
+
         public const string Regressions = @"
             DECLARE @startDate DateTime = DATEADD(day, -7, GETDATE())           -- when we start detected issues
             DECLARE @stdevStartDate DateTime = DATEADD(day, -14, @startDate)    -- how long before @startDate we use to measure Std. Dev
