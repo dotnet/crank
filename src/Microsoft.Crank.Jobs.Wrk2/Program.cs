@@ -62,7 +62,7 @@ namespace Microsoft.Crank.Jobs.Wrk2
 
             args = argsList.ToArray();
 
-            var baseArguments = String.Join(' ', args.ToArray());
+            var baseArguments = "\"" + String.Join("\" \"", args.ToArray()) + "\"";
 
             var process = new Process()
             {
