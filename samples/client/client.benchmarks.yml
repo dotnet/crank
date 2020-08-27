@@ -1,0 +1,45 @@
+imports:
+  - ../../src/Microsoft.Crank.Jobs.Bombardier/bombardier.yml
+
+jobs:
+  server:
+    source:
+      localFolder: .
+      project: client.csproj
+    readyStateText: Application started.
+  mockserver:
+    source:
+      repository: https://github.com/rodolpheche/wiremock-docker
+      branchOrCommit: master
+      dockerFile: Dockerfile
+      dockerImageName: mockserver
+      dockerContextDirectory: .
+      dockerCommand: -v config:/home/wiremock -p 8080:8080
+    port: 8080
+
+scenarios:
+  client:
+    mockserver:
+      job: mockserver
+    application:
+      job: server
+    load:
+      job: bombardier
+      variables:
+        serverPort: 5010
+        path: /
+
+profiles:
+  local:
+    variables:
+      serverUri: http://localhost
+    jobs: 
+      application:
+        endpoints: 
+          - http://localhost:5010
+      load:
+        endpoints: 
+          - http://localhost:5010
+      mockserver:
+        endpoints: 
+          - http://localhost:8080
