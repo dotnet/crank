@@ -17,13 +17,27 @@ namespace Microsoft.Crank.RegressionBot
                 new Source
                 {
                     Table = "TrendBenchmarks",
-                    MetricPath = "jobs.load.results['wrk/rps/mean']",
-                    DeviationFactor = 2.0,
+                    RegressionProbes = 
+                    {   
+                        new Probe { Path = "jobs.load.results['wrk/rps/mean']" },
+                        new Probe { Path = "jobs.load.results['bombardier/rps/mean']" },
+                    },
+                    ErrorProbes = 
+                    {
+                        new Probe { Path = "jobs.load.results['bombardier/badresponses']" },
+                        new Probe { Path = "jobs.load.results['wrk/errors/badresponses']" },
+                        new Probe { Path = "jobs.load.results['wrk/errors/socketerrors']" },
+                    },
                     Rules = new List<Rule>
                     {
                         new Rule { Include = "." },
                         new Rule { Include = "Mvc", Labels = { "area-mvc" } },
-                    }
+                    },
+                    DaysToLoad = 7,
+                    DaysToAnalyze = 7,
+                    RegressionLabels = { "Perf", "perf-regression" },
+                    ErrorLabels = { "Perf", "perf-bad-response" },
+                    NotRunningLabels = { "Perf", "perf-not-running" },
                 }
             }
         };

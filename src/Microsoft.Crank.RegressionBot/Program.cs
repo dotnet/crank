@@ -38,11 +38,7 @@ namespace Microsoft.Crank.RegressionBot
         static string _githubAppInstallationId;
         static Credentials _credentials;
         static string _connectionString;
-        static HashSet<string> _ignoredScenarios;
-        static string _tableName;
         static bool _debug;
-
-        static IReadOnlyList<Issue> _recentIssues;
 
         static async Task Main(string[] args)
         {
@@ -59,7 +55,7 @@ namespace Microsoft.Crank.RegressionBot
 
             foreach (var source in DefaultSources.Value.Sources)
             {
-                var regressions = await FindRegression(source);
+                var regressions = await FindRegression(source).ToListAsync();
 
                 Console.WriteLine("Excluding the ones already reported...");
 
@@ -296,17 +292,29 @@ namespace Microsoft.Crank.RegressionBot
             Console.WriteLine(body.ToString());
         }
 
-        private static async Task<IEnumerable<Regression>> FindRegression(Source source)
+        /// <summary>
+        /// This method finds regressions for a give source.
+        /// Steps:
+        /// - Query the table for the latest rows specified in the source
+        /// - Group records by Scenario + Description (descriptor)
+        /// - For each unique descriptor
+        ///   - Find matching rules from the source
+        ///   - Evaluate the source's probes for each record
+        ///   - Calculates the std deviation
+        ///   - Look for 2 consecutive deviations
+        /// </summary>
+        private static async IAsyncEnumerable<Regression> FindRegression(Source source)
         {
             var detectionDateTimeUtc = DateTime.UtcNow.AddDays(0 - source.DaysToAnalyze);
-
+            Console.WriteLine(detectionDateTimeUtc);
+            
             var allResults = new List<BenchmarksResult>();
 
-            // Load latest 14 days of results
+            // Load latest records
 
             using (var connection = new SqlConnection(_connectionString))
             {
-                using (var command = new SqlCommand(Queries.LatestBenchmarks.Replace("@table", source.Table), connection))
+                using (var command = new SqlCommand(String.Format(Queries.Latest, source.Table), connection))
                 {
                     // Load 14 days or data, to measure 7 days of standard deviation prior to detection
                     command.Parameters.AddWithValue("@startDate", DateTime.UtcNow.AddDays(0 - source.DaysToLoad));
@@ -342,8 +350,6 @@ namespace Microsoft.Crank.RegressionBot
                 .ToDictionary(x => x.Key, x => x.ToArray())
                 ;
 
-            var regressions = new List<Regression>();
-
             foreach (var descriptor in resultsByScenario.Keys)
             {
                 // Does the descriptor match a rule?
@@ -352,7 +358,17 @@ namespace Microsoft.Crank.RegressionBot
 
                 if (!rules.Any())
                 {
+                    if (_debug)
+                    {
+                        Console.WriteLine($"No matching rules, descriptor skipped: {descriptor}");
+                    }
+
                     continue;
+                }
+
+                if (_debug)
+                {
+                    Console.WriteLine($"Found matching rules for {descriptor}");
                 }
 
                 // Should regressions be ignored for this descriptor?
@@ -360,65 +376,94 @@ namespace Microsoft.Crank.RegressionBot
 
                 if (lastIgnoreRegressionRule != null && lastIgnoreRegressionRule.IgnoreRegressions.Value)
                 {
+                    if (_debug)
+                    {
+                        Console.WriteLine("Regressions ignored");
+                    }
+                
                     continue;
                 }
 
-                // Measure standard deviation
+                // Resolve path for the metric
                 var results = resultsByScenario[descriptor];
 
-                var values = results
-                    .Select(x => x.Data.SelectTokens(source.MetricPath).FirstOrDefault())
-                    .Select(x => Convert.ToDouble(x))
-                    .ToArray();
-
-                double average = values.Average();
-                double sumOfSquaresOfDifferences = values.Sum(val => (val - average) * (val - average));
-                double standardDeviation = Math.Sqrt(sumOfSquaresOfDifferences / values.Length);
-
-                // Find regressions
-
-                // Can't find a regression if there are less than 5 value
-                if (values.Length < 5)
+                foreach (var probe in source.RegressionProbes)
                 {
-                    continue;
-                }
+                    Console.WriteLine($"Evaluating probe {probe.Path} for {results.Count()} benchmarks");
 
-                // Look for 2 consecutive values that are outside of the standard deviations, 
-                // subsequent to 3 consecutive values that are inside the standard deviations.  
+                    var resultSet = results
+                        .Select(x => new { Result = x, Token = x.Data.SelectTokens(probe.Path).FirstOrDefault() })
+                        .Where(x => x.Token != null)
+                        .Select(x => new { Result = x.Result, Value = Convert.ToDouble(x.Token)})
+                        .ToArray();
 
-                for (var i = 0; i < values.Length - 5; i++)
-                {
-                    // Ignore results before the searched date
-                    if (results[i].DateTimeUtc < detectionDateTimeUtc)
+                    // Find regressions
+
+                    // Can't find a regression if there are less than 5 value
+                    if (resultSet.Length < 5)
                     {
+                        if (_debug)
+                        {
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            Console.WriteLine($"Not enough data ({resultSet.Length})");
+                            Console.ResetColor();
+                        }
+
                         continue;
                     }
 
-                    var value1 = Math.Abs(values[i+1] - values[i]);
-                    var value2 = Math.Abs(values[i+2] - values[i]);
-                    var value3 = Math.Abs(values[i+3] - values[i+2]);
-                    var value4 = Math.Abs(values[i+4] - values[i+2]);
-                    
-                    if (value1 < standardDeviation
-                        && value2 < standardDeviation
-                        && value3 > 2 * standardDeviation
-                        && value4 > 2 * standardDeviation
-                        && Math.Sign(value3) == Math.Sign(value4)
-                        )
+                    // Calculate standard deviation
+                    var values = resultSet.Select(x => x.Value).ToArray();
+
+                    double average = values.Average();
+                    double sumOfSquaresOfDifferences = values.Sum(val => (val - average) * (val - average));
+                    double standardDeviation = Math.Sqrt(sumOfSquaresOfDifferences / values.Length);
+
+                    // Look for 2 consecutive values that are outside of the standard deviations, 
+                    // subsequent to 3 consecutive values that are inside the standard deviations.  
+
+                    for (var i = 0; i < resultSet.Length - 5; i++)
                     {
-                        Console.WriteLine($"{descriptor} {results[i].DateTimeUtc} {values[i+0]} {values[i+1]} {values[i+2]} {values[i+3]} ({value3}) {values[i+4]} ({value4}) / {standardDeviation:n0}");
-                        
-                        regressions.Add(new Regression 
+                        // Ignore results before the searched date
+                        if (resultSet[i].Result.DateTimeUtc < detectionDateTimeUtc)
                         {
-                            Result = results[i],
-                            Deviation = value2,
-                            StandardDeviation = standardDeviation
-                        });
+                            continue;
+                        }
+
+                        var value1 = Math.Abs(values[i+1] - values[i]);
+                        var value2 = Math.Abs(values[i+2] - values[i]);
+                        var value3 = Math.Abs(values[i+3] - values[i+2]);
+                        var value4 = Math.Abs(values[i+4] - values[i+2]);
+
+                        if (_debug)
+                        {
+                            Console.WriteLine($"{descriptor} {probe.Path} {resultSet[i+2].Result.DateTimeUtc} {values[i+0]} {values[i+1]} {values[i+2]} {values[i+3]} ({value3}) {values[i+4]} ({value4}) / {standardDeviation * probe.Threshold:n0}");
+                        }                        
+
+                        if (value1 < standardDeviation
+                            && value2 < standardDeviation
+                            && value3 > probe.Threshold * standardDeviation
+                            && value4 > probe.Threshold * standardDeviation
+                            && Math.Sign(value3) == Math.Sign(value4)
+                            )
+                        {
+                            if (_debug)
+                            {
+                                Console.ForegroundColor = ConsoleColor.Red;
+                                Console.WriteLine("Regression");
+                                Console.ResetColor();
+                            }
+
+                            yield return new Regression 
+                            {
+                                Result = resultSet[i+2].Result,
+                                Deviation = value2,
+                                StandardDeviation = standardDeviation
+                            };
+                        }
                     }
                 }
             }
-
-            return regressions;
         }
 
         // private static async Task<IEnumerable<Regression>> FindNotRunning()
