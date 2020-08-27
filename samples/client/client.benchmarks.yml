@@ -9,12 +9,10 @@ jobs:
     readyStateText: Application started.
   mockserver:
     source:
-      repository: https://github.com/rodolpheche/wiremock-docker
-      branchOrCommit: master
+      localFolder: mockserver
       dockerFile: Dockerfile
       dockerImageName: mockserver
       dockerContextDirectory: .
-      dockerCommand: -v config:/home/wiremock -p 8080:8080
     port: 8080
 
 scenarios:
@@ -42,4 +40,4 @@ profiles:
           - http://localhost:5010
       mockserver:
         endpoints: 
-          - http://localhost:8080
+          - http://localhost:5010
