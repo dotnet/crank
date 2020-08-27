@@ -2093,7 +2093,7 @@ namespace Microsoft.Crank.Agent
                 targetFramework = ResolveProjectTFM(job, projectFileName, targetFramework);
             }
 
-            PatchProjectFrameworkReference(job, projectFileName);
+            await PatchProjectFrameworkReferenceAsync(job, projectFileName);
 
             // If a specific channel is set, use it instead of the detected one
             if (!String.IsNullOrEmpty(job.Channel))
@@ -2696,33 +2696,44 @@ namespace Microsoft.Crank.Agent
             return !String.IsNullOrEmpty(version) && char.IsDigit(version[0]);
         }
 
-        private static void PatchProjectFrameworkReference(Job job, string projectFileName)
+        private static async Task PatchProjectFrameworkReferenceAsync(Job job, string projectFileName)
         {
             if (File.Exists(projectFileName))
             {
                 Log.WriteLine("Patching project file with Framework References");
 
-                var project = XDocument.Load(projectFileName);
+                await ProcessUtil.RetryOnExceptionAsync(3, async () =>
+                {
+                    XDocument project;
 
-                project.Root.Add(
-                    new XElement("ItemGroup",
-                        new XAttribute("Condition", "$(TargetFramework) == 'netcoreapp3.0' or $(TargetFramework) == 'netcoreapp3.1' or $(TargetFramework) == 'netcoreapp5.0' or $(TargetFramework) == 'net5.0'"),
-                        new XElement("FrameworkReference",
-                            new XAttribute("Update", "Microsoft.AspNetCore.App"),
-                            new XAttribute("RuntimeFrameworkVersion", "$(MicrosoftAspNetCoreAppPackageVersion)")
-                            ),
-                        new XElement("FrameworkReference",
-                            new XAttribute("Update", "Microsoft.NETCore.App"),
-                            new XAttribute("RuntimeFrameworkVersion", "$(MicrosoftNETCoreAppPackageVersion)")
-                            ),
-                        new XElement("FrameworkReference",
-                            new XAttribute("Update", "Microsoft.WindowsDesktop.App"),
-                            new XAttribute("RuntimeFrameworkVersion", "$(MicrosoftWindowsDesktopAppPackageVersion)")
-                            )
-                    )
-                );
+                    using (var projectFileStream = File.OpenRead(projectFileName))
+                    {
+                        project = await XDocument.LoadAsync(projectFileStream, LoadOptions.None, new CancellationTokenSource(3000).Token);
+                    }
 
-                project.Save(projectFileName);
+                    project.Root.Add(
+                        new XElement("ItemGroup",
+                            new XAttribute("Condition", "$(TargetFramework) == 'netcoreapp3.0' or $(TargetFramework) == 'netcoreapp3.1' or $(TargetFramework) == 'netcoreapp5.0' or $(TargetFramework) == 'net5.0'"),
+                            new XElement("FrameworkReference",
+                                new XAttribute("Update", "Microsoft.AspNetCore.App"),
+                                new XAttribute("RuntimeFrameworkVersion", "$(MicrosoftAspNetCoreAppPackageVersion)")
+                                ),
+                            new XElement("FrameworkReference",
+                                new XAttribute("Update", "Microsoft.NETCore.App"),
+                                new XAttribute("RuntimeFrameworkVersion", "$(MicrosoftNETCoreAppPackageVersion)")
+                                ),
+                            new XElement("FrameworkReference",
+                                new XAttribute("Update", "Microsoft.WindowsDesktop.App"),
+                                new XAttribute("RuntimeFrameworkVersion", "$(MicrosoftWindowsDesktopAppPackageVersion)")
+                                )
+                        )
+                    );
+
+                    using (var projectFileStream = File.CreateText(projectFileName))
+                    {
+                        await project.SaveAsync(projectFileStream, SaveOptions.None, new CancellationTokenSource(3000).Token);
+                    }
+                });
             }
         }
 
