@@ -131,7 +131,6 @@ namespace Microsoft.Crank.RegressionBot
             _githubAppInstallationId = config["GitHubInstallationId"];
 
             _connectionString = config["ConnectionString"];
-            _ignoredScenarios = new HashSet<string>();
             _debug = bool.TryParse(config["Debug"], out _debug) && _debug;
 
             if (!_debug)
@@ -177,13 +176,6 @@ namespace Microsoft.Crank.RegressionBot
                 if (String.IsNullOrEmpty(_connectionString))
                 {
                     throw new ArgumentException("ConnectionString argument is missing");
-                }
-
-                var ignore = config["Ignore"];
-
-                if (!String.IsNullOrEmpty(ignore))
-                {
-                    _ignoredScenarios = new HashSet<string>(ignore.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries), StringComparer.OrdinalIgnoreCase);
                 }
             }
         }
