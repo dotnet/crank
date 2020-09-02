@@ -79,25 +79,29 @@ namespace Microsoft.Crank.Jobs.Bombardier
             var bombardierFileName = Path.GetFileName(bombardierUrl);
 
             Console.WriteLine($"Downloading bombardier from {bombardierUrl} to {bombardierFileName}");
+            
             using (var downloadStream = await _httpClient.GetStreamAsync(bombardierUrl))
             using (var fileStream = File.Create(bombardierFileName))
             {
                 await downloadStream.CopyToAsync(fileStream);
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ||
-                    RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                {
-                    Console.WriteLine($"Setting execute permission on executable {bombardierFileName}");
-                    Process.Start("chmod", "+x " + bombardierFileName);
-                }
-
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                {
-                    Console.WriteLine($"Allow running bombardier");
-                    Process.Start("spctl", "--add " + bombardierFileName);
-                }
             }
 
-            var baseArguments = "\"" + String.Join("\" \"", args.ToArray()) + "\"" + " --print r --format json";
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ||
+                RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                Console.WriteLine($"Setting execute permission on executable {bombardierFileName}");
+                Process.Start("chmod", "+x " + bombardierFileName);
+            }
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                Console.WriteLine($"Allow running bombardier");
+                Process.Start("spctl", "--add " + bombardierFileName);
+            }
+
+            args = argsList.Select(Quote).ToArray();
+
+            var baseArguments = String.Join(' ', args) + " --print r --format json";
 
             var process = new Process()
             {
@@ -268,5 +272,16 @@ namespace Microsoft.Crank.Jobs.Bombardier
             }
         }
 
+        private static string Quote(string s)
+        {
+            // Wraps a string in double-quotes if it contains a space
+
+            if (s.Contains(' '))
+            {
+                return "\"" + s + "\"";
+            }
+
+            return s;
+        }
     }
 }

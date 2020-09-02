@@ -167,9 +167,9 @@ namespace Microsoft.Crank.Wrk
                 argsList.RemoveAt(warmupIndex);
             }
 
-            args = argsList.ToArray();
+            args = argsList.Select(Quote).ToArray();
 
-            var baseArguments = "\"" + String.Join("\" \"", args.ToArray()) + "\"";
+            var baseArguments = String.Join(' ', args);
 
             var process = new Process()
             {
@@ -430,6 +430,18 @@ namespace Microsoft.Crank.Wrk
                 Console.WriteLine("Failed to parse throughput");
                 return -1;
             }
+        }
+
+        private static string Quote(string s)
+        {
+            // Wraps a string in double-quotes if it contains a space
+
+            if (s.Contains(' '))
+            {
+                return "\"" + s + "\"";
+            }
+
+            return s;
         }
     }
 }
