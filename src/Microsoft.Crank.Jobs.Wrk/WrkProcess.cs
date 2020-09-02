@@ -91,7 +91,7 @@ namespace Microsoft.Crank.Wrk
             var wrkFilename = Path.GetFileName(WrkUrl);
 
             // Search for cached file
-            var cacheFolder = Path.Combine(Path.GetTempPath(), ".benchmarks");
+            var cacheFolder = Path.Combine(Path.GetTempPath(), ".crank");
 
             if (!Directory.Exists(cacheFolder))
             {
