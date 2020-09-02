@@ -262,7 +262,7 @@ namespace Microsoft.Crank.Wrk
             }
 
             var throughputMatch = Regex.Match(output, @"Transfer/sec:\s+([\d\.]+)(\w+)");
-            BenchmarksEventSource.Measure("wrk/throughput", ReadThroughput(latencyMatch));
+            BenchmarksEventSource.Measure("wrk/throughput", ReadThroughput(throughputMatch));
 
             // Max latency is 3rd number after "Latency "
             var maxLatencyMatch = Regex.Match(output, @"\s+Latency\s+[\d\.]+\w+\s+[\d\.]+\w+\s+([\d\.]+)(\w+)");
