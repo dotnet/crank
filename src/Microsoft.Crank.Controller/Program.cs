@@ -365,8 +365,11 @@ namespace Microsoft.Crank.Controller
                     await JobSerializer.InitializeDatabaseAsync(_sqlConnectionString, _tableName);
                 }
 
-                await VersionChecker.CheckUpdateAsync(_httpClient);
-
+                #pragma warning disable CS4014
+                // Don't block on version checks
+                VersionChecker.CheckUpdateAsync(_httpClient);
+                #pragma warning restore CS4014
+                
                 Log.Write($"Running session '{session}' with description '{_descriptionOption.Value()}'");
 
                 if (_autoflushOption.HasValue())
