@@ -248,6 +248,7 @@ namespace Microsoft.Crank.Wrk
             BenchmarksEventSource.Log.Metadata("wrk/latency/max", "max", "sum", "Max latency (ms)", "Max latency (ms)", "n2");
             BenchmarksEventSource.Log.Metadata("wrk/errors/badresponses", "max", "sum", "Bad responses", "Non-2xx or 3xx responses", "n0");
             BenchmarksEventSource.Log.Metadata("wrk/errors/socketerrors", "max", "sum", "Socket errors", "Socket errors", "n0");
+            BenchmarksEventSource.Log.Metadata("wrk/throughput", "max", "sum", "Throughput (MB/s)", "Throughput (MB/s)", "n2");
 
             const string LatencyPattern = @"\s+{0}\s+([\d\.]+)(\w+)";
 
@@ -259,6 +260,9 @@ namespace Microsoft.Crank.Wrk
             {
                 BenchmarksEventSource.Measure("wrk/rps/mean", double.Parse(rpsMatch.Groups[1].Value));
             }
+
+            var throughputMatch = Regex.Match(output, @"Transfer/sec:\s+([\d\.]+)(\w+)");
+            BenchmarksEventSource.Measure("wrk/throughput", ReadThroughput(throughputMatch));
 
             // Max latency is 3rd number after "Latency "
             var maxLatencyMatch = Regex.Match(output, @"\s+Latency\s+[\d\.]+\w+\s+[\d\.]+\w+\s+([\d\.]+)(\w+)");
@@ -378,7 +382,7 @@ namespace Microsoft.Crank.Wrk
                 var value = double.Parse(match.Groups[1].Value);
                 var unit = match.Groups[2].Value;
 
-                switch (unit)
+                switch (unit.ToLowerInvariant())
                 {
                     case "s": return value * 1000;
                     case "ms": return value;
@@ -392,6 +396,38 @@ namespace Microsoft.Crank.Wrk
             catch
             {
                 Console.WriteLine("Failed to parse latency");
+                return -1;
+            }
+        }
+
+        private static double ReadThroughput(Match match)
+        {
+            if (!match.Success || match.Groups.Count != 3)
+            {
+                Console.WriteLine("Failed to parse throughput");
+                return -1;
+            }
+
+            try
+            {
+                var value = double.Parse(match.Groups[1].Value);
+                var unit = match.Groups[2].Value;
+
+                switch (unit.ToLowerInvariant())
+                {
+                    case "b": return value / 1024 / 1024;
+                    case "kb": return value / 1024;
+                    case "mb": return value;
+                    case "gb": return value * 1024;
+
+                    default:
+                        Console.WriteLine("Failed to parse throughput unit: " + unit);
+                        return -1;
+                }
+            }
+            catch
+            {
+                Console.WriteLine("Failed to parse throughput");
                 return -1;
             }
         }
