@@ -79,22 +79,24 @@ namespace Microsoft.Crank.Jobs.Bombardier
             var bombardierFileName = Path.GetFileName(bombardierUrl);
 
             Console.WriteLine($"Downloading bombardier from {bombardierUrl} to {bombardierFileName}");
+            
             using (var downloadStream = await _httpClient.GetStreamAsync(bombardierUrl))
             using (var fileStream = File.Create(bombardierFileName))
             {
                 await downloadStream.CopyToAsync(fileStream);
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ||
-                    RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                {
-                    Console.WriteLine($"Setting execute permission on executable {bombardierFileName}");
-                    Process.Start("chmod", "+x " + bombardierFileName);
-                }
+            }
 
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                {
-                    Console.WriteLine($"Allow running bombardier");
-                    Process.Start("spctl", "--add " + bombardierFileName);
-                }
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ||
+                RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                Console.WriteLine($"Setting execute permission on executable {bombardierFileName}");
+                Process.Start("chmod", "+x " + bombardierFileName);
+            }
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                Console.WriteLine($"Allow running bombardier");
+                Process.Start("spctl", "--add " + bombardierFileName);
             }
 
             args = argsList.Select(Quote).ToArray();
