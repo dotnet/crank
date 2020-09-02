@@ -18,6 +18,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using Fluid;
+using Fluid.Values;
+using Newtonsoft.Json.Linq;
 using Octokit;
 
 namespace Microsoft.Crank.RegressionBot
@@ -42,6 +45,13 @@ namespace Microsoft.Crank.RegressionBot
 
         static async Task Main(string[] args)
         {
+            TemplateContext.GlobalMemberAccessStrategy.Register<BenchmarksResult>();
+            TemplateContext.GlobalMemberAccessStrategy.Register<Report>();
+            TemplateContext.GlobalMemberAccessStrategy.Register<Regression>();
+            TemplateContext.GlobalMemberAccessStrategy.Register<JObject, object>((obj, name) => obj[name]);
+            FluidValue.SetTypeMapping<JObject>(o => new ObjectValue(o));
+            FluidValue.SetTypeMapping<JValue>(o => FluidValue.Create(o.Value));
+            
             var config = new ConfigurationBuilder()
                 .AddEnvironmentVariables(prefix: "CRANK_REGRESSION_BOT_")
                 .AddCommandLine(args)
@@ -59,15 +69,13 @@ namespace Microsoft.Crank.RegressionBot
 
                 Console.WriteLine("Excluding the ones already reported...");
 
-                var newRegressions = await RemoveReportedRegressions(regressions, false, r => r.Result.DateTimeUtc.ToString("u"));
-
-                // await PopulateHashes(newRegressions);
+                var newRegressions = await RemoveReportedRegressions(regressions, false, r => r.CurrentResult.DateTimeUtc.ToString("u"));
 
                 if (newRegressions.Any())
                 {
                     Console.WriteLine("Reporting new regressions...");
 
-                    await CreateRegressionIssue(newRegressions);
+                    await CreateRegressionIssue(newRegressions, source.RegressionTemplate);
                 }
                 else
                 {
@@ -180,7 +188,7 @@ namespace Microsoft.Crank.RegressionBot
             }
         }
 
-        private static async Task CreateRegressionIssue(IEnumerable<Regression> regressions)
+        private static async Task CreateRegressionIssue(IEnumerable<Regression> regressions, string template)
         {
             if (regressions == null || !regressions.Any())
             {
@@ -190,68 +198,85 @@ namespace Microsoft.Crank.RegressionBot
             // var client = new GitHubClient(_productHeaderValue);
             // client.Credentials = _credentials;
 
-            var body = new StringBuilder();
-            body.Append("A performance regression has been detected for the following scenarios:");
-
-            foreach (var r in regressions.OrderBy(x => x.Result.Scenario).ThenBy(x => x.Result.DateTimeUtc))
+            var report = new Report
             {
-                body.AppendLine(r.Result.Scenario);
-                body.AppendLine(r.Result.DateTimeUtc.ToString());
+                Regressions = regressions.OrderBy(x => x.CurrentResult.Scenario).ThenBy(x => x.CurrentResult.DateTimeUtc).ToList()
+            };
 
-                // body.AppendLine();
-                // body.AppendLine();
-                // body.AppendLine("| Scenario | Environment | Date | Old RPS | New RPS | Change | Deviation |");
-                // body.AppendLine("| -------- | ----------- | ---- | ------- | ------- | ------ | --------- |");
+            if (!FluidTemplate.TryParse(template, out var fluidTemplate, out var errors))
+            {   
+                Console.WriteLine("Error parsing the template:");
+                foreach (var error in errors)
+                {
+                    Console.WriteLine(error);
+                }
 
-                // var prevRPS = r.Values.Skip(2).First();
-                // var rps = r.Values.Last();
-                // var change = Math.Round((double)(rps - prevRPS) / prevRPS * 100, 2);
-                // var deviation = Math.Round((double)(rps - prevRPS) / r.Stdev, 2);
-
-                // body.AppendLine($"| {r.Scenario} | {r.OperatingSystem}, {r.Scheme}, {r.WebHost} | {r.DateTimeUtc.ToString("u")} | {prevRPS.ToString("n0")} | {rps.ToString("n0")} | {change} % | {deviation} σ |");
-
-
-                // body.AppendLine();
-                // body.AppendLine("Before versions:");
-
-                // body.AppendLine($"ASP.NET Core __{r.PreviousAspNetCoreVersion}__");
-                // body.AppendLine($".NET Core __{r.PreviousDotnetCoreVersion}__");
-
-                // body.AppendLine();
-                // body.AppendLine("After versions:");
-
-                // body.AppendLine($"ASP.NET Core __{r.CurrentAspNetCoreVersion}__");
-                // body.AppendLine($".NET Core __{r.CurrentDotnetCoreVersion}__");
-
-                // var aspNetChanged = r.PreviousAspNetCoreVersion != r.CurrentAspNetCoreVersion;
-                // var runtimeChanged = r.PreviousDotnetCoreVersion != r.CurrentDotnetCoreVersion;
-
-                // if (aspNetChanged || runtimeChanged)
-                // {
-                //     body.AppendLine();
-                //     body.AppendLine("Commits:");
-
-                //     if (aspNetChanged)
-                //     {
-                //         if (r.AspNetCoreHashes != null && r.AspNetCoreHashes.Length == 2 && r.AspNetCoreHashes[0] != null && r.AspNetCoreHashes[1] != null)
-                //         {
-                //             body.AppendLine();
-                //             body.AppendLine("__ASP.NET Core__");
-                //             body.AppendLine($"https://github.com/dotnet/aspnetcore/compare/{r.AspNetCoreHashes[0]}...{r.AspNetCoreHashes[1]}");
-                //         }
-                //     }
-
-                //     if (runtimeChanged)
-                //     {
-                //         if (r.DotnetCoreHashes != null && r.DotnetCoreHashes.Length == 2 && r.DotnetCoreHashes[0] != null && r.DotnetCoreHashes[1] != null)
-                //         {
-                //             body.AppendLine();
-                //             body.AppendLine("__.NET Core__");
-                //             body.AppendLine($"https://github.com/dotnet/runtime/compare/{r.DotnetCoreHashes[0]}...{r.DotnetCoreHashes[1]}");
-                //         }
-                //     }
-                // }
+                return;
             }
+
+            var context = new TemplateContext { Model = report };
+
+            var result = await fluidTemplate.RenderAsync(context);
+            
+            // foreach (var r in regressions.OrderBy(x => x.Result.Scenario).ThenBy(x => x.Result.DateTimeUtc))
+            // {
+            //     body.AppendLine(r.Result.Scenario);
+            //     body.AppendLine(r.Result.DateTimeUtc.ToString());
+
+            //     // body.AppendLine();
+            //     // body.AppendLine();
+            //     // body.AppendLine("| Scenario | Environment | Date | Old RPS | New RPS | Change | Deviation |");
+            //     // body.AppendLine("| -------- | ----------- | ---- | ------- | ------- | ------ | --------- |");
+
+            //     // var prevRPS = r.Values.Skip(2).First();
+            //     // var rps = r.Values.Last();
+            //     // var change = Math.Round((double)(rps - prevRPS) / prevRPS * 100, 2);
+            //     // var deviation = Math.Round((double)(rps - prevRPS) / r.Stdev, 2);
+
+            //     // body.AppendLine($"| {r.Scenario} | {r.OperatingSystem}, {r.Scheme}, {r.WebHost} | {r.DateTimeUtc.ToString("u")} | {prevRPS.ToString("n0")} | {rps.ToString("n0")} | {change} % | {deviation} σ |");
+
+
+            //     // body.AppendLine();
+            //     // body.AppendLine("Before versions:");
+
+            //     // body.AppendLine($"ASP.NET Core __{r.PreviousAspNetCoreVersion}__");
+            //     // body.AppendLine($".NET Core __{r.PreviousDotnetCoreVersion}__");
+
+            //     // body.AppendLine();
+            //     // body.AppendLine("After versions:");
+
+            //     // body.AppendLine($"ASP.NET Core __{r.CurrentAspNetCoreVersion}__");
+            //     // body.AppendLine($".NET Core __{r.CurrentDotnetCoreVersion}__");
+
+            //     // var aspNetChanged = r.PreviousAspNetCoreVersion != r.CurrentAspNetCoreVersion;
+            //     // var runtimeChanged = r.PreviousDotnetCoreVersion != r.CurrentDotnetCoreVersion;
+
+            //     // if (aspNetChanged || runtimeChanged)
+            //     // {
+            //     //     body.AppendLine();
+            //     //     body.AppendLine("Commits:");
+
+            //     //     if (aspNetChanged)
+            //     //     {
+            //     //         if (r.AspNetCoreHashes != null && r.AspNetCoreHashes.Length == 2 && r.AspNetCoreHashes[0] != null && r.AspNetCoreHashes[1] != null)
+            //     //         {
+            //     //             body.AppendLine();
+            //     //             body.AppendLine("__ASP.NET Core__");
+            //     //             body.AppendLine($"https://github.com/dotnet/aspnetcore/compare/{r.AspNetCoreHashes[0]}...{r.AspNetCoreHashes[1]}");
+            //     //         }
+            //     //     }
+
+            //     //     if (runtimeChanged)
+            //     //     {
+            //     //         if (r.DotnetCoreHashes != null && r.DotnetCoreHashes.Length == 2 && r.DotnetCoreHashes[0] != null && r.DotnetCoreHashes[1] != null)
+            //     //         {
+            //     //             body.AppendLine();
+            //     //             body.AppendLine("__.NET Core__");
+            //     //             body.AppendLine($"https://github.com/dotnet/runtime/compare/{r.DotnetCoreHashes[0]}...{r.DotnetCoreHashes[1]}");
+            //     //         }
+            //     //     }
+            //     // }
+            // }
 
 
             // body
@@ -281,7 +306,7 @@ namespace Microsoft.Crank.RegressionBot
 
             // var issue = await client.Issue.Create(_repositoryId, createIssue);
 
-            Console.WriteLine(body.ToString());
+            Console.WriteLine(result.ToString());
         }
 
         /// <summary>
@@ -448,9 +473,10 @@ namespace Microsoft.Crank.RegressionBot
 
                             yield return new Regression 
                             {
-                                Result = resultSet[i+2].Result,
+                                PreviousResult = resultSet[i+2].Result,
+                                CurrentResult = resultSet[i+3].Result,
                                 Deviation = value2,
-                                StandardDeviation = standardDeviation
+                                StandardDeviation = standardDeviation,
                             };
                         }
                     }

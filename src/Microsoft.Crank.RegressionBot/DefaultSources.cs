@@ -38,6 +38,22 @@ namespace Microsoft.Crank.RegressionBot
                     RegressionLabels = { "Perf", "perf-regression" },
                     ErrorLabels = { "Perf", "perf-bad-response" },
                     NotRunningLabels = { "Perf", "perf-not-running" },
+                    RegressionTemplate = @"
+A performance regression has been detected for the following scenarios:
+
+| Scenario | Environment | Date | Old RPS | New RPS | Change | Deviation |
+| -------- | ----------- | ---- | ------- | ------- | ------ | --------- |
+
+{% for regression in Regressions -%}
+    {% assign r = regression.CurrentResult %}
+    {% assign p = regression.PreviousResult %}
+    {% assign rps = r.Data.jobs.load.results['wrk/rps/mean'] %}
+    {% assign prevRps = p.Data.jobs.load.results['wrk/rps/mean'] %}
+    {% assign change = rps | minus: prevRps | divided_by: prevRps | times: 100 | round: 2 %}
+    {% assign deviation = rps | minus: prevRps | divided_by: regression.Deviation | round: 2 %}
+| {{r.Scenario}} | {{r.Description}} | {{r.DateTimeUtc}} | {{prevRps}} | {{rps}} | {{change}} % | {{deviation}} σ |
+{% endfor %}
+                    ",
                 }
             }
         };

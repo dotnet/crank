@@ -8,7 +8,8 @@ namespace Microsoft.Crank.RegressionBot
 {
     public class Regression
     {
-        public BenchmarksResult Result { get; set; }
+        public BenchmarksResult PreviousResult { get; set; }
+        public BenchmarksResult CurrentResult { get; set; }
         public double Deviation { get; set; }
         public double StandardDeviation { get; set; }
     }

@@ -36,6 +36,12 @@ namespace Microsoft.Crank.RegressionBot
         // Labels added to the issues created when a benchmark has errors
         public List<string> ErrorLabels = new List<string>(); 
 
+        public string RegressionTemplate { get; set; } = @"";
+
+        public string ErrorTemplate { get; set; } = @"";
+
+        public string NotRunningTemplate { get; set; } = @"";
+        
         /// <summary>
         /// Returns the list of <see cref="Rule" /> that match a descriptor
         /// </summary>
