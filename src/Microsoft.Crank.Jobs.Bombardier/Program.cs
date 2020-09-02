@@ -76,7 +76,14 @@ namespace Microsoft.Crank.Jobs.Bombardier
                 return -1;
             }
 
-            var bombardierFileName = Path.GetFileName(bombardierUrl);
+            var cacheFolder = Path.Combine(Path.GetTempPath(), ".crank");
+
+            if (!Directory.Exists(cacheFolder))
+            {
+                Directory.CreateDirectory(cacheFolder);
+            }
+
+            var bombardierFileName = Path.Combine(cacheFolder, Path.GetFileName(bombardierUrl));
 
             Console.WriteLine($"Downloading bombardier from {bombardierUrl} to {bombardierFileName}");
             
