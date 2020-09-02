@@ -97,7 +97,9 @@ namespace Microsoft.Crank.Jobs.Bombardier
                 }
             }
 
-            var baseArguments = "\"" + String.Join("\" \"", args.ToArray()) + "\"" + " --print r --format json";
+            args = argsList.Select(Quote).ToArray();
+
+            var baseArguments = String.Join(' ', args) + " --print r --format json";
 
             var process = new Process()
             {
@@ -268,5 +270,16 @@ namespace Microsoft.Crank.Jobs.Bombardier
             }
         }
 
+        private static string Quote(string s)
+        {
+            // Wraps a string in double-quotes if it contains a space
+
+            if (s.Contains(' '))
+            {
+                return "\"" + s + "\"";
+            }
+
+            return s;
+        }
     }
 }

@@ -60,9 +60,9 @@ namespace Microsoft.Crank.Jobs.Wrk2
                 argsList.RemoveAt(warmupIndex);
             }
 
-            args = argsList.ToArray();
+            args = argsList.Select(Quote).ToArray();
 
-            var baseArguments = "\"" + String.Join("\" \"", args.ToArray()) + "\"";
+            var baseArguments = String.Join(' ', args) + " --print r --format json";
 
             var process = new Process()
             {
@@ -436,6 +436,18 @@ namespace Microsoft.Crank.Jobs.Wrk2
             Process.Start("chmod", "+x " + wrk2Filename);
 
             return wrk2Filename;
+        }
+
+        private static string Quote(string s)
+        {
+            // Wraps a string in double-quotes if it contains a space
+
+            if (s.Contains(' '))
+            {
+                return "\"" + s + "\"";
+            }
+
+            return s;
         }
     }
 }
