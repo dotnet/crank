@@ -89,8 +89,6 @@ namespace Microsoft.Crank.Wrk
 
         public static async Task DownloadWrkAsync()
         {
-            Console.Write("Downloading wrk ... ");
-
             var cacheFolder = Path.Combine(Path.GetTempPath(), ".crank");
 
             if (!Directory.Exists(cacheFolder))
@@ -100,7 +98,7 @@ namespace Microsoft.Crank.Wrk
 
             _wrkFilename = Path.Combine(cacheFolder, Path.GetFileName(WrkUrl));
 
-            Console.WriteLine($"Downloading bombardier from {WrkUrl} to {_wrkFilename}");
+            Console.WriteLine($"Downloading wrk from {WrkUrl} to {_wrkFilename}");
             
             using (var httpClient = new HttpClient())
             using (var downloadStream = await httpClient.GetStreamAsync(WrkUrl))
