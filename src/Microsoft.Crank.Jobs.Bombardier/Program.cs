@@ -140,7 +140,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
             if (warmup > 0)
             {
                 process.StartInfo.Arguments = $" -d {warmup}s {baseArguments}";
-                
+
                 Console.WriteLine("> bombardier " + process.StartInfo.Arguments);
 
                 process.Start();
@@ -163,9 +163,6 @@ namespace Microsoft.Crank.Jobs.Bombardier
                     : $" -d {duration}s {baseArguments}";
 
             Console.WriteLine("> bombardier " + process.StartInfo.Arguments);
-
-            process.StartInfo.Arguments = "-f -t -e trace=process " + process.StartInfo.FileName + " " + process.StartInfo.Arguments;
-            process.StartInfo.FileName = "strace";
 
             process.Start();
             
