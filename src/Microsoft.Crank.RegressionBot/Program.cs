@@ -4,6 +4,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.CommandLine;
+using System.CommandLine.Invocation;
 using System.Data.SqlClient;
 using System.IdentityModel.Tokens.Jwt;
 using System.IO;
@@ -27,23 +29,12 @@ namespace Microsoft.Crank.RegressionBot
 {
     class Program
     {
-        // Used as the GitHub client agent
-        private const string AppName = "crank-bot";
-
         static readonly TimeSpan RecentIssuesTimeSpan = TimeSpan.FromDays(8);
-        static readonly TimeSpan GitHubJwtTimeout = TimeSpan.FromMinutes(5);
 
-        static long _repositoryId;
-        static string _accessToken;
-        static string _username;
-        static string _githubAppId;
-        static string _githubAppKey;
-        static string _githubAppInstallationId;
+        static BotOptions _options;
         static Credentials _credentials;
-        static string _connectionString;
-        static bool _debug;
 
-        static async Task Main(string[] args)
+        static async Task<int> Main(string[] args)
         {
             TemplateContext.GlobalMemberAccessStrategy.Register<BenchmarksResult>();
             TemplateContext.GlobalMemberAccessStrategy.Register<Report>();
@@ -52,20 +43,92 @@ namespace Microsoft.Crank.RegressionBot
             FluidValue.SetTypeMapping<JObject>(o => new ObjectValue(o));
             FluidValue.SetTypeMapping<JValue>(o => FluidValue.Create(o.Value));
             
-            var config = new ConfigurationBuilder()
-                .AddEnvironmentVariables(prefix: "CRANK_REGRESSION_BOT_")
-                .AddCommandLine(args)
-                .Build();
 
-            await LoadSettings(config);
+            // Create a root command with some options
+            var rootCommand = new RootCommand
+            {
+                // Tip: The repository id can be found using this endpoint: https://api.github.com/repos/dotnet/aspnetcore
+
+                new Option<long>(
+                    "--repository-id",
+                    description: "The GitHub repository id"),
+                new Option<string>(
+                    "--access-token",
+                    "The GitHub account access token"),
+                new Option<string>(
+                    "--username",
+                    "The GitHub account username"),
+                new Option<string>(
+                    "--app-key",
+                    "The GitHub application key"),
+                new Option<string>(
+                    "--app-id",
+                    "The GitHub application id"),
+                new Option<long>(
+                    "--install-id",
+                    "The GitHub installation id"),
+                new Option<string>(
+                    "--connectionstring",
+                    "The database connection string. (Secret)"),
+                new Option<string[]>(
+                    "--source",
+                    "The path to a sources file"),
+                new Option<bool>(
+                    "--debug",
+                    "When used, no issue is created, only displayed"
+                ),
+            };
+
+            rootCommand.Description = "Crank Regression Bot";
+
+            // Note that the parameters of the handler method are matched according to the names of the options
+            rootCommand.Handler = CommandHandler.Create<BotOptions>(options => 
+            {
+                Console.WriteLine(options.Debug);
+                // Controller2(options);
+            });
+
+            // Parse the incoming args and invoke the handler
+            return await rootCommand.InvokeAsync(args);
+        }
+
+        private static async Task<int> Controller(BotOptions options)
+        {
+            try
+            {
+                options.Validate();
+            }
+            catch (ArgumentException e)
+            {
+                Console.WriteLine(e.Message);
+
+                return 1;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Unexpected exception: " + e.ToString());
+
+                return 1;
+            }
+
+            _options = options;
+
+            if (!String.IsNullOrEmpty(options.AccessToken))
+            {
+                _credentials = CredentialsHelper.GetCredentialsForUser(options);
+            }
+            else
+            {
+                _credentials = await CredentialsHelper.GetCredentialsForAppAsync(options);
+            }
 
             // Regressions
 
             Console.WriteLine("Looking for regressions...");
 
-            foreach (var source in DefaultSources.Value.Sources)
+            foreach (var s in DefaultSources.Value.Sources)
             {
-                var regressions = await FindRegression(source).ToListAsync();
+                var regressions = await FindRegression(s).ToListAsync();
 
                 Console.WriteLine("Excluding the ones already reported...");
 
@@ -75,7 +138,7 @@ namespace Microsoft.Crank.RegressionBot
                 {
                     Console.WriteLine("Reporting new regressions...");
 
-                    await CreateRegressionIssue(newRegressions, source.RegressionTemplate);
+                    await CreateRegressionIssue(newRegressions, s.RegressionTemplate);
                 }
                 else
                 {
@@ -125,67 +188,8 @@ namespace Microsoft.Crank.RegressionBot
             // {
             //     Console.WriteLine("All scenarios are running correctly.");
             // }
-        }
 
-        private static async Task LoadSettings(IConfiguration config)
-        {
-            // Tip: The repository id can be found using this endpoint: https://api.github.com/repos/dotnet/aspnetcore
-
-            long.TryParse(config["RepositoryId"], out _repositoryId);
-            _accessToken = config["AccessToken"];
-            _username = config["Username"];
-            _githubAppKey = config["GitHubAppKey"];
-            _githubAppId = config["GitHubAppId"];
-            _githubAppInstallationId = config["GitHubInstallationId"];
-
-            _connectionString = config["ConnectionString"];
-            _debug = bool.TryParse(config["Debug"], out _debug) && _debug;
-
-            if (!_debug)
-            {
-                if (_repositoryId == 0)
-                {
-                    throw new ArgumentException("RepositoryId argument is missing or invalid");
-                }
-
-                if (String.IsNullOrEmpty(_accessToken) && String.IsNullOrEmpty(_githubAppKey))
-                {
-                    throw new ArgumentException("AccessToken or GitHubAppKey is required");
-                }
-                else if (!String.IsNullOrEmpty(_githubAppKey))
-                {
-                    if(String.IsNullOrEmpty(_githubAppId))
-                    {
-                        throw new ArgumentException("GitHubAppId argument is missing");
-                    }
-
-                    if (String.IsNullOrEmpty(_githubAppInstallationId))
-                    {
-                        throw new ArgumentException("GitHubInstallationId argument is missing");
-                    }
-
-                    if (!long.TryParse(_githubAppInstallationId, out var installationId))
-                    {
-                        throw new ArgumentException("GitHubInstallationId should be a number or is invalid");
-                    }
-
-                    _credentials = await GetCredentialsForApp(_githubAppId, _githubAppKey, installationId);
-                }
-                else
-                {
-                    if (String.IsNullOrEmpty(_username))
-                    {
-                        throw new ArgumentException("Username argument is missing");
-                    }
-
-                    _credentials = GetCredentialsForUser(_username, _accessToken);
-                }
-
-                if (String.IsNullOrEmpty(_connectionString))
-                {
-                    throw new ArgumentException("ConnectionString argument is missing");
-                }
-            }
+            return 0;
         }
 
         private static async Task CreateRegressionIssue(IEnumerable<Regression> regressions, string template)
@@ -329,7 +333,7 @@ namespace Microsoft.Crank.RegressionBot
 
             // Load latest records
 
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = new SqlConnection(_options.ConnectionString))
             {
                 using (var command = new SqlCommand(String.Format(Queries.Latest, source.Table), connection))
                 {
@@ -375,7 +379,7 @@ namespace Microsoft.Crank.RegressionBot
 
                 if (!rules.Any())
                 {
-                    if (_debug)
+                    if (_options.Debug)
                     {
                         Console.WriteLine($"No matching rules, descriptor skipped: {descriptor}");
                     }
@@ -383,7 +387,7 @@ namespace Microsoft.Crank.RegressionBot
                     continue;
                 }
 
-                if (_debug)
+                if (_options.Debug)
                 {
                     Console.WriteLine($"Found matching rules for {descriptor}");
                 }
@@ -393,7 +397,7 @@ namespace Microsoft.Crank.RegressionBot
 
                 if (lastIgnoreRegressionRule != null && lastIgnoreRegressionRule.IgnoreRegressions.Value)
                 {
-                    if (_debug)
+                    if (_options.Debug)
                     {
                         Console.WriteLine("Regressions ignored");
                     }
@@ -419,7 +423,7 @@ namespace Microsoft.Crank.RegressionBot
                     // Can't find a regression if there are less than 5 value
                     if (resultSet.Length < 5)
                     {
-                        if (_debug)
+                        if (_options.Debug)
                         {
                             Console.ForegroundColor = ConsoleColor.Yellow;
                             Console.WriteLine($"Not enough data ({resultSet.Length})");
@@ -452,7 +456,7 @@ namespace Microsoft.Crank.RegressionBot
                         var value3 = Math.Abs(values[i+3] - values[i+2]);
                         var value4 = Math.Abs(values[i+4] - values[i+2]);
 
-                        if (_debug)
+                        if (_options.Debug)
                         {
                             Console.WriteLine($"{descriptor} {probe.Path} {resultSet[i+2].Result.DateTimeUtc} {values[i+0]} {values[i+1]} {values[i+2]} {values[i+3]} ({value3}) {values[i+4]} ({value4}) / {standardDeviation * probe.Threshold:n0}");
                         }                        
@@ -464,7 +468,7 @@ namespace Microsoft.Crank.RegressionBot
                             && Math.Sign(value3) == Math.Sign(value4)
                             )
                         {
-                            if (_debug)
+                            if (_options.Debug)
                             {
                                 Console.ForegroundColor = ConsoleColor.Red;
                                 Console.WriteLine("Regression");
@@ -488,7 +492,7 @@ namespace Microsoft.Crank.RegressionBot
         // {
         //     var regressions = new List<Regression>();
 
-        //     using (var connection = new SqlConnection(_connectionString))
+        //     using (var connection = new SqlConnection(_options.ConnectionString))
         //     {
         //         using (var command = new SqlCommand(Queries.NotRunning.Replace("@table", _tableName), connection))
         //         {
@@ -569,7 +573,7 @@ namespace Microsoft.Crank.RegressionBot
         // {
         //     var regressions = new List<Regression>();
 
-        //     using (var connection = new SqlConnection(_connectionString))
+        //     using (var connection = new SqlConnection(_options.ConnectionString))
         //     {
         //         using (var command = new SqlCommand(Queries.Error.Replace("@table", _tableName), connection))
         //         {
@@ -778,44 +782,6 @@ namespace Microsoft.Crank.RegressionBot
         //     }
         // }
 
-        private static Credentials GetCredentialsForUser(string userName, string token)
-        {
-            return new Credentials(token);
-        }
-
-        private static RsaSecurityKey GetRsaSecurityKeyFromPemKey(string keyText)
-        {
-            using var rsa = RSA.Create();
-
-            var keyBytes = Convert.FromBase64String(keyText);
-
-            rsa.ImportRSAPrivateKey(keyBytes, out _);
-
-            return new RsaSecurityKey(rsa.ExportParameters(true));
-        }
-
-        private static async Task<Credentials> GetCredentialsForApp(string appId, string keyPath, long installId)
-        {
-            var creds = new SigningCredentials(GetRsaSecurityKeyFromPemKey(_githubAppKey), SecurityAlgorithms.RsaSha256);
-
-            var jwtToken = new JwtSecurityToken(
-                new JwtHeader(creds),
-                new JwtPayload(
-                    issuer: appId,
-                    issuedAt: DateTime.Now,
-                    expires: DateTime.Now.Add(GitHubJwtTimeout),
-                    audience: null,
-                    claims: null,
-                    notBefore: null));
-
-            var jwtTokenString = new JwtSecurityTokenHandler().WriteToken(jwtToken);
-            var initClient = new GitHubClient(new ProductHeaderValue(AppName))
-            {
-                Credentials = new Credentials(jwtTokenString, AuthenticationType.Bearer),
-            };
-
-            var installationToken = await initClient.GitHubApps.CreateInstallationToken(installId);
-            return new Credentials(installationToken.Token, AuthenticationType.Bearer);
-        }
+        
     }
 }

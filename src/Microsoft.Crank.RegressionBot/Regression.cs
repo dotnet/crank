@@ -12,5 +12,11 @@ namespace Microsoft.Crank.RegressionBot
         public BenchmarksResult CurrentResult { get; set; }
         public double Deviation { get; set; }
         public double StandardDeviation { get; set; }
+
+        /// <summary>
+        /// Gets a string representing this regression.
+        /// Used to determine if two regressions are similar.
+        /// </summary>
+        public string Identifier => $"Id:{CurrentResult.Scenario}{CurrentResult.Description}{CurrentResult.DateTimeUtc}";
     }
 }
