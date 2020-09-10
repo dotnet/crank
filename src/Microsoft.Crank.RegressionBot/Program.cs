@@ -43,15 +43,12 @@ namespace Microsoft.Crank.RegressionBot
             FluidValue.SetTypeMapping<JObject>(o => new ObjectValue(o));
             FluidValue.SetTypeMapping<JValue>(o => FluidValue.Create(o.Value));
             
-
             // Create a root command with some options
             var rootCommand = new RootCommand
             {
-                // Tip: The repository id can be found using this endpoint: https://api.github.com/repos/dotnet/aspnetcore
-
                 new Option<long>(
                     "--repository-id",
-                    description: "The GitHub repository id"),
+                    description: "The GitHub repository id. Tip: The repository id can be found using this endpoint: https://api.github.com/repos/dotnet/aspnetcore"),
                 new Option<string>(
                     "--access-token",
                     "The GitHub account access token"),
@@ -75,18 +72,18 @@ namespace Microsoft.Crank.RegressionBot
                     "The path to a sources file"),
                 new Option<bool>(
                     "--debug",
-                    "When used, no issue is created, only displayed"
+                    "When used, GitHub issues are not created"
+                ),
+                new Option<bool>(
+                    "--verbose",
+                    "When used, detailed logs are displayed."
                 ),
             };
 
             rootCommand.Description = "Crank Regression Bot";
 
             // Note that the parameters of the handler method are matched according to the names of the options
-            rootCommand.Handler = CommandHandler.Create<BotOptions>(options => 
-            {
-                Console.WriteLine(options.Debug);
-                // Controller2(options);
-            });
+            rootCommand.Handler = CommandHandler.Create<BotOptions>(Controller);
 
             // Parse the incoming args and invoke the handler
             return await rootCommand.InvokeAsync(args);
@@ -113,13 +110,16 @@ namespace Microsoft.Crank.RegressionBot
 
             _options = options;
 
-            if (!String.IsNullOrEmpty(options.AccessToken))
+            if (!options.Debug)
             {
-                _credentials = CredentialsHelper.GetCredentialsForUser(options);
-            }
-            else
-            {
-                _credentials = await CredentialsHelper.GetCredentialsForAppAsync(options);
+                if (!String.IsNullOrEmpty(options.AccessToken))
+                {
+                    _credentials = CredentialsHelper.GetCredentialsForUser(options);
+                }
+                else
+                {
+                    _credentials = await CredentialsHelper.GetCredentialsForAppAsync(options);
+                }
             }
 
             // Regressions
@@ -310,7 +310,10 @@ namespace Microsoft.Crank.RegressionBot
 
             // var issue = await client.Issue.Create(_repositoryId, createIssue);
 
-            Console.WriteLine(result.ToString());
+            if (_options.Debug || _options.Verbose)
+            {
+                Console.WriteLine(result.ToString());
+            }
         }
 
         /// <summary>
@@ -327,7 +330,6 @@ namespace Microsoft.Crank.RegressionBot
         private static async IAsyncEnumerable<Regression> FindRegression(Source source)
         {
             var detectionDateTimeUtc = DateTime.UtcNow.AddDays(0 - source.DaysToAnalyze);
-            Console.WriteLine(detectionDateTimeUtc);
             
             var allResults = new List<BenchmarksResult>();
 
@@ -379,7 +381,7 @@ namespace Microsoft.Crank.RegressionBot
 
                 if (!rules.Any())
                 {
-                    if (_options.Debug)
+                    if (_options.Verbose)
                     {
                         Console.WriteLine($"No matching rules, descriptor skipped: {descriptor}");
                     }
@@ -387,7 +389,7 @@ namespace Microsoft.Crank.RegressionBot
                     continue;
                 }
 
-                if (_options.Debug)
+                if (_options.Verbose)
                 {
                     Console.WriteLine($"Found matching rules for {descriptor}");
                 }
@@ -397,7 +399,7 @@ namespace Microsoft.Crank.RegressionBot
 
                 if (lastIgnoreRegressionRule != null && lastIgnoreRegressionRule.IgnoreRegressions.Value)
                 {
-                    if (_options.Debug)
+                    if (_options.Verbose)
                     {
                         Console.WriteLine("Regressions ignored");
                     }
@@ -410,8 +412,11 @@ namespace Microsoft.Crank.RegressionBot
 
                 foreach (var probe in source.RegressionProbes)
                 {
-                    Console.WriteLine($"Evaluating probe {probe.Path} for {results.Count()} benchmarks");
-
+                    if (_options.Verbose)
+                    {
+                        Console.WriteLine($"Evaluating probe {probe.Path} for {results.Count()} benchmarks");
+                    }
+                    
                     var resultSet = results
                         .Select(x => new { Result = x, Token = x.Data.SelectTokens(probe.Path).FirstOrDefault() })
                         .Where(x => x.Token != null)
@@ -423,7 +428,7 @@ namespace Microsoft.Crank.RegressionBot
                     // Can't find a regression if there are less than 5 value
                     if (resultSet.Length < 5)
                     {
-                        if (_options.Debug)
+                        if (_options.Verbose)
                         {
                             Console.ForegroundColor = ConsoleColor.Yellow;
                             Console.WriteLine($"Not enough data ({resultSet.Length})");
@@ -456,7 +461,7 @@ namespace Microsoft.Crank.RegressionBot
                         var value3 = Math.Abs(values[i+3] - values[i+2]);
                         var value4 = Math.Abs(values[i+4] - values[i+2]);
 
-                        if (_options.Debug)
+                        if (_options.Verbose)
                         {
                             Console.WriteLine($"{descriptor} {probe.Path} {resultSet[i+2].Result.DateTimeUtc} {values[i+0]} {values[i+1]} {values[i+2]} {values[i+3]} ({value3}) {values[i+4]} ({value4}) / {standardDeviation * probe.Threshold:n0}");
                         }                        
@@ -468,7 +473,7 @@ namespace Microsoft.Crank.RegressionBot
                             && Math.Sign(value3) == Math.Sign(value4)
                             )
                         {
-                            if (_options.Debug)
+                            if (_options.Verbose)
                             {
                                 Console.ForegroundColor = ConsoleColor.Red;
                                 Console.WriteLine("Regression");
@@ -664,6 +669,8 @@ namespace Microsoft.Crank.RegressionBot
             {
                 return regressions;
             }
+
+            await Task.Delay(0);
 
             return regressions;
 

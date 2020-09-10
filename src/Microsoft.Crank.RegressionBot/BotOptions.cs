@@ -8,37 +8,16 @@ namespace Microsoft.Crank.RegressionBot
 {
     public class BotOptions
     {
-        public BotOptions(
-            long repositoryId, 
-            string accessToken, 
-            string username, 
-            string appKey,
-            string appId,
-            long installId,
-            string connectionstring,
-            string[] source,
-            bool debug)
-        {
-            RepositoryId = repositoryId;
-            AccessToken = accessToken;
-            Username = username;
-            AppKey = appKey;
-            AppId = appId;
-            InstallId = installId;
-            ConnectionString = connectionstring;
-            Source = source;
-            Debug = debug;
-        }
-
-        public long RepositoryId { get; }
-        public string AccessToken { get; }
-        public string Username { get; }
-        public string AppKey { get; }
-        public string AppId { get; }
-        public long InstallId { get; }
-        public string ConnectionString { get; }
-        public string[] Source { get; }
-        public bool Debug { get; }
+        public long RepositoryId { get; set; }
+        public string AccessToken { get; set; }
+        public string Username { get; set; }
+        public string AppKey { get; set; }
+        public string AppId { get; set; }
+        public long InstallId { get; set; }
+        public string ConnectionString { get; set; }
+        public string[] Source { get; set; }
+        public bool Debug { get; set; }
+        public bool Verbose { get; set; }
 
         public void Validate()
         {
