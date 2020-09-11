@@ -183,7 +183,16 @@ namespace Microsoft.Crank.Agent
 
                     Log.WriteLine($"Attempt {attempts} failed: {e.Message}");
                 }
-            } while (true );
+            } while (true);
+        }
+
+        public static Task RetryOnExceptionAsync(int retries, Func<Task> operation, CancellationToken cancellationToken = default)
+        {
+            return RetryOnExceptionAsync(retries, async () => 
+            {
+                await operation();
+                return 0;
+            }, cancellationToken);
         }
     }
 }
