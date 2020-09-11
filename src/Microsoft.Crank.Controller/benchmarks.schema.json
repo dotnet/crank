@@ -225,6 +225,5 @@
     }
   },
   "minProperties": 1,
-  "required": [],
-  "additionalProperties": false
+  "required": []
 }
