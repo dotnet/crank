@@ -193,20 +193,20 @@ namespace Microsoft.Crank.Jobs.Bombardier
 
             BenchmarksEventSource.Log.Metadata("bombardier/rps/mean", "max", "sum", "Requests/sec", "Requests per second", "n0");
             BenchmarksEventSource.Log.Metadata("bombardier/rps/max", "max", "sum", "Requests/sec (max)", "Max requests per second", "n0");
-            BenchmarksEventSource.Log.Metadata("bombardier/throughput", "max", "sum", "Throughput (MB/s)", "Throughput (MB/s)", "n2");
+            BenchmarksEventSource.Log.Metadata("bombardier/throughput", "max", "sum", "Read throughput (MB/s)", "Read throughput (MB/s)", "n2");
 
             BenchmarksEventSource.Log.Metadata("bombardier/raw", "all", "all", "Raw results", "Raw results", "json");
 
             var total = 
-                document["result"]["req1xx"].Value<int>()
-                + document["result"]["req2xx"].Value<int>()
-                + document["result"]["req3xx"].Value<int>()
-                + document["result"]["req3xx"].Value<int>()
-                + document["result"]["req4xx"].Value<int>()
-                + document["result"]["req5xx"].Value<int>()
-                + document["result"]["others"].Value<int>();
+                document["result"]["req1xx"].Value<long>()
+                + document["result"]["req2xx"].Value<long>()
+                + document["result"]["req3xx"].Value<long>()
+                + document["result"]["req3xx"].Value<long>()
+                + document["result"]["req4xx"].Value<long>()
+                + document["result"]["req5xx"].Value<long>()
+                + document["result"]["others"].Value<long>();
 
-            var success = document["result"]["req2xx"].Value<int>() + document["result"]["req3xx"].Value<int>();
+            var success = document["result"]["req2xx"].Value<long>() + document["result"]["req3xx"].Value<long>();
 
             BenchmarksEventSource.Measure("bombardier/requests", total);
             BenchmarksEventSource.Measure("bombardier/badresponses", total - success);
@@ -219,7 +219,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
 
             BenchmarksEventSource.Measure("bombardier/raw", output);
 
-            var bytesPerSecond = document["result"]["bytesRead"].Value<int>() / document["result"]["timeTakenSeconds"].Value<double>();
+            var bytesPerSecond = document["result"]["bytesRead"].Value<long>() / document["result"]["timeTakenSeconds"].Value<double>();
             
             // B/s to MB/s
             BenchmarksEventSource.Measure("bombardier/throughput", bytesPerSecond / 1024 / 1024);
