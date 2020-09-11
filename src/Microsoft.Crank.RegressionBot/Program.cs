@@ -70,13 +70,13 @@ namespace Microsoft.Crank.RegressionBot
                     description: "The GitHub repository id. Tip: The repository id can be found using this endpoint: https://api.github.com/repos/dotnet/aspnetcore"),
                 new Option<string>(
                     "--access-token",
-                    "The GitHub account access token."),
+                    "The GitHub account access token. (Secured)"),
                 new Option<string>(
                     "--username",
                     "The GitHub account username."),
                 new Option<string>(
                     "--app-key",
-                    "The GitHub application key."),
+                    "The GitHub application key. (Secured)"),
                 new Option<string>(
                     "--app-id",
                     "The GitHub application id."),
@@ -130,9 +130,20 @@ namespace Microsoft.Crank.RegressionBot
             }
 
             // Substitute with ENV value if it exists
+
             if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(options.ConnectionString)))
             {
                 options.ConnectionString = Environment.GetEnvironmentVariable(options.ConnectionString);
+            }
+
+            if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(options.AccessToken)))
+            {
+                options.AccessToken = Environment.GetEnvironmentVariable(options.AccessToken);
+            }
+
+            if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(options.AppKey)))
+            {
+                options.AppKey = Environment.GetEnvironmentVariable(options.AppKey);
             }
 
             _options = options;
