@@ -181,7 +181,17 @@ namespace Microsoft.Crank.RegressionBot
 
             foreach (var s in sources)
             {
+                if (!String.IsNullOrEmpty(s.Name))
+                {
+                    Console.WriteLine($"Processing source '{s.Name}'");
+                }
+                
                 var regressions = await FindRegression(s).ToListAsync();
+
+                if (!regressions.Any())
+                {
+                    continue;
+                }
 
                 Console.WriteLine("Excluding the ones already reported...");
 
@@ -191,7 +201,7 @@ namespace Microsoft.Crank.RegressionBot
                 {
                     Console.WriteLine("Reporting new regressions...");
 
-                    await CreateRegressionIssue(newRegressions, s.RegressionTemplate);
+                    await CreateRegressionIssue(newRegressions, s.Regressions.Template);
                 }
                 else
                 {
@@ -429,7 +439,16 @@ namespace Microsoft.Crank.RegressionBot
                             .WithNodeTypeResolver(new JsonTypeResolver())
                             .Build();
 
-                        var yamlObject = deserializer.Deserialize(new StringReader(configurationContent));
+                        object yamlObject;
+
+                        try
+                        {
+                            yamlObject = deserializer.Deserialize(new StringReader(configurationContent));
+                        }
+                        catch (YamlDotNet.Core.SyntaxErrorException e)
+                        {
+                            throw new RegressionBotException($"Error while parsing '{configurationFilenameOrUrl}'\n{e.Message}");
+                        }
 
                         var serializer = new SerializerBuilder()
                             .JsonCompatible()
@@ -489,11 +508,18 @@ namespace Microsoft.Crank.RegressionBot
         /// </summary>
         private static async IAsyncEnumerable<Regression> FindRegression(Source source)
         {
+            if (source.Regressions == null)
+            {
+                yield break;
+            }
+
             var detectionDateTimeUtc = DateTime.UtcNow.AddDays(0 - source.DaysToAnalyze);
             
             var allResults = new List<BenchmarksResult>();
 
             // Load latest records
+
+            Console.Write("Loading records... ");
 
             using (var connection = new SqlConnection(_options.ConnectionString))
             {
@@ -522,6 +548,8 @@ namespace Microsoft.Crank.RegressionBot
                 }
             }
 
+            Console.WriteLine($"{allResults.Count} found");
+            
             // Reorder results chronologically
 
             allResults.Reverse();
@@ -537,22 +565,12 @@ namespace Microsoft.Crank.RegressionBot
             {
                 // Does the descriptor match a rule?
 
-                var rules = source.Match(descriptor);
-
-                if (!rules.Any())
+                if (!source.Include(descriptor))
                 {
-                    if (_options.Verbose)
-                    {
-                        Console.WriteLine($"No matching rules, descriptor skipped: {descriptor}");
-                    }
-
                     continue;
                 }
 
-                if (_options.Verbose)
-                {
-                    Console.WriteLine($"Found matching rules for {descriptor}");
-                }
+                var rules = source.Match(descriptor);
 
                 // Should regressions be ignored for this descriptor?
                 var lastIgnoreRegressionRule = rules.LastOrDefault(x => x.IgnoreRegressions != null);
@@ -563,14 +581,14 @@ namespace Microsoft.Crank.RegressionBot
                     {
                         Console.WriteLine("Regressions ignored");
                     }
-                
+
                     continue;
                 }
 
                 // Resolve path for the metric
                 var results = resultsByScenario[descriptor];
 
-                foreach (var probe in source.RegressionProbes)
+                foreach (var probe in source.Regressions.Probes)
                 {
                     if (_options.Verbose)
                     {

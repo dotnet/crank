@@ -226,5 +226,5 @@
   },
   "minProperties": 1,
   "required": [],
-  "additionaProperties": false
+  "additionalProperties": false
 }

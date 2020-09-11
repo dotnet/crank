@@ -7,7 +7,7 @@ namespace Microsoft.Crank.RegressionBot
     public static class Queries
     {
         public const string Latest = @"
-            SELECT TOP (1000) *     -- Bounded to prevent from downloading too many records
+            SELECT TOP (10000) *     -- Bounded to prevent from downloading too many records
             FROM [dbo].[{0}]        -- Substitute table name 
             WHERE 
                 [Excluded] = 0

@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
@@ -9,6 +10,9 @@ namespace Microsoft.Crank.RegressionBot
 {
     public class Source
     {
+        // The name of the source
+        public string Name { get; set;}
+
         // The name of the SQL table to load
         public string Table { get; set; }
 
@@ -29,7 +33,7 @@ namespace Microsoft.Crank.RegressionBot
         /// </summary>
         public IEnumerable<Rule> Match(string descriptor)
         {
-            foreach(var rule in Rules)
+            foreach (var rule in Rules)
             {
                 if (!string.IsNullOrEmpty(rule.Include))
                 {
@@ -41,18 +45,44 @@ namespace Microsoft.Crank.RegressionBot
                     }
                 }
 
+                yield return rule;
+            }
+        }
+
+        /// <summary>
+        /// Returns whether the descriptor should be include or not
+        /// </summary>
+        public bool Include(string descriptor)
+        {
+            // The last matched rule prevails
+            // If there are no matching rule, don't include the descriptor
+
+            var include = false;
+            
+            foreach (var rule in Rules)
+            {
+                if (!string.IsNullOrEmpty(rule.Include))
+                {
+                    rule.IncludeRegex ??= new Regex(rule.Include);
+
+                    if (rule.IncludeRegex.IsMatch(descriptor))
+                    {
+                        include = true;
+                    }
+                }
+
                 if (!string.IsNullOrEmpty(rule.Exclude))
                 {
                     rule.ExcludeRegex ??= new Regex(rule.Exclude);
 
                     if (rule.ExcludeRegex.IsMatch(descriptor))
                     {
-                        continue;
+                        include = false;
                     }
                 }
-
-                yield return rule;                
             }
+
+            return include;
         }
     }
 }
