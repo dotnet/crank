@@ -31,5 +31,4 @@
     <Compile Remove="benchmarks.schema.json" />
   </ItemGroup>
 
-
 </Project>

@@ -15,7 +15,7 @@ namespace Microsoft.Crank.RegressionBot
         public string AppId { get; set; }
         public long InstallId { get; set; }
         public string ConnectionString { get; set; }
-        public string[] Source { get; set; }
+        public string[] Config { get; set; } = Array.Empty<string>();
         public bool Debug { get; set; }
         public bool Verbose { get; set; }
 

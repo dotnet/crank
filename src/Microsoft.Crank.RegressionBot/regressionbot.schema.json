@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://microsoft.com/dotnet/crank/regressionbot",
+  "type": "object",
+  "title": ".NET Benchmarks Labs Bot JSON Schema",
+
+  "definitions": {
+    "source": {
+      "type": "object",
+      "properties": {
+        "table": {
+          "type": "string",
+          "title": "The SQL table containing the benchmarks.",
+          "pattern": "^([\\w\\-]+)$"
+        }
+      }
+    }
+  },
+  "properties": {
+    "sources": {
+      "type": "object",
+      "title": "The Sources",
+      "required": [],
+      "properties": {},
+      "additionalProperties": { "$ref": "#/definitions/source" }
+    }
+  },
+  "minProperties": 1,
+  "required": [],
+  "additionaProperties": false
+}

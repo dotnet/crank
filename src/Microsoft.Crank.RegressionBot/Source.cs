@@ -15,32 +15,14 @@ namespace Microsoft.Crank.RegressionBot
         // The list of rules to apply
         public List<Rule> Rules { get; set; } = new List<Rule>();
         
-        // The probes used to detect regressions
-        public List<Probe> RegressionProbes { get; set; } = new List<Probe>();
+        public SourceSection Regressions { get; set; } = new SourceSection();
+        public SourceSection Errors { get; set; } = new SourceSection();
+        public SourceSection NotRunning { get; set; } = new SourceSection();
 
-        // The probes used to detect errors
-        public List<Probe> ErrorProbes { get; set; } = new List<Probe>();
-
-        // Number of days to load in order to build a trend
         public int DaysToLoad { get; set; } = 7;
 
         // Numbers of days to analyze
         public int DaysToAnalyze { get; set; } = 3;
-
-        // Labels added to the issues created when a benchmark is not running
-        public List<string> NotRunningLabels = new List<string>(); 
-
-        // Labels added to the issues created when a benchmark has regressions
-        public List<string> RegressionLabels = new List<string>(); 
-
-        // Labels added to the issues created when a benchmark has errors
-        public List<string> ErrorLabels = new List<string>(); 
-
-        public string RegressionTemplate { get; set; } = @"";
-
-        public string ErrorTemplate { get; set; } = @"";
-
-        public string NotRunningTemplate { get; set; } = @"";
         
         /// <summary>
         /// Returns the list of <see cref="Rule" /> that match a descriptor

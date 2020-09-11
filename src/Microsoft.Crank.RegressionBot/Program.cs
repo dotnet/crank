@@ -11,6 +11,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Reflection;
 using System.Security.Cryptography;
@@ -22,27 +23,45 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using Fluid;
 using Fluid.Values;
+using Manatee.Json.Schema;
+using Manatee.Json;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Serialization;
 using Octokit;
+using YamlDotNet.Serialization;
 
 namespace Microsoft.Crank.RegressionBot
 {
     class Program
     {
+        private static readonly HttpClient _httpClient;
+        private static readonly HttpClientHandler _httpClientHandler;
+
         static readonly TimeSpan RecentIssuesTimeSpan = TimeSpan.FromDays(8);
 
         static BotOptions _options;
         static Credentials _credentials;
 
-        static async Task<int> Main(string[] args)
+        static Program()
         {
+            // Configuring the http client to trust the self-signed certificate
+            _httpClientHandler = new HttpClientHandler();
+            _httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+            _httpClientHandler.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
+
+            _httpClient = new HttpClient(_httpClientHandler);
+
             TemplateContext.GlobalMemberAccessStrategy.Register<BenchmarksResult>();
             TemplateContext.GlobalMemberAccessStrategy.Register<Report>();
             TemplateContext.GlobalMemberAccessStrategy.Register<Regression>();
             TemplateContext.GlobalMemberAccessStrategy.Register<JObject, object>((obj, name) => obj[name]);
             FluidValue.SetTypeMapping<JObject>(o => new ObjectValue(o));
             FluidValue.SetTypeMapping<JValue>(o => FluidValue.Create(o.Value));
-            
+        }
+
+        static async Task<int> Main(string[] args)
+        {
             // Create a root command with some options
             var rootCommand = new RootCommand
             {
@@ -51,28 +70,28 @@ namespace Microsoft.Crank.RegressionBot
                     description: "The GitHub repository id. Tip: The repository id can be found using this endpoint: https://api.github.com/repos/dotnet/aspnetcore"),
                 new Option<string>(
                     "--access-token",
-                    "The GitHub account access token"),
+                    "The GitHub account access token."),
                 new Option<string>(
                     "--username",
-                    "The GitHub account username"),
+                    "The GitHub account username."),
                 new Option<string>(
                     "--app-key",
-                    "The GitHub application key"),
+                    "The GitHub application key."),
                 new Option<string>(
                     "--app-id",
-                    "The GitHub application id"),
+                    "The GitHub application id."),
                 new Option<long>(
                     "--install-id",
-                    "The GitHub installation id"),
+                    "The GitHub installation id."),
                 new Option<string>(
                     "--connectionstring",
-                    "The database connection string. (Secret)"),
+                    "The database connection string, or environment variable name containing it. (Secured)") { IsRequired = true },
                 new Option<string[]>(
-                    "--source",
-                    "The path to a sources file"),
+                    "--config",
+                    "The path to a configuration file. (Can be repeated)") { IsRequired = true },
                 new Option<bool>(
                     "--debug",
-                    "When used, GitHub issues are not created"
+                    "When used, GitHub issues are not created."
                 ),
                 new Option<bool>(
                     "--verbose",
@@ -91,6 +110,8 @@ namespace Microsoft.Crank.RegressionBot
 
         private static async Task<int> Controller(BotOptions options)
         {
+
+            // Validate arguments
             try
             {
                 options.Validate();
@@ -108,7 +129,39 @@ namespace Microsoft.Crank.RegressionBot
                 return 1;
             }
 
+            // Substitute with ENV value if it exists
+            if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(options.ConnectionString)))
+            {
+                options.ConnectionString = Environment.GetEnvironmentVariable(options.ConnectionString);
+            }
+
             _options = options;
+
+            // Load configuration files
+
+            var sources = new List<Source>();
+
+            foreach (var configurationFilenameOrUrl in options.Config)
+            {
+                try
+                {
+                    var configuration = await LoadConfigurationAsync(configurationFilenameOrUrl);
+                    sources.AddRange(configuration.Sources);
+                }
+                catch (RegressionBotException e)
+                {
+                    Console.WriteLine(e.Message);
+                    return 1;
+                }
+            }
+
+            if (!sources.Any())
+            {
+                Console.WriteLine("No source could be found.");
+                return 1;
+            }
+
+            // Creating GitHub credentials
 
             if (!options.Debug)
             {
@@ -126,7 +179,7 @@ namespace Microsoft.Crank.RegressionBot
 
             Console.WriteLine("Looking for regressions...");
 
-            foreach (var s in DefaultSources.Value.Sources)
+            foreach (var s in sources)
             {
                 var regressions = await FindRegression(s).ToListAsync();
 
@@ -313,6 +366,113 @@ namespace Microsoft.Crank.RegressionBot
             if (_options.Debug || _options.Verbose)
             {
                 Console.WriteLine(result.ToString());
+            }
+        }
+
+        public static async Task<SourceConfiguration> LoadConfigurationAsync(string configurationFilenameOrUrl)
+        {
+            JObject localconfiguration = null;
+
+            if (!string.IsNullOrWhiteSpace(configurationFilenameOrUrl))
+            {
+                string configurationContent;
+
+                // Load the job definition from a url or locally
+                try
+                {
+                    if (configurationFilenameOrUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                    {
+                        configurationContent = await _httpClient.GetStringAsync(configurationFilenameOrUrl);
+                    }
+                    else
+                    {
+                        configurationContent = File.ReadAllText(configurationFilenameOrUrl);
+                    }
+                }
+                catch
+                {
+                    throw new RegressionBotException($"Configuration '{configurationFilenameOrUrl}' could not be loaded.");
+                }
+
+                // Detect file extension
+                string configurationExtension = null;
+
+                if (configurationFilenameOrUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Remove any query string to detect the correct extension
+                    var questionMarkIndex = configurationFilenameOrUrl.IndexOf("?");
+                    if (questionMarkIndex != -1)
+                    {
+                        var filename = configurationFilenameOrUrl.Substring(0, questionMarkIndex);
+                        configurationExtension = Path.GetExtension(filename);
+                    }
+                    else
+                    {
+                        configurationExtension = Path.GetExtension(configurationFilenameOrUrl);
+                    }
+                }
+                else
+                {
+                    configurationExtension = Path.GetExtension(configurationFilenameOrUrl);
+                }
+
+                switch (configurationExtension)
+                {
+                    case ".json":
+                        localconfiguration = JObject.Parse(configurationContent);
+                        break;
+
+                    case ".yml":
+                    case ".yaml":
+
+                        var deserializer = new DeserializerBuilder()
+                            .WithNodeTypeResolver(new JsonTypeResolver())
+                            .Build();
+
+                        var yamlObject = deserializer.Deserialize(new StringReader(configurationContent));
+
+                        var serializer = new SerializerBuilder()
+                            .JsonCompatible()
+                            .Build();
+
+                        var json = serializer.Serialize(yamlObject);
+                        
+                        // Format json in case the schema validation fails and we need to render error line numbers
+                        localconfiguration = JObject.Parse(json);
+
+                        var schemaJson = File.ReadAllText(Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "regressionbot.schema.json"));
+                        var schema = new Manatee.Json.Serialization.JsonSerializer().Deserialize<JsonSchema>(JsonValue.Parse(schemaJson));
+
+                        var jsonToValidate = JsonValue.Parse(json);
+                        var validationResults = schema.Validate(jsonToValidate, new JsonSchemaOptions { OutputFormat = SchemaValidationOutputFormat.Detailed });
+
+                        if (!validationResults.IsValid)
+                        {
+                            // Create a json debug file with the schema
+                            localconfiguration.AddFirst(new JProperty("$schema", "https://raw.githubusercontent.com/dotnet/crank/master/src/Microsoft.Crank.RegressionBot/regressionbot.schema.json"));
+
+                            var debugFilename = Path.Combine(Path.GetTempPath(), "configuration.debug.json");
+                            File.WriteAllText(debugFilename, localconfiguration.ToString(Formatting.Indented));
+
+                            var errorBuilder = new StringBuilder();
+
+                            errorBuilder.AppendLine($"Invalid configuration file '{configurationFilenameOrUrl}' at '{validationResults.InstanceLocation}'");
+                            errorBuilder.AppendLine($"{validationResults.ErrorMessage}");
+                            errorBuilder.AppendLine($"Debug file created at '{debugFilename}'");
+
+                            throw new RegressionBotException(errorBuilder.ToString());
+                        }
+
+                        break;
+                    default:
+                        throw new RegressionBotException($"Unsupported configuration format: {configurationExtension}");
+                }
+
+                return localconfiguration.ToObject<SourceConfiguration>();
+            }
+            else
+            {
+                throw new RegressionBotException($"Invalid file path or url: '{configurationFilenameOrUrl}'");
             }
         }
 
@@ -717,36 +877,6 @@ namespace Microsoft.Crank.RegressionBot
 
             // return filtered;
         }
-
-        // private static async Task<bool> DownloadFileAsync(string url, string outputPath, int maxRetries = 3, int timeout = 5)
-        // {
-        //     for (var i = 0; i < maxRetries; ++i)
-        //     {
-        //         try
-        //         {
-        //             var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeout));
-        //             var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseContentRead, cts.Token);
-        //             response.EnsureSuccessStatusCode();
-
-        //             // This probably won't use async IO on windows since the stream
-        //             // needs to created with the right flags
-        //             using (var stream = File.Create(outputPath))
-        //             {
-        //                 // Copy the response stream directly to the file stream
-        //                 await response.Content.CopyToAsync(stream);
-        //             }
-
-        //             return true;
-        //         }
-        //         catch (Exception e)
-        //         {
-        //             Console.WriteLine($"Error while downloading {url}:");
-        //             Console.WriteLine(e);
-        //         }
-        //     }
-
-        //     return false;
-        // }
 
         // private static void AssignTags(NewIssue issue, IEnumerable<string> scenarios)
         // {
