@@ -193,7 +193,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
 
             BenchmarksEventSource.Log.Metadata("bombardier/rps/mean", "max", "sum", "Requests/sec", "Requests per second", "n0");
             BenchmarksEventSource.Log.Metadata("bombardier/rps/max", "max", "sum", "Requests/sec (max)", "Max requests per second", "n0");
-            BenchmarksEventSource.Log.Metadata("bombardier/throughput", "max", "sum", "Throughput (MB/s)", "Throughput (MB/s)", "n2");
+            BenchmarksEventSource.Log.Metadata("bombardier/throughput", "max", "sum", "Read throughput (MB/s)", "Read throughput (MB/s)", "n2");
 
             BenchmarksEventSource.Log.Metadata("bombardier/raw", "all", "all", "Raw results", "Raw results", "json");
 

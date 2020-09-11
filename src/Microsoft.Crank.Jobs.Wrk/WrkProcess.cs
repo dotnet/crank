@@ -241,7 +241,7 @@ namespace Microsoft.Crank.Wrk
             BenchmarksEventSource.Log.Metadata("wrk/latency/max", "max", "sum", "Max latency (ms)", "Max latency (ms)", "n2");
             BenchmarksEventSource.Log.Metadata("wrk/errors/badresponses", "max", "sum", "Bad responses", "Non-2xx or 3xx responses", "n0");
             BenchmarksEventSource.Log.Metadata("wrk/errors/socketerrors", "max", "sum", "Socket errors", "Socket errors", "n0");
-            BenchmarksEventSource.Log.Metadata("wrk/throughput", "max", "sum", "Throughput (MB/s)", "Throughput (MB/s)", "n2");
+            BenchmarksEventSource.Log.Metadata("wrk/throughput", "max", "sum", "Read throughput (MB/s)", "Read throughput (MB/s)", "n2");
 
             const string LatencyPattern = @"\s+{0}\s+([\d\.]+)(\w+)";
 
