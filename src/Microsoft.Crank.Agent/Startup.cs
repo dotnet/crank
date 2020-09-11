@@ -625,6 +625,12 @@ namespace Microsoft.Crank.Agent
                                         {
                                             benchmarksDir = await CloneRestoreAndBuild(tempDir, job, _dotnethome, cts.Token);
 
+                                            if (benchmarksDir == null)
+                                            {
+                                                // Build error
+                                                job.State = JobState.Failed;
+                                            }
+
                                             if (job.State != JobState.Failed && benchmarksDir != null)
                                             {
                                                 process = await StartProcess(hostname, Path.Combine(tempDir, benchmarksDir), job, _dotnethome);
@@ -2443,6 +2449,8 @@ namespace Microsoft.Crank.Agent
                 var stopwatch = new Stopwatch();
                 stopwatch.Start();
 
+                job.BuildLog.AddLine($"\nCommand:\ndotnet {arguments}");
+
                 var buildResults = await ProcessUtil.RunAsync(dotnetExecutable, arguments,
                     workingDirectory: benchmarkedApp,
                     environmentVariables: env,
@@ -2456,7 +2464,7 @@ namespace Microsoft.Crank.Agent
                     return null;
                 }
 
-                job.BuildLog.AddLine($"Command dotnet {arguments} returned exit code {buildResults.ExitCode}");
+                job.BuildLog.AddLine($"Exit code: {buildResults.ExitCode}");
 
                 if (buildResults.ExitCode != 0)
                 {
