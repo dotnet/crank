@@ -151,6 +151,7 @@ namespace Microsoft.Crank.RegressionBot
             // Load configuration files
 
             var sources = new List<Source>();
+            var templates = new Dictionary<string, string>();
 
             foreach (var configurationFilenameOrUrl in options.Config)
             {
@@ -158,6 +159,11 @@ namespace Microsoft.Crank.RegressionBot
                 {
                     var configuration = await LoadConfigurationAsync(configurationFilenameOrUrl);
                     sources.AddRange(configuration.Sources);
+                    
+                    foreach (var template in configuration.Templates)
+                    {
+                        templates[template.Key] = template.Value;
+                    }
                 }
                 catch (RegressionBotException e)
                 {
@@ -212,7 +218,7 @@ namespace Microsoft.Crank.RegressionBot
                 {
                     Console.WriteLine("Reporting new regressions...");
 
-                    await CreateRegressionIssue(newRegressions, s.Regressions.Template);
+                    await CreateRegressionIssue(newRegressions, templates[s.Regressions.Template]);
                 }
                 else
                 {
@@ -390,7 +396,7 @@ namespace Microsoft.Crank.RegressionBot
             }
         }
 
-        public static async Task<SourceConfiguration> LoadConfigurationAsync(string configurationFilenameOrUrl)
+        public static async Task<Configuration> LoadConfigurationAsync(string configurationFilenameOrUrl)
         {
             JObject localconfiguration = null;
 
@@ -498,7 +504,7 @@ namespace Microsoft.Crank.RegressionBot
                         throw new RegressionBotException($"Unsupported configuration format: {configurationExtension}");
                 }
 
-                return localconfiguration.ToObject<SourceConfiguration>();
+                return localconfiguration.ToObject<Configuration>();
             }
             else
             {
@@ -655,12 +661,42 @@ namespace Microsoft.Crank.RegressionBot
                             Console.WriteLine($"{descriptor} {probe.Path} {resultSet[i+2].Result.DateTimeUtc} {values[i+0]} {values[i+1]} {values[i+2]} {values[i+3]} ({value3}) {values[i+4]} ({value4}) / {standardDeviation * probe.Threshold:n0}");
                         }                        
 
-                        if (value1 < standardDeviation
-                            && value2 < standardDeviation
-                            && value3 > probe.Threshold * standardDeviation
-                            && value4 > probe.Threshold * standardDeviation
-                            && Math.Sign(value3) == Math.Sign(value4)
-                            )
+                        var hasRegressed = false;
+
+                        switch (probe.Unit)
+                        {
+                            case ThresholdUnits.StDev:
+                                // factor of standard deviation
+                                hasRegressed = value1 < standardDeviation
+                                    && value2 < standardDeviation
+                                    && value3 > probe.Threshold * standardDeviation
+                                    && value4 > probe.Threshold * standardDeviation
+                                    && Math.Sign(value3) == Math.Sign(value4);
+
+                                break;
+                            case ThresholdUnits.Percent:
+                                // percentage of the average of values
+                                hasRegressed = value1 < average * (probe.Threshold / 100)
+                                    && value2 < average * (probe.Threshold / 100)
+                                    && value3 > average * (probe.Threshold / 100)
+                                    && value4 > average * (probe.Threshold / 100)
+                                    && Math.Sign(value3) == Math.Sign(value4);
+
+                                break;                            
+                            case ThresholdUnits.Absolute:
+                                // absolute deviation
+                                hasRegressed = value1 < probe.Threshold
+                                    && value2 < probe.Threshold
+                                    && value3 > probe.Threshold
+                                    && value4 > probe.Threshold
+                                    && Math.Sign(value3) == Math.Sign(value4);
+
+                                break;
+                            default:
+                                break;
+                        }
+
+                        if (hasRegressed)
                         {
                             if (_options.Verbose)
                             {
@@ -675,6 +711,7 @@ namespace Microsoft.Crank.RegressionBot
                                 CurrentResult = resultSet[i+3].Result,
                                 Deviation = value2,
                                 StandardDeviation = standardDeviation,
+                                Average = average
                             };
                         }
                     }

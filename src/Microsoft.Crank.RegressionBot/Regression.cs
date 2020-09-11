@@ -12,6 +12,7 @@ namespace Microsoft.Crank.RegressionBot
         public BenchmarksResult CurrentResult { get; set; }
         public double Deviation { get; set; }
         public double StandardDeviation { get; set; }
+        public double Average { get; set; }
 
         /// <summary>
         /// Gets a string representing this regression.

@@ -7,8 +7,9 @@ using System.Text.RegularExpressions;
 
 namespace Microsoft.Crank.RegressionBot
 {
-    public class SourceConfiguration
+    public class Configuration
     {
+        public Dictionary<string, string> Templates { get; set; } = new Dictionary<string, string>();
         public List<Source> Sources { get; set; } = new List<Source>();
     }
 }

@@ -109,6 +109,12 @@
           "type":"number",
           "default": 1,
           "description": "The minimum value to detect a problem."
+        },
+        "thresholdUnit": {
+          "type":"string",
+          "default": "StandardDeviation",
+          "description": "The unit of the threshold.",
+          "enum" : ["StDev", "Percent", "Absolute"]
         }
       }
     }
@@ -120,6 +126,11 @@
       "items" : {
         "$ref" : "#/definitions/source"
       }
+    },
+    "templates": {
+      "type": "object",
+      "title": "An list of templates",
+      "additionalProperties": { "type": "string" }
     }
   },
   "minProperties": 1,

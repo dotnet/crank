@@ -14,5 +14,15 @@ namespace Microsoft.Crank.RegressionBot
 
         // The minimum value triggering an issue 
         public double Threshold { get; set; } = 1;
+
+        public ThresholdUnits Unit { get; set; } = ThresholdUnits.StDev;
+    }
+
+    public enum ThresholdUnits
+    {
+        None,
+        StDev,
+        Percent,
+        Absolute
     }
 }

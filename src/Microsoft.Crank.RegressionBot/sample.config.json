@@ -1,5 +1,8 @@
 {
   "$schema": "./regressionbot.schema.json",
+  "templates": {
+    "rps": "A template"
+  },
   "sources": [
     {
       "name": "Trends",
@@ -20,7 +23,7 @@
       "regressions": {
         "probes": [
           {
-            "path": "jobs.load.results['wrk/rps/mean']",
+            "path": "jobs.load.results['wrk/rps/mean']"
           },
           {
             "path": "jobs.load.results['bombardier/rps/mean']"
@@ -42,7 +45,7 @@
               "path": "jobs.load.results['wrk/errors/badresponses']"
             },
             {
-              "path\"": "jobs.load.results['wrk/errors/socketerrors']"
+              "path": "jobs.load.results['wrk/errors/socketerrors']"
             }
           ],
           "labels": [
