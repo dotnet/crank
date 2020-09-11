@@ -131,17 +131,17 @@ namespace Microsoft.Crank.RegressionBot
 
             // Substitute with ENV value if it exists
 
-            if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(options.ConnectionString)))
+            if (!String.IsNullOrEmpty(options.ConnectionString) && !String.IsNullOrEmpty(Environment.GetEnvironmentVariable(options.ConnectionString)))
             {
                 options.ConnectionString = Environment.GetEnvironmentVariable(options.ConnectionString);
             }
 
-            if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(options.AccessToken)))
+            if (!String.IsNullOrEmpty(options.AccessToken) && !String.IsNullOrEmpty(Environment.GetEnvironmentVariable(options.AccessToken)))
             {
                 options.AccessToken = Environment.GetEnvironmentVariable(options.AccessToken);
             }
 
-            if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(options.AppKey)))
+            if (!String.IsNullOrEmpty(options.AppKey) && !String.IsNullOrEmpty(Environment.GetEnvironmentVariable(options.AppKey)))
             {
                 options.AppKey = Environment.GetEnvironmentVariable(options.AppKey);
             }
