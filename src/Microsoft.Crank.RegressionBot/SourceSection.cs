@@ -14,6 +14,9 @@ namespace Microsoft.Crank.RegressionBot
         // Labels added to the issues created
         public List<string> Labels = new List<string>(); 
 
+        // Labels added to the issues created
+        public List<string> Owners = new List<string>(); 
+
         // The name of the template to use to render regressions for this source
         public string Template { get; set; } = @"";
     }

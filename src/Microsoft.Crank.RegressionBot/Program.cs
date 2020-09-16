@@ -669,6 +669,16 @@ namespace Microsoft.Crank.RegressionBot
                                 }
                             }
 
+                            foreach (var label in source.Regressions.Labels)
+                            {
+                                regression.Labels.Add(label);
+                            }
+
+                            foreach(var owner in source.Regressions.Owners)
+                            {
+                                regression.Owners.Add(owner);
+                            }
+
                             // If there are subsequent measurements, detect if the benchmark has 
                             // recovered by search for a value in the limits
                             

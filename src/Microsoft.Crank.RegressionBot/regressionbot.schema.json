@@ -73,6 +73,24 @@
             "type": "object",
             "$ref": "#/definitions/probe"
           }
+        },
+        "labels": {
+          "type": "array",
+          "description": "The labels to add to the GitHub issue.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "owners": {
+          "type": "array",
+          "description": "The owners to include in the GitHub issue.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "template": {
+          "type": "string",
+          "description": "The name of a template defined in root templates property."
         }
       }
     },
@@ -91,17 +109,9 @@
         },
         "labels": {
           "type": "array",
-          "description": "The labels to add to the GitHub issue when this rule is matched.",
           "items": {
             "type": "string"
-          }
-        },
-        "owners": {
-          "type": "array",
-          "description": "The owners to include in the GitHub issue when this rule is matched.",
-          "items": {
-            "type": "string"
-          }
+           }
         }
       }
     },
