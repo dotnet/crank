@@ -109,9 +109,17 @@
         },
         "labels": {
           "type": "array",
+          "description": "The labels to add to the GitHub issue.",
           "items": {
             "type": "string"
-           }
+          }
+        },
+        "owners": {
+          "type": "array",
+          "description": "The owners to include in the GitHub issue.",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },

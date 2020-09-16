@@ -20,6 +20,9 @@ sources:
       - include: Mvc
         labels: 
           - area-mvc
+        owners:
+          - sebastienros
+
       - exclude: ulib
     daysToLoad: 14
     daysToAnalyze: 7
