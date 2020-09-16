@@ -213,7 +213,7 @@ namespace Microsoft.Crank.RegressionBot
                     continue;
                 }
 
-                Console.WriteLine("Excluding the ones already reported...");
+                Console.WriteLine($"Found {regressions.Count()} Excluding the ones already reported...");
 
                 var newRegressions = await RemoveReportedRegressions(regressions, false, s);
 
@@ -225,7 +225,7 @@ namespace Microsoft.Crank.RegressionBot
                 }
                 else
                 {
-                    Console.WriteLine("No new regressions where found.");
+                    Console.WriteLine("No new regressions were found.");
                 }
             }
 
