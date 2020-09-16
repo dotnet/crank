@@ -894,6 +894,11 @@ namespace Microsoft.Crank.RegressionBot
                 return _recentIssues;
             }
 
+            if (_options.Debug)
+            {
+                return Enumerable.Empty<Issue>().ToArray();
+            }
+
             var client = new GitHubClient(ClientHeader);
             client.Credentials = _credentials;
 
