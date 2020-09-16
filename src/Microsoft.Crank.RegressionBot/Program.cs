@@ -282,9 +282,6 @@ namespace Microsoft.Crank.RegressionBot
                 return;
             }
 
-            var client = new GitHubClient(ClientHeader);
-            client.Credentials = _credentials;
-
             var report = new Report
             {
                 Regressions = regressions.OrderBy(x => x.CurrentResult.Scenario).ThenBy(x => x.CurrentResult.DateTimeUtc).ToList()
@@ -312,14 +309,20 @@ namespace Microsoft.Crank.RegressionBot
                 title += " ...";
             }
 
-            var createIssue = new NewIssue(title)
+            if (!_options.Debug)
             {
-                Body = result.ToString()
-            };
+                var client = new GitHubClient(ClientHeader);
+                client.Credentials = _credentials;
 
-            TagIssue(createIssue, regressions);
+                var createIssue = new NewIssue(title)
+                {
+                    Body = result.ToString()
+                };
 
-            var issue = await client.Issue.Create(_options.RepositoryId, createIssue);
+                TagIssue(createIssue, regressions);
+
+                var issue = await client.Issue.Create(_options.RepositoryId, createIssue);
+            }
 
             if (_options.Debug || _options.Verbose)
             {
@@ -916,6 +919,11 @@ namespace Microsoft.Crank.RegressionBot
         private static async Task<IEnumerable<Regression>> RemoveReportedRegressions(IEnumerable<Regression> regressions, bool reopenIssues, Source source)
         {
             if (!regressions.Any())
+            {
+                return regressions;
+            }
+
+            if (!_options.Debug)
             {
                 return regressions;
             }
