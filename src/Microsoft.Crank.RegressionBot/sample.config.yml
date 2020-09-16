@@ -2,7 +2,7 @@ templates:
   rps: "A performance regression has been detected for the following scenarios: \n\n
       | Scenario | Environment | Date | Old RPS | New RPS | Change | Deviation | StDev | \n
       | -------- | ----------- | ---- | ------- | ------- | ------ | --------- | ----- | \n
-      {% for regression in Regressions -%}
+      {% for regression in Regressions %}
       {% assign r = regression.CurrentResult %}
       {% assign p = regression.PreviousResult %}
       {% assign rps = r.Data.jobs.load.results['wrk/rps/mean'] %}

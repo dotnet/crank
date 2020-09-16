@@ -987,6 +987,8 @@ namespace Microsoft.Crank.RegressionBot
             var labels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var owners = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+            var markers = new StringBuilder();
+
             foreach (var regression in regressions)
             {
                 foreach (var label in regression.Labels)
@@ -1004,6 +1006,8 @@ namespace Microsoft.Crank.RegressionBot
                         owners.Add(owner);
                     }
                 }
+
+                markers.AppendLine(regression.Identifier);
             }
 
             foreach (var label in labels)
@@ -1020,6 +1024,8 @@ namespace Microsoft.Crank.RegressionBot
             {
                 issue.Body += $"@{owner}\n";
             }
+
+            issue.Body += "<!-- \n" + markers.ToString() + "\n-->";
         }        
     }
 }
