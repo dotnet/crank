@@ -31,6 +31,9 @@ namespace Microsoft.Crank.RegressionBot
         // Numbers of days to skip from the analysis
         public int DaysToSkip { get; set; } = 0;
 
+        // Numbers of days for recent issues to load in GitHub
+        public int DaysOfRecentIssues { get; set; } = 7;
+
         /// <summary>
         /// Returns the list of <see cref="Rule" /> that match a descriptor
         /// </summary>

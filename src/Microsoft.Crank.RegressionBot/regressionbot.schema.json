@@ -42,7 +42,13 @@
           "type": "integer",
           "title": "Number of days of benchmarks to ignore.",
           "default": 0,
-          "minimum": 1
+          "minimum": 0
+        },
+        "daysOfRecentIssues":{
+          "type": "integer",
+          "title": "Number of days of issues to load on GitHub.",
+          "default": 7,
+          "minimum": 0
         },
         "regressions" :{
           "type": "object",

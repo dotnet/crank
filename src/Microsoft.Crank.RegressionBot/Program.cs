@@ -35,6 +35,8 @@ namespace Microsoft.Crank.RegressionBot
 {
     class Program
     {
+        static ProductHeaderValue ClientHeader = new ProductHeaderValue("CrankBot");
+
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
 
@@ -42,7 +44,8 @@ namespace Microsoft.Crank.RegressionBot
 
         static BotOptions _options;
         static Credentials _credentials;
-
+        static IReadOnlyList<Issue> _recentIssues;
+        
         static Program()
         {
             // Configuring the http client to trust the self-signed certificate
@@ -212,7 +215,7 @@ namespace Microsoft.Crank.RegressionBot
 
                 Console.WriteLine("Excluding the ones already reported...");
 
-                var newRegressions = await RemoveReportedRegressions(regressions, false, r => r.CurrentResult.DateTimeUtc.ToString("u"));
+                var newRegressions = await RemoveReportedRegressions(regressions, false, s);
 
                 if (newRegressions.Any())
                 {
@@ -279,8 +282,8 @@ namespace Microsoft.Crank.RegressionBot
                 return;
             }
 
-            // var client = new GitHubClient(_productHeaderValue);
-            // client.Credentials = _credentials;
+            var client = new GitHubClient(ClientHeader);
+            client.Credentials = _credentials;
 
             var report = new Report
             {
@@ -302,93 +305,21 @@ namespace Microsoft.Crank.RegressionBot
 
             var result = await fluidTemplate.RenderAsync(context);
             
-            // foreach (var r in regressions.OrderBy(x => x.Result.Scenario).ThenBy(x => x.Result.DateTimeUtc))
-            // {
-            //     body.AppendLine(r.Result.Scenario);
-            //     body.AppendLine(r.Result.DateTimeUtc.ToString());
+            var title = "Performance regression: " + String.Join(", ", regressions.Select(x => x.CurrentResult.Scenario).Take(5));
 
-            //     // body.AppendLine();
-            //     // body.AppendLine();
-            //     // body.AppendLine("| Scenario | Environment | Date | Old RPS | New RPS | Change | Deviation |");
-            //     // body.AppendLine("| -------- | ----------- | ---- | ------- | ------- | ------ | --------- |");
+            if (regressions.Count() > 5)
+            {
+                title += " ...";
+            }
 
-            //     // var prevRPS = r.Values.Skip(2).First();
-            //     // var rps = r.Values.Last();
-            //     // var change = Math.Round((double)(rps - prevRPS) / prevRPS * 100, 2);
-            //     // var deviation = Math.Round((double)(rps - prevRPS) / r.Stdev, 2);
+            var createIssue = new NewIssue(title)
+            {
+                Body = result.ToString()
+            };
 
-            //     // body.AppendLine($"| {r.Scenario} | {r.OperatingSystem}, {r.Scheme}, {r.WebHost} | {r.DateTimeUtc.ToString("u")} | {prevRPS.ToString("n0")} | {rps.ToString("n0")} | {change} % | {deviation} σ |");
+            TagIssue(createIssue, regressions);
 
-
-            //     // body.AppendLine();
-            //     // body.AppendLine("Before versions:");
-
-            //     // body.AppendLine($"ASP.NET Core __{r.PreviousAspNetCoreVersion}__");
-            //     // body.AppendLine($".NET Core __{r.PreviousDotnetCoreVersion}__");
-
-            //     // body.AppendLine();
-            //     // body.AppendLine("After versions:");
-
-            //     // body.AppendLine($"ASP.NET Core __{r.CurrentAspNetCoreVersion}__");
-            //     // body.AppendLine($".NET Core __{r.CurrentDotnetCoreVersion}__");
-
-            //     // var aspNetChanged = r.PreviousAspNetCoreVersion != r.CurrentAspNetCoreVersion;
-            //     // var runtimeChanged = r.PreviousDotnetCoreVersion != r.CurrentDotnetCoreVersion;
-
-            //     // if (aspNetChanged || runtimeChanged)
-            //     // {
-            //     //     body.AppendLine();
-            //     //     body.AppendLine("Commits:");
-
-            //     //     if (aspNetChanged)
-            //     //     {
-            //     //         if (r.AspNetCoreHashes != null && r.AspNetCoreHashes.Length == 2 && r.AspNetCoreHashes[0] != null && r.AspNetCoreHashes[1] != null)
-            //     //         {
-            //     //             body.AppendLine();
-            //     //             body.AppendLine("__ASP.NET Core__");
-            //     //             body.AppendLine($"https://github.com/dotnet/aspnetcore/compare/{r.AspNetCoreHashes[0]}...{r.AspNetCoreHashes[1]}");
-            //     //         }
-            //     //     }
-
-            //     //     if (runtimeChanged)
-            //     //     {
-            //     //         if (r.DotnetCoreHashes != null && r.DotnetCoreHashes.Length == 2 && r.DotnetCoreHashes[0] != null && r.DotnetCoreHashes[1] != null)
-            //     //         {
-            //     //             body.AppendLine();
-            //     //             body.AppendLine("__.NET Core__");
-            //     //             body.AppendLine($"https://github.com/dotnet/runtime/compare/{r.DotnetCoreHashes[0]}...{r.DotnetCoreHashes[1]}");
-            //     //         }
-            //     //     }
-            //     // }
-            // }
-
-
-            // body
-            //     .AppendLine()
-            //     .AppendLine("[Logs](https://dev.azure.com/dnceng/internal/_build?definitionId=825&_a=summary)")
-            //     ;
-
-            // var title = "Performance regression: " + String.Join(", ", regressions.Select(x => x.Scenario).Take(5));
-
-            // if (regressions.Count() > 5)
-            // {
-            //     title += " ...";
-            // }
-
-            // var createIssue = new NewIssue(title)
-            // {
-            //     Body = body.ToString()
-            // };
-
-            // createIssue.Labels.Add("Perf");
-            // createIssue.Labels.Add("perf-regression");
-
-            // AssignTags(createIssue, regressions.Select(x => x.Scenario));
-
-            // Console.WriteLine(createIssue.Body);
-            // Console.WriteLine(String.Join(", ", createIssue.Labels));
-
-            // var issue = await client.Issue.Create(_repositoryId, createIssue);
+            var issue = await client.Issue.Create(_options.RepositoryId, createIssue);
 
             if (_options.Debug || _options.Verbose)
             {
@@ -722,6 +653,19 @@ namespace Microsoft.Crank.RegressionBot
                                 Average = average
                             };
 
+                            foreach (var rule in rules)
+                            {
+                                foreach (var label in rule.Labels)
+                                {
+                                    regression.Labels.Add(label);
+                                }
+
+                                foreach(var owner in rule.Owners)
+                                {
+                                    regression.Owners.Add(owner);
+                                }
+                            }
+
                             // If there are subsequent measurements, detect if the benchmark has 
                             // recovered by search for a value in the limits
                             
@@ -938,108 +882,121 @@ namespace Microsoft.Crank.RegressionBot
         // }
 
         /// <summary>
+        /// Returns the issues from the past <see cref="RecentIssuesTimeSpan"/>
+        /// </summary>
+        private static async Task<IReadOnlyList<Issue>> GetRecentIssues(Source source)
+        {
+            if (_recentIssues != null)
+            {
+                return _recentIssues;
+            }
+
+            var client = new GitHubClient(ClientHeader);
+            client.Credentials = _credentials;
+
+            var recently = new RepositoryIssueRequest
+            {
+                Filter = IssueFilter.Created,
+                State = ItemStateFilter.All,
+                Since = DateTimeOffset.Now.AddDays(0 - source.DaysOfRecentIssues)
+            };
+
+            var issues = await client.Issue.GetAllForRepository(_options.RepositoryId, recently);
+
+            return _recentIssues = issues;
+        }
+
+        /// <summary>
         /// Filters out scenarios that have already been reported.
         /// </summary>
         /// <param name="regressions">The regressions to find in existing issues.</param>
         /// <param name="ignoreClosedIssues">True to report a scenario even if it's in an existing issue that is closed.</param>
         /// <param name="textToFind">The formatted text to find in an issue.</param>
         /// <returns></returns>
-        private static async Task<IEnumerable<Regression>> RemoveReportedRegressions(IEnumerable<Regression> regressions, bool ignoreClosedIssues, Func<Regression, string> textToFind)
+        private static async Task<IEnumerable<Regression>> RemoveReportedRegressions(IEnumerable<Regression> regressions, bool reopenIssues, Source source)
         {
             if (!regressions.Any())
             {
                 return regressions;
             }
 
-            await Task.Delay(0);
+            var issues = await GetRecentIssues(source);
 
-            return regressions;
+            // The list of regressions that will actually be reported
+            var filtered = new List<Regression>();
 
-            // var issues = await GetRecentIssues();
+            // Look for the same timestamp in all reported issues
+            foreach (var r in regressions)
+            {
+                // When filter is false the regression is kept
+                var skip = false;
 
-            // // The list of regressions that will actually be reported
-            // var filtered = new List<Regression>();
+                foreach (var issue in issues)
+                {
+                    // If reopenIssues is true, we don't remove regressions that are reported in closed issues.
+                    // It means that if an issue is already reported in a closed issue, it will be reported again,
+                    // and closing an issue allows the bot to repeat itself and report the regression again
 
-            // // Look for the same timestamp in all reported issues
-            // foreach (var r in regressions)
-            // {
-            //     // When filter is false the regression is kept
-            //     var filter = false;
+                    if (reopenIssues && issue.State == ItemState.Closed)
+                    {
+                        continue;
+                    }
 
-            //     foreach (var issue in issues)
-            //     {
-            //         // If ignoreClosedIssues is true, we don't remove scenarios from closed issues.
-            //         // It means that if an issue is already reported in a closed issue, it won't be filtered, hence it will be reported,
-            //         // and closing an issue allows the bot to repeat itself and reopen the scenario
+                    if (issue.Body != null && issue.Body.Contains(r.Identifier))
+                    {
+                        skip = true;
+                        break;
+                    }
+                }
 
-            //         if (ignoreClosedIssues && issue.State == ItemState.Closed)
-            //         {
-            //             continue;
-            //         }
+                if (!skip)
+                {
+                    filtered.Add(r);
+                }
+            }
 
-            //         if (issue.Body != null && issue.Body.Contains(textToFind(r)))
-            //         {
-            //             filter = true;
-            //             break;
-            //         }
-
-            //         if (_ignoredScenarios.Contains(r.Scenario))
-            //         {
-            //             filter = true;
-            //             break;
-            //         }
-            //     }
-
-            //     if (!filter)
-            //     {
-            //         filtered.Add(r);
-            //     }
-            // }
-
-            // return filtered;
+            return filtered;
         }
 
-        // private static void AssignTags(NewIssue issue, IEnumerable<string> scenarios)
-        // {
-        //     // Use hashsets to handle duplicates
-        //     var labels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        //     var owners = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private static void TagIssue(NewIssue issue, IEnumerable<Regression> regressions)
+        {
+            // Use hashsets to handle duplicates
+            var labels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var owners = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        //     foreach (var scenario in scenarios)
-        //     {
-        //         foreach (var tag in Tags.Match(scenario))
-        //         {
-        //             foreach (var label in tag.Labels)
-        //             {
-        //                 if (!String.IsNullOrWhiteSpace(label))
-        //                 {
-        //                     labels.Add(label);
-        //                 }
-        //             }
+            foreach (var regression in regressions)
+            {
+                foreach (var label in regression.Labels)
+                {
+                    if (!String.IsNullOrWhiteSpace(label))
+                    {
+                        labels.Add(label);
+                    }
+                }
 
-        //             foreach (var owner in tag.Owners)
-        //             {
-        //                 owners.Add(owner);
-        //             }
-        //         }
-        //     }
+                foreach (var owner in regression.Owners)
+                {
+                    if (!String.IsNullOrWhiteSpace(owner))
+                    {
+                        owners.Add(owner);
+                    }
+                }
+            }
 
-        //     foreach (var label in labels)
-        //     {
-        //         issue.Labels.Add(label);
-        //     }
+            foreach (var label in labels)
+            {
+                issue.Labels.Add(label);
+            }
 
-        //     if (owners.Any())
-        //     {
-        //         issue.Body += $"\n\n";
-        //     }
+            if (owners.Any())
+            {
+                issue.Body += $"\n\n";
+            }
 
-        //     foreach (var owner in owners)
-        //     {
-        //         issue.Body += $"@{owner}\n";
-        //     }
-        // }
-
-        
+            foreach (var owner in owners)
+            {
+                issue.Body += $"@{owner}\n";
+            }
+        }        
     }
 }

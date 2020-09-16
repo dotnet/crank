@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.Collections.Generic;
 
 namespace Microsoft.Crank.RegressionBot
 {
@@ -25,5 +26,9 @@ namespace Microsoft.Crank.RegressionBot
         /// Used to determine if two regressions are similar.
         /// </summary>
         public string Identifier => $"Id:{CurrentResult.Scenario}{CurrentResult.Description}{CurrentResult.DateTimeUtc}";
+
+        public HashSet<string> Labels { get; set; } = new HashSet<string>();
+        public HashSet<string> Owners { get; set; } = new HashSet<string>();
+        
     }
 }
