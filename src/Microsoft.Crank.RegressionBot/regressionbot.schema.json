@@ -38,6 +38,12 @@
           "default": 7,
           "minimum": 1
         },
+        "daysToSkip":{
+          "type": "integer",
+          "title": "Number of days of benchmarks to ignore.",
+          "default": 0,
+          "minimum": 1
+        },
         "regressions" :{
           "type": "object",
           "$ref": "#/definitions/section"

@@ -530,7 +530,8 @@ namespace Microsoft.Crank.RegressionBot
                 yield break;
             }
 
-            var detectionDateTimeUtc = DateTime.UtcNow.AddDays(0 - source.DaysToAnalyze);
+            var detectionMinDateTimeUtc = DateTime.UtcNow.AddDays(0 - source.DaysToAnalyze);
+            var detectionMaxDateTimeUtc = DateTime.UtcNow.AddDays(0 - source.DaysToSkip);
             
             var allResults = new List<BenchmarksResult>();
 
@@ -650,8 +651,9 @@ namespace Microsoft.Crank.RegressionBot
 
                     for (var i = 0; i < resultSet.Length - 5; i++)
                     {
-                        // Ignore results before the searched date
-                        if (resultSet[i].Result.DateTimeUtc < detectionDateTimeUtc)
+                        // Ignore results before the searched date and after the skipped dates
+                        if (resultSet[i].Result.DateTimeUtc < detectionMinDateTimeUtc
+                        || resultSet[i].Result.DateTimeUtc >= detectionMaxDateTimeUtc)
                         {
                             continue;
                         }

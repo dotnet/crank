@@ -27,7 +27,10 @@ namespace Microsoft.Crank.RegressionBot
 
         // Numbers of days to analyze
         public int DaysToAnalyze { get; set; } = 3;
-        
+
+        // Numbers of days to skip from the analysis
+        public int DaysToSkip { get; set; } = 0;
+
         /// <summary>
         /// Returns the list of <see cref="Rule" /> that match a descriptor
         /// </summary>
