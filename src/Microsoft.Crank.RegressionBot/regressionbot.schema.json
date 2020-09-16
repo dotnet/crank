@@ -73,23 +73,6 @@
             "type": "object",
             "$ref": "#/definitions/probe"
           }
-        },
-        "labels": {
-          "type": "array",
-          "description": "The labels to add to the GitHub issue when this rule is matched.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "owners": {
-          "type": "array",
-          "description": "The owners to include in the GitHub issue when this rule is matched.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "template": {
-          "type": "string"
         }
       }
     },
@@ -108,9 +91,17 @@
         },
         "labels": {
           "type": "array",
+          "description": "The labels to add to the GitHub issue when this rule is matched.",
           "items": {
             "type": "string"
-           }
+          }
+        },
+        "owners": {
+          "type": "array",
+          "description": "The owners to include in the GitHub issue when this rule is matched.",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
