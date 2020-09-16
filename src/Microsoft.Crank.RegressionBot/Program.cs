@@ -938,7 +938,7 @@ namespace Microsoft.Crank.RegressionBot
                 return regressions;
             }
 
-            if (!_options.Debug)
+            if (_options.Debug)
             {
                 return regressions;
             }
@@ -967,6 +967,11 @@ namespace Microsoft.Crank.RegressionBot
 
                     if (issue.Body != null && issue.Body.Contains(r.Identifier))
                     {
+                        if (_options.Debug)
+                        {
+                            Console.WriteLine($"Issue already reported: {r.Identifier}");
+                        }
+
                         skip = true;
                         break;
                     }
