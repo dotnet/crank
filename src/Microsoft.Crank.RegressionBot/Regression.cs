@@ -10,9 +10,15 @@ namespace Microsoft.Crank.RegressionBot
     {
         public BenchmarksResult PreviousResult { get; set; }
         public BenchmarksResult CurrentResult { get; set; }
-        public double Deviation { get; set; }
+        public double Change { get; set; }
         public double StandardDeviation { get; set; }
         public double Average { get; set; }
+
+        // Whether the regression is now fixed
+        public bool HasRecovered => RecoveredResult != null;
+
+        // The result when the benchmark recovered
+        public BenchmarksResult RecoveredResult { get; set; }
 
         /// <summary>
         /// Gets a string representing this regression.

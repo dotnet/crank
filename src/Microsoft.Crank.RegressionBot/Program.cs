@@ -636,12 +636,17 @@ namespace Microsoft.Crank.RegressionBot
                     // Calculate standard deviation
                     var values = resultSet.Select(x => x.Value).ToArray();
 
+                    if (_options.Verbose)
+                    {
+                        Console.WriteLine($"Values: [{String.Join(",", values)}]");
+                    }
+
                     double average = values.Average();
                     double sumOfSquaresOfDifferences = values.Sum(val => (val - average) * (val - average));
                     double standardDeviation = Math.Sqrt(sumOfSquaresOfDifferences / values.Length);
 
-                    // Look for 2 consecutive values that are outside of the standard deviations, 
-                    // subsequent to 3 consecutive values that are inside the standard deviations.  
+                    // Look for 2 consecutive values that are outside of the threshold, 
+                    // subsequent to 3 consecutive values that are inside the threshold.  
 
                     for (var i = 0; i < resultSet.Length - 5; i++)
                     {
@@ -669,8 +674,8 @@ namespace Microsoft.Crank.RegressionBot
                                 // factor of standard deviation
                                 hasRegressed = value1 < standardDeviation
                                     && value2 < standardDeviation
-                                    && value3 > probe.Threshold * standardDeviation
-                                    && value4 > probe.Threshold * standardDeviation
+                                    && value3 >= probe.Threshold * standardDeviation
+                                    && value4 >= probe.Threshold * standardDeviation
                                     && Math.Sign(value3) == Math.Sign(value4);
 
                                 break;
@@ -678,8 +683,8 @@ namespace Microsoft.Crank.RegressionBot
                                 // percentage of the average of values
                                 hasRegressed = value1 < average * (probe.Threshold / 100)
                                     && value2 < average * (probe.Threshold / 100)
-                                    && value3 > average * (probe.Threshold / 100)
-                                    && value4 > average * (probe.Threshold / 100)
+                                    && value3 >= average * (probe.Threshold / 100)
+                                    && value4 >= average * (probe.Threshold / 100)
                                     && Math.Sign(value3) == Math.Sign(value4);
 
                                 break;                            
@@ -687,8 +692,8 @@ namespace Microsoft.Crank.RegressionBot
                                 // absolute deviation
                                 hasRegressed = value1 < probe.Threshold
                                     && value2 < probe.Threshold
-                                    && value3 > probe.Threshold
-                                    && value4 > probe.Threshold
+                                    && value3 >= probe.Threshold
+                                    && value4 >= probe.Threshold
                                     && Math.Sign(value3) == Math.Sign(value4);
 
                                 break;
@@ -705,14 +710,62 @@ namespace Microsoft.Crank.RegressionBot
                                 Console.ResetColor();
                             }
 
-                            yield return new Regression 
+                            
+                            var regression = new Regression 
                             {
                                 PreviousResult = resultSet[i+2].Result,
                                 CurrentResult = resultSet[i+3].Result,
-                                Deviation = value2,
+                                Change = value3,
                                 StandardDeviation = standardDeviation,
                                 Average = average
                             };
+
+                            // If there are subsequent measurements, detect if the benchmark has 
+                            // recovered by search for a value in the limits
+                            
+                            for (var j = i + 5; j < resultSet.Length; j++)
+                            {
+                                var nextValue = Math.Abs(values[j] - values[i+2]);
+
+                                var hasRecovered = false;
+
+                                switch (probe.Unit)
+                                {
+                                    case ThresholdUnits.StDev:
+                                        // factor of standard deviation
+                                        hasRecovered = nextValue < probe.Threshold * standardDeviation
+                                            && Math.Sign(nextValue) == Math.Sign(value4);
+
+                                        break;
+                                    case ThresholdUnits.Percent:
+                                        // percentage of the average of values
+                                        hasRecovered = nextValue < average * (probe.Threshold / 100)
+                                            && Math.Sign(nextValue) == Math.Sign(value4);
+
+                                        break;                            
+                                    case ThresholdUnits.Absolute:
+                                        // absolute deviation
+                                        hasRecovered = nextValue < probe.Threshold
+                                            && Math.Sign(nextValue) == Math.Sign(value4);
+
+                                        break;
+                                    default:
+                                        break;
+                                } 
+
+                                if (hasRecovered)
+                                {
+                                    regression.RecoveredResult = resultSet[j].Result;
+                                    
+                                    Console.ForegroundColor = ConsoleColor.Green;
+                                    Console.WriteLine($"Recovered on {regression.RecoveredResult.DateTimeUtc}");
+                                    Console.ResetColor();
+                                    
+                                    break;
+                                }
+                            }
+
+                            yield return regression; 
                         }
                     }
                 }
