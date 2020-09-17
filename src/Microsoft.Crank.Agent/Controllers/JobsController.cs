@@ -44,17 +44,80 @@ namespace Microsoft.Crank.Agent.Controllers
             {
                 return _jobs.GetAll().Where(IsActive).Select(x => new JobResult(x, this.Url));
             }
+        }
 
-            bool IsActive(Job job)
+        [HttpGet("services/{service}")]
+        public IActionResult LatestService(string service)
+        {
+            lock (_jobs)
             {
-                return job.State == JobState.New
-                    || job.State == JobState.Waiting
-                    || job.State == JobState.Initializing
-                    || job.State == JobState.Starting
-                    || job.State == JobState.Running
-                    ;
+                return DetailResult(() => _jobs.GetAll().LastOrDefault(x => x.Service.Equals(service, StringComparison.OrdinalIgnoreCase)));
             }
         }
+
+        [HttpGet("services/{service}/measurements")]
+        public IActionResult LatestServiceMeasurements(string service, string path)
+        {
+            lock (_jobs)
+            {
+                var filter = this.Request.Query["name"];
+
+                IEnumerable<Measurement> measurements = null;
+
+                if (filter.Any())
+                {
+                    measurements = _jobs
+                        .GetAll()
+                        .LastOrDefault(x => x.Service.Equals(service, StringComparison.OrdinalIgnoreCase))
+                        ?.Measurements
+                        ?.Where(x => x.Name.Equals(filter.First(), StringComparison.OrdinalIgnoreCase))
+                        ;
+                }
+                else
+                {
+                    measurements = _jobs
+                        .GetAll()
+                        .LastOrDefault(x => x.Service.Equals(service, StringComparison.OrdinalIgnoreCase))
+                        ?.Measurements
+                        ;
+                }
+
+                return ObjectOrNotFoundResult(measurements);
+            }
+        }
+
+        [HttpGet("services/{service}/measurements/last")]
+        public IActionResult LatestServiceLatestMeasurement(string service, string path)
+        {
+            lock (_jobs)
+            {
+                var filter = this.Request.Query["name"];
+
+                Measurement measurement = null;
+
+                if (filter.Any())
+                {
+                    measurement = _jobs
+                        .GetAll()
+                        .LastOrDefault(x => x.Service.Equals(service, StringComparison.OrdinalIgnoreCase))
+                        ?.Measurements
+                        ?.LastOrDefault(x => x.Name.Equals(filter.First(), StringComparison.OrdinalIgnoreCase))
+                        ;
+                }
+                else
+                {
+                    measurement = _jobs
+                        .GetAll()
+                        .LastOrDefault(x => x.Service.Equals(service, StringComparison.OrdinalIgnoreCase))
+                        ?.Measurements
+                        ?.LastOrDefault()
+                        ;
+                }
+
+                return ObjectOrNotFoundResult(measurement);
+            }
+        }
+
         [HttpGet("{id}/touch")]
         public IActionResult Touch(int id)
         {
@@ -720,5 +783,49 @@ namespace Microsoft.Crank.Agent.Controllers
             }
         }
 
+
+        private IActionResult SummaryResult(Func<Job> filter)
+        {
+            var job = filter();
+
+            if (job == null)
+            {
+                return NotFound();
+            }
+
+            return new ObjectResult(new JobResult(job, this.Url));
+        }
+
+        private IActionResult DetailResult(Func<Job> filter)
+        {
+            var job = filter();
+
+            if (job == null)
+            {
+                return NotFound();
+            }
+
+            return new ObjectResult(job);
+        }    
+        
+        private IActionResult ObjectOrNotFoundResult(object obj)
+        {
+            if (obj == null)
+            {
+                return NotFound();
+            }
+
+            return new ObjectResult(obj);
+        }        
+        
+        private bool IsActive(Job job)
+        {
+            return job.State == JobState.New
+                || job.State == JobState.Waiting
+                || job.State == JobState.Initializing
+                || job.State == JobState.Starting
+                || job.State == JobState.Running
+                ;
+        }
     }
 }
