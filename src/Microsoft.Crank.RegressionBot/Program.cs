@@ -211,7 +211,7 @@ namespace Microsoft.Crank.RegressionBot
                     continue;
                 }
 
-                Console.WriteLine($"Found {regressions.Count()}");
+                Console.WriteLine($"Found {regressions.Count()} regressions");
                 
                 Console.WriteLine("Updating existing issues...");
 
@@ -952,6 +952,8 @@ namespace Microsoft.Crank.RegressionBot
 
             var issues = await GetRecentIssues(source);
 
+            Console.WriteLine($"Downloaded {issues.Count()} issues");
+            
             // The list of regressions that remain to be reported
             var regressionsToReport = new List<Regression>(regressions);
 
@@ -965,7 +967,7 @@ namespace Microsoft.Crank.RegressionBot
                 // For each issue, extract the regression and update their status (fixed).
                 // If all regressions are fixed, close the issue.
 
-                var regressionSummaries = ExtractRegressionsBlock(issue.Body).ToDictionary(x => x.Identifier, x => x);
+                var regressionSummaries = ExtractRegressionsBlock(issue.Body)?.ToDictionary(x => x.Identifier, x => x);
 
                 if (regressionSummaries == null)
                 {
