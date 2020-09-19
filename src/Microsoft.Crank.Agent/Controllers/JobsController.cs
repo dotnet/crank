@@ -143,7 +143,7 @@ namespace Microsoft.Crank.Agent.Controllers
                 job.Hardware = Startup.Hardware;
                 job.HardwareVersion = Startup.HardwareVersion;
                 job.OperatingSystem = Startup.OperatingSystem;
-                // Use server-side date and time to prevent issues fron time drifting
+                // Use server-side date and time to prevent issues from time drifting
                 job.LastDriverCommunicationUtc = DateTime.UtcNow;
                 job = _jobs.Add(job);
 

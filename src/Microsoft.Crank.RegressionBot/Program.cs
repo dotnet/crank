@@ -7,27 +7,18 @@ using System.Collections.Generic;
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.Data.SqlClient;
-using System.IdentityModel.Tokens.Jwt;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Reflection;
-using System.Security.Cryptography;
 using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
-using Microsoft.IdentityModel.Tokens;
 using Fluid;
 using Fluid.Values;
 using Manatee.Json.Schema;
 using Manatee.Json;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Newtonsoft.Json.Serialization;
 using Octokit;
 using YamlDotNet.Serialization;
 
@@ -37,6 +28,7 @@ namespace Microsoft.Crank.RegressionBot
     {
         static ProductHeaderValue ClientHeader = new ProductHeaderValue("CrankBot");
 
+        private static GitHubClient _githubClient;
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
 
@@ -205,6 +197,8 @@ namespace Microsoft.Crank.RegressionBot
                 {
                     Console.WriteLine($"Processing source '{s.Name}'");
                 }
+
+                var template = templates[s.Regressions.Template];
                 
                 var regressions = await FindRegression(s).ToListAsync();
 
@@ -213,15 +207,17 @@ namespace Microsoft.Crank.RegressionBot
                     continue;
                 }
 
-                Console.WriteLine($"Found {regressions.Count()} Excluding the ones already reported...");
+                Console.WriteLine($"Found {regressions.Count()}");
+                
+                Console.WriteLine("Updating existing issues...");
 
-                var newRegressions = await RemoveReportedRegressions(regressions, false, s);
+                var newRegressions = await UpdateIssues(regressions, s, template);
 
                 if (newRegressions.Any())
                 {
                     Console.WriteLine("Reporting new regressions...");
 
-                    await CreateRegressionIssue(newRegressions, templates[s.Regressions.Template]);
+                    await CreateRegressionIssue(newRegressions, template);
                 }
                 else
                 {
@@ -275,13 +271,8 @@ namespace Microsoft.Crank.RegressionBot
             return 0;
         }
 
-        private static async Task CreateRegressionIssue(IEnumerable<Regression> regressions, string template)
+        private static async Task<string> CreateIssueBody(IEnumerable<Regression> regressions, string template)
         {
-            if (regressions == null || !regressions.Any())
-            {
-                return;
-            }
-
             var report = new Report
             {
                 Regressions = regressions.OrderBy(x => x.CurrentResult.Scenario).ThenBy(x => x.CurrentResult.DateTimeUtc).ToList()
@@ -295,12 +286,28 @@ namespace Microsoft.Crank.RegressionBot
                     Console.WriteLine(error);
                 }
 
-                return;
+                return "";
             }
 
             var context = new TemplateContext { Model = report };
 
-            var result = await fluidTemplate.RenderAsync(context);
+            var body = await fluidTemplate.RenderAsync(context);
+
+            body = AddOwners(body, regressions);
+
+            body += CreateRegressionsBlock(regressions);
+
+            return body;
+        }
+
+        private static async Task CreateRegressionIssue(IEnumerable<Regression> regressions, string template)
+        {
+            if (regressions == null || !regressions.Any())
+            {
+                return;
+            }
+
+            var body = await CreateIssueBody(regressions, template);            
             
             var title = "Performance regression: " + String.Join(", ", regressions.Select(x => x.CurrentResult.Scenario).Take(5));
 
@@ -311,22 +318,19 @@ namespace Microsoft.Crank.RegressionBot
 
             if (!_options.Debug)
             {
-                var client = new GitHubClient(ClientHeader);
-                client.Credentials = _credentials;
-
                 var createIssue = new NewIssue(title)
                 {
-                    Body = result.ToString()
+                    Body = body
                 };
 
                 TagIssue(createIssue, regressions);
 
-                var issue = await client.Issue.Create(_options.RepositoryId, createIssue);
+                var issue = await GetClient().Issue.Create(_options.RepositoryId, createIssue);
             }
 
             if (_options.Debug || _options.Verbose)
             {
-                Console.WriteLine(result.ToString());
+                Console.WriteLine(body.ToString());
             }
         }
 
@@ -909,9 +913,6 @@ namespace Microsoft.Crank.RegressionBot
                 return Enumerable.Empty<Issue>().ToArray();
             }
 
-            var client = new GitHubClient(ClientHeader);
-            client.Credentials = _credentials;
-
             var recently = new RepositoryIssueRequest
             {
                 Filter = IssueFilter.Created,
@@ -919,19 +920,18 @@ namespace Microsoft.Crank.RegressionBot
                 Since = DateTimeOffset.Now.AddDays(0 - source.DaysOfRecentIssues)
             };
 
-            var issues = await client.Issue.GetAllForRepository(_options.RepositoryId, recently);
+            var issues = await GetClient().Issue.GetAllForRepository(_options.RepositoryId, recently);
 
             return _recentIssues = issues;
         }
 
         /// <summary>
-        /// Filters out scenarios that have already been reported.
+        /// Updates and closes existing issues based on regressions found.
         /// </summary>
-        /// <param name="regressions">The regressions to find in existing issues.</param>
-        /// <param name="ignoreClosedIssues">True to report a scenario even if it's in an existing issue that is closed.</param>
-        /// <param name="textToFind">The formatted text to find in an issue.</param>
-        /// <returns></returns>
-        private static async Task<IEnumerable<Regression>> RemoveReportedRegressions(IEnumerable<Regression> regressions, bool reopenIssues, Source source)
+        /// <returns>
+        /// The remaining issues that haven't been reported yet.
+        /// </returns>
+        private static async Task<IEnumerable<Regression>> UpdateIssues(IEnumerable<Regression> regressions, Source source, string template)
         {
             if (!regressions.Any())
             {
@@ -945,54 +945,121 @@ namespace Microsoft.Crank.RegressionBot
 
             var issues = await GetRecentIssues(source);
 
-            // The list of regressions that will actually be reported
-            var filtered = new List<Regression>();
+            // The list of regressions that remain to be reported
+            var regressionsToReport = new List<Regression>(regressions);
 
-            // Look for the same timestamp in all reported issues
-            foreach (var r in regressions)
+            foreach (var issue in issues)
             {
-                // When filter is false the regression is kept
-                var skip = false;
-
-                foreach (var issue in issues)
+                if (String.IsNullOrWhiteSpace(issue.Body))
                 {
-                    // If reopenIssues is true, we don't remove regressions that are reported in closed issues.
-                    // It means that if an issue is already reported in a closed issue, it will be reported again,
-                    // and closing an issue allows the bot to repeat itself and report the regression again
-
-                    if (reopenIssues && issue.State == ItemState.Closed)
-                    {
-                        continue;
-                    }
-
-                    if (issue.Body != null && issue.Body.Contains(r.Identifier))
-                    {
-                        if (_options.Debug)
-                        {
-                            Console.WriteLine($"Issue already reported: {r.Identifier}");
-                        }
-
-                        skip = true;
-                        break;
-                    }
+                    continue;
                 }
 
-                if (!skip)
+                // For each issue, extract the regression and update their status (fixed).
+                // If all regressions are fixed, close the issue.
+
+                var regressionSummaries = ExtractRegressionsBlock(issue.Body).ToDictionary(x => x.Identifier, x => x);
+
+                if (regressionSummaries == null)
                 {
-                    filtered.Add(r);
+                    continue;
+                }
+
+                Console.WriteLine($"Checking issue {issue.Url}");
+
+                // Find all regressions that are reported in this issue.
+
+                var allRegressionsInIssue = regressions
+                    .Where(x => regressionSummaries.Keys.Contains(x.Identifier))
+                    .ToList();                
+
+                // Remove all regressions that were found so they are not reported again.
+
+                foreach (var r in allRegressionsInIssue)
+                {
+                    regressionsToReport.Remove(r);
+                }
+
+                if (allRegressionsInIssue.Count() == regressionSummaries.Count())
+                {
+                    // We could find all the regressions from this issue.
+                    // We can attempt to update it.
+
+                    var issueNeedsUpdate = allRegressionsInIssue.Any(x => x.HasRecovered != regressionSummaries[x.Identifier].HasRecovered);
+
+                    if (issueNeedsUpdate)
+                    {
+                        Console.WriteLine("Updating issue...");
+                        var update = issue.ToUpdate();
+
+                        update.Body = await CreateIssueBody(regressions, template);
+
+                        // If all regressions have recovered, close it
+                        if (allRegressionsInIssue.All(x => x.HasRecovered))
+                        {
+                            Console.WriteLine("All regression have recovered, closing the issue");
+                            update.State = ItemState.Closed;
+                        }
+
+                        await GetClient().Issue.Update(_options.RepositoryId, issue.Number, update);
+                    }
+                    else
+                    {
+                        Console.WriteLine("Issue doesn't need to be updated");
+                    }
                 }
             }
 
-            return filtered;
+            // Exclude all un-recovered issues to be reported on new issues
+            regressionsToReport = regressionsToReport.Where(x => !x.HasRecovered).ToList();
+
+            return regressionsToReport;
+        }
+
+        private static GitHubClient GetClient()
+        {
+            if (_githubClient == null)
+            {
+                _githubClient = new GitHubClient(ClientHeader);
+                _githubClient.Credentials = _credentials;
+            }
+
+            return _githubClient;
+        }
+
+        private static string AddOwners(string body, IEnumerable<Regression> regressions)
+        {
+            // Use hashsets to handle duplicates
+            var owners = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var regression in regressions)
+            {
+                foreach (var owner in regression.Owners)
+                {
+                    if (!String.IsNullOrWhiteSpace(owner))
+                    {
+                        owners.Add(owner);
+                    }
+                }
+            }
+
+            if (owners.Any())
+            {
+                body += $"\n\n";
+            }
+
+            foreach (var owner in owners)
+            {
+                body += $"@{owner}\n";
+            }
+
+            return body;
         }
 
         private static void TagIssue(NewIssue issue, IEnumerable<Regression> regressions)
         {
             // Use hashsets to handle duplicates
             var labels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var owners = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            var markers = new StringBuilder();
 
             foreach (var regression in regressions)
             {
@@ -1003,34 +1070,57 @@ namespace Microsoft.Crank.RegressionBot
                         labels.Add(label);
                     }
                 }
-
-                foreach (var owner in regression.Owners)
-                {
-                    if (!String.IsNullOrWhiteSpace(owner))
-                    {
-                        owners.Add(owner);
-                    }
-                }
-
-                markers.AppendLine(regression.Identifier);
             }
 
             foreach (var label in labels)
             {
                 issue.Labels.Add(label);
             }
+        }
+        
+        private static string RegressionsPrefix = "{Regressions}";
+        private static string RegressionsSuffix = "{/Regressions}";
+        
+        private static string CreateRegressionsBlock(IEnumerable<Regression> regressions)
+        {
+            // A custom Base64 payload is injected as a comment in the issue such that we
+            // can come back on the issue to update its content
 
-            if (owners.Any())
+            var summaries = regressions.Select(x => new RegressionSummary { Identifier = x.Identifier, HasRecovered = x.HasRecovered });
+            var json = JsonConvert.SerializeObject(summaries, Formatting.None);
+            var base64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
+            return $"<!-- {RegressionsPrefix}{base64}{RegressionsSuffix} -->";
+        }
+
+        private static IEnumerable<RegressionSummary> ExtractRegressionsBlock(string body)
+        {
+            var start = body.IndexOf(RegressionsPrefix);
+
+            if (start == -1)
             {
-                issue.Body += $"\n\n";
+                return null;
             }
 
-            foreach (var owner in owners)
+            start = start + RegressionsPrefix.Length + 1;
+
+            var end = body.IndexOf(RegressionsSuffix, start);
+
+            if (end == -1)
             {
-                issue.Body += $"@{owner}\n";
+                return null;
             }
 
-            issue.Body += "<!-- \n" + markers.ToString() + "\n-->";
-        }        
+            var base64 = body.Substring(start, end - start);
+
+            try
+            {
+                var json = Encoding.UTF8.GetString(Convert.FromBase64String(base64));
+                return JsonConvert.DeserializeObject<RegressionSummary[]>(json);
+            }
+            catch
+            {
+                return null;
+            }
+        }
     }
 }

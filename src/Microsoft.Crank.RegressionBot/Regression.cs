@@ -4,6 +4,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Text;
+using Newtonsoft.Json;
 
 namespace Microsoft.Crank.RegressionBot
 {
@@ -29,6 +31,5 @@ namespace Microsoft.Crank.RegressionBot
 
         public HashSet<string> Labels { get; set; } = new HashSet<string>();
         public HashSet<string> Owners { get; set; } = new HashSet<string>();
-        
     }
 }
