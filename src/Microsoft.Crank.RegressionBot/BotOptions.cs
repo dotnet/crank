@@ -18,6 +18,7 @@ namespace Microsoft.Crank.RegressionBot
         public string[] Config { get; set; } = Array.Empty<string>();
         public bool Debug { get; set; }
         public bool Verbose { get; set; }
+        public bool ReadOnly { get; set; }
 
         public void Validate()
         {

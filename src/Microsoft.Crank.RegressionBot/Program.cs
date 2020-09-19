@@ -92,6 +92,10 @@ namespace Microsoft.Crank.RegressionBot
                     "--verbose",
                     "When used, detailed logs are displayed."
                 ),
+                new Option<bool>(
+                    "--read-only",
+                    "When used, nothing is written on GitHub."
+                ),
             };
 
             rootCommand.Description = "Crank Regression Bot";
@@ -325,7 +329,10 @@ namespace Microsoft.Crank.RegressionBot
 
                 TagIssue(createIssue, regressions);
 
-                var issue = await GetClient().Issue.Create(_options.RepositoryId, createIssue);
+                if (!_options.ReadOnly) 
+                {
+                    await GetClient().Issue.Create(_options.RepositoryId, createIssue);
+                }
             }
 
             if (_options.Debug || _options.Verbose)
@@ -1001,7 +1008,10 @@ namespace Microsoft.Crank.RegressionBot
                             update.State = ItemState.Closed;
                         }
 
-                        await GetClient().Issue.Update(_options.RepositoryId, issue.Number, update);
+                        if (!_options.ReadOnly)
+                        {
+                            await GetClient().Issue.Update(_options.RepositoryId, issue.Number, update);
+                        }
                     }
                     else
                     {
