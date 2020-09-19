@@ -959,6 +959,11 @@ namespace Microsoft.Crank.RegressionBot
 
             foreach (var issue in issues)
             {
+                if (_options.Verbose)
+                {
+                    Console.WriteLine($"Checking issue: {issue.Url}");
+                }
+
                 if (String.IsNullOrWhiteSpace(issue.Body))
                 {
                     continue;
@@ -973,8 +978,6 @@ namespace Microsoft.Crank.RegressionBot
                 {
                     continue;
                 }
-
-                Console.WriteLine($"Checking issue {issue.Url}");
 
                 // Find all regressions that are reported in this issue.
 
@@ -1113,7 +1116,7 @@ namespace Microsoft.Crank.RegressionBot
                 return null;
             }
 
-            start = start + RegressionsPrefix.Length + 1;
+            start = start + RegressionsPrefix.Length;
 
             var end = body.IndexOf(RegressionsSuffix, start);
 
