@@ -953,7 +953,7 @@ namespace Microsoft.Crank.RegressionBot
             var issues = await GetRecentIssues(source);
 
             Console.WriteLine($"Downloaded {issues.Count()} issues");
-            
+
             // The list of regressions that remain to be reported
             var regressionsToReport = new List<Regression>(regressions);
 
@@ -1124,6 +1124,11 @@ namespace Microsoft.Crank.RegressionBot
 
             var base64 = body.Substring(start, end - start);
 
+            if (_options.Verbose)
+            {
+                Console.WriteLine($"Base64: {base64}");
+            }
+
             try
             {
                 var json = Encoding.UTF8.GetString(Convert.FromBase64String(base64));
@@ -1131,6 +1136,11 @@ namespace Microsoft.Crank.RegressionBot
             }
             catch
             {
+                if (_options.Verbose)
+                {
+                    Console.WriteLine($"Error while parsing regression summaries");
+                }
+
                 return null;
             }
         }
