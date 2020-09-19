@@ -68,7 +68,7 @@ namespace Microsoft.Crank.RegressionBot
                     "The GitHub account access token. (Secured)"),
                 new Option<string>(
                     "--username",
-                    "The GitHub account username."),
+                    "The GitHub account username. e.g., 'pr-benchmarks[bot]'"){ IsRequired = true },
                 new Option<string>(
                     "--app-key",
                     "The GitHub application key. (Secured)"),
@@ -922,6 +922,7 @@ namespace Microsoft.Crank.RegressionBot
 
             var recently = new RepositoryIssueRequest
             {
+                Creator = _options.Username,
                 Filter = IssueFilter.Created,
                 State = ItemStateFilter.All,
                 Since = DateTimeOffset.Now.AddDays(0 - source.DaysOfRecentIssues)
