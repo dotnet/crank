@@ -1005,7 +1005,7 @@ namespace Microsoft.Crank.RegressionBot
                         Console.WriteLine("Updating issue...");
                         var update = issue.ToUpdate();
 
-                        update.Body = await CreateIssueBody(regressions, template);
+                        update.Body = await CreateIssueBody(allRegressionsInIssue, template);
 
                         // If all regressions have recovered, close it
                         if (allRegressionsInIssue.All(x => x.HasRecovered))
