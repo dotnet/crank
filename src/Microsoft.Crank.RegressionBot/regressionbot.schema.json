@@ -141,7 +141,7 @@
         },
         "thresholdUnit": {
           "type":"string",
-          "default": "StandardDeviation",
+          "default": "StDev",
           "description": "The unit of the threshold.",
           "enum" : ["StDev", "Percent", "Absolute"]
         }
