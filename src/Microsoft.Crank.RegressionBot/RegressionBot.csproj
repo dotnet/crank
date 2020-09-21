@@ -18,7 +18,7 @@
     <PackageReference Include="YamlDotNet" Version="8.1.2" />
     <PackageReference Include="Manatee.Json" Version="13.0.1" />
     <PackageReference Include="System.Linq.Async" Version="4.1.1" />
-    <PackageReference Include="Fluid.Core" Version="1.0.0-beta-9681" />
+    <PackageReference Include="Fluid.Core" Version="1.0.0-beta-9693" />
   </ItemGroup>
 
   <ItemGroup>
