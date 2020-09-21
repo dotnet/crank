@@ -1,0 +1,168 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://microsoft.com/dotnet/crank/regressionbot",
+  "type": "object",
+  "title": ".NET Benchmarks Labs Bot JSON Schema",
+
+  "definitions": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "required": ["table", "rules"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of this source."
+        },
+        "table": {
+          "type": "string",
+          "title": "The SQL table containing the benchmarks.",
+          "pattern": "^([\\w\\-]+)$"
+        },
+        "rules":{
+          "type": "array",
+          "items" : {
+            "$ref" : "#/definitions/rule"
+          }
+        },
+        "daysToLoad":{
+          "type": "integer",
+          "title": "Number of days of benchmarks to load to build a standard deviation.",
+          "default": 7,
+          "minimum": 1
+        },
+        "daysToAnalyze":{
+          "type": "integer",
+          "title": "Number of days to use to find issues. Should be smaller than 'daysToLoad'.",
+          "default": 7,
+          "minimum": 1
+        },
+        "daysToSkip":{
+          "type": "integer",
+          "title": "Number of days of benchmarks to ignore.",
+          "default": 0,
+          "minimum": 0
+        },
+        "daysOfRecentIssues":{
+          "type": "integer",
+          "title": "Number of days of issues to load on GitHub.",
+          "default": 7,
+          "minimum": 0
+        },
+        "regressions" :{
+          "type": "object",
+          "$ref": "#/definitions/section"
+        },
+        "errors" :{
+          "type": "object",
+          "$ref": "#/definitions/section"
+        },
+        "notRunning" :{
+          "type": "object",
+          "$ref": "#/definitions/section"
+        }
+      }
+    },
+    "section": {
+      "type": "object",
+      "properties": {
+        "probes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/probe"
+          }
+        },
+        "labels": {
+          "type": "array",
+          "description": "The labels to add to the GitHub issue.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "owners": {
+          "type": "array",
+          "description": "The owners to include in the GitHub issue.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "template": {
+          "type": "string",
+          "description": "The name of a template defined in root templates property."
+        }
+      }
+    },
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "include": {
+          "type":"string",
+          "description": "A regular expression to match scenarios to include."
+        },
+        "exclude": {
+          "type":"string",
+          "description": "A regular expression to match scenarios to exclude."
+        },
+        "labels": {
+          "type": "array",
+          "description": "The labels to add to the GitHub issue.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "owners": {
+          "type": "array",
+          "description": "The owners to include in the GitHub issue.",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "required": ["path"],
+      "properties": {
+        "path": {
+          "type":"string",
+          "description": "A JSON path to the value to track.",
+          "examples": ["jobs.load.results['wrk/rps/mean']"]
+        },
+        "threshold": {
+          "type":"number",
+          "default": 1,
+          "description": "The minimum value to detect a problem."
+        },
+        "thresholdUnit": {
+          "type":"string",
+          "default": "StDev",
+          "description": "The unit of the threshold.",
+          "enum" : ["StDev", "Percent", "Absolute"]
+        }
+      }
+    }
+  },
+  "properties": {
+    "sources": {
+      "type": "array",
+      "title": "An array of sources",
+      "items" : {
+        "$ref" : "#/definitions/source"
+      }
+    },
+    "templates": {
+      "type": "object",
+      "title": "An list of templates",
+      "additionalProperties": { "type": "string" }
+    }
+  },
+  "minProperties": 1,
+  "required": ["sources"],
+  "additionalProperties": false
+}
