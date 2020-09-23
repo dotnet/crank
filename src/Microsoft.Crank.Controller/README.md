@@ -26,7 +26,9 @@ Options:
   --no-metadata                                                  Don't record metadata in the stored document.
   --no-measurements                                              Don't record measurements in the stored document.
 
-  --repeat <job>                                                 The job to repeat using the '--duration' argument.
+  -i|--iterations <n>                                            The number of times to repeat the jobs to get average results. By default the last job only is repeated, unless '--repeat' is set. 
+  -di|--display-iterations                                       Displays intermediate iterations results.
+  --repeat <job>                                                 The job to repeat using the '--duration' or '--iterations' argument.
   --span <HH:mm:ss>                                              The duration while the job is repeated.
   --auto-flush                                                   Runs a single long-running job and flushes measurements automatically.
 

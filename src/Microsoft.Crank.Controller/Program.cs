@@ -61,7 +61,11 @@ namespace Microsoft.Crank.Controller
             _spanOption,
             _renderChartOption,
             _chartTypeOption,
-            _chartScaleOption
+            _chartScaleOption,
+            _displayIterationsOption,
+            _iterationsOption,
+            _verboseOption,
+            _quietOption
             ;
 
         // The dynamic arguments that will alter the configurations
@@ -151,13 +155,10 @@ namespace Microsoft.Crank.Controller
             _renderChartOption = app.Option("--chart", "Renders a chart for multi-value results.", CommandOptionType.NoValue);
             _chartTypeOption = app.Option("--chart-type", "Type of chart to render. Values are 'bar' (default) or 'hex'", CommandOptionType.SingleValue);
             _chartScaleOption = app.Option("--chart-scale", "Scale for chart. Values are 'off' (default) or 'auto'. When scale is off, the min value starts at 0.", CommandOptionType.SingleValue);
-
-            var verboseOption = app.Option("-v|--verbose",
-                "Verbose output", CommandOptionType.NoValue);
-            var quietOption = app.Option("--quiet",
-                "Quiet output, only the results are displayed", CommandOptionType.NoValue);
-            var iterationsOption = app.Option("-i|--iterations",
-                "The number of iterations.", CommandOptionType.SingleValue);
+            _iterationsOption = app.Option("-i|--iterations", "The number of iterations.", CommandOptionType.SingleValue);
+            _verboseOption = app.Option("-v|--verbose", "Verbose output", CommandOptionType.NoValue);
+            _quietOption = app.Option("--quiet", "Quiet output, only the results are displayed", CommandOptionType.NoValue);
+            _displayIterationsOption = app.Option("-di|--display-iterations", "Displays intermediate iterations results.", CommandOptionType.NoValue);
 
             app.Command("compare", compareCmd =>
             {
@@ -193,8 +194,8 @@ namespace Microsoft.Crank.Controller
 
             app.OnExecuteAsync(async (t) =>
             {
-                Log.IsQuiet = quietOption.HasValue();
-                Log.IsVerbose = verboseOption.HasValue();
+                Log.IsQuiet = _quietOption.HasValue();
+                Log.IsVerbose = _verboseOption.HasValue();
 
                 var session = _sessionOption.Value();
                 var iterations = 1;
@@ -208,10 +209,19 @@ namespace Microsoft.Crank.Controller
 
                 var description = _descriptionOption.Value() ?? "";
 
-                if (iterationsOption.HasValue() && _spanOption.HasValue())
+                if (_iterationsOption.HasValue())
                 {
-                    Console.WriteLine($"The options --iterations and --span can't be used together.");
-                    return -1;
+                    if (_spanOption.HasValue())
+                    {
+                        Console.WriteLine($"The options --iterations and --span can't be used together.");
+                        return -1;
+                    }
+
+                    if (!Int32.TryParse(_iterationsOption.Value(), out iterations) || iterations < 1)
+                    {
+                        Console.WriteLine($"Invalid value for iterations arguments. A positive integer was expected.");
+                        return -1;
+                    }
                 }
 
                 if (_spanOption.HasValue() && !TimeSpan.TryParse(_spanOption.Value(), out span))
@@ -374,6 +384,9 @@ namespace Microsoft.Crank.Controller
 
                 if (_autoflushOption.HasValue())
                 {
+                    // No job is restarted, but a snapshot of results is done
+                    // after "span" has passed.
+                    
                     results = await RunAutoFlush(
                         configuration,
                         dependencies,
@@ -439,359 +452,382 @@ namespace Microsoft.Crank.Controller
             TimeSpan span
             )
         {
-            var executionResults = new ExecutionResult();
+            
+            var executionResults = new List<ExecutionResult>();
             var iterationStart = DateTime.UtcNow;
             var jobsByDependency = new Dictionary<string, List<JobConnection>>();
+            var i = 1;
 
             do
             {
-
                 // Repeat until the span duration is over
 
-                for (var i = 1; i <= iterations; i++)
+                var executionResult = new ExecutionResult();
+
+                if (iterations > 1)
+                {
+                    Log.Write($"Iteration {i} of {iterations}");
+                }
+
+                // Deadlock detection loop
+                while (true)
                 {
 
-                    if (iterations > 1)
-                    {
-                        jobsByDependency.Clear();
-                        Log.Write($"Job {i} of {iterations}");
-                    }
-                    
-                    while (true)
-                    {
-                        var deadlockDetected = false;
+                    var deadlockDetected = false;
 
-                        try
+                    try
+                    {
+                        foreach (var jobName in dependencies)
                         {
+                            var service = configuration.Jobs[jobName];
+                            service.DriverVersion = 2;
 
-                            foreach (var jobName in dependencies)
+                            List<JobConnection> jobs;
+
+                            // Create a new list of JobConnection instances if the service is
+                            // not already running from a previous loop
+
+                            if (jobsByDependency.ContainsKey(jobName) && SpanShouldKeepJobRunning(jobName))
                             {
-                                var service = configuration.Jobs[jobName];
-                                service.DriverVersion = 2;
+                                jobs = jobsByDependency[jobName];
 
-                                List<JobConnection> jobs;
+                                // Clear measurements, only if the service is not a console app as it
+                                // would already be stopped
 
-                                // Create a new list of JobConnection instances if the service is
-                                // not already running from a previous loop
-
-                                if (jobsByDependency.ContainsKey(jobName) && SpanShouldKeepJobRunning(jobName))
+                                if (!service.WaitForExit)
                                 {
-                                    jobs = jobsByDependency[jobName];
-
-                                    // Clear measurements, only if the service is not a console app as it
-                                    // would already be stopped
-
-                                    if (!service.WaitForExit)
-                                    {
-                                        await Task.WhenAll(jobs.Select(job => job.ClearMeasurements()));
-                                    }
+                                    await Task.WhenAll(jobs.Select(job => job.ClearMeasurements()));
                                 }
-                                else
+                            }
+                            else
+                            {
+                                jobs = service.Endpoints.Select(endpoint => new JobConnection(service, new Uri(endpoint))).ToList();
+
+                                jobsByDependency[jobName] = jobs;
+
+                                // Check os and architecture requirements
+                                if (!await EnsureServerRequirementsAsync(jobs, service))
                                 {
-                                    jobs = service.Endpoints.Select(endpoint => new JobConnection(service, new Uri(endpoint))).ToList();
+                                    Log.Write($"Scenario skipped as the agent doesn't match the operating and architecture constraints for '{jobName}' ({String.Join("/", new[] { service.Options.RequiredArchitecture, service.Options.RequiredOperatingSystem })})");
+                                    return new ExecutionResult();
+                                }
 
-                                    jobsByDependency[jobName] = jobs;
+                                // Check that we are not creating a deadlock by starting this job
 
-                                    // Check os and architecture requirements
-                                    if (!await EnsureServerRequirementsAsync(jobs, service))
+                                // Start this service on all configured agent endpoints
+                                await Task.WhenAll(
+                                    jobs.Select(async job =>
                                     {
-                                        Log.Write($"Scenario skipped as the agent doesn't match the operating and architecture constraints for '{jobName}' ({String.Join("/", new[] { service.Options.RequiredArchitecture, service.Options.RequiredOperatingSystem })})");
-                                        return new ExecutionResult();
-                                    }
+                                        // Before starting a job, we need to check if it could block another run
+                                        var queue = await job.GetQueueAsync();
 
-                                    // Check that we are not creating a deadlock by starting this job
+                                        var runningJob = queue.FirstOrDefault(x => x.State == "Running" && x.RunId != job.Job.RunId);
 
-                                    // Start this service on all configured agent endpoints
-                                    await Task.WhenAll(
-                                        jobs.Select(async job =>
+                                        // If there is a running job, we check if we are not blocking another one from the same run
+                                        if (runningJob != null)
                                         {
-                                            // Before starting a job, we need to check if it could block another run
-                                            var queue = await job.GetQueueAsync();
-
-                                            var runningJob = queue.FirstOrDefault(x => x.State == "Running" && x.RunId != job.Job.RunId);
-
-                                            // If there is a running job, we check if we are not blocking another one from the same run
-                                            if (runningJob != null)
+                                            foreach (var jobName in dependencies)
                                             {
-                                                foreach (var jobName in dependencies)
+                                                if (jobsByDependency.ContainsKey(jobName))
                                                 {
-                                                    if (jobsByDependency.ContainsKey(jobName))
+                                                    foreach (var j in jobsByDependency[jobName])
                                                     {
-                                                        foreach (var j in jobsByDependency[jobName])
+                                                        var otherRunningJobs = await j.GetQueueAsync();
+
+                                                        // Find a job waiting for us on the other endpoint
+                                                        var jobA = otherRunningJobs.FirstOrDefault(x => x.State == "New" && x.RunId == runningJob.RunId);
+                                                        
+                                                        // If the job we are running is waitForExit, we don't need to interrupt it
+                                                        // as it will stop by itself
+
+                                                        var jobB = otherRunningJobs.FirstOrDefault(x => x.State == "Running" && x.RunId == j.Job.RunId && !j.Job.WaitForExit);
+
+                                                        if (jobA != null && jobB != null)
                                                         {
-                                                            var otherRunningJobs = await j.GetQueueAsync();
+                                                            Log.Write($"Found deadlock on {j.ServerJobUri}, interrupting ...");
 
-                                                            // Find a job waiting for us on the other endpoint
-                                                            var jobA = otherRunningJobs.FirstOrDefault(x => x.State == "New" && x.RunId == runningJob.RunId);
-                                                            
-                                                            // If the job we are running is waitForExit, we don't need to interrupt it
-                                                            // as it will stop by itself
-
-                                                            var jobB = otherRunningJobs.FirstOrDefault(x => x.State == "Running" && x.RunId == j.Job.RunId && !j.Job.WaitForExit);
-
-                                                            if (jobA != null && jobB != null)
+                                                            foreach (var name in dependencies.Reverse())
                                                             {
-                                                                Log.Write($"Found deadlock on {j.ServerJobUri}, interrupting ...");
+                                                                var service = configuration.Jobs[name];
 
-                                                                foreach (var name in dependencies.Reverse())
+                                                                // Skip failed jobs
+                                                                if (!jobsByDependency.ContainsKey(name))
                                                                 {
-                                                                    var service = configuration.Jobs[name];
-
-                                                                    // Skip failed jobs
-                                                                    if (!jobsByDependency.ContainsKey(name))
-                                                                    {
-                                                                        continue;
-                                                                    }
-
-                                                                    var jobs = jobsByDependency[name];
-
-                                                                    if (!service.WaitForExit)
-                                                                    {
-                                                                        await Task.WhenAll(jobs.Select(job => job.StopAsync()));
-
-                                                                        await Task.WhenAll(jobs.Select(job => job.DeleteAsync()));
-                                                                    }
+                                                                    continue;
                                                                 }
 
-                                                                // Wait until another runId has started, or the current runId could still be picked up
+                                                                var jobs = jobsByDependency[name];
 
-                                                                var queueStarted = DateTime.UtcNow;
-
-                                                                while (true) 
+                                                                if (!service.WaitForExit)
                                                                 {
-                                                                    otherRunningJobs = await j.GetQueueAsync();
+                                                                    await Task.WhenAll(jobs.Select(job => job.StopAsync()));
 
-                                                                    var otherRunningJob = otherRunningJobs.FirstOrDefault(x => x.State == "Running" || x.State == "Initializing" || x.State == "Starting" && x.RunId != job.Job.RunId);
-
-                                                                    if (otherRunningJob != null || (DateTime.UtcNow - queueStarted > TimeSpan.FromSeconds(3)))
-                                                                    {
-                                                                        break;
-                                                                    }
-                                                                } 
-                                                                
-
-                                                                throw new JobDeadlockException();
+                                                                    await Task.WhenAll(jobs.Select(job => job.DeleteAsync()));
+                                                                }
                                                             }
+
+                                                            // Wait until another runId has started, or the current runId could still be picked up
+
+                                                            var queueStarted = DateTime.UtcNow;
+
+                                                            while (true) 
+                                                            {
+                                                                otherRunningJobs = await j.GetQueueAsync();
+
+                                                                var otherRunningJob = otherRunningJobs.FirstOrDefault(x => x.State == "Running" || x.State == "Initializing" || x.State == "Starting" && x.RunId != job.Job.RunId);
+
+                                                                if (otherRunningJob != null || (DateTime.UtcNow - queueStarted > TimeSpan.FromSeconds(3)))
+                                                                {
+                                                                    break;
+                                                                }
+                                                            } 
+                                                            
+
+                                                            throw new JobDeadlockException();
                                                         }
                                                     }
                                                 }
                                             }
-
-                                            // Start job on agent
-                                            return await job.StartAsync(jobName);
-                                        })
-                                    );
-
-                                    if (service.WaitForExit)
-                                    {
-                                        // Wait for all clients to stop
-                                        while (true)
-                                        {
-                                            var stop = true;
-
-                                            foreach (var job in jobs)
-                                            {
-                                                var state = await job.GetStateAsync();
-
-                                                stop = stop && (
-                                                    state == JobState.Stopped ||
-                                                    state == JobState.Failed ||
-                                                    state == JobState.Deleted
-                                                    );
-                                            }
-
-                                            if (stop)
-                                            {
-                                                break;
-                                            }
-
-                                            await Task.Delay(1000);
                                         }
 
-                                        // Stop a blocking job
-                                        await Task.WhenAll(jobs.Select(job => job.StopAsync()));
+                                        // Start job on agent
+                                        return await job.StartAsync(jobName);
+                                    })
+                                );
 
-                                        await Task.WhenAll(jobs.Select(job => job.TryUpdateJobAsync()));
+                                if (service.WaitForExit)
+                                {
+                                    // Wait for all clients to stop
+                                    while (true)
+                                    {
+                                        var stop = true;
 
-                                        // Display error message if job failed
                                         foreach (var job in jobs)
                                         {
-                                            if (!String.IsNullOrEmpty(job.Job.Error))
-                                            {
-                                                Log.Write(job.Job.Error, notime: true, error: true);
-                                            }
+                                            var state = await job.GetStateAsync();
+
+                                            stop = stop && (
+                                                state == JobState.Stopped ||
+                                                state == JobState.Failed ||
+                                                state == JobState.Deleted
+                                                );
                                         }
 
-                                        await Task.WhenAll(jobs.Select(job => job.DownloadAssetsAsync(jobName)));
+                                        if (stop)
+                                        {
+                                            break;
+                                        }
 
-                                        await Task.WhenAll(jobs.Select(job => job.DeleteAsync()));
+                                        await Task.Delay(1000);
                                     }
-                                }
 
-                                var aJobFailed = false;
+                                    // Stop a blocking job
+                                    await Task.WhenAll(jobs.Select(job => job.StopAsync()));
 
-                                // Skipped other services if a job has failed
-                                foreach (var job in jobs)
-                                {
-                                    var state = await job.GetStateAsync();
+                                    await Task.WhenAll(jobs.Select(job => job.TryUpdateJobAsync()));
 
-                                    if (state == JobState.Failed)
+                                    // Display error message if job failed
+                                    foreach (var job in jobs)
                                     {
-                                        aJobFailed = true;
-                                        break;
+                                        if (!String.IsNullOrEmpty(job.Job.Error))
+                                        {
+                                            Log.Write(job.Job.Error, notime: true, error: true);
+                                        }
                                     }
-                                }
 
-                                if (aJobFailed)
+                                    await Task.WhenAll(jobs.Select(job => job.DownloadAssetsAsync(jobName)));
+
+                                    await Task.WhenAll(jobs.Select(job => job.DeleteAsync()));
+                                }
+                            }
+
+                            var aJobFailed = false;
+
+                            // Skipped other services if a job has failed
+                            foreach (var job in jobs)
+                            {
+                                var state = await job.GetStateAsync();
+
+                                if (state == JobState.Failed)
                                 {
-                                    Log.Write($"Job has failed, interrupting benchmarks ...");
+                                    aJobFailed = true;
                                     break;
                                 }
                             }
-                        }
-                        catch (JobDeadlockException)
-                        {
-                            deadlockDetected = true;
-                            Log.Write("Deadlock detected, restarting scenario ...");
-                        }
 
-                        if (!deadlockDetected)
-                        {
-                            break;
+                            if (aJobFailed)
+                            {
+                                Log.Write($"Job has failed, interrupting benchmarks ...");
+                                break;
+                            }
                         }
                     }
+                    catch (JobDeadlockException)
+                    {
+                        deadlockDetected = true;
+                        Log.Write("Deadlock detected, restarting scenario ...");
+                    }
 
-                    // Download traces, before the jobs are stopped
-                    foreach (var jobName in dependencies)
+                    if (!deadlockDetected)
+                    {
+                        break;
+                    }
+                }
+
+                // Download traces, before the jobs are stopped
+                foreach (var jobName in dependencies)
+                {
+                    // Unless the jobs can't be stopped
+                    if (SpanShouldKeepJobRunning(jobName))
+                    {
+                        continue;
+                    }
+
+                    var service = configuration.Jobs[jobName];
+
+                    // Skip failed jobs
+                    if (!jobsByDependency.ContainsKey(jobName))
+                    {
+                        continue;
+                    }
+
+                    var jobConnections = jobsByDependency[jobName];
+
+                    foreach (var jobConnection in jobConnections)
+                    {
+                        var info = await jobConnection.GetInfoAsync();
+                        var os = Enum.Parse<Models.OperatingSystem>(info["os"]?.ToString() ?? "linux", ignoreCase: true);
+
+                        var traceExtension = ".nettrace";
+
+                        // Download trace
+                        if (jobConnection.Job.DotNetTrace || jobConnection.Job.Collect)
+                        {
+                            if (jobConnection.Job.Collect)
+                            {
+                                traceExtension = os == Models.OperatingSystem.Windows
+                                    ? ".etl.zip"
+                                    : ".trace.zip"
+                                    ;
+                            }
+
+                            try
+                            {
+                                var traceDestination = jobConnection.Job.Options.TraceOutput;
+
+                                if (String.IsNullOrWhiteSpace(traceDestination))
+                                {
+                                    traceDestination = jobName;
+                                }
+
+
+                                if (!traceDestination.EndsWith(traceExtension, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    traceDestination = traceDestination + "." + DateTime.Now.ToString("MM-dd-HH-mm-ss") + traceExtension;
+                                }
+
+                                Log.Write($"Collecting trace file '{traceDestination}' ...");
+
+                                await jobConnection.DownloadDotnetTrace(traceDestination);
+                            }
+                            catch (Exception e)
+                            {
+                                Log.Write($"Error while fetching trace for '{jobName}'");
+                                Log.Verbose(e.Message);
+                            }
+                        }
+                    }
+                }
+
+                // Stop all non-blocking jobs in reverse dependency order (clients first)
+                foreach (var jobName in dependencies.Reverse())
+                {
+                    var service = configuration.Jobs[jobName];
+
+                    // Skip failed jobs
+                    if (!jobsByDependency.ContainsKey(jobName))
+                    {
+                        continue;
+                    }
+
+                    var jobs = jobsByDependency[jobName];
+
+                    if (!service.WaitForExit)
                     {
                         // Unless the jobs can't be stopped
-                        if (SpanShouldKeepJobRunning(jobName))
+                        if (!SpanShouldKeepJobRunning(jobName))
                         {
-                            continue;
+                            await Task.WhenAll(jobs.Select(job => job.StopAsync()));
                         }
 
-                        var service = configuration.Jobs[jobName];
+                        await Task.WhenAll(jobs.Select(job => job.TryUpdateJobAsync()));
 
-                        // Skip failed jobs
-                        if (!jobsByDependency.ContainsKey(jobName))
+                        // Unless the jobs can't be stopped
+                        if (!SpanShouldKeepJobRunning(jobName))
                         {
-                            continue;
-                        }
+                            await Task.WhenAll(jobs.Select(job => job.DownloadAssetsAsync(jobName)));
 
-                        var jobConnections = jobsByDependency[jobName];
-
-                        foreach (var jobConnection in jobConnections)
-                        {
-                            var info = await jobConnection.GetInfoAsync();
-                            var os = Enum.Parse<Models.OperatingSystem>(info["os"]?.ToString() ?? "linux", ignoreCase: true);
-
-                            var traceExtension = ".nettrace";
-
-                            // Download trace
-                            if (jobConnection.Job.DotNetTrace || jobConnection.Job.Collect)
-                            {
-                                if (jobConnection.Job.Collect)
-                                {
-                                    traceExtension = os == Models.OperatingSystem.Windows
-                                        ? ".etl.zip"
-                                        : ".trace.zip"
-                                        ;
-                                }
-
-                                try
-                                {
-                                    var traceDestination = jobConnection.Job.Options.TraceOutput;
-
-                                    if (String.IsNullOrWhiteSpace(traceDestination))
-                                    {
-                                        traceDestination = jobName;
-                                    }
-
-
-                                    if (!traceDestination.EndsWith(traceExtension, StringComparison.OrdinalIgnoreCase))
-                                    {
-                                        traceDestination = traceDestination + "." + DateTime.Now.ToString("MM-dd-HH-mm-ss") + traceExtension;
-                                    }
-
-                                    Log.Write($"Collecting trace file '{traceDestination}' ...");
-
-                                    await jobConnection.DownloadDotnetTrace(traceDestination);
-                                }
-                                catch (Exception e)
-                                {
-                                    Log.Write($"Error while fetching trace for '{jobName}'");
-                                    Log.Verbose(e.Message);
-                                }
-                            }
+                            await Task.WhenAll(jobs.Select(job => job.DeleteAsync()));
                         }
                     }
+                }
 
-                    // Stop all non-blocking jobs in reverse dependency order (clients first)
-                    foreach (var jobName in dependencies.Reverse())
+                // Display results
+                foreach (var jobName in dependencies)
+                {
+                    // When running iterations, don't display the results unless the flag is set
+
+                    if (iterations > 1 && !_displayIterationsOption.HasValue())
                     {
-                        var service = configuration.Jobs[jobName];
-
-                        // Skip failed jobs
-                        if (!jobsByDependency.ContainsKey(jobName))
-                        {
-                            continue;
-                        }
-
-                        var jobs = jobsByDependency[jobName];
-
-                        if (!service.WaitForExit)
-                        {
-                            // Unless the jobs can't be stopped
-                            if (!SpanShouldKeepJobRunning(jobName))
-                            {
-                                await Task.WhenAll(jobs.Select(job => job.StopAsync()));
-                            }
-
-                            await Task.WhenAll(jobs.Select(job => job.TryUpdateJobAsync()));
-
-                            // Unless the jobs can't be stopped
-                            if (!SpanShouldKeepJobRunning(jobName))
-                            {
-                                await Task.WhenAll(jobs.Select(job => job.DownloadAssetsAsync(jobName)));
-
-                                await Task.WhenAll(jobs.Select(job => job.DeleteAsync()));
-                            }
-                        }
+                        continue;
                     }
+
+                    var service = configuration.Jobs[jobName];
+
+                    // Skip failed jobs
+                    if (!jobsByDependency.ContainsKey(jobName))
+                    {
+                        continue;
+                    }
+
+                    var jobConnections = jobsByDependency[jobName];
+
+                    // Convert any json result to an object
+                    NormalizeResults(jobConnections);
+
+                    if (!service.Options.DiscardResults)
+                    {
+                        Console.WriteLine();
+                        WriteMeasuresTable(jobName, jobConnections);
+                    }
+                }
+
+                var jobResults = await CreateJobResultsAsync(configuration, dependencies, jobsByDependency);
+
+                foreach (var property in _propertyOption.Values)
+                {
+                    var segments = property.Split('=', 2);
+
+                    jobResults.Properties[segments[0]] = segments[1];
+                }
+
+                executionResult.JobResults = jobResults;
+                executionResults.Add(executionResult);
+
+                // If last iteration, create average and display results
+                if (iterations > 1 && i == iterations)
+                {
+                    executionResult = ComputeAverages(executionResults);
+                    executionResults.Clear();
+                    executionResults.Add(executionResult);
 
                     // Display results
-                    foreach (var jobName in dependencies)
-                    {
-                        var service = configuration.Jobs[jobName];
-
-                        // Skip failed jobs
-                        if (!jobsByDependency.ContainsKey(jobName))
-                        {
-                            continue;
-                        }
-
-                        var jobConnections = jobsByDependency[jobName];
-
-                        // Convert any json result to an object
-                        NormalizeResults(jobConnections);
-
-                        if (!service.Options.DiscardResults)
-                        {
-                            Console.WriteLine();
-                            WriteMeasuresTable(jobName, jobConnections);
-                        }
-                    }
-
-                    var jobResults = await CreateJobResultsAsync(configuration, dependencies, jobsByDependency);
-
-                    foreach (var property in _propertyOption.Values)
-                    {
-                        var segments = property.Split('=', 2);
-
-                        jobResults.Properties[segments[0]] = segments[1];
-                    }
-
-                    executionResults.JobResults = jobResults;
+                    
+                    Console.WriteLine();
+                    Console.WriteLine("Average results:");
+                    Console.WriteLine();
+                    
+                    WriteExecutionResults(executionResult);
                 }
 
                 // Save results
@@ -817,53 +853,73 @@ namespace Microsoft.Crank.Controller
                             filename = filenameWithoutExtension + "-" + index++ + Path.GetExtension(_outputOption.Value());
                         } while (File.Exists(filename));
                     }
+                    
+                    // Skip saving the file if running with iterations and not the last run
+                    if (iterations == 1 || i == iterations)
+                    {
+                        await File.WriteAllTextAsync(filename, JsonConvert.SerializeObject(executionResults, Formatting.Indented, new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() }));
 
-                    await File.WriteAllTextAsync(filename, JsonConvert.SerializeObject(executionResults, Formatting.Indented, new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() }));
-
-                    Log.Write("", notime: true);
-                    Log.Write($"Results saved in '{new FileInfo(filename).FullName}'", notime: true);
+                        Log.Write("", notime: true);
+                        Log.Write($"Results saved in '{new FileInfo(filename).FullName}'", notime: true);
+                    }
                 }
 
                 // Store data
 
                 if (!String.IsNullOrEmpty(_sqlConnectionString))
                 {
-                    await JobSerializer.WriteJobResultsToSqlAsync(executionResults.JobResults, _sqlConnectionString, _tableName, session, _scenarioOption.Value(), _descriptionOption.Value());
+                    // Skip storing results if running with iterations and not the last run
+                    if (iterations == 1 || i == iterations)
+                    {
+                        await JobSerializer.WriteJobResultsToSqlAsync(executionResult.JobResults, _sqlConnectionString, _tableName, session, _scenarioOption.Value(), _descriptionOption.Value());
+                    }
                 }
 
                 if (span > TimeSpan.Zero)
                 {
-                    Console.WriteLine("Remaining job duration: {0}", GetRemainingTime());
+                    Log.Write(String.Format("Remaining job duration: {0}", GetRemainingTime()));
                 }
+
+                i = i + 1;
             }
-            while (!IsSpanOver());
+            while (!IsRepeatOver());
 
-
-            return executionResults;
+            return executionResults.First();
 
             TimeSpan GetRemainingTime()
             {
-                return span - GetEllapsedTime();
+                return span - GetElapsedTime();
             }
 
-            TimeSpan GetEllapsedTime()
+            TimeSpan GetElapsedTime()
             {
                 return DateTime.UtcNow - iterationStart;
             }
 
-            bool IsSpanOver()
+            bool IsRepeatOver()
             {
-                return span == TimeSpan.Zero || GetEllapsedTime() > span;
+                if (iterations > 1)
+                {
+                    return i > iterations; 
+                }
+
+                return span == TimeSpan.Zero || GetElapsedTime() > span;
             }
 
             bool SpanShouldKeepJobRunning(string jobName)
             {
-                if (IsSpanOver())
+                if (IsRepeatOver())
                 {
                     return false;
                 }
 
-                var repeatAfterJob = _repeatOption.Value();
+                // If no job is marked for repeat, use the last one
+
+                var repeatAfterJob = _repeatOption.HasValue() 
+                    ? _repeatOption.Value()
+                    : dependencies.Last()
+                    ;
+
                 var jobKeptRunning = dependencies.TakeWhile(x => !String.Equals(repeatAfterJob, x, StringComparison.OrdinalIgnoreCase));
 
                 return jobKeptRunning.Any(x => String.Equals(jobName, x, StringComparison.OrdinalIgnoreCase));
@@ -1734,7 +1790,6 @@ namespace Microsoft.Crank.Controller
             }
 
             return reduced;
-
         }
 
         private static void WriteMeasures(JobConnection job)
@@ -2030,6 +2085,100 @@ namespace Microsoft.Crank.Controller
             
             table.RemoveEmptyRows(1);
             table.Render(Console.Out);
-        }        
+        }
+
+        private static void WriteExecutionResults(ExecutionResult executionResult)
+        {
+            foreach (var job in executionResult.JobResults.Jobs)
+            {
+                var jobName = job.Key;
+                var jobResult = job.Value;
+
+                // 1 column per jobConnection
+                var table = new ResultTable(2); 
+
+                table.Headers.Add(jobName);
+                table.Headers.Add("");
+
+                foreach (var metadata in jobResult.Metadata)
+                {
+                    if (jobResult.Results.ContainsKey(metadata.Name) && metadata.Format != "object")
+                    {
+                        var row = table.AddRow();
+
+                        var cell = new Cell();
+                        cell.Elements.Add(new CellElement() { Text = metadata.ShortDescription, Alignment = CellTextAlignment.Left });
+                        row.Add(cell);
+
+                        cell = new Cell();
+                        row.Add(cell);
+
+                        var value = jobResult.Results[metadata.Name];
+
+                        if (value is string s)
+                        {
+                            cell.Elements.Add(new CellElement(s, CellTextAlignment.Left));
+                        }
+                        else if (value is double d)
+                        {
+                            if (!String.IsNullOrEmpty(metadata.Format))
+                            {
+                                cell.Elements.Add(new CellElement(d.ToString(metadata.Format), CellTextAlignment.Left));
+                            }
+                            else
+                            {
+                                cell.Elements.Add(new CellElement(d.ToString("n2"), CellTextAlignment.Left));
+                            }
+                        }
+                    }
+                }
+
+                table.Render(Console.Out);
+                Console.WriteLine();
+            }            
+        }
+
+        private static ExecutionResult ComputeAverages(IEnumerable<ExecutionResult> executionResults)
+        {
+            var jobResults = new JobResults();
+            var executionResult = new ExecutionResult { JobResults = jobResults };
+
+            foreach (var job in executionResults.First().JobResults.Jobs)
+            {
+                var jobName = job.Key;
+                var metadata = job.Value.Metadata;
+
+                // When computing averages, we lose all measurements
+                var jobResult = new JobResult { Metadata = metadata };
+                
+                jobResults.Jobs[jobName] = jobResult;
+
+                foreach (var result in job.Value.Results)
+                {
+                    var allValues = executionResults
+                        .Select(x => x.JobResults.Jobs[jobName])
+                        .Select(x => x.Results.ContainsKey(result.Key) ? x.Results[result.Key] : null)
+                        .Where(x => x != null)
+                        .ToArray()
+                        ;
+
+                    if (allValues.Any())
+                    {
+                        if (allValues.First() is string)
+                        {
+                            jobResult.Results[result.Key] = allValues.First();
+                        }
+                        else
+                        {
+                            jobResult.Results[result.Key] = allValues.Select(x => Convert.ToDouble(x)).Average();
+                        }
+                    }                     
+                }
+
+                jobResults.Jobs[jobName] = jobResult;
+            }
+
+            return executionResult;
+        }
     }
 }
