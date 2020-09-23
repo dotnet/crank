@@ -42,7 +42,7 @@ Options:
   ## Sources location
 
   --[JOB].source.repository                                                The git repository containing the source code to build, e.g., https://github.com/aspnet/aspnetcore
-  --[JOB].source.branchOrCommit                                            A branch name of commit hash, e.g., my/branch, issue/1234
+  --[JOB].source.branchOrCommit                                            A branch name or commit hash, e.g., my/branch, my/branch#commit-hash
   --[JOB].source.initSubmodules                                            Whether to init submodules when a git repository is used, e.g., true
   --[JOB].source.localFolder                                               The local path containing the source code to upload to the server. e.g., /code/mybenchmarks
 
