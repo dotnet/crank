@@ -62,7 +62,10 @@ namespace Microsoft.Crank.Controller
             _renderChartOption,
             _chartTypeOption,
             _chartScaleOption,
-            _displayIterationsOption
+            _displayIterationsOption,
+            _iterationsOption,
+            _verboseOption,
+            _quietOption
             ;
 
         // The dynamic arguments that will alter the configurations
@@ -152,15 +155,10 @@ namespace Microsoft.Crank.Controller
             _renderChartOption = app.Option("--chart", "Renders a chart for multi-value results.", CommandOptionType.NoValue);
             _chartTypeOption = app.Option("--chart-type", "Type of chart to render. Values are 'bar' (default) or 'hex'", CommandOptionType.SingleValue);
             _chartScaleOption = app.Option("--chart-scale", "Scale for chart. Values are 'off' (default) or 'auto'. When scale is off, the min value starts at 0.", CommandOptionType.SingleValue);
-
-            var verboseOption = app.Option("-v|--verbose",
-                "Verbose output", CommandOptionType.NoValue);
-            var quietOption = app.Option("--quiet",
-                "Quiet output, only the results are displayed", CommandOptionType.NoValue);
-            var iterationsOption = app.Option("-i|--iterations",
-                "The number of iterations.", CommandOptionType.SingleValue);
-            _displayIterationsOption = app.Option("-di|--display-iterations",
-                "Displays intermediate iterations results.", CommandOptionType.NoValue);
+            _iterationsOption = app.Option("-i|--iterations", "The number of iterations.", CommandOptionType.SingleValue);
+            _verboseOption = app.Option("-v|--verbose", "Verbose output", CommandOptionType.NoValue);
+            _quietOption = app.Option("--quiet", "Quiet output, only the results are displayed", CommandOptionType.NoValue);
+            _displayIterationsOption = app.Option("-di|--display-iterations", "Displays intermediate iterations results.", CommandOptionType.NoValue);
 
             app.Command("compare", compareCmd =>
             {
@@ -196,8 +194,8 @@ namespace Microsoft.Crank.Controller
 
             app.OnExecuteAsync(async (t) =>
             {
-                Log.IsQuiet = quietOption.HasValue();
-                Log.IsVerbose = verboseOption.HasValue();
+                Log.IsQuiet = _quietOption.HasValue();
+                Log.IsVerbose = _verboseOption.HasValue();
 
                 var session = _sessionOption.Value();
                 var iterations = 1;
@@ -211,14 +209,15 @@ namespace Microsoft.Crank.Controller
 
                 var description = _descriptionOption.Value() ?? "";
 
-                if (iterationsOption.HasValue() && _spanOption.HasValue())
+                if (_iterationsOption.HasValue())
                 {
-                    Console.WriteLine($"The options --iterations and --span can't be used together.");
-                    return -1;
-                }
-                else
-                {
-                    if (!Int32.TryParse(iterationsOption.Value(), out iterations) || iterations < 1)
+                    if (_spanOption.HasValue())
+                    {
+                        Console.WriteLine($"The options --iterations and --span can't be used together.");
+                        return -1;
+                    }
+
+                    if (!Int32.TryParse(_iterationsOption.Value(), out iterations) || iterations < 1)
                     {
                         Console.WriteLine($"Invalid value for iterations arguments. A positive integer was expected.");
                         return -1;
