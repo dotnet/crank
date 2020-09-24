@@ -164,7 +164,19 @@ namespace Microsoft.Crank.Jobs.Bombardier
 
             Console.WriteLine("> bombardier " + process.StartInfo.Arguments);
 
-            process.Start();
+            for (var i = 0; i < 3; i++)
+            {
+                try
+                {
+                    process.Start();
+                    break;
+                }
+                catch (Exception e)
+                {
+                    await Task.Delay(500);
+                    Console.WriteLine("Error, retrying: " + e.Message);
+                }
+            }
             
             BenchmarksEventSource.SetChildProcessId(process.Id);
 
