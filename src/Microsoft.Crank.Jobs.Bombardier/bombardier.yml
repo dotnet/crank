@@ -22,4 +22,8 @@ jobs:
       requests: 0
       rate: 0
       transport: fasthttp # | http1 | http2
+      serverScheme: http
+      serverAddress: localhost
+      serverPort: 5000
+      path: 
     arguments: "-c {{connections}} -w {{warmup}} -d {{duration}} -n {{requests}} --insecure -l {% if rate != 0 %} --rate {{ rate }} {% endif %} {% if transport %} --{{ transport}} {% endif %} {{headers[presetHeaders]}} {% if serverUri == blank or serverUri == empty %} {{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}} {% else %} {{serverUri}}:{{serverPort}}{{path}} {% endif %}"

@@ -1687,12 +1687,14 @@ namespace Microsoft.Crank.Controller
                             break;
                     }
 
-                    if (!String.IsNullOrEmpty(metadata.Format) && metadata.Format != "object")
+                    try
                     {
                         summaries[metadata.Name] = Convert.ToDouble(result);
                     }
-                    else
+                    catch
                     {
+                        // If the value can't be converted to double, just keep it
+                        // e.g., bombardier/raw
                         summaries[metadata.Name] = result;
                     }
                 }
@@ -2170,7 +2172,17 @@ namespace Microsoft.Crank.Controller
                         }
                         else
                         {
-                            jobResult.Results[result.Key] = allValues.Select(x => Convert.ToDouble(x)).Average();
+                            try
+                            {
+                                var average = allValues.Select(x => Convert.ToDouble(x)).Average();
+                                
+                                jobResult.Results[result.Key] = average;
+                            }
+                            catch
+                            {
+                                // If the value can't be converted to double, just skip it
+                                // e.g., bombardier/raw
+                            }
                         }
                     }                     
                 }
