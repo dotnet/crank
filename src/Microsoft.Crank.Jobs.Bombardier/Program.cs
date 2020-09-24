@@ -86,7 +86,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
             var bombardierFileName = Path.Combine(cacheFolder, Path.GetFileName(bombardierUrl));
 
             Console.WriteLine($"Downloading bombardier from {bombardierUrl} to {bombardierFileName}");
-            
+
             using (var downloadStream = await _httpClient.GetStreamAsync(bombardierUrl))
             using (var fileStream = File.Create(bombardierFileName))
             {
@@ -143,7 +143,8 @@ namespace Microsoft.Crank.Jobs.Bombardier
 
                 Console.WriteLine("> bombardier " + process.StartInfo.Arguments);
 
-                process.Start();
+                await StartProcessWithRetriesAsync(process);
+                
                 process.WaitForExit();
 
                 if (process.ExitCode != 0)
@@ -157,27 +158,15 @@ namespace Microsoft.Crank.Jobs.Bombardier
                 stringBuilder.Clear();
             }
 
-            process.StartInfo.Arguments = 
+            process.StartInfo.Arguments =
                 requests > 0
                     ? $" -n {requests} {baseArguments}"
                     : $" -d {duration}s {baseArguments}";
 
             Console.WriteLine("> bombardier " + process.StartInfo.Arguments);
-
-            for (var i = 0; i < 3; i++)
-            {
-                try
-                {
-                    process.Start();
-                    break;
-                }
-                catch (Exception e)
-                {
-                    await Task.Delay(500);
-                    Console.WriteLine("Error, retrying: " + e.Message);
-                }
-            }
             
+            await StartProcessWithRetriesAsync(process);
+
             BenchmarksEventSource.SetChildProcessId(process.Id);
 
             process.BeginOutputReadLine();
@@ -209,7 +198,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
 
             BenchmarksEventSource.Log.Metadata("bombardier/raw", "all", "all", "Raw results", "Raw results", "json");
 
-            var total = 
+            var total =
                 document["result"]["req1xx"].Value<long>()
                 + document["result"]["req2xx"].Value<long>()
                 + document["result"]["req3xx"].Value<long>()
@@ -232,11 +221,29 @@ namespace Microsoft.Crank.Jobs.Bombardier
             BenchmarksEventSource.Measure("bombardier/raw", output);
 
             var bytesPerSecond = document["result"]["bytesRead"].Value<long>() / document["result"]["timeTakenSeconds"].Value<double>();
-            
+
             // B/s to MB/s
             BenchmarksEventSource.Measure("bombardier/throughput", bytesPerSecond / 1024 / 1024);
 
             return 0;
+        }
+
+        private static async Task StartProcessWithRetriesAsync(Process process)
+        {
+            for (var i = 0; i < 3; i++)
+            {
+                try
+                {
+                    process.Start();
+                    break;
+                }
+                catch (Exception e)
+                {
+                    // The process might fail with a permissions exception during unit tests
+                    await Task.Delay(500);
+                    Console.WriteLine("Error, retrying: " + e.Message);
+                }
+            }
         }
 
         private static bool TryGetArgumentValue(string argName, List<string> argsList, out int value)
