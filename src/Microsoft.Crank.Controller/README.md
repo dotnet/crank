@@ -36,7 +36,6 @@ Options:
   --chart-type [bar (default) | hex]                             Type of chart to render. Values are 'bar' (default) or 'hex'
   --chart-scale [off (default)| auto]                            Scale for chart. Values are 'off' (default) or 'auto'. When scale is off, the min value starts at 0.
 
-  -- [off (default)| auto]
   These options are specific to a Job service named [JOB]
 
   --[JOB].endpoints <url>                                                  An endpoint on which to deploy the job definition, e.g., http://asp-perf-lin:5001. Can be used multiple times.
@@ -104,7 +103,7 @@ Options:
 
   ## Telemetry
 
-  --[JOB].options.discardResults <true|false>                               Whether to discard all the results from this job, for instance during a warmup job.
+  --[JOB].options.discardResults <true|false>                              Whether to discard all the results from this job, for instance during a warmup job.
 
   # Example
 
