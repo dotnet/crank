@@ -20,12 +20,12 @@
 
   <ItemGroup>
     <Hello Include="$(MSBuildProjectDirectory)\..\..\samples\hello\**\*" />
-    <Bombardier Include="$(MSBuildProjectDirectory)\..\..\src\Microsoft.Crank.Jobs.Bombardier\**\*" />
+    <Src Include="$(MSBuildProjectDirectory)\..\..\src\**\*" />
   </ItemGroup>
 
   <Target Name="CopyFiles" AfterTargets="BeforeBuild">
-    <Copy SourceFiles="@(Hello)" DestinationFolder="$(OutputPath)\hello" />
-    <Copy SourceFiles="@(Bombardier)" DestinationFolder="$(OutputPath)\bombardier" />
+    <Copy SourceFiles="@(Hello)" DestinationFiles="@(Hello->'$(OutputPath)hello\%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="@(Src)" DestinationFiles="@(Src->'$(OutputPath)src\%(RecursiveDir)%(Filename)%(Extension)')" />
   </Target>
 
 </Project>
