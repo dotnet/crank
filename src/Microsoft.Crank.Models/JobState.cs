@@ -11,12 +11,12 @@ namespace Microsoft.Crank.Models
         Starting, // The application has been started, the server is waiting for it to be responsive
         Running, // The application is running
         Failed,
-        Deleting,
-        Deleted,
         Stopping,
         Stopped,
         TraceCollecting,
         TraceCollected,
+        Deleting,
+        Deleted,
         NotSupported, // The job is not supported by the server
     }
 }

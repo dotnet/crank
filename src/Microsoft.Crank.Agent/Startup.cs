@@ -859,7 +859,6 @@ namespace Microsoft.Crank.Agent
                                                                     && job.State != JobState.Stopped
                                                                     && job.State != JobState.TraceCollected
                                                                     && job.State != JobState.TraceCollecting
-                                                                    && job.State != JobState.Deleted
                                                                     )
                                                                 {
                                                                     Log.WriteLine($"{job.State} -> Stopped");

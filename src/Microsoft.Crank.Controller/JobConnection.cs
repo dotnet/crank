@@ -637,19 +637,12 @@ namespace Microsoft.Crank.Controller
                 {
                     var state = await GetStateAsync();
 
-                    // if (state == JobState.Stopped || state == JobState.Failed)
-                    // {
-                    //     Log.Write($"Can't download the trace. The job was forcibly stopped by the server.");
-                    //     return;
-                    // }
-
                     if (state == JobState.TraceCollecting)
                     {
                         // Server is collecting the trace
                     }
                     else
                     {
-                        Log.Write($"State: {state}");
                         break;
                     }
 
