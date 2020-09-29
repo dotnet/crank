@@ -426,7 +426,13 @@ namespace Microsoft.Crank.Agent.Controllers
                     var job = _jobs.Find(id);
                     Log($"Sending {job.PerfViewTraceFile}");
                     
-                    return new GZipFileResult(job.PerfViewTraceFile);
+                    if (!System.IO.File.Exists(job.PerfViewTraceFile))
+                    {
+                        Log("Trace file doesn't exist");
+                        return NotFound();
+                    }
+
+                    return new GZipFileResult(job.PerfViewTraceFile);                    
                 }
                 catch(Exception e)
                 {
