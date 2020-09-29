@@ -4,7 +4,7 @@
 
 namespace Microsoft.Crank.EventSources
 {
-    internal enum Operations
+    public enum Operations
     {
         First,
         Last,

@@ -8,7 +8,7 @@ using System.Reflection;
 
 namespace Microsoft.Crank.EventSources
 {
-    internal sealed class BenchmarksEventSource : EventSource
+    public sealed class BenchmarksEventSource : EventSource
     {
         public static readonly BenchmarksEventSource Log = new BenchmarksEventSource();
 
