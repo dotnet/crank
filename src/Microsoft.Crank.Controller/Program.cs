@@ -792,9 +792,9 @@ namespace Microsoft.Crank.Controller
                     }
                     
                     // Skip saving the file if running with iterations and not the last run
-                    if (iterations == 1 || i == iterations)
+                    if (i == iterations)
                     {
-                        await File.WriteAllTextAsync(filename, JsonConvert.SerializeObject(executionResults, Formatting.Indented, new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() }));
+                        await File.WriteAllTextAsync(filename, JsonConvert.SerializeObject(executionResults.First(), Formatting.Indented, new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() }));
 
                         Log.Write("", notime: true);
                         Log.Write($"Results saved in '{new FileInfo(filename).FullName}'", notime: true);
