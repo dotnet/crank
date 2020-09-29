@@ -12,7 +12,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Benchmarks;
+using Microsoft.Crank.EventSources;
 using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Crank.Jobs.Bombardier
@@ -186,17 +186,17 @@ namespace Microsoft.Crank.Jobs.Bombardier
 
             var document = JObject.Parse(output);
 
-            BenchmarksEventSource.Log.Metadata("bombardier/requests", "max", "sum", "Requests", "Total number of requests", "n0");
-            BenchmarksEventSource.Log.Metadata("bombardier/badresponses", "max", "sum", "Bad responses", "Non-2xx or 3xx responses", "n0");
+            BenchmarksEventSource.Register("bombardier/requests", Operations.Max, Operations.Sum, "Requests", "Total number of requests", "n0");
+            BenchmarksEventSource.Register("bombardier/badresponses", Operations.Max, Operations.Sum, "Bad responses", "Non-2xx or 3xx responses", "n0");
 
-            BenchmarksEventSource.Log.Metadata("bombardier/latency/mean", "max", "sum", "Mean latency (us)", "Mean latency (us)", "n0");
-            BenchmarksEventSource.Log.Metadata("bombardier/latency/max", "max", "sum", "Max latency (us)", "Max latency (us)", "n0");
+            BenchmarksEventSource.Register("bombardier/latency/mean", Operations.Max, Operations.Sum, "Mean latency (us)", "Mean latency (us)", "n0");
+            BenchmarksEventSource.Register("bombardier/latency/max", Operations.Max, Operations.Sum, "Max latency (us)", "Max latency (us)", "n0");
 
-            BenchmarksEventSource.Log.Metadata("bombardier/rps/mean", "max", "sum", "Requests/sec", "Requests per second", "n0");
-            BenchmarksEventSource.Log.Metadata("bombardier/rps/max", "max", "sum", "Requests/sec (max)", "Max requests per second", "n0");
-            BenchmarksEventSource.Log.Metadata("bombardier/throughput", "max", "sum", "Read throughput (MB/s)", "Read throughput (MB/s)", "n2");
+            BenchmarksEventSource.Register("bombardier/rps/mean", Operations.Max, Operations.Sum, "Requests/sec", "Requests per second", "n0");
+            BenchmarksEventSource.Register("bombardier/rps/max", Operations.Max, Operations.Sum, "Requests/sec (max)", "Max requests per second", "n0");
+            BenchmarksEventSource.Register("bombardier/throughput", Operations.Max, Operations.Sum, "Read throughput (MB/s)", "Read throughput (MB/s)", "n2");
 
-            BenchmarksEventSource.Log.Metadata("bombardier/raw", "all", "all", "Raw results", "Raw results", "json");
+            BenchmarksEventSource.Register("bombardier/raw", Operations.All, Operations.All, "Raw results", "Raw results", "json");
 
             var total =
                 document["result"]["req1xx"].Value<long>()
@@ -288,7 +288,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
                     var elapsed = stopwatch.ElapsedMilliseconds;
                     Console.WriteLine($"{elapsed} ms");
 
-                    BenchmarksEventSource.Log.Metadata("http/firstrequest", "max", "max", "First Request (ms)", "Time to first request in ms", "n0");
+                    BenchmarksEventSource.Register("http/firstrequest", Operations.Max, Operations.Max, "First Request (ms)", "Time to first request in ms", "n0");
                     BenchmarksEventSource.Measure("http/firstrequest", elapsed);
                 }
             }

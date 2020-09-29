@@ -11,7 +11,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Crank.Jobs;
+using Microsoft.Crank.EventSources;
 
 namespace Microsoft.Crank.Wrk
 {
@@ -51,7 +51,7 @@ namespace Microsoft.Crank.Wrk
                         var elapsed = stopwatch.ElapsedMilliseconds;
                         Console.WriteLine($"{elapsed} ms");
 
-                        BenchmarksEventSource.Log.Metadata("http/firstrequest", "max", "max", "First Request (ms)", "Time to first request in ms", "n0");
+                        BenchmarksEventSource.Register("http/firstrequest", Operations.Max, Operations.Max, "First Request (ms)", "Time to first request in ms", "n0");
                         BenchmarksEventSource.Measure("http/firstrequest", elapsed);
                     }
                 }
@@ -235,13 +235,13 @@ namespace Microsoft.Crank.Wrk
                 output = stringBuilder.ToString();
             }
 
-            BenchmarksEventSource.Log.Metadata("wrk/rps/mean", "max", "sum", "Requests/sec", "Requests per second", "n0");
-            BenchmarksEventSource.Log.Metadata("wrk/requests", "max", "sum", "Requests", "Total number of requests", "n0");
-            BenchmarksEventSource.Log.Metadata("wrk/latency/mean", "max", "sum", "Mean latency (ms)", "Mean latency (ms)", "n2");
-            BenchmarksEventSource.Log.Metadata("wrk/latency/max", "max", "sum", "Max latency (ms)", "Max latency (ms)", "n2");
-            BenchmarksEventSource.Log.Metadata("wrk/errors/badresponses", "max", "sum", "Bad responses", "Non-2xx or 3xx responses", "n0");
-            BenchmarksEventSource.Log.Metadata("wrk/errors/socketerrors", "max", "sum", "Socket errors", "Socket errors", "n0");
-            BenchmarksEventSource.Log.Metadata("wrk/throughput", "max", "sum", "Read throughput (MB/s)", "Read throughput (MB/s)", "n2");
+            BenchmarksEventSource.Register("wrk/rps/mean", Operations.Max, Operations.Sum, "Requests/sec", "Requests per second", "n0");
+            BenchmarksEventSource.Register("wrk/requests", Operations.Max, Operations.Sum, "Requests", "Total number of requests", "n0");
+            BenchmarksEventSource.Register("wrk/latency/mean", Operations.Max, Operations.Sum, "Mean latency (ms)", "Mean latency (ms)", "n2");
+            BenchmarksEventSource.Register("wrk/latency/max", Operations.Max, Operations.Sum, "Max latency (ms)", "Max latency (ms)", "n2");
+            BenchmarksEventSource.Register("wrk/errors/badresponses", Operations.Max, Operations.Sum, "Bad responses", "Non-2xx or 3xx responses", "n0");
+            BenchmarksEventSource.Register("wrk/errors/socketerrors", Operations.Max, Operations.Sum, "Socket errors", "Socket errors", "n0");
+            BenchmarksEventSource.Register("wrk/throughput", Operations.Max, Operations.Sum, "Read throughput (MB/s)", "Read throughput (MB/s)", "n2");
 
             const string LatencyPattern = @"\s+{0}\s+([\d\.]+)(\w+)";
 
@@ -272,10 +272,10 @@ namespace Microsoft.Crank.Wrk
 
             if (parseLatency)
             {
-                BenchmarksEventSource.Log.Metadata("wrk/latency/50", "max", "avg", "Latency 50th (ms)", "Latency 50th (ms)", "n2");
-                BenchmarksEventSource.Log.Metadata("wrk/latency/75", "max", "avg", "Latency 75th (ms)", "Latency 50th (ms)", "n2");
-                BenchmarksEventSource.Log.Metadata("wrk/latency/90", "max", "avg", "Latency 90th (ms)", "Latency 50th (ms)", "n2");
-                BenchmarksEventSource.Log.Metadata("wrk/latency/99", "max", "avg", "Latency 99th (ms)", "Latency 50th (ms)", "n2");
+                BenchmarksEventSource.Register("wrk/latency/50", Operations.Max, Operations.Avg, "Latency 50th (ms)", "Latency 50th (ms)", "n2");
+                BenchmarksEventSource.Register("wrk/latency/75", Operations.Max, Operations.Avg, "Latency 75th (ms)", "Latency 50th (ms)", "n2");
+                BenchmarksEventSource.Register("wrk/latency/90", Operations.Max, Operations.Avg, "Latency 90th (ms)", "Latency 50th (ms)", "n2");
+                BenchmarksEventSource.Register("wrk/latency/99", Operations.Max, Operations.Avg, "Latency 99th (ms)", "Latency 50th (ms)", "n2");
 
                 BenchmarksEventSource.Measure("wrk/latency/50", ReadLatency(Regex.Match(output, string.Format(LatencyPattern, "50%"))));
                 BenchmarksEventSource.Measure("wrk/latency/75", ReadLatency(Regex.Match(output, string.Format(LatencyPattern, "75%"))));

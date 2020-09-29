@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using McMaster.Extensions.CommandLineUtils;
+using Microsoft.Crank.EventSources;
 
 namespace Microsoft.Crank.Jobs.PipeliningClient
 {
@@ -148,8 +149,8 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                             await Task.Delay(TimeSpan.FromSeconds(Period));
 
                             var periodicTps = (int)(_periodicCounter / Period);
-                            BenchmarksEventSource.Log.Measure("pipelineclient/periodic-rps", periodicTps);
-                            BenchmarksEventSource.Log.Measure("pipelineclient/connections", _activeConnections);
+                            BenchmarksEventSource.Measure("pipelineclient/periodic-rps", periodicTps);
+                            BenchmarksEventSource.Measure("pipelineclient/connections", _activeConnections);
 
                             _statistics.Add(new KeyValuePair<int, int>(_activeConnections, periodicTps));
 
@@ -212,18 +213,18 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
             Console.WriteLine($"Socket Errors:   {_socketErrors:N0}");
 
             // If multiple samples are provided, take the max RPS, then sum the result from all clients
-            BenchmarksEventSource.Log.Metadata("pipelineclient/avg-rps", "max", "sum", "RPS", "Requests per second", "n0");
-            BenchmarksEventSource.Log.Metadata("pipelineclient/connections", "max", "sum", "Connections", "Number of active connections", "n0");
-            BenchmarksEventSource.Log.Metadata("pipelineclient/periodic-rps", "max", "sum", "Max RPS", "Instant requests per second", "n0");
-            BenchmarksEventSource.Log.Metadata("pipelineclient/status-2xx", "sum", "sum", "Successful Requests", "Successful Requests", "n0");
-            BenchmarksEventSource.Log.Metadata("pipelineclient/bad-response", "sum", "sum", "Bad Responses", "Bad Responses", "n0");
-            BenchmarksEventSource.Log.Metadata("pipelineclient/socket-errors", "sum", "sum", "Socket Errors", "Socket Errors", "n0");
+            BenchmarksEventSource.Register("pipelineclient/avg-rps", Operations.Max, Operations.Sum, "RPS", "Requests per second", "n0");
+            BenchmarksEventSource.Register("pipelineclient/connections", Operations.Max, Operations.Sum, "Connections", "Number of active connections", "n0");
+            BenchmarksEventSource.Register("pipelineclient/periodic-rps", Operations.Max, Operations.Sum, "Max RPS", "Instant requests per second", "n0");
+            BenchmarksEventSource.Register("pipelineclient/status-2xx", Operations.Sum, Operations.Sum, "Successful Requests", "Successful Requests", "n0");
+            BenchmarksEventSource.Register("pipelineclient/bad-response", Operations.Sum, Operations.Sum, "Bad Responses", "Bad Responses", "n0");
+            BenchmarksEventSource.Register("pipelineclient/socket-errors", Operations.Sum, Operations.Sum, "Socket Errors", "Socket Errors", "n0");
 
-            BenchmarksEventSource.Log.Measure("pipelineclient/avg-rps", totalTps);
-            BenchmarksEventSource.Log.Measure("pipelineclient/connections", Connections);
-            BenchmarksEventSource.Log.Measure("pipelineclient/status-2xx", _counter);
-            BenchmarksEventSource.Log.Measure("pipelineclient/bad-response", _errors);
-            BenchmarksEventSource.Log.Measure("pipelineclient/socket-errors", _socketErrors);
+            BenchmarksEventSource.Measure("pipelineclient/avg-rps", totalTps);
+            BenchmarksEventSource.Measure("pipelineclient/connections", Connections);
+            BenchmarksEventSource.Measure("pipelineclient/status-2xx", _counter);
+            BenchmarksEventSource.Measure("pipelineclient/bad-response", _errors);
+            BenchmarksEventSource.Measure("pipelineclient/socket-errors", _socketErrors);
 
             if (MinConnections != Connections)
             {
