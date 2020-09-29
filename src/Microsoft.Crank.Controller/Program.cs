@@ -19,9 +19,7 @@ using McMaster.Extensions.CommandLineUtils;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
-using NuGet.Versioning;
 using YamlDotNet.Serialization;
-using System.Reflection;
 using System.Text;
 using Manatee.Json.Schema;
 using Manatee.Json;
@@ -635,6 +633,8 @@ namespace Microsoft.Crank.Controller
                                         }
                                     }
 
+                                    await Task.WhenAll(jobs.Select(job => job.DownloadTraceAsync()));
+
                                     await Task.WhenAll(jobs.Select(job => job.DownloadAssetsAsync(jobName)));
 
                                     await Task.WhenAll(jobs.Select(job => job.DeleteAsync()));
@@ -674,71 +674,6 @@ namespace Microsoft.Crank.Controller
                     }
                 }
 
-                // Download traces, before the jobs are stopped
-                foreach (var jobName in dependencies)
-                {
-                    // Unless the jobs can't be stopped
-                    if (SpanShouldKeepJobRunning(jobName))
-                    {
-                        continue;
-                    }
-
-                    var service = configuration.Jobs[jobName];
-
-                    // Skip failed jobs
-                    if (!jobsByDependency.ContainsKey(jobName))
-                    {
-                        continue;
-                    }
-
-                    var jobConnections = jobsByDependency[jobName];
-
-                    foreach (var jobConnection in jobConnections)
-                    {
-                        var info = await jobConnection.GetInfoAsync();
-                        var os = Enum.Parse<Models.OperatingSystem>(info["os"]?.ToString() ?? "linux", ignoreCase: true);
-
-                        var traceExtension = ".nettrace";
-
-                        // Download trace
-                        if (jobConnection.Job.DotNetTrace || jobConnection.Job.Collect)
-                        {
-                            if (jobConnection.Job.Collect)
-                            {
-                                traceExtension = os == Models.OperatingSystem.Windows
-                                    ? ".etl.zip"
-                                    : ".trace.zip"
-                                    ;
-                            }
-
-                            try
-                            {
-                                var traceDestination = jobConnection.Job.Options.TraceOutput;
-
-                                if (String.IsNullOrWhiteSpace(traceDestination))
-                                {
-                                    traceDestination = jobName;
-                                }
-
-
-                                if (!traceDestination.EndsWith(traceExtension, StringComparison.OrdinalIgnoreCase))
-                                {
-                                    traceDestination = traceDestination + "." + DateTime.Now.ToString("MM-dd-HH-mm-ss") + traceExtension;
-                                }
-
-                                Log.Write($"Collecting trace file '{traceDestination}' ...");
-
-                                await jobConnection.DownloadDotnetTrace(traceDestination);
-                            }
-                            catch (Exception e)
-                            {
-                                Log.Write($"Error while fetching trace for '{jobName}'");
-                                Log.Verbose(e.Message);
-                            }
-                        }
-                    }
-                }
-
                 // Stop all non-blocking jobs in reverse dependency order (clients first)
                 foreach (var jobName in dependencies.Reverse())
                 {
@@ -765,6 +700,8 @@ namespace Microsoft.Crank.Controller
                         // Unless the jobs can't be stopped
                         if (!SpanShouldKeepJobRunning(jobName))
                         {
+                            await Task.WhenAll(jobs.Select(job => job.DownloadTraceAsync()));
+
                             await Task.WhenAll(jobs.Select(job => job.DownloadAssetsAsync(jobName)));
 
                             await Task.WhenAll(jobs.Select(job => job.DeleteAsync()));
@@ -1060,6 +997,8 @@ namespace Microsoft.Crank.Controller
             await job.StopAsync();
 
             await job.TryUpdateJobAsync();
+
+            await job.DownloadTraceAsync();
 
             await job.DownloadAssetsAsync(jobName);
 

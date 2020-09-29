@@ -587,6 +587,93 @@ namespace Microsoft.Crank.Controller
             _keepAlive = false;
         }
 
+        public async Task DownloadTraceAsync()
+        {
+            if (!Job.DotNetTrace && !Job.Collect)
+            {
+                return;
+            }
+
+            // We can only download the trace for a job that has been stopped
+            if (await GetStateAsync() != JobState.Stopped)
+            {
+                return;
+            }
+
+            var info = await GetInfoAsync();
+            var os = Enum.Parse<Models.OperatingSystem>(info["os"]?.ToString() ?? "linux", ignoreCase: true);
+
+            var traceExtension = ".nettrace";
+
+            if (Job.Collect)
+            {
+                traceExtension = os == Models.OperatingSystem.Windows
+                    ? ".etl.zip"
+                    : ".trace.zip"
+                    ;
+            }
+
+            try
+            {
+                var traceDestination = Job.Options.TraceOutput;
+
+                if (String.IsNullOrWhiteSpace(traceDestination))
+                {
+                    traceDestination = Job.Service;
+                }
+
+                if (!traceDestination.EndsWith(traceExtension, StringComparison.OrdinalIgnoreCase))
+                {
+                    traceDestination = traceDestination + "." + DateTime.Now.ToString("MM-dd-HH-mm-ss") + traceExtension;
+                }
+
+                Log.Write($"Collecting trace file '{traceDestination}' ...");
+
+                var uri = _serverJobUri + "/trace";
+                var response = await _httpClient.PostAsync(uri, new StringContent(""));
+                response.EnsureSuccessStatusCode();
+
+                while (true)
+                {
+                    var state = await GetStateAsync();
+
+                    // if (state == JobState.Stopped || state == JobState.Failed)
+                    // {
+                    //     Log.Write($"Can't download the trace. The job was forcibly stopped by the server.");
+                    //     return;
+                    // }
+
+                    if (state == JobState.TraceCollecting)
+                    {
+                        // Server is collecting the trace
+                    }
+                    else
+                    {
+                        Log.Write($"State: {state}");
+                        break;
+                    }
+
+                    await Task.Delay(1000);
+                }
+
+                Log.Write($"Downloading trace file...");
+
+                try
+                {
+                    await _httpClient.DownloadFileAsync(uri, _serverJobUri, traceDestination);
+                }
+                catch
+                {
+                    Log.Write($"The trace was not captured on the server");
+                }
+            }
+            catch (Exception e)
+            {
+                Log.Write($"Error while fetching trace for '{Job.Service}'");
+                Log.Verbose(e.Message);
+            }
+        }
+
         public async Task DownloadAssetsAsync(string dependency)
         {
             // Fetch published folder
@@ -815,37 +902,6 @@ namespace Microsoft.Crank.Controller
             }
 
             await _httpClient.DownloadFileAsync(uri, _serverJobUri, filename);
-        }
-
-        public async Task DownloadDotnetTrace(string traceDestination)
-        {
-            var uri = _serverJobUri + "/trace";
-            var response = await _httpClient.PostAsync(uri, new StringContent(""));
-            response.EnsureSuccessStatusCode();
-
-            while (true)
-            {
-                var state = await GetStateAsync();
-
-                if (state == JobState.Stopped || state == JobState.Failed)
-                {
-                    Log.Write($"Can't download the trace. The job was forcibly stopped by the server.");
-                    return;
-                }
-
-                if (state == JobState.TraceCollecting)
-                {
-                    // Server is collecting the trace
-                }
-                else
-                {
-                    break;
-                }
-
-                await Task.Delay(1000);
-            }
-
-            await _httpClient.DownloadFileAsync(uri, _serverJobUri, traceDestination);
         }
 
         public async Task<Dictionary<string, object>> GetInfoAsync()

@@ -855,7 +855,12 @@ namespace Microsoft.Crank.Agent
                                                                 Log.WriteLine($"Process has exited ({process.ExitCode})");
 
                                                                 // Don't revert a Deleting state by mistake
-                                                                if (job.State != JobState.Deleting)
+                                                                if (job.State != JobState.Deleting
+                                                                    && job.State != JobState.Stopped
+                                                                    && job.State != JobState.TraceCollected
+                                                                    && job.State != JobState.TraceCollecting
+                                                                    && job.State != JobState.Deleted
+                                                                    )
                                                                 {
                                                                     Log.WriteLine($"{job.State} -> Stopped");
                                                                     job.State = JobState.Stopped;
