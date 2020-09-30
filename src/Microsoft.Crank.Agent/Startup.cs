@@ -635,9 +635,7 @@ namespace Microsoft.Crank.Agent
                                             {
                                                 process = await StartProcess(hostname, Path.Combine(tempDir, benchmarksDir), job, _dotnethome);
 
-                                                job.ProcessId = process.Id;
-
-                                                Log.WriteLine($"Process started: {process.Id}");
+                                                Log.WriteLine($"Process started: {job.ProcessId}");
 
                                                 workingDirectory = process.StartInfo.WorkingDirectory;
                                             }
@@ -3552,6 +3550,8 @@ namespace Microsoft.Crank.Agent
             stopwatch.Start();
             process.Start();
 
+            job.ProcessId = process.Id;
+            
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
 
@@ -3858,6 +3858,11 @@ namespace Microsoft.Crank.Agent
 
         private static void StartMeasurement(Job job)
         {
+            if (job.ProcessId == 0)
+            {
+                throw new ArgumentException($"Undefined process id for '{job.Service}'");
+            }
+
             measurementsTerminated = false;
             measurementsTask = new Task(async () =>
             {
