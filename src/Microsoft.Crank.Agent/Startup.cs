@@ -3858,6 +3858,11 @@ namespace Microsoft.Crank.Agent
 
         private static void StartMeasurement(Job job)
         {
+            if (job.ProcessId == 0)
+            {
+                throw new ArgumentException($"Undefined process id for '{job.Service}'");
+            }
+
             measurementsTerminated = false;
             measurementsTask = new Task(async () =>
             {
