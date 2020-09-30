@@ -6,8 +6,9 @@ jobs:
     readyStateText: Application started.
   bombardier:
     source:
-      localFolder: '../bombardier'
-      project: Microsoft.Crank.Jobs.Bombardier.csproj
+      # uploading the whole source folder since it requires other libraries
+      localFolder: '../src'
+      project: Microsoft.Crank.Jobs.Bombardier/Microsoft.Crank.Jobs.Bombardier.csproj
     readyStateText: Bombardier Client
     waitForExit: true
     variables:
