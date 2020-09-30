@@ -41,9 +41,9 @@ In this example the resulting document would contain these properties with the `
 
 ```json
 {
-    "aspNetCoreVersion": "3.1.4",
-    "runtimeVersion": "3.1.4",
-    "sdkVersion": "3.1.300"
+    "aspNetCoreVersion": "3.1.8",
+    "runtimeVersion": "3.1.8",
+    "sdkVersion": "3.1.402"
 }
 ```
 
