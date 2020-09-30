@@ -148,7 +148,7 @@ namespace Microsoft.Crank.Controller
             _excludeMeasurementsOption = app.Option("--no-measurements", "Remove all measurements from the stored results. For instance, all samples of a measure won't be stored, only the final value.", CommandOptionType.SingleOrNoValue);
             _excludeMetadataOption = app.Option("--no-metadata", "Remove all metadata from the stored results. The metadata is only necessary for being to generate friendly outputs.", CommandOptionType.SingleOrNoValue);
             _autoflushOption = app.Option("--auto-flush", "Runs a single long-running job and flushes measurements automatically.", CommandOptionType.NoValue);
-            _repeatOption = app.Option("--repeat", "The job to repeat using the '--span' argument.", CommandOptionType.SingleValue);
+            _repeatOption = app.Option("--repeat", "The job to repeat using the '--span' or '--iterations' argument.", CommandOptionType.SingleValue);
             _spanOption = app.Option("--span", "The duration while the job is repeated.", CommandOptionType.SingleValue);
             _renderChartOption = app.Option("--chart", "Renders a chart for multi-value results.", CommandOptionType.NoValue);
             _chartTypeOption = app.Option("--chart-type", "Type of chart to render. Values are 'bar' (default) or 'hex'", CommandOptionType.SingleValue);
@@ -454,7 +454,7 @@ namespace Microsoft.Crank.Controller
             var executionResults = new List<ExecutionResult>();
             var iterationStart = DateTime.UtcNow;
             var jobsByDependency = new Dictionary<string, List<JobConnection>>();
-            var i = 1;
+            var i = 1; // current iteration
 
             do
             {
@@ -778,9 +778,9 @@ namespace Microsoft.Crank.Controller
                     {
                         Directory.CreateDirectory(directory);
                     }
-                    
-                    var index = 1;
 
+                    var index = 1;
+                    
                     // If running in a span, create a unique filename for each run
                     if (span > TimeSpan.Zero)
                     {
@@ -792,7 +792,7 @@ namespace Microsoft.Crank.Controller
                     }
                     
                     // Skip saving the file if running with iterations and not the last run
-                    if (i == iterations)
+                    if (i == iterations || span > TimeSpan.Zero)
                     {
                         await File.WriteAllTextAsync(filename, JsonConvert.SerializeObject(executionResults.First(), Formatting.Indented, new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() }));
 
@@ -806,7 +806,7 @@ namespace Microsoft.Crank.Controller
                 if (!String.IsNullOrEmpty(_sqlConnectionString))
                 {
                     // Skip storing results if running with iterations and not the last run
-                    if (iterations == 1 || i == iterations)
+                    if (i == iterations || span > TimeSpan.Zero)
                     {
                         await JobSerializer.WriteJobResultsToSqlAsync(executionResult.JobResults, _sqlConnectionString, _tableName, session, _scenarioOption.Value(), _descriptionOption.Value());
                     }
