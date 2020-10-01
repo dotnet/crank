@@ -84,7 +84,7 @@ namespace Microsoft.Crank.EventSources
         /// </summary>
         public static void MeasureAspNetVersion()
         {
-            var iWebHostBuilderType = Type.GetType("Microsoft.AspNetCore.Hosting.IWebHostBuilder");
+            var iWebHostBuilderType = Type.GetType("Microsoft.AspNetCore.Hosting.IWebHostBuilder, Microsoft.AspNetCore.Hosting.Abstractions");
 
             if (iWebHostBuilderType != null)
             {
