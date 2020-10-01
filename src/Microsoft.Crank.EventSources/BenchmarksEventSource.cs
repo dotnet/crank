@@ -48,6 +48,16 @@ namespace Microsoft.Crank.EventSources
         }
 
         /// <summary>
+        /// Registers and measures a single textual measure. 
+        /// </summary>
+        public static void MeasureAndRegister(string name, string value, string description)
+        {
+            Register(name, Operations.First.ToString(), Operations.First.ToString(), description, description, "");
+            Measure(name, value);
+
+        }
+
+        /// <summary>
         /// Instructs the host agent to track CPU and memory usage for the specified process id.
         /// </summary>
         public static void SetChildProcessId(int pid)
@@ -82,7 +92,7 @@ namespace Microsoft.Crank.EventSources
 
                 if (aspnetCoreVersion != null)
                 {
-                    Log.MeasureString("AspNetCoreVersion", aspnetCoreVersion);
+                    MeasureAndRegister("AspNetCoreVersion", aspnetCoreVersion, "ASP.NET Core Version");
                 }
             }
         }
@@ -96,7 +106,7 @@ namespace Microsoft.Crank.EventSources
 
             if (netCoreAppVersion != null)
             {
-                Log.MeasureString("NetCoreAppVersion", netCoreAppVersion);
+                MeasureAndRegister("NetCoreAppVersion", netCoreAppVersion, ".NET Runtime Version");
             }
         }
 
