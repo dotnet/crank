@@ -52,7 +52,7 @@ namespace Microsoft.Crank.EventSources
         /// </summary>
         public static void MeasureAndRegister(string name, string value, string description)
         {
-            Register(name, Operations.First.ToString(), Operations.First.ToString(), description, description, "");
+            Register(name, Operations.First, Operations.First, description, description, "");
             Measure(name, value);
 
         }
