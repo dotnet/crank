@@ -2852,7 +2852,7 @@ namespace Microsoft.Crank.Agent
             else if (String.Equals(aspNetCoreVersion, "Edge", StringComparison.OrdinalIgnoreCase))
             {
                 // aspnet runtime service releases are not published on feeds
-                if (versionPrefix != "5.0" || versionPrefix != "6.0")
+                if (versionPrefix != "5.0" && versionPrefix != "6.0")
                 {
                     aspNetCoreVersion = currentAspNetCoreVersion;
                     Log.WriteLine($"ASP.NET: {aspNetCoreVersion} (Edge - Fallback on Current)");
