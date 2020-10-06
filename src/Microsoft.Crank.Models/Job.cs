@@ -57,6 +57,7 @@ namespace Microsoft.Crank.Models
         public bool IsConsoleApp { get; set; }
         public string AspNetCoreVersion { get; set; } = "";
         public string RuntimeVersion { get; set; } = "";
+        public string DesktopVersion { get; set; } = "";
         public string SdkVersion { get; set; } = "";
         public string UseMonoRuntime { get; set; } = "";
         public bool NoGlobalJson { get; set; }

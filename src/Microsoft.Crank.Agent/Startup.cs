@@ -57,7 +57,7 @@ namespace Microsoft.Crank.Agent
             Based on the target framework
          */
 
-        private static string DefaultTargetFramework = "netcoreapp5.0";
+        private static string DefaultTargetFramework = "net5.0";
         private static string DefaultChannel = "current";
 
         private const string PerfViewVersion = "P2.0.54";
@@ -78,6 +78,7 @@ namespace Microsoft.Crank.Agent
         private static readonly string _latestSdkVersionUrl = "https://aka.ms/dotnet/net5/daily/Sdk/productCommit-win-x64.txt";
         private static readonly string _aspnetSdkVersionUrl = "https://raw.githubusercontent.com/dotnet/aspnetcore/master/global.json";
         private static readonly string[] _runtimeFeedUrls = new string[] {
+            //"https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2",
             "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2",
             "https://dotnetfeed.blob.core.windows.net/dotnet-core/flatcontainer",
             "https://api.nuget.org/v3/flatcontainer" };
@@ -2082,7 +2083,7 @@ namespace Microsoft.Crank.Agent
             string channel = DefaultChannel;
 
             string runtimeVersion = job.RuntimeVersion;
-            string desktopVersion = "";
+            string desktopVersion = job.DesktopVersion;
             string aspNetCoreVersion = job.AspNetCoreVersion;
             string sdkVersion = job.SdkVersion;
 
@@ -2141,7 +2142,12 @@ namespace Microsoft.Crank.Agent
 
             sdkVersion = PatchOrCreateGlobalJson(job, benchmarkedApp, sdkVersion);
 
-            var installAspNetSharedFramework = job.UseRuntimeStore || aspNetCoreVersion.StartsWith("3.0") || aspNetCoreVersion.StartsWith("3.1") || aspNetCoreVersion.StartsWith("5.0");
+            var installAspNetSharedFramework = job.UseRuntimeStore 
+                || aspNetCoreVersion.StartsWith("3.0") 
+                || aspNetCoreVersion.StartsWith("3.1") 
+                || aspNetCoreVersion.StartsWith("5.0")
+                || aspNetCoreVersion.StartsWith("6.0")
+                ;
 
             var dotnetInstallStep = "";
 
@@ -2310,6 +2316,7 @@ namespace Microsoft.Crank.Agent
             // Updating Job to reflect actual versions used
             job.AspNetCoreVersion = aspNetCoreVersion;
             job.RuntimeVersion = runtimeVersion;
+            job.DesktopVersion = desktopVersion;
             job.SdkVersion = sdkVersion;
 
             // Build and Restore
@@ -2317,7 +2324,6 @@ namespace Microsoft.Crank.Agent
 
             var buildParameters =
                 $"/p:MicrosoftNETCoreAppPackageVersion={runtimeVersion} " +
-                $"/p:MicrosoftWindowsDesktopAppPackageVersion={desktopVersion} " +
                 $"/p:MicrosoftAspNetCoreAppPackageVersion={aspNetCoreVersion} " +
                 // The following properties could be removed in a future version
                 $"/p:BenchmarksNETStandardImplicitPackageVersion={aspNetCoreVersion} " +
@@ -2327,6 +2333,11 @@ namespace Microsoft.Crank.Agent
                 $"/p:BenchmarksAspNetCoreVersion={aspNetCoreVersion} " +
                 $"/p:MicrosoftAspNetCoreAllPackageVersion={aspNetCoreVersion} " +
                 $"/p:NETCoreAppMaximumVersion=99.9 "; // Force the SDK to accept the TFM even if it's an unknown one. For instance using SDK 2.1 to build a netcoreapp2.2 TFM.
+
+            if (OperatingSystem == OperatingSystem.Windows)
+            {
+                buildParameters += $"/p:MicrosoftWindowsDesktopAppPackageVersion={desktopVersion} ";
+            }
 
             if (targetFramework == "netcoreapp2.1")
             {
@@ -2360,7 +2371,7 @@ namespace Microsoft.Crank.Agent
                     buildParameters += $"/p:MicrosoftNETPlatformLibrary=Microsoft.NETCore.App ";
                 }
             }
-            else if (targetFramework == "netcoreapp5.0" || targetFramework == "net5.0")
+            else if (targetFramework == "netcoreapp5.0" || targetFramework == "net5.0" || targetFramework == "net6.0")
             {
                 buildParameters += $"/p:MicrosoftNETCoreApp50PackageVersion={runtimeVersion} ";
                 buildParameters += $"/p:GenerateErrorForMissingTargetingPacks=false ";
@@ -2722,23 +2733,42 @@ namespace Microsoft.Crank.Agent
                         project = await XDocument.LoadAsync(projectFileStream, LoadOptions.None, new CancellationTokenSource(3000).Token);
                     }
 
-                    project.Root.Add(
-                        new XElement("ItemGroup",
-                            new XAttribute("Condition", "$(TargetFramework) == 'netcoreapp3.0' or $(TargetFramework) == 'netcoreapp3.1' or $(TargetFramework) == 'netcoreapp5.0' or $(TargetFramework) == 'net5.0'"),
-                            new XElement("FrameworkReference",
-                                new XAttribute("Update", "Microsoft.AspNetCore.App"),
-                                new XAttribute("RuntimeFrameworkVersion", "$(MicrosoftAspNetCoreAppPackageVersion)")
-                                ),
-                            new XElement("FrameworkReference",
-                                new XAttribute("Update", "Microsoft.NETCore.App"),
-                                new XAttribute("RuntimeFrameworkVersion", "$(MicrosoftNETCoreAppPackageVersion)")
-                                ),
-                            new XElement("FrameworkReference",
-                                new XAttribute("Update", "Microsoft.WindowsDesktop.App"),
-                                new XAttribute("RuntimeFrameworkVersion", "$(MicrosoftWindowsDesktopAppPackageVersion)")
-                                )
-                        )
-                    );
+                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                    {
+                        project.Root.Add(
+                            new XElement("ItemGroup",
+                                new XAttribute("Condition", "$(TargetFramework) == 'netcoreapp3.0' or $(TargetFramework) == 'netcoreapp3.1' or $(TargetFramework) == 'netcoreapp5.0' or $(TargetFramework) == 'net5.0' or $(TargetFramework) == 'net6.0'"),
+                                new XElement("FrameworkReference",
+                                    new XAttribute("Update", "Microsoft.AspNetCore.App"),
+                                    new XAttribute("RuntimeFrameworkVersion", "$(MicrosoftAspNetCoreAppPackageVersion)")
+                                    ),
+                                new XElement("FrameworkReference",
+                                    new XAttribute("Update", "Microsoft.NETCore.App"),
+                                    new XAttribute("RuntimeFrameworkVersion", "$(MicrosoftNETCoreAppPackageVersion)")
+                                    )
+                            )
+                        );
+                    }
+                    else
+                    {
+                        project.Root.Add(
+                            new XElement("ItemGroup",
+                                new XAttribute("Condition", "$(TargetFramework) == 'netcoreapp3.0' or $(TargetFramework) == 'netcoreapp3.1' or $(TargetFramework) == 'netcoreapp5.0' or $(TargetFramework) == 'net5.0' or $(TargetFramework) == 'net6.0'"),
+                                new XElement("FrameworkReference",
+                                    new XAttribute("Update", "Microsoft.AspNetCore.App"),
+                                    new XAttribute("RuntimeFrameworkVersion", "$(MicrosoftAspNetCoreAppPackageVersion)")
+                                    ),
+                                new XElement("FrameworkReference",
+                                    new XAttribute("Update", "Microsoft.NETCore.App"),
+                                    new XAttribute("RuntimeFrameworkVersion", "$(MicrosoftNETCoreAppPackageVersion)")
+                                    ),
+                                new XElement("FrameworkReference",
+                                    new XAttribute("Update", "Microsoft.WindowsDesktop.App"),
+                                    new XAttribute("RuntimeFrameworkVersion", "$(MicrosoftWindowsDesktopAppPackageVersion)")
+                                    )
+                            )
+                        );
+                    }
 
                     using (var projectFileStream = File.CreateText(projectFileName))
                     {
@@ -2808,7 +2838,7 @@ namespace Microsoft.Crank.Agent
             else if (String.Equals(aspNetCoreVersion, "Latest", StringComparison.OrdinalIgnoreCase))
             {
                 // aspnet runtime service releases are not published on feeds
-                if (versionPrefix != "5.0")
+                if (versionPrefix != "5.0" && versionPrefix != "6.0")
                 {
                     aspNetCoreVersion = currentAspNetCoreVersion;
                     Log.WriteLine($"ASP.NET: {aspNetCoreVersion} (Latest - Fallback on Current)");
@@ -2822,7 +2852,7 @@ namespace Microsoft.Crank.Agent
             else if (String.Equals(aspNetCoreVersion, "Edge", StringComparison.OrdinalIgnoreCase))
             {
                 // aspnet runtime service releases are not published on feeds
-                if (versionPrefix != "5.0")
+                if (versionPrefix != "5.0" || versionPrefix != "6.0")
                 {
                     aspNetCoreVersion = currentAspNetCoreVersion;
                     Log.WriteLine($"ASP.NET: {aspNetCoreVersion} (Edge - Fallback on Current)");
@@ -3111,6 +3141,18 @@ namespace Microsoft.Crank.Agent
                 case "netcoreapp5.0":
                 case "net5.0":
 
+                    await DownloadFileAsync(String.Format(_aspNetCoreDependenciesUrl, "master/5.0/Versions.props"), aspNetCoreDependenciesPath, maxRetries: 5, timeout: 10);
+                    latestRuntimeVersion = XDocument.Load(aspNetCoreDependenciesPath).Root
+                        .Elements("PropertyGroup")
+                        .Select(x => x.Element("MicrosoftNETCoreAppRuntimewinx64PackageVersion"))
+                        .Where(x => x != null)
+                        .FirstOrDefault()
+                        .Value;
+
+                    break;
+
+                case "net6.0":
+
                     await DownloadFileAsync(String.Format(_aspNetCoreDependenciesUrl, "master/eng/Versions.props"), aspNetCoreDependenciesPath, maxRetries: 5, timeout: 10);
                     latestRuntimeVersion = XDocument.Load(aspNetCoreDependenciesPath).Root
                         .Elements("PropertyGroup")
@@ -3129,7 +3171,7 @@ namespace Microsoft.Crank.Agent
         /// <summary>
         /// Retrieves the Current runtime and sdk versions for a tfm
         /// </summary>
-        private static async Task<(string Runtime, string Sesktop, string AspNet, string Sdk)> GetCurrentVersions(string targetFramework)
+        private static async Task<(string Runtime, string Desktop, string AspNet, string Sdk)> GetCurrentVersions(string targetFramework)
         {
             var frameworkVersion = targetFramework.Substring(targetFramework.Length - 3); // 3.1
             var metadataUrl = $"https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/{frameworkVersion}/releases.json";
