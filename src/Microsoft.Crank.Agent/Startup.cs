@@ -2083,7 +2083,7 @@ namespace Microsoft.Crank.Agent
             string channel = DefaultChannel;
 
             string runtimeVersion = job.RuntimeVersion;
-            string desktopVersion = "";
+            string desktopVersion = job.DesktopVersion;
             string aspNetCoreVersion = job.AspNetCoreVersion;
             string sdkVersion = job.SdkVersion;
 
@@ -2316,6 +2316,7 @@ namespace Microsoft.Crank.Agent
             // Updating Job to reflect actual versions used
             job.AspNetCoreVersion = aspNetCoreVersion;
             job.RuntimeVersion = runtimeVersion;
+            job.DesktopVersion = desktopVersion;
             job.SdkVersion = sdkVersion;
 
             // Build and Restore
@@ -2323,7 +2324,6 @@ namespace Microsoft.Crank.Agent
 
             var buildParameters =
                 $"/p:MicrosoftNETCoreAppPackageVersion={runtimeVersion} " +
-                $"/p:MicrosoftWindowsDesktopAppPackageVersion={desktopVersion} " +
                 $"/p:MicrosoftAspNetCoreAppPackageVersion={aspNetCoreVersion} " +
                 // The following properties could be removed in a future version
                 $"/p:BenchmarksNETStandardImplicitPackageVersion={aspNetCoreVersion} " +
@@ -2333,6 +2333,11 @@ namespace Microsoft.Crank.Agent
                 $"/p:BenchmarksAspNetCoreVersion={aspNetCoreVersion} " +
                 $"/p:MicrosoftAspNetCoreAllPackageVersion={aspNetCoreVersion} " +
                 $"/p:NETCoreAppMaximumVersion=99.9 "; // Force the SDK to accept the TFM even if it's an unknown one. For instance using SDK 2.1 to build a netcoreapp2.2 TFM.
+
+            if (OperatingSystem == OperatingSystem.Windows)
+            {
+                buildParameters += $"/p:MicrosoftWindowsDesktopAppPackageVersion={desktopVersion} ";
+            }
 
             if (targetFramework == "netcoreapp2.1")
             {
@@ -3166,7 +3171,7 @@ namespace Microsoft.Crank.Agent
         /// <summary>
         /// Retrieves the Current runtime and sdk versions for a tfm
         /// </summary>
-        private static async Task<(string Runtime, string Sesktop, string AspNet, string Sdk)> GetCurrentVersions(string targetFramework)
+        private static async Task<(string Runtime, string Desktop, string AspNet, string Sdk)> GetCurrentVersions(string targetFramework)
         {
             var frameworkVersion = targetFramework.Substring(targetFramework.Length - 3); // 3.1
             var metadataUrl = $"https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/{frameworkVersion}/releases.json";
