@@ -68,7 +68,8 @@ namespace Microsoft.Crank.Agent
         private static readonly string _dotnetInstallPs1Url = "https://dot.net/v1/dotnet-install.ps1";
         private static readonly string _aspNetCoreDependenciesUrl = "https://raw.githubusercontent.com/aspnet/AspNetCore/{0}";
         private static readonly string _perfviewUrl = $"https://github.com/Microsoft/perfview/releases/download/{PerfViewVersion}/PerfView.exe";
-        private static readonly string _aspnetFlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
+        private static readonly string _aspnet5FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
+        private static readonly string _aspnet6FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
 
         // Safe-keeping these urls
         //private static readonly string _latestRuntimeApiUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.linux-x64/index.json";
@@ -2835,32 +2836,24 @@ namespace Microsoft.Crank.Agent
                 aspNetCoreVersion = currentAspNetCoreVersion;
                 Log.WriteLine($"ASP.NET: {aspNetCoreVersion} (Current)");
             }
-            else if (String.Equals(aspNetCoreVersion, "Latest", StringComparison.OrdinalIgnoreCase))
+            else if (String.Equals(aspNetCoreVersion, "Latest", StringComparison.OrdinalIgnoreCase)
+                || String.Equals(aspNetCoreVersion, "Edge", StringComparison.OrdinalIgnoreCase))
             {
                 // aspnet runtime service releases are not published on feeds
-                if (versionPrefix != "5.0" && versionPrefix != "6.0")
+                if (versionPrefix == "6.0")
+                {
+                    aspNetCoreVersion = await GetFlatContainerVersion(_aspnet6FlatContainerUrl, versionPrefix);
+                    Log.WriteLine($"ASP.NET: {aspNetCoreVersion} (Latest - From 6.0 feed)");
+                }
+                else if (versionPrefix == "5.0")
+                {
+                    aspNetCoreVersion = await GetFlatContainerVersion(_aspnet5FlatContainerUrl, versionPrefix);
+                    Log.WriteLine($"ASP.NET: {aspNetCoreVersion} (Latest - From 5.0 feed)");
+                }
+                else
                 {
                     aspNetCoreVersion = currentAspNetCoreVersion;
                     Log.WriteLine($"ASP.NET: {aspNetCoreVersion} (Latest - Fallback on Current)");
-                }
-                else
-                {
-                    aspNetCoreVersion = await GetFlatContainerVersion(_aspnetFlatContainerUrl, versionPrefix);
-                    Log.WriteLine($"ASP.NET: {aspNetCoreVersion} (Latest)");
-                }
-            }
-            else if (String.Equals(aspNetCoreVersion, "Edge", StringComparison.OrdinalIgnoreCase))
-            {
-                // aspnet runtime service releases are not published on feeds
-                if (versionPrefix != "5.0" && versionPrefix != "6.0")
-                {
-                    aspNetCoreVersion = currentAspNetCoreVersion;
-                    Log.WriteLine($"ASP.NET: {aspNetCoreVersion} (Edge - Fallback on Current)");
-                }
-                else
-                {
-                    aspNetCoreVersion = await GetFlatContainerVersion(_aspnetFlatContainerUrl, versionPrefix);
-                    Log.WriteLine($"ASP.NET: {aspNetCoreVersion} (Latest)");
                 }
             }
             else
