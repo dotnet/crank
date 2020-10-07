@@ -361,7 +361,7 @@ To apply the Apache License to your work, attach the following boilerplate notic
 
 -------------------------------------------------------------------
 
-Fluid.Core 1.0.0-beta-9608 - MIT
+Fluid.Core 1.0.0-beta-9693 - MIT
 
 MIT License
 

@@ -59,6 +59,8 @@ namespace Microsoft.Crank.Controller
 
         public Job Job { get; private set; }
 
+        public string ServerJobUri => _serverJobUri;
+
         public async Task<string> StartAsync(
             string jobName
             )
@@ -79,9 +81,10 @@ namespace Microsoft.Crank.Controller
 
             _serverJobUri = new Uri(_serverUri, response.Headers.Location).ToString();
 
-            Log.Write($"Fetching job: {_serverJobUri}");
+            Log.Write($"Submitted job: {_serverJobUri}");
 
-            // Waiting for the job to be selected, then upload custom files and send the start
+            // When a job is submitted it has the state New
+            // Waiting for the job to be selected (Initializing), then upload custom files and send the start
 
             while (true)
             {
@@ -101,17 +104,11 @@ namespace Microsoft.Crank.Controller
 
             while (true)
             {
-                Log.Verbose($"GET {_serverJobUri}...");
-                response = await _httpClient.GetAsync(_serverJobUri);
-                responseContent = await response.Content.ReadAsStringAsync();
-
-                response.EnsureSuccessStatusCode();
-
-                Job = JsonConvert.DeserializeObject<Job>(responseContent);
+                Job = await GetJobAsync();
 
                 #region Ensure the job is valid
 
-                if (Job.ServerVersion < 3)
+                if (Job.ServerVersion < 4)
                 {
                     throw new Exception($"Invalid server version ({Job.ServerVersion}), please update your server to match this driver version.");
                 }
@@ -123,7 +120,7 @@ namespace Microsoft.Crank.Controller
 
                 #endregion
 
-                if (Job?.State == JobState.Initializing)
+                if (Job.State == JobState.Initializing)
                 {
                     Log.Write($"Job has been selected by the server ...");
 
@@ -242,9 +239,11 @@ namespace Microsoft.Crank.Controller
                         {
                             var buildFileSegments = buildFileValue.Split(';', 2, StringSplitOptions.RemoveEmptyEntries);
 
-                            foreach (var resolvedFile in Directory.GetFiles(Path.GetDirectoryName(buildFileSegments[0]), Path.GetFileName(buildFileSegments[0]), SearchOption.AllDirectories))
-                            {
-                                var resolvedFileWithDestination = resolvedFile;
+                            var shouldSearchRecursively = buildFileSegments[0].Contains("**");
+                            buildFileSegments[0] = buildFileSegments[0].Replace("**\\", "").Replace("**/", "");
+
+                            foreach (var resolvedFile in Directory.GetFiles(Path.GetDirectoryName(buildFileSegments[0]), Path.GetFileName(buildFileSegments[0]), shouldSearchRecursively ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly))
+                            {                                var resolvedFileWithDestination = resolvedFile;
 
                                 if (buildFileSegments.Length > 1)
                                 {
@@ -268,7 +267,10 @@ namespace Microsoft.Crank.Controller
                         {
                             var outputFileSegments = outputFileValue.Split(';', 2, StringSplitOptions.RemoveEmptyEntries);
 
-                            foreach (var resolvedFile in Directory.GetFiles(Path.GetDirectoryName(outputFileSegments[0]), Path.GetFileName(outputFileSegments[0]), SearchOption.AllDirectories))
+                            var shouldSearchRecursively = outputFileSegments[0].Contains("**");
+                            outputFileSegments[0] = outputFileSegments[0].Replace("**\\", "").Replace("**/", "");
+
+                            foreach (var resolvedFile in Directory.GetFiles(Path.GetDirectoryName(outputFileSegments[0]), Path.GetFileName(outputFileSegments[0]), shouldSearchRecursively ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly))
                             {
                                 var resolvedFileWithDestination = resolvedFile;
 
@@ -292,7 +294,7 @@ namespace Microsoft.Crank.Controller
                     Log.Verbose($"{(int)response.StatusCode} {response.StatusCode}");
                     response.EnsureSuccessStatusCode();
 
-                    Log.Write($"Job is now building ...");
+                    Log.Write($"Job is now building ... {_serverJobUri}/buildlog");
 
                     break;
                 }
@@ -315,13 +317,11 @@ namespace Microsoft.Crank.Controller
                 var previouState = currentState;
                 currentState = await GetStateAsync();
 
-                // Job = JsonConvert.DeserializeObject<Job>(responseContent);
-
                 if (currentState == JobState.Running)
                 {
                     if (previouState != JobState.Running)
                     {
-                        Log.Write($"Job is running...");
+                        Log.Write($"Job is running ... {_serverJobUri}/output");
                         _runningUtc = DateTime.UtcNow;
                     }
 
@@ -330,6 +330,9 @@ namespace Microsoft.Crank.Controller
                 else if (currentState == JobState.Failed)
                 {
                     Log.Write($"Job failed on benchmark server, stopping...");
+
+                    // Refreshing Job state to display the error
+                    Job = await GetJobAsync();
 
                     Log.Write(Job.Error, notime: true, error: true);
 
@@ -584,6 +587,86 @@ namespace Microsoft.Crank.Controller
             _keepAlive = false;
         }
 
+        public async Task DownloadTraceAsync()
+        {
+            if (!Job.DotNetTrace && !Job.Collect)
+            {
+                return;
+            }
+
+            // We can only download the trace for a job that has been stopped
+            if (await GetStateAsync() != JobState.Stopped)
+            {
+                return;
+            }
+
+            var info = await GetInfoAsync();
+            var os = Enum.Parse<Models.OperatingSystem>(info["os"]?.ToString() ?? "linux", ignoreCase: true);
+
+            var traceExtension = ".nettrace";
+
+            if (Job.Collect)
+            {
+                traceExtension = os == Models.OperatingSystem.Windows
+                    ? ".etl.zip"
+                    : ".trace.zip"
+                    ;
+            }
+
+            try
+            {
+                var traceDestination = Job.Options.TraceOutput;
+
+                if (String.IsNullOrWhiteSpace(traceDestination))
+                {
+                    traceDestination = Job.Service;
+                }
+
+                if (!traceDestination.EndsWith(traceExtension, StringComparison.OrdinalIgnoreCase))
+                {
+                    traceDestination = traceDestination + "." + DateTime.Now.ToString("MM-dd-HH-mm-ss") + traceExtension;
+                }
+
+                Log.Write($"Collecting trace file '{traceDestination}' ...");
+
+                var uri = _serverJobUri + "/trace";
+                var response = await _httpClient.PostAsync(uri, new StringContent(""));
+                response.EnsureSuccessStatusCode();
+
+                while (true)
+                {
+                    var state = await GetStateAsync();
+
+                    if (state == JobState.TraceCollecting)
+                    {
+                        // Server is collecting the trace
+                    }
+                    else
+                    {
+                        break;
+                    }
+
+                    await Task.Delay(1000);
+                }
+
+                Log.Write($"Downloading trace file...");
+
+                try
+                {
+                    await _httpClient.DownloadFileAsync(uri, _serverJobUri, traceDestination);
+                }
+                catch
+                {
+                    Log.Write($"The trace was not captured on the server");
+                }
+            }
+            catch (Exception e)
+            {
+                Log.Write($"Error while fetching trace for '{Job.Service}'");
+                Log.Verbose(e.Message);
+            }
+        }
+
         public async Task DownloadAssetsAsync(string dependency)
         {
             // Fetch published folder
@@ -666,7 +749,7 @@ namespace Microsoft.Crank.Controller
 
         private static async Task<int> UploadFileAsync(string filename, Job serverJob, string uri)
         {
-            Log.Write($"Uploading {filename} to {uri}");
+            Log.Write($"Uploading {filename}");
 
             try
             {
@@ -814,37 +897,6 @@ namespace Microsoft.Crank.Controller
             await _httpClient.DownloadFileAsync(uri, _serverJobUri, filename);
         }
 
-        public async Task DownloadDotnetTrace(string traceDestination)
-        {
-            var uri = _serverJobUri + "/trace";
-            var response = await _httpClient.PostAsync(uri, new StringContent(""));
-            response.EnsureSuccessStatusCode();
-
-            while (true)
-            {
-                var state = await GetStateAsync();
-
-                if (state == JobState.Stopped || state == JobState.Failed)
-                {
-                    Log.Write($"Can't download the trace. The job was forcibly stopped by the server.");
-                    return;
-                }
-
-                if (state == JobState.TraceCollecting)
-                {
-                    // Server is collecting the trace
-                }
-                else
-                {
-                    break;
-                }
-
-                await Task.Delay(1000);
-            }
-
-            await _httpClient.DownloadFileAsync(uri, _serverJobUri, traceDestination);
-        }
-
         public async Task<Dictionary<string, object>> GetInfoAsync()
         {
             var uri = new Uri(_serverUri, "/info");
@@ -852,5 +904,33 @@ namespace Microsoft.Crank.Controller
 
             return JsonConvert.DeserializeObject<Dictionary<string, object>>(response);
         }
+
+        /// <summary>
+        /// Returns the list of active jobs.
+        /// </summary>
+        public async Task<IEnumerable<JobView>> GetQueueAsync()
+        {
+            Log.Verbose($"GET {_serverJobsUri} ...");
+            var response = await _httpClient.GetAsync(_serverJobsUri);
+            response.EnsureSuccessStatusCode();
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            Log.Verbose($"{(int)response.StatusCode} {response.StatusCode} {responseContent}");
+
+            return JsonConvert.DeserializeObject<JobView[]>(responseContent);
+        }      
+        
+        public async Task<Job> GetJobAsync()
+        {
+            Log.Verbose($"GET {_serverJobUri}...");
+            
+            var response = await _httpClient.GetAsync(_serverJobUri);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            response.EnsureSuccessStatusCode();
+
+            return JsonConvert.DeserializeObject<Job>(responseContent);
+        }  
     }
 }

@@ -8,10 +8,11 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Benchmarks;
+using Microsoft.Crank.EventSources;
 using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Crank.Jobs.Bombardier
@@ -20,12 +21,6 @@ namespace Microsoft.Crank.Jobs.Bombardier
     {
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
-
-        private static Dictionary<PlatformID, string> _bombardierUrls = new Dictionary<PlatformID, string>()
-        {
-            { PlatformID.Win32NT, "https://github.com/codesenberg/bombardier/releases/download/v1.2.4/bombardier-windows-amd64.exe" },
-            { PlatformID.Unix, "https://github.com/codesenberg/bombardier/releases/download/v1.2.4/bombardier-linux-amd64" },
-        };
 
         static Program()
         {
@@ -37,7 +32,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
             _httpClient = new HttpClient(_httpClientHandler);
         }
 
-        static async Task Main(string[] args)
+        static async Task<int> Main(string[] args)
         {
             Console.WriteLine("Bombardier Client");
             Console.WriteLine("args: " + String.Join(' ', args));
@@ -55,27 +50,65 @@ namespace Microsoft.Crank.Jobs.Bombardier
             if (duration == 0 && requests == 0)
             {
                 Console.WriteLine("Couldn't find valid -d and -n arguments (integers)");
-                return;
+                return -1;
             }
 
             TryGetArgumentValue("-w", argsList, out warmup);
 
             args = argsList.ToArray();
 
-            var bombardierUrl = _bombardierUrls[Environment.OSVersion.Platform];
-            var bombardierFileName = Path.GetFileName(bombardierUrl);
+            string bombardierUrl = null;
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                bombardierUrl = "https://github.com/codesenberg/bombardier/releases/download/v1.2.4/bombardier-windows-amd64.exe";
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                bombardierUrl = "https://github.com/codesenberg/bombardier/releases/download/v1.2.4/bombardier-linux-amd64";
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                bombardierUrl = "https://github.com/codesenberg/bombardier/releases/download/v1.2.4/bombardier-darwin-amd64";
+            }
+            else
+            {
+                Console.WriteLine("Unsupported platform");
+                return -1;
+            }
+
+            var cacheFolder = Path.Combine(Path.GetTempPath(), ".crank");
+
+            if (!Directory.Exists(cacheFolder))
+            {
+                Directory.CreateDirectory(cacheFolder);
+            }
+
+            var bombardierFileName = Path.Combine(cacheFolder, Path.GetFileName(bombardierUrl));
+
+            Console.WriteLine($"Downloading bombardier from {bombardierUrl} to {bombardierFileName}");
 
             using (var downloadStream = await _httpClient.GetStreamAsync(bombardierUrl))
             using (var fileStream = File.Create(bombardierFileName))
             {
                 await downloadStream.CopyToAsync(fileStream);
-                if (Environment.OSVersion.Platform == PlatformID.Unix)
-                {
-                    Process.Start("chmod", "+x " + bombardierFileName);
-                }
             }
 
-            var baseArguments = String.Join(' ', args.ToArray()) + " --print r --format json";
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ||
+                RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                Console.WriteLine($"Setting execute permission on executable {bombardierFileName}");
+                Process.Start("chmod", "+x " + bombardierFileName);
+            }
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                Console.WriteLine($"Allow running bombardier");
+                Process.Start("spctl", "--add " + bombardierFileName);
+            }
+
+            args = argsList.Select(Quote).ToArray();
+
+            var baseArguments = String.Join(' ', args) + " --print r --format json";
 
             var process = new Process()
             {
@@ -110,8 +143,14 @@ namespace Microsoft.Crank.Jobs.Bombardier
 
                 Console.WriteLine("> bombardier " + process.StartInfo.Arguments);
 
-                process.Start();
+                await StartProcessWithRetriesAsync(process);
+                
                 process.WaitForExit();
+
+                if (process.ExitCode != 0)
+                {
+                    return process.ExitCode;
+                }
             }
 
             lock (stringBuilder)
@@ -119,19 +158,24 @@ namespace Microsoft.Crank.Jobs.Bombardier
                 stringBuilder.Clear();
             }
 
-            process.StartInfo.Arguments = 
+            process.StartInfo.Arguments =
                 requests > 0
                     ? $" -n {requests} {baseArguments}"
                     : $" -d {duration}s {baseArguments}";
 
             Console.WriteLine("> bombardier " + process.StartInfo.Arguments);
-
-            process.Start();
             
+            await StartProcessWithRetriesAsync(process);
+
             BenchmarksEventSource.SetChildProcessId(process.Id);
 
             process.BeginOutputReadLine();
             process.WaitForExit();
+
+            if (process.ExitCode != 0)
+            {
+                return process.ExitCode;
+            }
 
             string output;
 
@@ -142,27 +186,28 @@ namespace Microsoft.Crank.Jobs.Bombardier
 
             var document = JObject.Parse(output);
 
-            BenchmarksEventSource.Log.Metadata("bombardier/requests", "max", "sum", "Requests", "Total number of requests", "n0");
-            BenchmarksEventSource.Log.Metadata("bombardier/badresponses", "max", "sum", "Bad responses", "Non-2xx or 3xx responses", "n0");
+            BenchmarksEventSource.Register("bombardier/requests", Operations.Max, Operations.Sum, "Requests", "Total number of requests", "n0");
+            BenchmarksEventSource.Register("bombardier/badresponses", Operations.Max, Operations.Sum, "Bad responses", "Non-2xx or 3xx responses", "n0");
 
-            BenchmarksEventSource.Log.Metadata("bombardier/latency/mean", "max", "sum", "Mean latency (us)", "Mean latency (us)", "n0");
-            BenchmarksEventSource.Log.Metadata("bombardier/latency/max", "max", "sum", "Max latency (us)", "Max latency (us)", "n0");
+            BenchmarksEventSource.Register("bombardier/latency/mean", Operations.Max, Operations.Sum, "Mean latency (us)", "Mean latency (us)", "n0");
+            BenchmarksEventSource.Register("bombardier/latency/max", Operations.Max, Operations.Sum, "Max latency (us)", "Max latency (us)", "n0");
 
-            BenchmarksEventSource.Log.Metadata("bombardier/rps/mean", "max", "sum", "Requests/sec", "Requests per second", "n0");
-            BenchmarksEventSource.Log.Metadata("bombardier/rps/max", "max", "sum", "Requests/sec (max)", "Max requests per second", "n0");
+            BenchmarksEventSource.Register("bombardier/rps/mean", Operations.Max, Operations.Sum, "Requests/sec", "Requests per second", "n0");
+            BenchmarksEventSource.Register("bombardier/rps/max", Operations.Max, Operations.Sum, "Requests/sec (max)", "Max requests per second", "n0");
+            BenchmarksEventSource.Register("bombardier/throughput", Operations.Max, Operations.Sum, "Read throughput (MB/s)", "Read throughput (MB/s)", "n2");
 
-            BenchmarksEventSource.Log.Metadata("bombardier/raw", "all", "all", "Raw results", "Raw results", "json");
+            BenchmarksEventSource.Register("bombardier/raw", Operations.All, Operations.All, "Raw results", "Raw results", "json");
 
-            var total = 
-                document["result"]["req1xx"].Value<int>()
-                + document["result"]["req2xx"].Value<int>()
-                + document["result"]["req3xx"].Value<int>()
-                + document["result"]["req3xx"].Value<int>()
-                + document["result"]["req4xx"].Value<int>()
-                + document["result"]["req5xx"].Value<int>()
-                + document["result"]["others"].Value<int>();
+            var total =
+                document["result"]["req1xx"].Value<long>()
+                + document["result"]["req2xx"].Value<long>()
+                + document["result"]["req3xx"].Value<long>()
+                + document["result"]["req3xx"].Value<long>()
+                + document["result"]["req4xx"].Value<long>()
+                + document["result"]["req5xx"].Value<long>()
+                + document["result"]["others"].Value<long>();
 
-            var success = document["result"]["req2xx"].Value<int>() + document["result"]["req3xx"].Value<int>();
+            var success = document["result"]["req2xx"].Value<long>() + document["result"]["req3xx"].Value<long>();
 
             BenchmarksEventSource.Measure("bombardier/requests", total);
             BenchmarksEventSource.Measure("bombardier/badresponses", total - success);
@@ -174,6 +219,31 @@ namespace Microsoft.Crank.Jobs.Bombardier
             BenchmarksEventSource.Measure("bombardier/rps/mean", document["result"]["rps"]["mean"].Value<double>());
 
             BenchmarksEventSource.Measure("bombardier/raw", output);
+
+            var bytesPerSecond = document["result"]["bytesRead"].Value<long>() / document["result"]["timeTakenSeconds"].Value<double>();
+
+            // B/s to MB/s
+            BenchmarksEventSource.Measure("bombardier/throughput", bytesPerSecond / 1024 / 1024);
+
+            return 0;
+        }
+
+        private static async Task StartProcessWithRetriesAsync(Process process)
+        {
+            for (var i = 0; i < 3; i++)
+            {
+                try
+                {
+                    process.Start();
+                    break;
+                }
+                catch (Exception e)
+                {
+                    // The process might fail with a permissions exception during unit tests
+                    await Task.Delay(500);
+                    Console.WriteLine("Error, retrying: " + e.Message);
+                }
+            }
         }
 
         private static bool TryGetArgumentValue(string argName, List<string> argsList, out int value)
@@ -218,7 +288,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
                     var elapsed = stopwatch.ElapsedMilliseconds;
                     Console.WriteLine($"{elapsed} ms");
 
-                    BenchmarksEventSource.Log.Metadata("http/firstrequest", "max", "max", "First Request (ms)", "Time to first request in ms", "n0");
+                    BenchmarksEventSource.Register("http/firstrequest", Operations.Max, Operations.Max, "First Request (ms)", "Time to first request in ms", "n0");
                     BenchmarksEventSource.Measure("http/firstrequest", elapsed);
                 }
             }
@@ -228,5 +298,16 @@ namespace Microsoft.Crank.Jobs.Bombardier
             }
         }
 
+        private static string Quote(string s)
+        {
+            // Wraps a string in double-quotes if it contains a space
+
+            if (s.Contains(' '))
+            {
+                return "\"" + s + "\"";
+            }
+
+            return s;
+        }
     }
 }

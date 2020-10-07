@@ -12,6 +12,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Crank.EventSources;
 using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Crank.Jobs.Wrk2
@@ -20,7 +21,7 @@ namespace Microsoft.Crank.Jobs.Wrk2
     {
         const string Wrk2Url = "https://aspnetbenchmarks.blob.core.windows.net/tools/wrk2";
 
-        static async Task Main(string[] args)
+        static async Task<int> Main(string[] args)
         {
             Console.WriteLine("WRK2 Client");
             Console.WriteLine("args: " + String.Join(' ', args));
@@ -49,7 +50,7 @@ namespace Microsoft.Crank.Jobs.Wrk2
             else
             {
                 Console.WriteLine("Couldn't find -d argument");
-                return;
+                return -1;
             }
 
             var warmupIndex = argsList.FindIndex(x => String.Equals(x, "-w", StringComparison.OrdinalIgnoreCase));
@@ -60,9 +61,9 @@ namespace Microsoft.Crank.Jobs.Wrk2
                 argsList.RemoveAt(warmupIndex);
             }
 
-            args = argsList.ToArray();
+            args = argsList.Select(Quote).ToArray();
 
-            var baseArguments = String.Join(' ', args.ToArray());
+            var baseArguments = String.Join(' ', args) + " --print r --format json";
 
             var process = new Process()
             {
@@ -99,6 +100,11 @@ namespace Microsoft.Crank.Jobs.Wrk2
 
                 process.Start();
                 process.WaitForExit();
+
+                if (process.ExitCode != 0)
+                {
+                    return process.ExitCode;
+                }
             }
             
             lock (stringBuilder)
@@ -117,6 +123,11 @@ namespace Microsoft.Crank.Jobs.Wrk2
             process.BeginOutputReadLine();
             process.WaitForExit();
 
+            if (process.ExitCode != 0)
+            {
+                return process.ExitCode;
+            }
+
             string output;
 
             lock (stringBuilder)
@@ -124,12 +135,12 @@ namespace Microsoft.Crank.Jobs.Wrk2
                 output = stringBuilder.ToString();
             }
 
-            BenchmarksEventSource.Log.Metadata("wrk2/rps/mean", "max", "sum", "Requests/sec", "Requests per second", "n0");
-            BenchmarksEventSource.Log.Metadata("wrk2/requests", "max", "sum", "Requests", "Total number of requests", "n0");
-            BenchmarksEventSource.Log.Metadata("wrk2/latency/mean", "max", "sum", "Mean latency (ms)", "Mean latency (ms)", "n2");
-            BenchmarksEventSource.Log.Metadata("wrk2/latency/max", "max", "sum", "Max latency (ms)", "Max latency (ms)", "n2");
-            BenchmarksEventSource.Log.Metadata("wrk2/errors/badresponses", "max", "sum", "Bad responses", "Non-2xx or 3xx responses", "n0");
-            BenchmarksEventSource.Log.Metadata("wrk2/errors/socketerrors", "max", "sum", "Socket errors", "Socket errors", "n0");
+            BenchmarksEventSource.Register("wrk2/rps/mean", Operations.Max, Operations.Sum, "Requests/sec", "Requests per second", "n0");
+            BenchmarksEventSource.Register("wrk2/requests", Operations.Max, Operations.Sum, "Requests", "Total number of requests", "n0");
+            BenchmarksEventSource.Register("wrk2/latency/mean", Operations.Max, Operations.Sum, "Mean latency (ms)", "Mean latency (ms)", "n2");
+            BenchmarksEventSource.Register("wrk2/latency/max", Operations.Max, Operations.Sum, "Max latency (ms)", "Max latency (ms)", "n2");
+            BenchmarksEventSource.Register("wrk2/errors/badresponses", Operations.Max, Operations.Sum, "Bad responses", "Non-2xx or 3xx responses", "n0");
+            BenchmarksEventSource.Register("wrk2/errors/socketerrors", Operations.Max, Operations.Sum, "Socket errors", "Socket errors", "n0");
 
             var rpsMatch = Regex.Match(output, @"Requests/sec:\s*([\d\.]*)");
             if (rpsMatch.Success && rpsMatch.Groups.Count == 2)
@@ -157,15 +168,15 @@ namespace Microsoft.Crank.Jobs.Wrk2
 
             if (parseLatency)
             {
-                BenchmarksEventSource.Log.Metadata("wrk2/latency/50", "max", "avg", "Latency 50th (ms)", "Latency 50th (ms)", "n2");
-                BenchmarksEventSource.Log.Metadata("wrk2/latency/75", "max", "avg", "Latency 75th (ms)", "Latency 50th (ms)", "n2");
-                BenchmarksEventSource.Log.Metadata("wrk2/latency/90", "max", "avg", "Latency 90th (ms)", "Latency 50th (ms)", "n2");
-                BenchmarksEventSource.Log.Metadata("wrk2/latency/99", "max", "avg", "Latency 99th (ms)", "Latency 50th (ms)", "n2");
-                BenchmarksEventSource.Log.Metadata("wrk2/latency/99.9", "max", "avg", "Latency 99.9th (ms)", "Latency 50th (ms)", "n2");
-                BenchmarksEventSource.Log.Metadata("wrk2/latency/99.99", "max", "avg", "Latency 99.99th (ms)", "Latency 50th (ms)", "n2");
-                BenchmarksEventSource.Log.Metadata("wrk2/latency/99.999", "max", "avg", "Latency 99.999th (ms)", "Latency 50th (ms)", "n2");
-                BenchmarksEventSource.Log.Metadata("wrk2/latency/100", "max", "avg", "Latency 100th (ms)", "Latency 50th (ms)", "n2");
-                BenchmarksEventSource.Log.Metadata("wrk2/latency/distribution", "all", "all", "Latency distribution", "Latency distribution", "json");
+                BenchmarksEventSource.Register("wrk2/latency/50", Operations.Max, Operations.Avg, "Latency 50th (ms)", "Latency 50th (ms)", "n2");
+                BenchmarksEventSource.Register("wrk2/latency/75", Operations.Max, Operations.Avg, "Latency 75th (ms)", "Latency 50th (ms)", "n2");
+                BenchmarksEventSource.Register("wrk2/latency/90", Operations.Max, Operations.Avg, "Latency 90th (ms)", "Latency 50th (ms)", "n2");
+                BenchmarksEventSource.Register("wrk2/latency/99", Operations.Max, Operations.Avg, "Latency 99th (ms)", "Latency 50th (ms)", "n2");
+                BenchmarksEventSource.Register("wrk2/latency/99.9", Operations.Max, Operations.Avg, "Latency 99.9th (ms)", "Latency 50th (ms)", "n2");
+                BenchmarksEventSource.Register("wrk2/latency/99.99", Operations.Max, Operations.Avg, "Latency 99.99th (ms)", "Latency 50th (ms)", "n2");
+                BenchmarksEventSource.Register("wrk2/latency/99.999", Operations.Max, Operations.Avg, "Latency 99.999th (ms)", "Latency 50th (ms)", "n2");
+                BenchmarksEventSource.Register("wrk2/latency/100", Operations.Max, Operations.Avg, "Latency 100th (ms)", "Latency 50th (ms)", "n2");
+                BenchmarksEventSource.Register("wrk2/latency/distribution", Operations.All, Operations.All, "Latency distribution", "Latency distribution", "json");
 
                 BenchmarksEventSource.Measure("wrk2/latency/50", ReadLatency(Regex.Match(output, String.Format(LatencyPattern, "50\\.000%"))));
                 BenchmarksEventSource.Measure("wrk2/latency/75", ReadLatency(Regex.Match(output, String.Format(LatencyPattern, "75\\.000%"))));
@@ -213,6 +224,8 @@ namespace Microsoft.Crank.Jobs.Wrk2
                     BenchmarksEventSource.Measure("wrk2/latency/distribution", doc.ToString());
                 }
             }
+
+            return 0;
         }
 
         private static TimeSpan ReadDuration(Match responseCountMatch)
@@ -381,7 +394,7 @@ namespace Microsoft.Crank.Jobs.Wrk2
                         var elapsed = stopwatch.ElapsedMilliseconds;
                         Console.WriteLine($"{elapsed} ms");
 
-                        BenchmarksEventSource.Log.Metadata("http/firstrequest", "max", "max", "First Request (ms)", "Time to first request in ms", "n0");
+                        BenchmarksEventSource.Register("http/firstrequest", Operations.Max, Operations.Max, "First Request (ms)", "Time to first request in ms", "n0");
                         BenchmarksEventSource.Measure("http/firstrequest", elapsed);
                     }
                 }
@@ -424,6 +437,18 @@ namespace Microsoft.Crank.Jobs.Wrk2
             Process.Start("chmod", "+x " + wrk2Filename);
 
             return wrk2Filename;
+        }
+
+        private static string Quote(string s)
+        {
+            // Wraps a string in double-quotes if it contains a space
+
+            if (s.Contains(' '))
+            {
+                return "\"" + s + "\"";
+            }
+
+            return s;
         }
     }
 }

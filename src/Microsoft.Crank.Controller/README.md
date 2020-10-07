@@ -26,9 +26,15 @@ Options:
   --no-metadata                                                  Don't record metadata in the stored document.
   --no-measurements                                              Don't record measurements in the stored document.
 
-  --repeat <job>                                                 The job to repeat using the '--duration' argument.
+  -i|--iterations <n>                                            The number of times to repeat the jobs to get average results. By default the last job only is repeated, unless '--repeat' is set. 
+  -di|--display-iterations                                       Displays intermediate iterations results.
+  --repeat <job>                                                 The job to repeat using the '--duration' or '--iterations' argument.
   --span <HH:mm:ss>                                              The duration while the job is repeated.
   --auto-flush                                                   Runs a single long-running job and flushes measurements automatically.
+
+  --chart                                                        Renders a chart for multi-value results.
+  --chart-type [bar (default) | hex]                             Type of chart to render. Values are 'bar' (default) or 'hex'
+  --chart-scale [off (default)| auto]                            Scale for chart. Values are 'off' (default) or 'auto'. When scale is off, the min value starts at 0.
 
   These options are specific to a Job service named [JOB]
 
@@ -37,7 +43,7 @@ Options:
   ## Sources location
 
   --[JOB].source.repository                                                The git repository containing the source code to build, e.g., https://github.com/aspnet/aspnetcore
-  --[JOB].source.branchOrCommit                                            A branch name of commit hash, e.g., my/branch, issue/1234
+  --[JOB].source.branchOrCommit                                            A branch name or commit hash, e.g., my/branch, my/branch#commit-hash
   --[JOB].source.initSubmodules                                            Whether to init submodules when a git repository is used, e.g., true
   --[JOB].source.localFolder                                               The local path containing the source code to upload to the server. e.g., /code/mybenchmarks
 
@@ -66,7 +72,7 @@ Options:
   ## Diagnostics
 
   --[JOB].dotnetTrace <true|false>                                         Whether to collect a diagnostics trace using dotnet-trace. An optional profile name or list of dotnet-trace providers can be passed. e.g., true
-  --[JOB].dotnetTraceProviders <profile|flags>                             An optional profile name or list of dotnet-trace providers can be passed. Default is 'cpu-sampling'. See https://github.com/dotnet/diagnostics/blob/master/documentation/dotnet-trace-instructions.md for details. e.g., Microsoft-DotNETCore-SampleProfiler, Microsoft-Windows-DotNETRuntime, gc-verbose.  Can be used multiple times to set multiple providers.
+  --[JOB].dotnetTraceProviders <profile|provider|clrevent>                 A comma-separated list of trace providers. By default the profile 'cpu-sampling' is used. See https://github.com/dotnet/diagnostics/blob/master/documentation/dotnet-trace-instructions.md for details. e.g., "Microsoft-DotNETCore-SampleProfiler, gc-verbose, JIT+Contention".
   --[JOB].options.traceOutput <filename>                                   The name of the trace file. Can be a file prefix (app will add *.DATE*.zip) , or a specific name and no DATE* will be added e.g., c:\traces\mytrace
   --[JOB].collectCounters <true|false>                                     Whether to collect dotnet counters.
   --[JOB].counterProviders <provider>                                      The name of a performance counter provider from which to collect. e.g., System.Runtime (default if none is set), Microsoft-AspNetCore-Server-Kestrel, Microsoft.AspNetCore.Hosting, Microsoft.AspNetCore.Http.Connections, Grpc.AspNetCore.Server, Grpc.Net.client, Npgsql
@@ -92,12 +98,12 @@ Options:
   --[JOB].options.displayBuild <true|false>                                Whether to download and display the standard output of the build step (works for .NET and Docker).
 
   ## Files
-  --[JOB].options.buildFiles <filename>                                    Build files that will be copied before the application is built. Format is 'path[;destination]'. Path can be a URL. e.g., c:\images\mydockerimage.tar, c:\code\Program.cs
-  --[JOB].options.outputFiles <filename>                                   Output files that will be copied in the final application folder. Format is 'path[;destination]'. Path can be a URL. e.g., c:\build\Microsoft.AspNetCore.Mvc.dll, c:\files\samples\picture.png;wwwroot\picture.png
+  --[JOB].options.buildFiles <filename>                                    Build files that will be copied before the application is built. Accepts globing patterns and recursive marker (**). Format is 'path[;destination]'. Path can be a URL. e.g., c:\images\mydockerimage.tar, c:\code\Program.cs
+  --[JOB].options.outputFiles <filename>                                   Output files that will be copied in the final application folder. Accepts globing patterns and recursive marker (**). Format is 'path[;destination]'. Path can be a URL. e.g., c:\build\Microsoft.AspNetCore.Mvc.dll, c:\files\samples\picture.png;wwwroot\picture.png
 
   ## Telemetry
 
-  --[JOB].options.disardResults <true|false>                               Whether to discard all the results from this job, for instance during a warmup job.
+  --[JOB].options.discardResults <true|false>                              Whether to discard all the results from this job, for instance during a warmup job.
 
   # Example
 

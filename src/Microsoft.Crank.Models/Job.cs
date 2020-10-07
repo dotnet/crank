@@ -19,7 +19,8 @@ namespace Microsoft.Crank.Models
         // 1: Introduced Initializing state
         // 2: Introduced Measurements/Metadata
         // 3: Output value not serialized
-        public int ServerVersion { get; set; } = 3;
+        // 4: Simplified rest endpoints
+        public int ServerVersion { get; set; } = 4;
 
         public int Id { get; set; }
 
@@ -56,6 +57,7 @@ namespace Microsoft.Crank.Models
         public bool IsConsoleApp { get; set; }
         public string AspNetCoreVersion { get; set; } = "";
         public string RuntimeVersion { get; set; } = "";
+        public string DesktopVersion { get; set; } = "";
         public string SdkVersion { get; set; } = "";
         public string UseMonoRuntime { get; set; } = "";
         public bool NoGlobalJson { get; set; }

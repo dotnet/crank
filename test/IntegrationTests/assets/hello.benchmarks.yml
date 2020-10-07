@@ -6,10 +6,20 @@ jobs:
     readyStateText: Application started.
   bombardier:
     source:
-      localFolder: '../bombardier'
-      project: Microsoft.Crank.Jobs.Bombardier.csproj
-    isConsoleApp: true
+      # uploading the whole source folder since it requires other libraries
+      localFolder: '../src'
+      project: Microsoft.Crank.Jobs.Bombardier/Microsoft.Crank.Jobs.Bombardier.csproj
+    readyStateText: Bombardier Client
     waitForExit: true
+    variables:
+      connections: 256
+      warmup: 0
+      duration: 15
+      requests: 0
+      rate: 0
+      transport: fasthttp # | http1 | http2
+    arguments: "-c {{connections}} -w {{warmup}} -d {{duration}} -n {{requests}} --insecure -l {% if rate != 0 %} --rate {{ rate }} {% endif %} {% if transport %} --{{ transport}} {% endif %} {{headers[presetHeaders]}} {{serverUri}}:{{serverPort}}{{path}}"
+
     
 scenarios:
   hello:
