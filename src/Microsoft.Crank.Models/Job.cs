@@ -50,9 +50,9 @@ namespace Microsoft.Crank.Models
 
         // The client threads. Allows a json document to define this value for the client.
         public int Threads { get; set; }
-        
+
         public string ReadyStateText { get; set; }
-        
+
         // A console application doesn't expose and endpoint that can be used to detect it is ready
         public bool IsConsoleApp { get; set; }
         public string AspNetCoreVersion { get; set; } = "";
@@ -133,7 +133,7 @@ namespace Microsoft.Crank.Models
         /// <summary>
         /// The build log. This property is kept on the server side.
         /// </summary>
-        [JsonIgnore]        
+        [JsonIgnore]
         public RollingLog BuildLog { get; set; } = new RollingLog(10000);
 
         // These properties are used to map custom arguments to the scenario files
@@ -169,7 +169,11 @@ namespace Microsoft.Crank.Models
         public JObject Variables { get; set; }
 
         public bool WaitForExit { get; set; }
-
+        /// <summary>
+        /// Gets or sets the maximum time in seconds the job should be allowed to run.
+        /// After that time the controller will stop the job.
+        /// When set to 0, the controller never stops the job.
+        /// </summary>
         public int Timeout { get; set; } = 0;
 
         // Custom StartTimeout for the server job
@@ -203,5 +207,6 @@ namespace Microsoft.Crank.Models
         public List<string> OutputFiles { get; set; } = new List<string>();
         public List<string> BuildArchives { get; set; } = new List<string>();
         public List<string> OutputArchives { get; set; } = new List<string>();
+        public bool BenchmarkDotNet { get; set; } = false;
     }
 }

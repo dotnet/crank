@@ -1,0 +1,22 @@
+jobs:
+  benchmarks:
+    source:
+      localFolder: .
+      project: micro.csproj
+    readyStateText: "BenchmarkRunner: Start"
+    variables:
+      filter: "*"
+    arguments: --inProcess --job short --cli {% raw %}{{benchmarks-cli}}{% endraw %} --filter {{filter}} --join --exporters briefjson --memory
+    waitForExit: true
+    
+scenarios:
+  Md5VsSha256:
+    application:
+      job: benchmarks
+
+profiles:
+  local:
+    jobs: 
+      application:
+        endpoints: 
+          - http://localhost:5010

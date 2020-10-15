@@ -157,7 +157,7 @@ namespace Microsoft.Crank.Controller
             _verboseOption = app.Option("-v|--verbose", "Verbose output", CommandOptionType.NoValue);
             _quietOption = app.Option("--quiet", "Quiet output, only the results are displayed", CommandOptionType.NoValue);
             _displayIterationsOption = app.Option("-di|--display-iterations", "Displays intermediate iterations results.", CommandOptionType.NoValue);
-
+            
             app.Command("compare", compareCmd =>
             {
                 compareCmd.Description = "Compares result files";
@@ -623,6 +623,15 @@ namespace Microsoft.Crank.Controller
                                     await Task.WhenAll(jobs.Select(job => job.StopAsync()));
 
                                     await Task.WhenAll(jobs.Select(job => job.TryUpdateJobAsync()));
+
+                                    // Download BenchmarkDotNet results
+                                    foreach (var job in jobs)
+                                    {
+                                        if (job.Job.Options.BenchmarkDotNet)
+                                        {
+                                            await job.DownloadBenchmarkDotNetResultsAsync();
+                                        }
+                                    }
 
                                     // Display error message if job failed
                                     foreach (var job in jobs)
