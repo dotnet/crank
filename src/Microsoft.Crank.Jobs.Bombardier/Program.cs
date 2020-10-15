@@ -60,15 +60,20 @@ namespace Microsoft.Crank.Jobs.Bombardier
             string bombardierUrl = null;
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                bombardierUrl = "https://github.com/codesenberg/bombardier/releases/download/v1.2.4/bombardier-windows-amd64.exe";
+                bombardierUrl = "https://github.com/codesenberg/bombardier/releases/download/v1.2.5/bombardier-windows-amd64.exe";
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
-                bombardierUrl = "https://github.com/codesenberg/bombardier/releases/download/v1.2.4/bombardier-linux-amd64";
+                switch (RuntimeInformation.ProcessArchitecture)
+                {
+                    case Architecture.Arm64 : bombardierUrl = "https://github.com/codesenberg/bombardier/releases/download/v1.2.5/bombardier-linux-arm64"; break;
+                    case Architecture.Arm : bombardierUrl = "https://github.com/codesenberg/bombardier/releases/download/v1.2.5/bombardier-linux-arm"; break;
+                    default: bombardierUrl = "https://github.com/codesenberg/bombardier/releases/download/v1.2.5/bombardier-linux-amd64"; break;
+                }
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
-                bombardierUrl = "https://github.com/codesenberg/bombardier/releases/download/v1.2.4/bombardier-darwin-amd64";
+                bombardierUrl = "https://github.com/codesenberg/bombardier/releases/download/v1.2.5/bombardier-darwin-amd64";
             }
             else
             {
