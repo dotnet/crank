@@ -6,15 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Columns;
-using BenchmarkDotNet.Configs;
-using BenchmarkDotNet.Diagnosers;
-using BenchmarkDotNet.Exporters;
-using BenchmarkDotNet.Exporters.Csv;
-using BenchmarkDotNet.Reports;
 using BenchmarkDotNet.Running;
-using Perfolizer.Horology;
 
 namespace Micro
 {

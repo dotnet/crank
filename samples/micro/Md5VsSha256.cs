@@ -8,10 +8,6 @@ using BenchmarkDotNet.Attributes;
 
 namespace Micro
 {
-    // [ShortRunJob]
-    // [CsvExporter]
-    // [JsonExporterAttribute.Brief]
-    // [MemoryDiagnoser]
     public class Md5VsSha256
     {
         [Params(100, 500)]
