@@ -5,7 +5,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
@@ -207,6 +206,6 @@ namespace Microsoft.Crank.Models
         public List<string> OutputFiles { get; set; } = new List<string>();
         public List<string> BuildArchives { get; set; } = new List<string>();
         public List<string> OutputArchives { get; set; } = new List<string>();
-        public bool BenchmarkDotNet { get; set; } = false;
+        public bool BenchmarkDotNet { get; set; }
     }
 }

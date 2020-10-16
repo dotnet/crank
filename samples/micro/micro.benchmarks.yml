@@ -3,11 +3,12 @@ jobs:
     source:
       localFolder: .
       project: micro.csproj
-    readyStateText: "BenchmarkRunner: Start"
     variables:
       filter: "*"
-    arguments: --inProcess --job short --cli {% raw %}{{benchmarks-cli}}{% endraw %} --filter {{filter}} --join --exporters briefjson --memory
-    waitForExit: true
+      job: short
+    arguments: --job {{job}} --filter {{filter}} --memory
+    options:
+      benchmarkDotNet: true
     
 scenarios:
   Md5VsSha256:

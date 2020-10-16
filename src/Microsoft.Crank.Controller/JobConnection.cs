@@ -722,12 +722,38 @@ namespace Microsoft.Crank.Controller
 
         public async Task DownloadBenchmarkDotNetResultsAsync()
         {
-            // List all results files
+            // Download results files
 
-            foreach (var path in await ListFilesAsync("BenchmarkDotNet.Artifacts/results/*-report-brief.json"))
+            foreach (var pattern in new [] { "brief.json", "default.md" })
             {
-                Console.WriteLine($"Downloading {path}");
-                _benchmarkDotNetResults[path] = await DownloadFileContentAsync(path);
+                foreach (var path in await ListFilesAsync("BenchmarkDotNet.Artifacts/results/*-" + pattern))
+                {
+                    Log.Verbose($"Downloading {Path.GetFileName(path)}");
+                    _benchmarkDotNetResults[path] = await DownloadFileContentAsync(path);
+                }
+            }
+        }
+
+        public IEnumerable<JObject> GetBenchmarkDotNetBenchmarks()
+        {
+            foreach (var jsonResults in _benchmarkDotNetResults.Where(x => x.Key.EndsWith("brief.json")))
+            {
+                var brief = JObject.Parse(jsonResults.Value);
+                var benchmarks = brief.Property("Benchmarks").Value as JArray;
+
+                foreach (var benchmark in benchmarks)
+                {
+                    yield return benchmark as JObject;
+                }
+            }
+        }
+
+        public void DisplayBenchmarkDotNetResults()
+        {
+            foreach (var markdownResult in _benchmarkDotNetResults.Where(x => x.Key.EndsWith("default.md")))
+            {
+                // Remove default markdown formatting
+                Console.WriteLine(markdownResult.Value.Replace("**", ""));
             }
         }
         private static void DoCreateFromDirectory(string sourceDirectoryName, string destinationArchiveFileName)
@@ -911,8 +937,6 @@ namespace Microsoft.Crank.Controller
 
         public async Task<IEnumerable<string>> ListFilesAsync(string pattern)
         {
-            Console.WriteLine($"ListFilesAsync {pattern}");
-
             var uri = _serverJobUri + "/list?path=" + HttpUtility.UrlEncode(pattern);
             Log.Verbose("GET " + uri);
 
