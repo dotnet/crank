@@ -8,8 +8,8 @@ The advantages of running BenchmarkDotNet with **crank** are:
 - shareable results as all developers can use the same machines
 - don't block your machine while it runs
 - apply specific constraints on the machine: cpu, memory
--	benchmark local builds
--	store the results in SQL Server
+- benchmark local builds
+- store the results in SQL Server
 
 ## Prerequisites
 
@@ -86,7 +86,7 @@ arguments: --job {{job}} --filter {{filter}} --memory
 ```
 
 By doing this, each scenario can change the value of these variables.
-More information about what command line arguments can be found [on the BenchmarDotNet website](https://benchmarkdotnet.org/articles/guides/console-args.html)
+More information about the available command line arguments can be found [on the BenchmarDotNet website](https://benchmarkdotnet.org/articles/guides/console-args.html)
 
 ## Storing results locally
 
@@ -96,7 +96,7 @@ See [this example](https://benchmarkdotnet.org/articles/samples/IntroExportJson.
 
 ## Running dotnet/performance benchmarks
 
-The https://github.com/dotnet/performance repository contains several micro-benchmarks based on BenchmarkDotNet. There file [dotnet.benchmark.yml](https://github.com/dotnet/crank/blob/master/samples/micro/dotnet.benchmarks.yml) contains an example scenario that can be used directly.
+The https://github.com/dotnet/performance repository contains several micro-benchmarks based on BenchmarkDotNet. The file [dotnet.benchmark.yml](https://github.com/dotnet/crank/blob/master/samples/micro/dotnet.benchmarks.yml) contains an example scenario that can be used directly.
 
 For instance to run the sockets micro-benchmarks, use this command:
 
