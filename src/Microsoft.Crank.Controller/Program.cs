@@ -36,6 +36,8 @@ namespace Microsoft.Crank.Controller
 
         private const string EventPipeOutputFile = "eventpipe.netperf";
 
+        private const string DefaultBenchmarkDotNetArguments = "--inProcess --cli {{benchmarks-cli}} --join --exporters briefjson markdown";
+
         // Default to arguments which should be sufficient for collecting trace of default Plaintext run
         private const string _defaultTraceArguments = "BufferSizeMB=1024;CircularMB=1024;clrEvents=JITSymbols;kernelEvents=process+thread+ImageLoad+Profile";
 
@@ -157,7 +159,7 @@ namespace Microsoft.Crank.Controller
             _verboseOption = app.Option("-v|--verbose", "Verbose output", CommandOptionType.NoValue);
             _quietOption = app.Option("--quiet", "Quiet output, only the results are displayed", CommandOptionType.NoValue);
             _displayIterationsOption = app.Option("-di|--display-iterations", "Displays intermediate iterations results.", CommandOptionType.NoValue);
-
+            
             app.Command("compare", compareCmd =>
             {
                 compareCmd.Description = "Compares result files";
@@ -380,6 +382,8 @@ namespace Microsoft.Crank.Controller
                 
                 Log.Write($"Running session '{session}' with description '{_descriptionOption.Value()}'");
 
+                var isBenchmarkDotNet = dependencies.Any(x => configuration.Jobs[x].Options.BenchmarkDotNet);
+
                 if (_autoflushOption.HasValue())
                 {
                     // No job is restarted, but a snapshot of results is done
@@ -390,6 +394,14 @@ namespace Microsoft.Crank.Controller
                         dependencies,
                         session,
                         span
+                        );
+                }
+                else if (isBenchmarkDotNet)
+                {                    
+                    results = await RunBenchmarkDotNet(
+                        configuration,
+                        dependencies,
+                        session
                         );
                 }
                 else
@@ -863,6 +875,147 @@ namespace Microsoft.Crank.Controller
             }
         }
 
+        private static async Task<ExecutionResult> RunBenchmarkDotNet(
+            Configuration configuration,
+            string[] dependencies,
+            string session
+            )
+        {
+            var jobsByDependency = new Dictionary<string, List<JobConnection>>();
+
+            // Repeat until the span duration is over
+
+            var jobName = dependencies.Single();
+            var service = configuration.Jobs[jobName];
+            service.DriverVersion = 2;
+            
+            var job = new JobConnection(service, new Uri(service.Endpoints.Single()));
+
+            // Check os and architecture requirements
+            if (!await EnsureServerRequirementsAsync(new [] { job }, service))
+            {
+                Log.Write($"Scenario skipped as the agent doesn't match the operating and architecture constraints for '{jobName}' ({String.Join("/", new[] { service.Options.RequiredArchitecture, service.Options.RequiredOperatingSystem })})");
+                return new ExecutionResult { ReturnCode = -1} ;
+            }
+            
+            // Required structure for helper methods
+            jobsByDependency[jobName] = new List<JobConnection>() { job };
+
+            // Start job on agent
+            await job.StartAsync(jobName);
+                                
+            // Wait for the client to stop
+            while (true)
+            {
+                var state = await job.GetStateAsync();
+
+                var stop = 
+                    state == JobState.Stopped ||
+                    state == JobState.Failed ||
+                    state == JobState.Deleted
+                    ;
+
+                if (stop)
+                {
+                    break;
+                }
+
+                await Task.Delay(1000);
+            }
+
+            await job.StopAsync();
+
+            await job.TryUpdateJobAsync();
+
+            await job.DownloadBenchmarkDotNetResultsAsync();
+            
+            if (!String.IsNullOrEmpty(job.Job.Error))
+            {
+                Log.Write(job.Job.Error, notime: true, error: true);
+            }
+
+            await job.DownloadTraceAsync();
+
+            await job.DownloadAssetsAsync(jobName);
+
+            await job.DeleteAsync();
+
+            if (!service.Options.DiscardResults)
+            {
+                Console.WriteLine();
+                job.DisplayBenchmarkDotNetResults();
+            }
+
+            var benchmarks = job.GetBenchmarkDotNetBenchmarks();
+
+            // Save results as a single file
+
+            if (_outputOption.HasValue())
+            {
+                var filename = _outputOption.Value();
+                
+                var directory = Path.GetDirectoryName(filename);
+                if (!String.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                var j = new JObject();
+
+                j.Add("Benchmarks", new JArray(benchmarks));
+
+                await File.WriteAllTextAsync(filename, j.ToString(Formatting.Indented));
+
+                Log.Write("", notime: true);
+                Log.Write($"Results saved in '{new FileInfo(filename).FullName}'", notime: true);
+            }
+            
+            // Store a result for each benchmark
+
+            foreach (var benchmark in benchmarks)
+            {
+                var jobResults = await CreateJobResultsAsync(configuration, dependencies, jobsByDependency);
+
+                // Assign custom properties
+
+                foreach (var property in _propertyOption.Values)
+                {
+                    var segments = property.Split('=', 2);
+
+                    jobResults.Properties[segments[0]] = segments[1];
+                }
+
+                jobResults.Jobs[jobName].Results["benchmarks"] = benchmark;
+
+                // "Micro.Md5VsSha256.Sha256(N: 100)"
+                var fullName = benchmark.Property("FullName").Value.ToString();
+
+                // Assign parameters as properties
+
+                // N=100;M=5
+                var parameters = benchmark.Property("Parameters").Value.ToString();
+
+                foreach (var parameter in parameters.Split(';', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var segments = parameter.Split('=', 2, StringSplitOptions.RemoveEmptyEntries);
+
+                    jobResults.Properties[segments[0]] = segments[1];
+                }
+
+                // Store data
+
+                if (!String.IsNullOrEmpty(_sqlConnectionString))
+                {
+                    var executionResult = new ExecutionResult();
+                    executionResult.JobResults = jobResults;
+                    
+                    await JobSerializer.WriteJobResultsToSqlAsync(executionResult.JobResults, _sqlConnectionString, _tableName, session, _scenarioOption.Value(), String.Join(" ", _descriptionOption.Value(), fullName));
+                }
+            }
+
+            return new ExecutionResult { ReturnCode = 0 } ;
+        }
+
         private static async Task<ExecutionResult> RunAutoFlush(
             Configuration configuration,
             string[] dependencies,
@@ -1207,9 +1360,20 @@ namespace Microsoft.Crank.Controller
 
             var result = configuration.ToObject<Configuration>();
 
+            // If the job is a BenchmarkDotNet application, define default arguments
+            // so we can download the results as JSon
+            foreach (var job in result.Jobs)
+            {
+                if (job.Value.Options.BenchmarkDotNet)
+                {
+                    job.Value.WaitForExit = true;
+                    job.Value.ReadyStateText ??= "BenchmarkRunner: Start";
+                    job.Value.Arguments = DefaultBenchmarkDotNetArguments + " " + job.Value.Arguments;
+                }
+            }
+
             return result;
         }
-
         private static void ApplyTemplates(JToken node, TemplateContext templateContext)
         {
             foreach (var token in node.Children())
@@ -1258,7 +1422,7 @@ namespace Microsoft.Crank.Controller
                 }
                 catch
                 {
-                    throw new ControllerException($"Configuration '{configurationFilenameOrUrl}' could not be loaded.");
+                    throw new ControllerException($"Configuration '{Path.GetFullPath(configurationFilenameOrUrl)}' could not be loaded.");
                 }
 
                 localconfiguration = null;

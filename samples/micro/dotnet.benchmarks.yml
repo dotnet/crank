@@ -1,0 +1,34 @@
+jobs:
+  dotnet:
+    source:
+      repository: https://github.com/dotnet/performance
+      branchOrCommit: master
+      project: src/benchmarks/micro/MicroBenchmarks.csproj
+    variables:
+      filter: "*"
+      job: short
+    arguments: --job {{job}} --filter {{filter}} --memory
+    framework: netcoreapp3.1
+    options:
+      benchmarkDotNet: true
+    
+scenarios:
+
+  Linq:
+    application:
+      job: dotnet
+      variables:
+        filter: "*LinqBenchmarks*"
+
+  Sockets:
+    application:
+      job: dotnet
+      variables:
+        filter: "*SocketSendReceivePerfTest*"
+
+profiles:
+  local:
+    jobs: 
+      application:
+        endpoints: 
+          - http://localhost:5010
