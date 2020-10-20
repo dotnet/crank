@@ -53,8 +53,6 @@ namespace Microsoft.Crank.Jobs.Bombardier
                 return -1;
             }
 
-            TryGetArgumentValue("-w", argsList, out warmup);
-
             args = argsList.ToArray();
 
             string bombardierUrl = null;
