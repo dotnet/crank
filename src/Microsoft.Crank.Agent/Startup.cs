@@ -2321,6 +2321,27 @@ namespace Microsoft.Crank.Agent
             job.DesktopVersion = desktopVersion;
             job.SdkVersion = sdkVersion;
 
+            if (!job.Metadata.Any(x => x.Name == "netSdkVersion"))
+            {
+                job.Metadata.Enqueue(new MeasurementMetadata
+                {
+                    Source = "Host Process",
+                    Name = "netSdkVersion",
+                    Aggregate = Operation.Last,
+                    Reduce = Operation.Last,
+                    Format = "",
+                    LongDescription = ".NET Core SDK Version",
+                    ShortDescription = ".NET Core SDK Version"
+                });
+
+                job.Measurements.Enqueue(new Measurement
+                {
+                    Name = "netSdkVersion",
+                    Timestamp = DateTime.UtcNow,
+                    Value = sdkVersion
+                });
+            }
+
             // Build and Restore
             var dotnetExecutable = GetDotNetExecutable(dotnetDir);
 
