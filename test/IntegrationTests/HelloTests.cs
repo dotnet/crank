@@ -133,7 +133,7 @@ namespace Microsoft.Crank.IntegrationTests
             cancel.Cancel();
 
             Assert.Contains("Requests/sec", result.StandardOutput);
-            Assert.Contains("netSdkVersion", result.StandardOutput);
+            Assert.Contains(".NET Core SDK Version", result.StandardOutput);
         }
     }
 }
