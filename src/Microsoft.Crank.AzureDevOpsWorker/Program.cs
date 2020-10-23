@@ -1,16 +1,16 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
-// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+﻿// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for more information.
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Azure.Messaging.ServiceBus;
 using McMaster.Extensions.CommandLineUtils;
 
-namespace AzDoConsumer
+namespace AzureDevOpsWorker
 {
     public class Program
     {
@@ -24,20 +24,11 @@ namespace AzDoConsumer
             var app = new CommandLineApplication();
 
             app.HelpOption("-h|--help");
-            var connectionStringOption = app.Option("-c|--connection-string <string>", "The Azure Service Bus connection string", CommandOptionType.SingleValue).IsRequired();
-            var queueOption = app.Option("-q|--queue <string>", "The Azure Service Bus queue name", CommandOptionType.SingleValue).IsRequired();
-            var jobDefinitionsPathOption = app.Option("-j|--jobs <path>", "The path for the job definitions file", CommandOptionType.SingleValue).IsRequired();
+            var connectionStringOption = app.Option("-c|--connection-string <string>", "The Azure Service Bus connection string. Can be an environment variable name.", CommandOptionType.SingleValue).IsRequired();
+            var queueOption = app.Option("-q|--queue <string>", "The Azure Service Bus queue name. Can be an environment variable name.", CommandOptionType.SingleValue).IsRequired();
             
             app.OnExecuteAsync(async cancellationToken =>
             {
-                if (!File.Exists(jobDefinitionsPathOption.Value()))
-                {
-                    Console.WriteLine($"The file '{0}' could not be found", jobDefinitionsPathOption.Value());
-                    return;
-                }
-
-                var jobDefinitions = JsonSerializer.Deserialize<JobDefinitions>(File.ReadAllText(jobDefinitionsPathOption.Value()), new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
                 ConnectionString = connectionStringOption.Value();
 
                 // Substitute with ENV value if it exists
@@ -52,15 +43,6 @@ namespace AzDoConsumer
                 if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(Queue)))
                 {
                     Queue = Environment.GetEnvironmentVariable(Queue);
-                }
-
-                foreach (var job in jobDefinitions.Jobs)
-                {
-                    if (!File.Exists(job.Value.Executable))
-                    {
-                        Console.WriteLine($"The executable for the job '{job.Key}' could not be found at '{job.Value.Executable}'");
-                        return;
-                    }
                 }
 
                 var client = new ServiceBusClient(ConnectionString);
@@ -87,59 +69,16 @@ namespace AzDoConsumer
                         devopsMessage = new DevopsMessage(message);
 
                         // The Body contains the parameters for the application to run
-                        jobPayload = JobPayload.Deserialize(message.Body.ToArray());
-
-
-                        if (!jobDefinitions.Jobs.TryGetValue(jobPayload.Name, out var job))
-                        {
-                            throw new Exception("Invalid job name: " + jobPayload.Name);
-                        }
+                        jobPayload = JobPayload.Deserialize(message.Body.ToBytes().ToArray());
 
                         await devopsMessage.SendTaskStartedEventAsync();
 
-                        // The arguments are built from the Task payload and the ones
-                        // set on the command line
-                        var allArguments = jobPayload.Args.Union(job.Arguments).ToArray();
+                        var arguments = String.Join(' ', jobPayload.Args);
 
-                        // Convert any arguments with the custom bindings
-
-                        foreach (var binding in job.Bindings.Keys)
-                        {
-                            if (job.Bindings[binding].StartsWith("env:"))
-                            {
-                                job.Bindings[binding] = Environment.GetEnvironmentVariable(binding.Substring(4));
-                            }
-                        }
-
-                        // Create protected arguments string by hiding binding values
-                        for (var i = 0; i < allArguments.Length; i++)
-                        {
-                            var argument = allArguments[i];
-
-                            if (job.Bindings.ContainsKey(argument))
-                            {
-                                allArguments[i] = "****";
-                            }
-                        }
-
-                        var sanitizedArguments = String.Join(' ', allArguments);
-
-                        for (var i = 0; i < allArguments.Length; i++)
-                        {
-                            var argument = allArguments[i];
-
-                            if (job.Bindings.ContainsKey(argument))
-                            {
-                                allArguments[i] = job.Bindings[argument];
-                            }
-                        }
-
-                        var arguments = String.Join(' ', allArguments);
-
-                        Console.WriteLine("Invoking application with arguments: " + sanitizedArguments);
+                        Console.WriteLine("Invoking application with arguments: " + arguments);
 
                         // The DriverJob manages the application's lifetime and standard output
-                        driverJob = new Job(job.Executable, arguments);
+                        driverJob = new Job("crank.exe", arguments);
 
                         driverJob.OnStandardOutput = log => Console.WriteLine(log);
 
@@ -182,7 +121,7 @@ namespace AzDoConsumer
                         await devopsMessage?.UpdateTaskTimelineRecordAsync(taskLogObjectString);
 
                         // Mark the message as completed
-                        await args.CompleteAsync(message);
+                        await args.CompleteMessageAsync(message);
 
                         driverJob.Stop();
 
@@ -195,7 +134,7 @@ namespace AzDoConsumer
                         try
                         {
                             await devopsMessage?.SendTaskCompletedEventAsync(succeeded: false);
-                            await args.AbandonAsync(message);
+                            await args.AbandonMessageAsync(message);
                         }
                         catch (Exception f)
                         {

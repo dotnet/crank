@@ -1,8 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <Description>Execute crank jobs added to an Azure Service Bus queue by Azure DevOps.</Description>
+    <ToolCommandName>crank-azdo</ToolCommandName>
+    <AssemblyName>crank-azdo</AssemblyName>
+    <PackAsTool>true</PackAsTool>
+    <IsPackable>true</IsPackable>
     <TargetFramework>netcoreapp3.1</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <Authors>Microsoft</Authors>
+    <PackageId>Microsoft.Crank.AzureDevOpsWorker</PackageId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -11,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-
+    <ProjectReference Include="..\Microsoft.Crank.Controller\Microsoft.Crank.Controller.csproj" />
   </ItemGroup>
   
   <ItemGroup>

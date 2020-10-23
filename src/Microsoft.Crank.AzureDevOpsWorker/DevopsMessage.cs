@@ -1,5 +1,6 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
-// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+﻿// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for more information.
 
 using System;
 using System.Net.Http;
@@ -9,7 +10,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Azure.Messaging.ServiceBus;
 
-namespace AzDoConsumer
+namespace AzureDevOpsWorker
 {
     public class DevopsMessage
     {
@@ -27,15 +28,15 @@ namespace AzDoConsumer
 
         public DevopsMessage(ServiceBusReceivedMessage message)
         {
-            PlanUrl = (string)message.Properties["PlanUrl"];
-            ProjectId = (string)message.Properties["ProjectId"];
-            HubName = (string)message.Properties["HubName"];
-            PlanId = (string)message.Properties["PlanId"];
-            JobId = (string)message.Properties["JobId"];
-            TimelineId = (string)message.Properties["TimelineId"];
-            TaskInstanceName = (string)message.Properties["TaskInstanceName"];
-            TaskInstanceId = (string)message.Properties["TaskInstanceId"];
-            AuthToken = (string)message.Properties["AuthToken"];
+            PlanUrl = (string)message.ApplicationProperties["PlanUrl"];
+            ProjectId = (string)message.ApplicationProperties["ProjectId"];
+            HubName = (string)message.ApplicationProperties["HubName"];
+            PlanId = (string)message.ApplicationProperties["PlanId"];
+            JobId = (string)message.ApplicationProperties["JobId"];
+            TimelineId = (string)message.ApplicationProperties["TimelineId"];
+            TaskInstanceName = (string)message.ApplicationProperties["TaskInstanceName"];
+            TaskInstanceId = (string)message.ApplicationProperties["TaskInstanceId"];
+            AuthToken = (string)message.ApplicationProperties["AuthToken"];
 
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic",
                     Convert.ToBase64String(Encoding.ASCII.GetBytes(":" + AuthToken)));
