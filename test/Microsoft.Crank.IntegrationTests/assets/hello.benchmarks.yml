@@ -1,0 +1,44 @@
+jobs:
+  server:
+    source:
+      localFolder: '../hello'
+      project: hello.csproj
+    readyStateText: Application started.
+  bombardier:
+    source:
+      # uploading the whole source folder since it requires other libraries
+      localFolder: '../src'
+      project: Microsoft.Crank.Jobs.Bombardier/Microsoft.Crank.Jobs.Bombardier.csproj
+    readyStateText: Bombardier Client
+    waitForExit: true
+    variables:
+      connections: 256
+      warmup: 0
+      duration: 15
+      requests: 0
+      rate: 0
+      transport: fasthttp # | http1 | http2
+    arguments: "-c {{connections}} -w {{warmup}} -d {{duration}} -n {{requests}} --insecure -l {% if rate != 0 %} --rate {{ rate }} {% endif %} {% if transport %} --{{ transport}} {% endif %} {{headers[presetHeaders]}} {{serverUri}}:{{serverPort}}{{path}}"
+
+    
+scenarios:
+  hello:
+    application:
+      job: server
+    load:
+      job: bombardier
+      variables:
+        serverPort: 5000
+        path: /
+
+profiles:
+  local:
+    variables:
+      serverUri: http://localhost
+    jobs: 
+      application:
+        endpoints: 
+          - http://localhost:5010
+      load:
+        endpoints: 
+          - http://localhost:5010

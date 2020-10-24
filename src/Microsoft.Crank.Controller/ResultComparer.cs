@@ -54,18 +54,17 @@ namespace Microsoft.Crank.Controller
 
                 Console.WriteLine();
 
-                var table = new ResultTable(allNames.Count() * 2 + 1 - 1); // two columns per job, minus the first job, plus the description
+                // description + baseline job (firstJob) + other jobs * 2 (value + percentage) 
+                var table = new ResultTable(1 + 1 + (allNames.Count() - 1) * 2);
 
                 table.Headers.Add(jobName);
 
-                foreach (var name in allNames)
+                table.Headers.Add(allNames.First());
+
+                foreach (var name in allNames.Skip(1))
                 {
                     table.Headers.Add(name);
-
-                    if (name != allNames.First())
-                    {
-                        table.Headers.Add(""); // percentage
-                    }
+                    table.Headers.Add(""); // percentage
                 }
 
                 foreach (var metadata in jobResult.Metadata)
@@ -95,18 +94,22 @@ namespace Microsoft.Crank.Controller
                         // Skip jobs that have no data for this measure
                         if (!result.Jobs.ContainsKey(jobName))
                         {
-                            row.Add(new Cell());
+                            foreach (var n in allNames)
+                            {
+                                row.Add(new Cell());
+                            }
+
                             row.Add(new Cell());
 
                             continue;
                         }
 
                         var job = result.Jobs[jobName];
-
+                        
                         if (!String.IsNullOrEmpty(metadata.Format))
                         {
                             var measure = Convert.ToDouble(job.Results.ContainsKey(metadata.Name) ? job.Results[metadata.Name] : 0);
-                            var previous = Convert.ToDouble(jobResult.Results.ContainsKey(metadata.Name) ? jobResult.Results[metadata.Name] : 0);
+                            var previous = Convert.ToDouble(firstJob.Jobs[jobName].Results.ContainsKey(metadata.Name) ? jobResult.Results[metadata.Name] : 0);
 
                             var improvement = measure == 0
                             ? 0

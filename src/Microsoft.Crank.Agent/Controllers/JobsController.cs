@@ -3,14 +3,12 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Crank.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -30,14 +28,33 @@ namespace Microsoft.Crank.Agent.Controllers
             _jobs = jobs;
         }
 
-        public IEnumerable<Job> GetAll()
+        [HttpGet("all")]
+        public IEnumerable<JobResult> GetAll()
         {
             lock (_jobs)
             {
-                return _jobs.GetAll();
+                return _jobs.GetAll().Select(x => new JobResult(x, this.Url));
             }
         }
 
+        [HttpGet("")]
+        public IEnumerable<JobResult> GetQueue()
+        {
+            lock (_jobs)
+            {
+                return _jobs.GetAll().Where(IsActive).Select(x => new JobResult(x, this.Url));
+            }
+
+            bool IsActive(Job job)
+            {
+                return job.State == JobState.New
+                    || job.State == JobState.Waiting
+                    || job.State == JobState.Initializing
+                    || job.State == JobState.Starting
+                    || job.State == JobState.Running
+                    ;
+            }
+        }
         [HttpGet("{id}/touch")]
         public IActionResult Touch(int id)
         {
@@ -126,7 +143,7 @@ namespace Microsoft.Crank.Agent.Controllers
                 job.Hardware = Startup.Hardware;
                 job.HardwareVersion = Startup.HardwareVersion;
                 job.OperatingSystem = Startup.OperatingSystem;
-                // Use server-side date and time to prevent issues fron time drifting
+                // Use server-side date and time to prevent issues from time drifting
                 job.LastDriverCommunicationUtc = DateTime.UtcNow;
                 job = _jobs.Add(job);
 
@@ -408,7 +425,14 @@ namespace Microsoft.Crank.Agent.Controllers
                 {
                     var job = _jobs.Find(id);
                     Log($"Sending {job.PerfViewTraceFile}");
-                    return File(System.IO.File.OpenRead(job.PerfViewTraceFile), "application/object");
+                    
+                    if (!System.IO.File.Exists(job.PerfViewTraceFile))
+                    {
+                        Log("Trace file doesn't exist");
+                        return NotFound();
+                    }
+
+                    return new GZipFileResult(job.PerfViewTraceFile);                    
                 }
                 catch(Exception e)
                 {
@@ -499,7 +523,7 @@ namespace Microsoft.Crank.Agent.Controllers
 
                     foreach (var file in Directory.GetFiles(job.BasePath, "*.netperf"))
                     {
-                        return File(System.IO.File.OpenRead(file), "application/object");
+                        return new GZipFileResult(file);
                     }
 
                     return NotFound();
@@ -588,7 +612,7 @@ namespace Microsoft.Crank.Agent.Controllers
 
                     Log($"Uploading {path} ({new FileInfo(fullPath).Length / 1024 + 1} KB)");
 
-                    return File(System.IO.File.OpenRead(fullPath), "application/object");
+                    return new GZipFileResult(fullPath);
                 }
                 else
                 {
@@ -604,7 +628,7 @@ namespace Microsoft.Crank.Agent.Controllers
                         // Delete container if the same name already exists
                         var result = await ProcessUtil.RunAsync("docker", $"cp {job.Source.GetNormalizedImageName()}:{path} {destinationFilename}", throwOnError: false, log: true);
 
-                        return File(System.IO.File.OpenRead(destinationFilename), "application/object");
+                        return new GZipFileResult(destinationFilename);
                     }
                     finally
                     {

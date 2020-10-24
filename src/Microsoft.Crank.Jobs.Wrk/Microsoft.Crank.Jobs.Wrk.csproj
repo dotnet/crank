@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\Microsoft.Crank.Jobs.Wrk2\BenchmarksEventSource.cs" />
+    <ProjectReference Include="..\Microsoft.Crank.EventSources\Microsoft.Crank.EventSources.csproj" />
   </ItemGroup>
 
   <ItemGroup>

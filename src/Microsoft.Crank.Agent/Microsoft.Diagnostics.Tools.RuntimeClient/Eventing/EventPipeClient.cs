@@ -5,14 +5,10 @@
 using Microsoft.Diagnostics.Tools.RuntimeClient.DiagnosticsIpc;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.IO.Pipes;
 using System.Linq;
-using System.Net.Sockets;
 using System.Runtime.InteropServices;
-using System.Security.Principal;
 using System.Text.RegularExpressions;
 
 namespace Microsoft.Diagnostics.Tools.RuntimeClient
@@ -45,10 +41,10 @@ namespace Microsoft.Diagnostics.Tools.RuntimeClient
         /// <param name="configuration">buffer size and provider configuration</param>
         /// <param name="sessionId">session id</param>
         /// <returns>Stream</returns>
-        public static Stream CollectTracing(int processId, SessionConfiguration configuration, out ulong sessionId)
+        public static Stream CollectTracing(int processId, EventPipeSessionConfiguration configuration, out ulong sessionId)
         {
             sessionId = 0;
-            var message = new IpcMessage(DiagnosticsServerCommandSet.EventPipe, (byte)EventPipeCommandId.CollectTracing, configuration.Serialize());
+            var message = new IpcMessage(DiagnosticsServerCommandSet.EventPipe, (byte)EventPipeCommandId.CollectTracing, configuration.SerializeV2());
             var stream = IpcClient.SendMessage(processId, message, out var response);
 
             switch ((DiagnosticsServerCommandId)response.Header.CommandId)

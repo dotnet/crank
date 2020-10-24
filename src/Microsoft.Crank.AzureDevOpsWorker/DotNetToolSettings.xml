@@ -1,0 +1,5 @@
+<DotNetCliTool>
+  <Commands>
+    <Command Name="crank-azdo" EntryPoint="crank-azo.dll" Runner="dotnet" />
+  </Commands>
+</DotNetCliTool>

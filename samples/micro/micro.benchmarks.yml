@@ -1,0 +1,23 @@
+jobs:
+  benchmarks:
+    source:
+      localFolder: .
+      project: micro.csproj
+    variables:
+      filter: "*"
+      job: short
+    arguments: --job {{job}} --filter {{filter}} --memory
+    options:
+      benchmarkDotNet: true
+    
+scenarios:
+  Md5VsSha256:
+    application:
+      job: benchmarks
+
+profiles:
+  local:
+    jobs: 
+      application:
+        endpoints: 
+          - http://localhost:5010

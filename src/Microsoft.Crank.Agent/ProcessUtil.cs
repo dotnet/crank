@@ -28,6 +28,7 @@ namespace Microsoft.Crank.Agent
             Action<string> outputDataReceived = null,
             bool log = false,
             Action<int> onStart = null,
+            Action<int> onStop = null,
             CancellationToken cancellationToken = default(CancellationToken),
             bool captureOutput = false,
             bool captureError = false
@@ -122,8 +123,9 @@ namespace Microsoft.Crank.Agent
                 }
             };
 
-            onStart?.Invoke(process.Id);
             process.Start();
+
+            onStart?.Invoke(process.Id);
 
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
@@ -157,7 +159,9 @@ namespace Microsoft.Crank.Agent
                 }
             }
 
-            return await processLifetimeTask.Task;
+            var processResult = await processLifetimeTask.Task;
+            onStop?.Invoke(processResult.ExitCode);
+            return processResult;
         }
 
         public static async Task<T> RetryOnExceptionAsync<T>(int retries, Func<Task<T>> operation, CancellationToken cancellationToken = default)
@@ -179,7 +183,16 @@ namespace Microsoft.Crank.Agent
 
                     Log.WriteLine($"Attempt {attempts} failed: {e.Message}");
                 }
-            } while (true );
+            } while (true);
+        }
+
+        public static Task RetryOnExceptionAsync(int retries, Func<Task> operation, CancellationToken cancellationToken = default)
+        {
+            return RetryOnExceptionAsync(retries, async () => 
+            {
+                await operation();
+                return 0;
+            }, cancellationToken);
         }
     }
 }

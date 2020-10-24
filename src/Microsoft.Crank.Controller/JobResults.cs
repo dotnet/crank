@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using System;
 using System.Collections.Generic;
 using Microsoft.Crank.Models;
 
@@ -15,8 +16,8 @@ namespace Microsoft.Crank.Controller
 
     public class JobResult
     {
-        public Dictionary<string, object> Results { get; set; }
-        public MeasurementMetadata[] Metadata { get; set; }
+        public Dictionary<string, object> Results { get; set; } = new Dictionary<string, object>();
+        public MeasurementMetadata[] Metadata { get; set; } = Array.Empty<MeasurementMetadata>();
         public List<Measurement[]> Measurements { get; set; } = new List<Measurement[]>();
         public Dictionary<string, object> Environment { get; set; } = new Dictionary<string, object>();
     }

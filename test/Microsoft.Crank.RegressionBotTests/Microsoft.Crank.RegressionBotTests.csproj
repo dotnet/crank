@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <AssemblyName>Microsoft.Crank.RegressionBotTests</AssemblyName>
+    <IsTestProject>true</IsTestProject>
+    <IsUnitTestProject>true</IsUnitTestProject>
+    <TestRunnerName>XUnit</TestRunnerName>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Microsoft.Crank.RegressionBot\Microsoft.Crank.RegressionBot.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="assets\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Remove="assets\**\*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="$(JsonNetVersion)" />
+    <PackageReference Include="Fluid.Core" Version="1.0.0-beta-9693" />
+  </ItemGroup>
+
+</Project>

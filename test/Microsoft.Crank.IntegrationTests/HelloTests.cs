@@ -131,6 +131,9 @@ namespace Microsoft.Crank.IntegrationTests
             await Task.WhenAny(agent, Task.Delay(TimeSpan.FromSeconds(5), cancel.Token));
 
             cancel.Cancel();
+
+            Assert.Contains("Requests/sec", result.StandardOutput);
+            Assert.Contains(".NET Core SDK Version", result.StandardOutput);
         }
     }
 }
