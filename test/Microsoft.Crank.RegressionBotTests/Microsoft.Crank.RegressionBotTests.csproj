@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-      <ProjectReference Include="..\..\src\Microsoft.Crank.RegressionBot\Microsoft.Crank.RegressionBot.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Crank.RegressionBot\Microsoft.Crank.RegressionBot.csproj" />
   </ItemGroup>
 
   <ItemGroup>
