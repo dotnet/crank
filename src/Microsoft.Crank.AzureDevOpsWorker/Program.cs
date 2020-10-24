@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 using Azure.Messaging.ServiceBus;
 using McMaster.Extensions.CommandLineUtils;
 
-namespace AzureDevOpsWorker
+namespace Microsoft.Crank.AzureDevOpsWorker
 {
     public class Program
     {

@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
+    <AssemblyName>Microsoft.Crank.RegressionBotTests</AssemblyName>
     <IsTestProject>true</IsTestProject>
     <IsUnitTestProject>true</IsUnitTestProject>
     <TestRunnerName>XUnit</TestRunnerName>
@@ -9,12 +10,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="assets\**\*" CopyToOutputDirectory="PreserveNewest" />
-    <Compile Remove="assets\**\*" />
+      <ProjectReference Include="..\..\src\Microsoft.Crank.RegressionBot\Microsoft.Crank.RegressionBot.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-      <ProjectReference Include="..\..\src\Microsoft.Crank.RegressionBot\RegressionBot.csproj" />
+    <Content Include="assets\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Remove="assets\**\*" />
   </ItemGroup>
 
   <ItemGroup>
