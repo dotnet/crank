@@ -42,6 +42,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{07A30A34-2
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RegressionBotTests", "test\RegressionBotTests\RegressionBotTests.csproj", "{FB125FDC-551F-4548-B4CA-3A2B5E7198D9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AzureDevOpsWorker", "src\Microsoft.Crank.AzureDevOpsWorker\AzureDevOpsWorker.csproj", "{BB0422DA-E7C5-47FB-8EF5-E34F57B51E44}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -92,6 +94,10 @@ Global
 		{FB125FDC-551F-4548-B4CA-3A2B5E7198D9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FB125FDC-551F-4548-B4CA-3A2B5E7198D9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FB125FDC-551F-4548-B4CA-3A2B5E7198D9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BB0422DA-E7C5-47FB-8EF5-E34F57B51E44}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BB0422DA-E7C5-47FB-8EF5-E34F57B51E44}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BB0422DA-E7C5-47FB-8EF5-E34F57B51E44}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BB0422DA-E7C5-47FB-8EF5-E34F57B51E44}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -108,6 +114,7 @@ Global
 		{66E8C05F-CA23-4EB4-8D23-F6E94FBD714E} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
 		{BE9D7C89-3E10-4BFB-B9A0-5FCC92FC47E5} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
 		{FB125FDC-551F-4548-B4CA-3A2B5E7198D9} = {07A30A34-2DDA-45EE-B767-28021086B235}
+		{BB0422DA-E7C5-47FB-8EF5-E34F57B51E44} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {C48AD7EE-82B1-4307-A869-3FC14AC9B21F}

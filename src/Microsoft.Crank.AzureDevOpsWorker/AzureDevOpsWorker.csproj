@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Execute crank jobs added to an Azure Service Bus queue by Azure DevOps.</Description>
+    <ToolCommandName>crank-azdo</ToolCommandName>
+    <AssemblyName>crank-azdo</AssemblyName>
+    <PackAsTool>true</PackAsTool>
+    <IsPackable>true</IsPackable>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <Authors>Microsoft</Authors>
+    <PackageId>Microsoft.Crank.AzureDevOpsWorker</PackageId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="3.0.0" />
+    <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.0.0-preview.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Crank.Controller\Microsoft.Crank.Controller.csproj" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <None Update="jobs.example.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="jobs.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+</Project>
