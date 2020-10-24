@@ -44,7 +44,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Crank.RegressionB
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Crank.IntegrationTests", "test\Microsoft.Crank.IntegrationTests\Microsoft.Crank.IntegrationTests.csproj", "{8FF6CBDB-2629-4A35-BC1B-794CE1A43451}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AzureDevOpsWorker", "src\Microsoft.Crank.AzureDevOpsWorker\AzureDevOpsWorker.csproj", "{BB0422DA-E7C5-47FB-8EF5-E34F57B51E44}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Crank.AzureDevOpsWorker", "src\Microsoft.Crank.AzureDevOpsWorker\Microsoft.Crank.AzureDevOpsWorker.csproj", "{BB0422DA-E7C5-47FB-8EF5-E34F57B51E44}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

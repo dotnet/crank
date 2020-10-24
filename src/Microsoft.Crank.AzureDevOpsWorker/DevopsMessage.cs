@@ -10,7 +10,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Azure.Messaging.ServiceBus;
 
-namespace AzureDevOpsWorker
+namespace Microsoft.Crank.AzureDevOpsWorker
 {
     public class DevopsMessage
     {

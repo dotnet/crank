@@ -11,7 +11,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 
-namespace AzureDevOpsWorker
+namespace Microsoft.Crank.AzureDevOpsWorker
 {
     public class Job : IDisposable
     {

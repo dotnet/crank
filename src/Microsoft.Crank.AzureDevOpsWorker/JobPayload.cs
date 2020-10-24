@@ -6,7 +6,7 @@ using System;
 using System.Text;
 using System.Text.Json.Serialization;
 
-namespace AzureDevOpsWorker
+namespace Microsoft.Crank.AzureDevOpsWorker
 {
 
     public class JobPayload
