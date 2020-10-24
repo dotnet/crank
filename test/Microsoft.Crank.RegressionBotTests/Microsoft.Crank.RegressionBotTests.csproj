@@ -10,17 +10,23 @@
   </PropertyGroup>
 
   <ItemGroup>
-      <ProjectReference Include="..\..\src\Microsoft.Crank.RegressionBot\Microsoft.Crank.RegressionBot.csproj" PrivateAssets="All" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Content Include="assets\**\*" CopyToOutputDirectory="PreserveNewest" />
     <Compile Remove="assets\**\*" />
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\..\src\Microsoft.Crank.RegressionBot\Models\BenchmarksResult.cs" Link="Models\BenchmarksResult.cs" />
+    <Compile Include="..\..\src\Microsoft.Crank.RegressionBot\Models\Regression.cs" Link="Models\Regression.cs" />
+    <Compile Include="..\..\src\Microsoft.Crank.RegressionBot\Models\Report.cs" Link="Models\Report.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="$(JsonNetVersion)" />
     <PackageReference Include="Fluid.Core" Version="1.0.0-beta-9693" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Models\" />
   </ItemGroup>
 
 </Project>

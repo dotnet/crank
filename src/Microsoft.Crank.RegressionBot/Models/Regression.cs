@@ -4,7 +4,7 @@
 
 using System.Collections.Generic;
 
-namespace Microsoft.Crank.RegressionBot
+namespace Microsoft.Crank.RegressionBot.Models
 {
     public class Regression
     {

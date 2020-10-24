@@ -5,7 +5,7 @@
 using System;
 using Newtonsoft.Json.Linq;
 
-namespace Microsoft.Crank.RegressionBot
+namespace Microsoft.Crank.RegressionBot.Models
 {
     public class BenchmarksResult
     {

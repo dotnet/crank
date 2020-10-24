@@ -4,7 +4,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Fluid;
 using Fluid.Values;
-using Microsoft.Crank.RegressionBot;
+using Microsoft.Crank.RegressionBot.Models;
 using Newtonsoft.Json.Linq;
 using Xunit;
 using Xunit.Abstractions;

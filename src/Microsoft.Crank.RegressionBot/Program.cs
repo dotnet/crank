@@ -21,6 +21,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Octokit;
 using YamlDotNet.Serialization;
+using Microsoft.Crank.RegressionBot.Models;
 
 namespace Microsoft.Crank.RegressionBot
 {
