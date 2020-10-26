@@ -1,0 +1,85 @@
+{
+    "jobs": {
+        "application": {
+            "results": {
+                "benchmarks/cpu": 99.0,
+                "benchmarks/cpu/raw": 2779.0802639847147,
+                "benchmarks/working-set": 410.0,
+                "benchmarks/build-time": 4622.0,
+                "benchmarks/start-time": 221.0,
+                "benchmarks/published-size": 113407.0,
+                "runtime-counter/cpu-usage": 99.0,
+                "runtime-counter/working-set": 429.0,
+                "runtime-counter/gc-heap-size": 314.0,
+                "runtime-counter/gen-0-gc-count": 1.0,
+                "runtime-counter/gen-1-gc-count": 1.0,
+                "runtime-counter/gen-2-gc-count": 1.0,
+                "runtime-counter/time-in-gc": 0.0,
+                "runtime-counter/gen-0-size": 672.0,
+                "runtime-counter/gen-1-size": 4231672.0,
+                "runtime-counter/gen-2-size": 4345296.0,
+                "runtime-counter/loh-size": 2015296.0,
+                "runtime-counter/poh-size": 2622592.0,
+                "runtime-counter/alloc-rate": 166727944.0,
+                "runtime-counter/gc-fragmentation": 0.01914076556499712,
+                "runtime-counter/assembly-count": 97.0,
+                "runtime-counter/exception-count": 856.0,
+                "runtime-counter/threadpool-thread-count": 48.0,
+                "runtime-counter/monitor-lock-contention-count": 59.0,
+                "runtime-counter/threadpool-queue-length": 136.0,
+                "runtime-counter/threadpool-completed-items-count": 1079831.0,
+                "runtime-counter/active-timer-count": 0.0,
+                "runtime-counter/il-bytes-jitted": 203686.0,
+                "runtime-counter/methods-jitted-count": 2441.0,
+                "aspNetCoreVersion": "5.0.0-rtm.20512.8+944c964339195823f6aa66fee02de8ab16b6790a",
+                "netCoreAppVersion": "5.0.0-rtm.20509.6+cca8c883475d4821c9af1f7093e7af6146f1b4a3"
+            },
+            "metadata": [],
+            "measurements": [],
+            "environment": {
+                "hw": "Physical",
+                "env": "Unspecified",
+                "os": "Linux",
+                "arch": "X64",
+                "proc": 28
+            }
+        },
+        "load": {
+            "results": {
+                "benchmarks/cpu": 60.0,
+                "benchmarks/cpu/raw": 1671.277339678323,
+                "benchmarks/working-set": 48.0,
+                "benchmarks/build-time": 3809.0,
+                "benchmarks/start-time": 0.0,
+                "benchmarks/published-size": 76404.0,
+                "http/firstrequest": 87.0,
+                "wrk/rps/mean": 923014.87,
+                "wrk/requests": 13936751.0,
+                "wrk/latency/mean": 0.6312000000000001,
+                "wrk/latency/max": 71.12,
+                "wrk/errors/badresponses": 0.0,
+                "wrk/errors/socketerrors": 0.0,
+                "wrk/throughput": 133.8,
+                "wrk/latency/50": 0.251,
+                "wrk/latency/75": 0.291,
+                "wrk/latency/90": 0.346,
+                "wrk/latency/99": 12.02
+            },
+            "metadata": [],
+            "measurements": [],
+            "environment": {
+                "hw": "Physical",
+                "env": "Unspecified",
+                "os": "Linux",
+                "arch": "X64",
+                "proc": 28
+            }
+        }
+    },
+    "properties": {
+        "scenario": "Json",
+        "protocol": "http",
+        "buildId": "861670",
+        "buildNumber": "20201021.6"
+    }
+}

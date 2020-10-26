@@ -4,7 +4,7 @@
 
 using System.Collections.Generic;
 
-namespace Microsoft.Crank.RegressionBot
+namespace Microsoft.Crank.RegressionBot.Models
 {
     /// <summary>
     /// This class is used as a model for template reports.

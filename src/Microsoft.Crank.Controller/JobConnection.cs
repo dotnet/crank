@@ -14,8 +14,8 @@ using System.Threading.Tasks;
 using System.Web;
 using Microsoft.Crank.Models;
 using Microsoft.Crank.Controller.Ignore;
-using McMaster.Extensions.CommandLineUtils;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Crank.Controller
 {
@@ -35,11 +35,12 @@ namespace Microsoft.Crank.Controller
         private readonly Uri _serverJobsUri;
         private string _serverJobUri;
         private bool _keepAlive;
-        private DateTime _runningUtc;
+        private DateTime? _runningUtc;
         private string _jobName;
 
         private int _outputCursor;
         private int _buildCursor;
+        private Dictionary<string, string> _benchmarkDotNetResults = new Dictionary<string, string>();
 
         static JobConnection()
         {
@@ -527,7 +528,7 @@ namespace Microsoft.Crank.Controller
                         var response = await _httpClient.GetAsync(_serverJobUri + "/touch");
 
                         // Detect if the job has timed out. This doesn't account for any other service
-                        if (Job.Timeout > 0 && DateTime.UtcNow - _runningUtc > TimeSpan.FromSeconds(Job.Timeout))
+                        if (Job.Timeout > 0 && _runningUtc != null && DateTime.UtcNow - _runningUtc > TimeSpan.FromSeconds(Job.Timeout))
                         {
                             Log.Write($"Job has timed out, stopping...");
                             await StopAsync();
@@ -718,6 +719,43 @@ namespace Microsoft.Crank.Controller
                 }
             }
         }
+
+        public async Task DownloadBenchmarkDotNetResultsAsync()
+        {
+            // Download results files
+
+            foreach (var pattern in new [] { "brief.json", "default.md" })
+            {
+                foreach (var path in await ListFilesAsync("BenchmarkDotNet.Artifacts/results/*-" + pattern))
+                {
+                    Log.Verbose($"Downloading {Path.GetFileName(path)}");
+                    _benchmarkDotNetResults[path] = await DownloadFileContentAsync(path);
+                }
+            }
+        }
+
+        public IEnumerable<JObject> GetBenchmarkDotNetBenchmarks()
+        {
+            foreach (var jsonResults in _benchmarkDotNetResults.Where(x => x.Key.EndsWith("brief.json")))
+            {
+                var brief = JObject.Parse(jsonResults.Value);
+                var benchmarks = brief.Property("Benchmarks").Value as JArray;
+
+                foreach (var benchmark in benchmarks)
+                {
+                    yield return benchmark as JObject;
+                }
+            }
+        }
+
+        public void DisplayBenchmarkDotNetResults()
+        {
+            foreach (var markdownResult in _benchmarkDotNetResults.Where(x => x.Key.EndsWith("default.md")))
+            {
+                // Remove default markdown formatting
+                Console.WriteLine(markdownResult.Value.Replace("**", ""));
+            }
+        }
         private static void DoCreateFromDirectory(string sourceDirectoryName, string destinationArchiveFileName)
         {
             sourceDirectoryName = Path.GetFullPath(sourceDirectoryName);
@@ -895,6 +933,25 @@ namespace Microsoft.Crank.Controller
             }
 
             await _httpClient.DownloadFileAsync(uri, _serverJobUri, filename);
+        }
+
+        public async Task<IEnumerable<string>> ListFilesAsync(string pattern)
+        {
+            var uri = _serverJobUri + "/list?path=" + HttpUtility.UrlEncode(pattern);
+            Log.Verbose("GET " + uri);
+
+            var response = await _httpClient.GetStringAsync(uri);
+            var fileNames = JArray.Parse(response).ToObject<string[]>();
+
+            return fileNames;
+        }
+
+        public async Task<string> DownloadFileContentAsync(string file)
+        {
+            var uri = _serverJobUri + "/download?path=" + HttpUtility.UrlEncode(file);
+            Log.Verbose("GET " + uri);
+
+            return await _httpClient.DownloadFileContentAsync(uri);
         }
 
         public async Task<Dictionary<string, object>> GetInfoAsync()

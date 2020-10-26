@@ -76,7 +76,10 @@ namespace Microsoft.Crank.Agent
         //private static readonly string _latestDesktopApiUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.win-x64/index.json";
         //private static readonly string _releaseMetadata = "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/releases-index.json";
 
+        // Use this feed once https://github.com/dotnet/aspnetcore/pull/26788 is fixed
+        // private static readonly string _latestSdkVersionUrl = "https://aka.ms/dotnet/net6/dev/Sdk/productCommit-win-x64.txt";
         private static readonly string _latestSdkVersionUrl = "https://aka.ms/dotnet/net5/daily/Sdk/productCommit-win-x64.txt";
+        
         private static readonly string _aspnetSdkVersionUrl = "https://raw.githubusercontent.com/dotnet/aspnetcore/master/global.json";
         private static readonly string[] _runtimeFeedUrls = new string[] {
             //"https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2",
@@ -2104,7 +2107,7 @@ namespace Microsoft.Crank.Agent
                 targetFramework = ResolveProjectTFM(job, projectFileName, targetFramework);
             }
 
-            await PatchProjectFrameworkReferenceAsync(job, projectFileName);
+            await PatchProjectFrameworkReferenceAsync(job, projectFileName, targetFramework);
 
             // If a specific channel is set, use it instead of the detected one
             if (!String.IsNullOrEmpty(job.Channel))
@@ -2319,6 +2322,27 @@ namespace Microsoft.Crank.Agent
             job.RuntimeVersion = runtimeVersion;
             job.DesktopVersion = desktopVersion;
             job.SdkVersion = sdkVersion;
+
+            if (!job.Metadata.Any(x => x.Name == "netSdkVersion"))
+            {
+                job.Metadata.Enqueue(new MeasurementMetadata
+                {
+                    Source = "Host Process",
+                    Name = "netSdkVersion",
+                    Aggregate = Operation.Last,
+                    Reduce = Operation.Last,
+                    Format = "",
+                    LongDescription = ".NET Core SDK Version",
+                    ShortDescription = ".NET Core SDK Version"
+                });
+
+                job.Measurements.Enqueue(new Measurement
+                {
+                    Name = "netSdkVersion",
+                    Timestamp = DateTime.UtcNow,
+                    Value = sdkVersion
+                });
+            }
 
             // Build and Restore
             var dotnetExecutable = GetDotNetExecutable(dotnetDir);
@@ -2719,8 +2743,10 @@ namespace Microsoft.Crank.Agent
             return !String.IsNullOrEmpty(version) && char.IsDigit(version[0]);
         }
 
-        private static async Task PatchProjectFrameworkReferenceAsync(Job job, string projectFileName)
+        private static async Task PatchProjectFrameworkReferenceAsync(Job job, string projectFileName, string targetFramework)
         {
+            // Alters the csproj to force the TFM and the framework versions defined in the job. 
+
             if (File.Exists(projectFileName))
             {
                 Log.WriteLine("Patching project file with Framework References");
@@ -2732,6 +2758,26 @@ namespace Microsoft.Crank.Agent
                     using (var projectFileStream = File.OpenRead(projectFileName))
                     {
                         project = await XDocument.LoadAsync(projectFileStream, LoadOptions.None, new CancellationTokenSource(3000).Token);
+                    }
+
+                    // Remove existing <TargetFramework(s)> element
+
+                    var targetFrameworksElements = project.Root.Elements("PropertyGroup").Elements("TargetFrameworks");
+
+                    if (targetFrameworksElements.Any())
+                    {
+                        var targetFrameworksElement = targetFrameworksElements.First();
+                        ((XElement)targetFrameworksElement).Value = targetFramework;
+                    }
+                    else
+                    {
+                        var targetFrameworkElements = project.Root.Elements("PropertyGroup").Elements("TargetFramework");
+
+                        if (targetFrameworkElements.Any())
+                        {
+                            var targetFrameworkElement = targetFrameworkElements.First();
+                            ((XElement)targetFrameworkElement).Value = targetFramework;
+                        }
                     }
 
                     if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
@@ -2746,7 +2792,7 @@ namespace Microsoft.Crank.Agent
                                 new XElement("FrameworkReference",
                                     new XAttribute("Update", "Microsoft.NETCore.App"),
                                     new XAttribute("RuntimeFrameworkVersion", "$(MicrosoftNETCoreAppPackageVersion)")
-                                    )
+                                )
                             )
                         );
                     }
@@ -2785,13 +2831,32 @@ namespace Microsoft.Crank.Agent
 
             if (runtimeVersion.EndsWith("*")) // 2.1.*, 2.*, 5.0.*
             {
-                targetFramework = "netcoreapp" + runtimeVersion.Substring(0, 3);
+                var major = int.Parse(runtimeVersion.Split('.')[0]);
+
+                if (major >= 5)
+                {
+                    targetFramework = "net" + runtimeVersion.Substring(0, 3);
+                }
+                else
+                {
+                    targetFramework = "netcoreapp" + runtimeVersion.Substring(0, 3);
+                }
+                
                 runtimeVersion = "edge";
             }
-
-            if (runtimeVersion.Split('.').Length == 2) // 2.1, 5.0
+            else if (runtimeVersion.Split('.').Length == 2) // 2.1, 5.0
             {
-                targetFramework = "netcoreapp" + runtimeVersion.Substring(0, 3);
+                var major = int.Parse(runtimeVersion.Split('.')[0]);
+
+                if (major >= 5)
+                {
+                    targetFramework = "net" + runtimeVersion.Substring(0, 3);
+                }
+                else
+                {
+                    targetFramework = "netcoreapp" + runtimeVersion.Substring(0, 3);
+                }
+                
                 runtimeVersion = "current";
             }
 
@@ -2799,8 +2864,7 @@ namespace Microsoft.Crank.Agent
             {
                 aspNetCoreVersion = "edge";
             }
-
-            if (aspNetCoreVersion.Split('.').Length == 2) // 2.1, 5.0
+            else if (aspNetCoreVersion.Split('.').Length == 2) // 2.1, 5.0
             {
                 aspNetCoreVersion = "current";
             }
@@ -3169,15 +3233,24 @@ namespace Microsoft.Crank.Agent
             var frameworkVersion = targetFramework.Substring(targetFramework.Length - 3); // 3.1
             var metadataUrl = $"https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/{frameworkVersion}/releases.json";
 
-            var content = await DownloadContentAsync(metadataUrl);
-            var index = JObject.Parse(content);
+            try
+            {
+                var content = await DownloadContentAsync(metadataUrl);
+                var index = JObject.Parse(content);
 
-            var aspnet = index.SelectToken($"$.releases[0].aspnetcore-runtime.version").ToString();
-            var sdk = index.SelectToken($"$.releases[0].sdk.version").ToString();
-            var runtime = index.SelectToken($"$.releases[0].runtime.version").ToString();
-            var desktop = index.SelectToken($"$.releases[0].windowsdesktop.version").ToString();
+                var aspnet = index.SelectToken($"$.releases[0].aspnetcore-runtime.version").ToString();
+                var sdk = index.SelectToken($"$.releases[0].sdk.version").ToString();
+                var runtime = index.SelectToken($"$.releases[0].runtime.version").ToString();
+                var desktop = index.SelectToken($"$.releases[0].windowsdesktop.version").ToString();
 
-            return (runtime, desktop, aspnet, sdk);
+                return (runtime, desktop, aspnet, sdk);
+            }
+            catch
+            {
+                Log.WriteLine("Could not load release metadata file for current versions");
+
+                return (null, null, null, null);
+            }
         }
 
         /// <summary>
@@ -4731,8 +4804,12 @@ namespace Microsoft.Crank.Agent
                 File.WriteAllText(rootNugetConfig, @"<?xml version=""1.0"" encoding=""utf-8""?>
 <configuration>
   <packageSources>
+    <add key=""benchmarks-dotnet6"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/index.json"" />
+    <add key=""benchmarks-dotnet6-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6-transport/nuget/v3/index.json"" />
     <add key=""benchmarks-dotnet5"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/index.json"" />
     <add key=""benchmarks-dotnet5-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5-transport/nuget/v3/index.json"" />
+    <add key=""benchmarks-dotnet3.1"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet3.1/nuget/v3/index.json"" />
+    <add key=""benchmarks-dotnet3.1-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet3.1-transport/nuget/v3/index.json"" />
     <add key=""benchmarks-aspnetcore"" value=""https://dotnetfeed.blob.core.windows.net/aspnet-aspnetcore/index.json"" />
     <add key=""benchmarks-dotnet-core"" value=""https://dotnetfeed.blob.core.windows.net/dotnet-core/index.json"" />
     <add key=""benchmarks-extensions"" value=""https://dotnetfeed.blob.core.windows.net/aspnet-extensions/index.json"" />
