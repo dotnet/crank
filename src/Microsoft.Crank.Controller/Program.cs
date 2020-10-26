@@ -1171,7 +1171,9 @@ namespace Microsoft.Crank.Controller
 
                 if (node is JArray jArray)
                 {
-                    jArray.Add(argument.Value);
+                    // pass multi values from command line
+                    var values = argument.Value.Split(";");
+                    jArray.Add(values);
                 }
                 else if (node is JValue jValue)
                 {

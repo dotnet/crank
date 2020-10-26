@@ -1252,7 +1252,7 @@ namespace Microsoft.Crank.Agent
                                         }
                                         catch
                                         {
-                                            Log.WriteLine($"/shutdown endpoint failed...");
+                                            Log.WriteLine($"/shutdown endpoint failed... '{job.Url}/shutdown'");
                                         }
                                     }
 
@@ -3819,7 +3819,7 @@ namespace Microsoft.Crank.Agent
                         await Task.Delay(100);
                     }
 
-                    if (retries == 0)
+                    if (retries == -1)
                     {
                         Log.WriteLine("[ERROR] Failed to create counters event pipe client");
                         return;
@@ -3935,7 +3935,7 @@ namespace Microsoft.Crank.Agent
                         await Task.Delay(100);
                     }
 
-                    if (retries == 0)
+                    if (retries == -1)
                     {
                         Log.WriteLine("[ERROR] Failed to create measurements event pipe client");
                         return;
