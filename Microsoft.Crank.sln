@@ -40,7 +40,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Crank.RegressionB
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{07A30A34-2DDA-45EE-B767-28021086B235}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Crank.RegressionBotTests", "test\Microsoft.Crank.RegressionBotTests\Microsoft.Crank.RegressionBotTests.csproj", "{FB125FDC-551F-4548-B4CA-3A2B5E7198D9}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Crank.RegressionBot.Tests", "test\Microsoft.Crank.RegressionBot.Tests\Microsoft.Crank.RegressionBot.Tests.csproj", "{FB125FDC-551F-4548-B4CA-3A2B5E7198D9}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Crank.IntegrationTests", "test\Microsoft.Crank.IntegrationTests\Microsoft.Crank.IntegrationTests.csproj", "{8FF6CBDB-2629-4A35-BC1B-794CE1A43451}"
 EndProject

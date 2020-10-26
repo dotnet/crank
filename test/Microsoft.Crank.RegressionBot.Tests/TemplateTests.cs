@@ -9,7 +9,7 @@ using Newtonsoft.Json.Linq;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace Microsoft.Crank.RegressionBotTests
+namespace Microsoft.Crank.RegressionBot.Tests
 {
     public class TemplateTests
     {
