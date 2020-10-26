@@ -39,6 +39,7 @@ namespace Microsoft.Crank.Models
         Sum,
         Median,
         Max,
+        P95,
         Min,
         Count,
         All,

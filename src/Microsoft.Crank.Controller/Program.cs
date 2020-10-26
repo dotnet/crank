@@ -1742,6 +1742,7 @@ namespace Microsoft.Crank.Controller
                     }
 
                     object result = 0;
+                    string resultMetadataName = metadata.Name;
 
                     switch (metadata.Aggregate)
                     {
@@ -1773,6 +1774,12 @@ namespace Microsoft.Crank.Controller
                             result = Percentile(50)(measurements[metadata.Name].Select(x => Convert.ToDouble(x.Value)));
                             break;
 
+                        case Operation.P95:
+                            result = Percentile(95)(measurements[metadata.Name].Select(x => Convert.ToDouble(x.Value)));
+                            // since we operate on the same counter name, we need to change this for reporting
+                            resultMetadataName = metadata.Name + "-" + "P95";
+                            break;
+
                         case Operation.Min:
                             result = measurements[metadata.Name].Min(x => Convert.ToDouble(x.Value));
                             break;
@@ -1792,13 +1799,13 @@ namespace Microsoft.Crank.Controller
 
                     try
                     {
-                        summaries[metadata.Name] = Convert.ToDouble(result);
+                        summaries[resultMetadataName] = Convert.ToDouble(result);
                     }
                     catch
                     {
                         // If the value can't be converted to double, just keep it
                         // e.g., bombardier/raw
-                        summaries[metadata.Name] = result;
+                        summaries[resultMetadataName] = result;
                     }
                 }
 
@@ -1852,6 +1859,10 @@ namespace Microsoft.Crank.Controller
 
                     case Operation.Max:
                         reducedValue = reducedValues.Max(x => Convert.ToDouble(x.Value));
+                        break;
+
+                    case Operation.P95:
+                        reducedValue = Percentile(95)(reducedValues.Select(x => Convert.ToDouble(x.Value)));
                         break;
 
                     case Operation.Median:
@@ -1952,6 +1963,10 @@ namespace Microsoft.Crank.Controller
 
                     case Operation.Max:
                         result = measurements[metadata.Name].Max(x => Convert.ToDouble(x.Value));
+                        break;
+
+                    case Operation.P95:
+                        result = Percentile(95)(measurements[metadata.Name].Select(x => Convert.ToDouble(x.Value)));
                         break;
 
                     case Operation.Median:
@@ -2084,6 +2099,10 @@ namespace Microsoft.Crank.Controller
 
                         case Operation.Max:
                             result = measurements[metadata.Name].Max(x => Convert.ToDouble(x.Value));
+                            break;
+
+                        case Operation.P95:
+                            result = Percentile(95)(measurements[metadata.Name].Select(x => Convert.ToDouble(x.Value)));
                             break;
 
                         case Operation.Median:

@@ -3749,9 +3749,17 @@ namespace Microsoft.Crank.Agent
                 new MeasurementMetadata { Source = "System.Runtime", Name = "runtime-counter/working-set", LongDescription = "Amount of working set used by the process (MB)", ShortDescription = "Working Set (MB)", Format = "n0", Aggregate = Operation.Max, Reduce = Operation.Max },
                 new MeasurementMetadata { Source = "System.Runtime", Name = "runtime-counter/gc-heap-size", LongDescription = "Total heap size reported by the GC (MB)", ShortDescription = "GC Heap Size (MB)", Format = "n0", Aggregate = Operation.Max, Reduce = Operation.Max },
                 new MeasurementMetadata { Source = "System.Runtime", Name = "runtime-counter/gen-0-gc-count", LongDescription = "Number of Gen 0 GCs / min", ShortDescription = "Gen 0 GC (#/min)", Format = "n02", Aggregate = Operation.Max, Reduce = Operation.Max },
+                new MeasurementMetadata { Source = "System.Runtime", Name = "runtime-counter/gen-0-gc-count", LongDescription = "Number of Gen 0 GCs / min - P95", ShortDescription = "Gen 0 GC (#/min) - P95", Format = "n02", Aggregate = Operation.P95, Reduce = Operation.P95 },
+
                 new MeasurementMetadata { Source = "System.Runtime", Name = "runtime-counter/gen-1-gc-count", LongDescription = "Number of Gen 1 GCs / min", ShortDescription = "Gen 1 GC (#/min)", Format = "n02", Aggregate = Operation.Max, Reduce = Operation.Max },
+                new MeasurementMetadata { Source = "System.Runtime", Name = "runtime-counter/gen-1-gc-count", LongDescription = "Number of Gen 1 GCs / min - P95", ShortDescription = "Gen 1 GC (#/min) - P95", Format = "n02", Aggregate = Operation.P95, Reduce = Operation.P95 },
+
                 new MeasurementMetadata { Source = "System.Runtime", Name = "runtime-counter/gen-2-gc-count", LongDescription = "Number of Gen 2 GCs / min", ShortDescription = "Gen 2 GC (#/min)", Format = "n02", Aggregate = Operation.Max, Reduce = Operation.Max },
+                new MeasurementMetadata { Source = "System.Runtime", Name = "runtime-counter/gen-2-gc-count", LongDescription = "Number of Gen 2 GCs / min - P95", ShortDescription = "Gen 2 GC (#/min) - P95", Format = "n02", Aggregate = Operation.P95, Reduce = Operation.P95 },
+
                 new MeasurementMetadata { Source = "System.Runtime", Name = "runtime-counter/time-in-gc", LongDescription = "% time in GC since the last GC", ShortDescription = "Time in GC (%)", Format = "n02", Aggregate = Operation.Max, Reduce = Operation.Max },
+                new MeasurementMetadata { Source = "System.Runtime", Name = "runtime-counter/time-in-gc", LongDescription = "% time in GC since the last GC - P95", ShortDescription = "Time in GC (%) - P95", Format = "n02", Aggregate = Operation.P95, Reduce = Operation.P95 },
+
                 new MeasurementMetadata { Source = "System.Runtime", Name = "runtime-counter/gen-0-size", LongDescription = "Gen 0 Heap Size", ShortDescription = "Gen 0 Size (B)", Format = "n0", Aggregate = Operation.Max, Reduce = Operation.Max },
                 new MeasurementMetadata { Source = "System.Runtime", Name = "runtime-counter/gen-1-size", LongDescription = "Gen 1 Heap Size", ShortDescription = "Gen 1 Size (B)", Format = "n0", Aggregate = Operation.Max, Reduce = Operation.Max },
                 new MeasurementMetadata { Source = "System.Runtime", Name = "runtime-counter/gen-2-size", LongDescription = "Gen 2 Heap Size", ShortDescription = "Gen 2 Size (B)", Format = "n0", Aggregate = Operation.Max, Reduce = Operation.Max },
