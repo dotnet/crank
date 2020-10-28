@@ -3,9 +3,8 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 using Microsoft.Crank.Models;
 
 namespace Repository
@@ -13,7 +12,7 @@ namespace Repository
     public class InMemoryJobRepository : IJobRepository
     {
         private readonly object _lock = new object();
-        private readonly List<Job> _items = new List<Job>();
+        private readonly ConcurrentDictionary<int, Job> _items = new ConcurrentDictionary<int, Job>();
         private int _nextId = 1;
 
         public Job Add(Job item)
@@ -28,52 +27,37 @@ namespace Repository
                 var id = _nextId;
                 _nextId++;
                 item.Id = id;
-                _items.Add(item);
+                _items[id] = item;
                 return item;
             }
         }
 
         public Job Find(int id)
         {
-            lock (_lock)
-            {
-                var items = _items.Where(job => job.Id == id);
-                Debug.Assert(items.Count() == 0 || items.Count() == 1);
-                return items.FirstOrDefault();
-            }
+            _items.TryGetValue(id, out var job);
+
+            return job;
         }
 
         public IEnumerable<Job> GetAll()
         {
-            lock (_lock)
-            {
-                return _items.ToArray();
-            }
+            return _items.Values;
         }
 
         public Job Remove(int id)
         {
-            lock (_lock)
-            {
-                var item = Find(id);
-                if (item == null)
-                {
-                    throw new ArgumentException($"Could not find item with Id '{id}'.");
-                }
-                else
-                {
-                    _items.Remove(item);
-                    return item;
-                }
-            }
+            _items.TryRemove(id, out var job);
+
+            return job;
         }
 
         public void Update(Job item)
         {
-            lock (_lock)
+            var oldItem = Find(item.Id);
+
+            if (!object.ReferenceEquals(item, oldItem))
             {
-                var oldItem = Find(item.Id);
-                _items[_items.IndexOf(oldItem)] = item;
+                _items[item.Id] = item;
             }
         }
     }
