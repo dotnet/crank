@@ -22,9 +22,8 @@ using Microsoft.Crank.Models;
 using BenchmarksServer;
 using McMaster.Extensions.CommandLineUtils;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Connections;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Diagnostics.Tools.RuntimeClient;
 using Microsoft.Diagnostics.Tools.Trace;
 using Microsoft.Diagnostics.Tracing;
@@ -176,6 +175,9 @@ namespace Microsoft.Crank.Agent
 
             app.UseEndpoints(endpoints =>
             {
+                endpoints.MapGet("jobs/{id}/state", JobsApis.GetState);
+                endpoints.MapGet("jobs/{id}/touch", JobsApis.GetTouch);
+                
                 endpoints.MapDefaultControllerRoute();
             });
         }
@@ -340,16 +342,13 @@ namespace Microsoft.Crank.Agent
                 {
                     string runId = null;
 
-                    lock (_jobs)
-                    {
-                        // Lookup expired jobs
-                        var expiredJobs = _jobs.GetAll().Where(j => j.State == JobState.Deleted && DateTime.UtcNow - j.LastDriverCommunicationUtc > DeletedTimeout);
+                    // Lookup expired jobs
+                    var expiredJobs = _jobs.GetAll().Where(j => j.State == JobState.Deleted && DateTime.UtcNow - j.LastDriverCommunicationUtc > DeletedTimeout);
 
-                        foreach (var expiredJob in expiredJobs)
-                        {
-                            Log.WriteLine($"Removing expired job {expiredJob.Id}");
-                            _jobs.Remove(expiredJob.Id);
-                        }
+                    foreach (var expiredJob in expiredJobs)
+                    {
+                        Log.WriteLine($"Removing expired job {expiredJob.Id}");
+                        _jobs.Remove(expiredJob.Id);
                     }
 
                     /*
@@ -373,22 +372,19 @@ namespace Microsoft.Crank.Agent
 
                     while (runId == null && !cancellationToken.IsCancellationRequested)
                     {
-                        lock (_jobs)
+                        // Looking for the new group of jobs
+                        var next = _jobs.GetAll().FirstOrDefault(x => x.State == JobState.New);
+
+                        if (next != null)
                         {
-                            // Looking for the new group of jobs
-                            var next = _jobs.GetAll().FirstOrDefault(x => x.State == JobState.New);
+                            runId = next.RunId;
 
-                            if (next != null)
+                            foreach (var job in _jobs.GetAll().Where(x => x.RunId == runId))
                             {
-                                runId = next.RunId;
-
-                                foreach (var job in _jobs.GetAll().Where(x => x.RunId == runId))
-                                {
-                                    group[job] = new JobContext { Job = job };
-                                }
-
-                                break;
+                                group[job] = new JobContext { Job = job };
                             }
+
+                            break;
                         }
 
                         await Task.Delay(1000);
@@ -396,16 +392,13 @@ namespace Microsoft.Crank.Agent
 
                     while (runId != null)
                     {
-                        lock (_jobs)
+                        // Update group to include new ones
+                        foreach (var job in _jobs.GetAll().Where(x => x.RunId == runId))
                         {
-                            // Update group to include new ones
-                            foreach (var job in _jobs.GetAll().Where(x => x.RunId == runId))
+                            if (!group.ContainsKey(job))
                             {
-                                if (!group.ContainsKey(job))
-                                {
-                                    Log.WriteLine($"Adding job '{job.Service}' ({job.Id}) to group");
-                                    group[job] = new JobContext { Job = job };
-                                }
+                                Log.WriteLine($"Adding job '{job.Service}' ({job.Id}) to group");
+                                group[job] = new JobContext { Job = job };
                             }
                         }
 
@@ -2060,12 +2053,8 @@ namespace Microsoft.Crank.Agent
 
             var env = new Dictionary<string, string>
             {
-                // for repos using the latest build tools from aspnet/BuildTools
-                ["DOTNET_HOME"] = dotnetHome,
-                // for backward compatibility with aspnet/KoreBuild
-                ["DOTNET_INSTALL_DIR"] = dotnetHome,
-                // temporary for custom compiler to find right dotnet
-                ["PATH"] = dotnetHome + Path.PathSeparator + Environment.GetEnvironmentVariable("PATH")
+                // used by recent SDKs
+                ["DOTNET_ROOT"] = dotnetHome,
             };
 
             Log.WriteLine("Downloading build tools");
@@ -2483,7 +2472,12 @@ namespace Microsoft.Crank.Agent
 
                 var arguments = $"publish {projectName} -c Release -o {outputFolder} {buildParameters}";
 
-                Log.WriteLine($"Publishing application in {outputFolder} with: \n {arguments}");
+                // This might be set already, and the SDK will then use it for some targets files
+                // https://github.com/dotnet/sdk/blob/e2faebad758a7d38b5965cda755a17e9e9881599/src/Cli/Microsoft.DotNet.Cli.Utils/MSBuildForwardingAppWithoutLogging.cs#L75
+                env["MSBuildSDKsPath"] = Path.Combine(Path.GetDirectoryName(dotnetExecutable), $"sdk/{sdkVersion}/Sdks");
+
+                Log.WriteLine($"Working directory: {benchmarkedApp}");
+                Log.WriteLine($"Command line: {dotnetExecutable} {arguments}");
 
                 var stopwatch = new Stopwatch();
                 stopwatch.Start();
@@ -4339,31 +4333,28 @@ namespace Microsoft.Crank.Agent
 
         private static bool MarkAsRunning(string hostname, Job job, Stopwatch stopwatch)
         {
-            lock (job)
+            // Already executed this method?
+            if (job.State == JobState.Running)
             {
-                // Already executed this method?
-                if (job.State == JobState.Running)
-                {
-                    return false;
-                }
-
-                job.StartupMainMethod = stopwatch.Elapsed;
-
-                job.Measurements.Enqueue(new Measurement
-                {
-                    Name = "benchmarks/start-time",
-                    Timestamp = DateTime.UtcNow,
-                    Value = stopwatch.ElapsedMilliseconds
-                });
-
-                Log.WriteLine($"Running job '{job.Service}' ({job.Id})");
-                job.Url = ComputeServerUrl(hostname, job);
-
-                // Mark the job as running to allow the Client to start the test
-                job.State = JobState.Running;
-
-                return true;
+                return false;
             }
+
+            job.StartupMainMethod = stopwatch.Elapsed;
+
+            job.Measurements.Enqueue(new Measurement
+            {
+                Name = "benchmarks/start-time",
+                Timestamp = DateTime.UtcNow,
+                Value = stopwatch.ElapsedMilliseconds
+            });
+
+            Log.WriteLine($"Running job '{job.Service}' ({job.Id})");
+            job.Url = ComputeServerUrl(hostname, job);
+
+            // Mark the job as running to allow the Client to start the test
+            job.State = JobState.Running;
+
+            return true;
         }
 
         private static string GenerateApplicationHostConfig(Job job, string publishedFolder, string executable, string arguments,

@@ -31,19 +31,13 @@ namespace Microsoft.Crank.Agent.Controllers
         [HttpGet("all")]
         public IEnumerable<JobResult> GetAll()
         {
-            lock (_jobs)
-            {
-                return _jobs.GetAll().Select(x => new JobResult(x, this.Url));
-            }
+            return _jobs.GetAll().Select(x => new JobResult(x, this.Url));
         }
 
         [HttpGet("")]
         public IEnumerable<JobResult> GetQueue()
         {
-            lock (_jobs)
-            {
-                return _jobs.GetAll().Where(IsActive).Select(x => new JobResult(x, this.Url));
-            }
+            return _jobs.GetAll().Where(IsActive).Select(x => new JobResult(x, this.Url));
 
             bool IsActive(Job job)
             {
@@ -55,10 +49,12 @@ namespace Microsoft.Crank.Agent.Controllers
                     ;
             }
         }
-        [HttpGet("{id}/touch")]
+
+        [HttpGet("legacy/{id}/touch")]
         public IActionResult Touch(int id)
         {
             var job = _jobs.Find(id);
+
             if (job == null)
             {
                 return NotFound();
@@ -74,38 +70,32 @@ namespace Microsoft.Crank.Agent.Controllers
         [HttpGet("{id}")]
         public IActionResult GetById(int id)
         {
-            lock (_jobs)
+            var job = _jobs.Find(id);
+            if (job == null)
             {
-                var job = _jobs.Find(id);
-                if (job == null)
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    // Mark when the job was last read to notify that the driver is still connected
-                    job.LastDriverCommunicationUtc = DateTime.UtcNow;
-                    return new ObjectResult(job);
-                }
+                return NotFound();
+            }
+            else
+            {
+                // Mark when the job was last read to notify that the driver is still connected
+                job.LastDriverCommunicationUtc = DateTime.UtcNow;
+                return new ObjectResult(job);
             }
         }
 
-        [HttpGet("{id}/state")]
+        [HttpGet("legacy/{id}/state")]
         public IActionResult State(int id)
         {
-            lock (_jobs)
+            var job = _jobs.Find(id);
+            if (job == null)
             {
-                var job = _jobs.Find(id);
-                if (job == null)
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    // Mark when the job was last read to notify that the driver is still connected
-                    job.LastDriverCommunicationUtc = DateTime.UtcNow;
-                    return Content(job.State.ToString());
-                }
+                return NotFound();
+            }
+            else
+            {
+                // Mark when the job was last read to notify that the driver is still connected
+                job.LastDriverCommunicationUtc = DateTime.UtcNow;
+                return Content(job.State.ToString());
             }
         }
 
@@ -125,117 +115,105 @@ namespace Microsoft.Crank.Agent.Controllers
         [HttpPost]
         public IActionResult Create([FromBody] Job job)
         {
-            lock (_jobs)
+            if (job == null || job.Id != 0)
             {
-                if (job == null || job.Id != 0)
-                {
-                    return BadRequest();
-                }
-                else if (job.DriverVersion < 1)
-                {
-                    return BadRequest("The driver is not compatible with this server, please update it.");
-                }
-                else if (job.State != JobState.New)
-                {
-                    return BadRequest("The job state should be ServerState.New. You are probably using a wrong version of the driver.");
-                }
-
-                job.Hardware = Startup.Hardware;
-                job.HardwareVersion = Startup.HardwareVersion;
-                job.OperatingSystem = Startup.OperatingSystem;
-                // Use server-side date and time to prevent issues from time drifting
-                job.LastDriverCommunicationUtc = DateTime.UtcNow;
-                job = _jobs.Add(job);
-
-                Response.Headers["Location"] = $"/jobs/{job.Id}";
-                return new StatusCodeResult((int)HttpStatusCode.Accepted);
+                return BadRequest();
             }
+            else if (job.DriverVersion < 1)
+            {
+                return BadRequest("The driver is not compatible with this server, please update it.");
+            }
+            else if (job.State != JobState.New)
+            {
+                return BadRequest("The job state should be ServerState.New. You are probably using a wrong version of the driver.");
+            }
+
+            job.Hardware = Startup.Hardware;
+            job.HardwareVersion = Startup.HardwareVersion;
+            job.OperatingSystem = Startup.OperatingSystem;
+            // Use server-side date and time to prevent issues from time drifting
+            job.LastDriverCommunicationUtc = DateTime.UtcNow;
+            job = _jobs.Add(job);
+
+            Response.Headers["Location"] = $"/jobs/{job.Id}";
+            return new StatusCodeResult((int)HttpStatusCode.Accepted);
         }
 
         [HttpDelete("{id}")]
         public IActionResult Delete(int id)
         {
-            lock (_jobs)
+            try
             {
-                try
+                Log($"Driver deleting job '{id}'");
+                var job = _jobs.Find(id);
+
+                if (job == null)
                 {
-                    Log($"Driver deleting job '{id}'");
-                    var job = _jobs.Find(id);
-
-                    if (job == null)
-                    {
-                        return NoContent();
-                    }
-
-                    job.State = JobState.Deleting;
-                    _jobs.Update(job);
-
-                    Response.Headers["Location"] = $"/jobs/{job.Id}";
-                    return new StatusCodeResult((int)HttpStatusCode.Accepted);
+                    return NoContent();
                 }
-                catch (Exception e)
-                {
-                    Log($"Error while deleting job '{id}' " + e.Message);
-                    return NotFound();
-                }
+
+                job.State = JobState.Deleting;
+                _jobs.Update(job);
+
+                Response.Headers["Location"] = $"/jobs/{job.Id}";
+                return new StatusCodeResult((int)HttpStatusCode.Accepted);
+            }
+            catch (Exception e)
+            {
+                Log($"Error while deleting job '{id}' " + e.Message);
+                return NotFound();
             }
         }
 
         [HttpPost("{id}/stop")]
         public IActionResult Stop(int id)
         {
-            lock (_jobs)
+            Log($"Driver stopping job '{id}'");
+
+            try
             {
-                Log($"Driver stopping job '{id}'");
+                var job = _jobs.Find(id);
 
-                try
+                if (job == null)
                 {
-                    var job = _jobs.Find(id);
-
-                    if (job == null)
-                    {
-                        // The job doesn't exist anymore
-                        return NotFound();
-                    }
-
-                    if (job.State == JobState.Stopped || job.State == JobState.Failed)
-                    {
-                        // The job might have already been stopped, or deleted.
-                        // Can happen if the server stops the job, then the driver does it.
-                        // If the benchmark failed, it will be marked as Stopping automatically.
-                        return new StatusCodeResult((int)HttpStatusCode.Accepted);
-                    }
-
-                    job.State = JobState.Stopping;
-                    _jobs.Update(job);
-
-                    Response.Headers["Location"] = $"/jobs/{job.Id}";
-                    return new StatusCodeResult((int)HttpStatusCode.Accepted);
-                }
-                catch (Exception e)
-                {
-                    Log($"Error while stopping job '{id}' " + e.Message);
+                    // The job doesn't exist anymore
                     return NotFound();
                 }
+
+                if (job.State == JobState.Stopped || job.State == JobState.Failed)
+                {
+                    // The job might have already been stopped, or deleted.
+                    // Can happen if the server stops the job, then the driver does it.
+                    // If the benchmark failed, it will be marked as Stopping automatically.
+                    return new StatusCodeResult((int)HttpStatusCode.Accepted);
+                }
+
+                job.State = JobState.Stopping;
+                _jobs.Update(job);
+
+                Response.Headers["Location"] = $"/jobs/{job.Id}";
+                return new StatusCodeResult((int)HttpStatusCode.Accepted);
+            }
+            catch (Exception e)
+            {
+                Log($"Error while stopping job '{id}' " + e.Message);
+                return NotFound();
             }
         }
 
         [HttpPost("{id}/resetstats")]
         public IActionResult ResetStats(int id)
         {
-            lock (_jobs)
+            try
             {
-                try
-                {
-                    var job = _jobs.Find(id);
-                    job.Measurements.Clear();
-                    _jobs.Update(job);
-                    return Ok();
-                }
-                catch
-                {
-                    return NotFound();
-                }
+                var job = _jobs.Find(id);
+                job.Measurements.Clear();
+                _jobs.Update(job);
+                return Ok();
+            }
+            catch
+            {
+                return NotFound();
             }
         }
 
@@ -244,56 +222,50 @@ namespace Microsoft.Crank.Agent.Controllers
         {
             // Remove all the measurements before the first result marker
 
-            lock (_jobs)
+            try
             {
-                try
+                var job = _jobs.Find(id);
+
+                // No delimiter?
+                if (!job.Measurements.Any(x => x.IsDelimiter))
                 {
-                    var job = _jobs.Find(id);
-
-                    // No delimiter?
-                    if (!job.Measurements.Any(x => x.IsDelimiter))
-                    {
-                        return Ok();
-                    }
-
-                    Measurement measurement;
-                    int count = 0;
-                    do
-                    {
-                        job.Measurements.TryDequeue(out measurement);
-                        count++;
-                    } while (!measurement.IsDelimiter);
-
-                    Log($"Flushed {count} measurements");
-
-                    _jobs.Update(job);
                     return Ok();
                 }
-                catch
+
+                Measurement measurement;
+                int count = 0;
+                do
                 {
-                    return NotFound();
-                }
+                    job.Measurements.TryDequeue(out measurement);
+                    count++;
+                } while (!measurement.IsDelimiter);
+
+                Log($"Flushed {count} measurements");
+
+                _jobs.Update(job);
+                return Ok();
+            }
+            catch
+            {
+                return NotFound();
             }
         }
 
         [HttpPost("{id}/trace")]
         public IActionResult TracePost(int id)
         {
-            lock (_jobs)
+            try
             {
-                try
-                {
-                    var job = _jobs.Find(id);
-                    job.State = JobState.TraceCollecting;
-                    _jobs.Update(job);
+                var job = _jobs.Find(id);
+                job.State = JobState.TraceCollecting;
+                _jobs.Update(job);
 
-                    Response.Headers["Location"] = $"/jobs/{job.Id}";
-                    return new StatusCodeResult((int)HttpStatusCode.Accepted);
-                }
-                catch
-                {
-                    return NotFound();
-                }
+                Response.Headers["Location"] = $"/jobs/{job.Id}";
+                return new StatusCodeResult((int)HttpStatusCode.Accepted);
+            }
+            catch
+            {
+                return NotFound();
             }
         }
 
@@ -419,119 +391,101 @@ namespace Microsoft.Crank.Agent.Controllers
         {
             Log($"Downloading trace for job {id}");
 
-            lock (_jobs)
+            try
             {
-                try
+                var job = _jobs.Find(id);
+                Log($"Sending {job.PerfViewTraceFile}");
+                
+                if (!System.IO.File.Exists(job.PerfViewTraceFile))
                 {
-                    var job = _jobs.Find(id);
-                    Log($"Sending {job.PerfViewTraceFile}");
-                    
-                    if (!System.IO.File.Exists(job.PerfViewTraceFile))
-                    {
-                        Log("Trace file doesn't exist");
-                        return NotFound();
-                    }
-
-                    return new GZipFileResult(job.PerfViewTraceFile);                    
-                }
-                catch(Exception e)
-                {
-                    Log("Error: " + e);
+                    Log("Trace file doesn't exist");
                     return NotFound();
                 }
+
+                return new GZipFileResult(job.PerfViewTraceFile);                    
+            }
+            catch(Exception e)
+            {
+                Log("Error: " + e);
+                return NotFound();
             }
         }
 
         [HttpGet("{id}/buildlog")]
         public IActionResult BuildLog(int id)
         {
-            lock (_jobs)
+            try
             {
-                try
-                {
-                    var job = _jobs.Find(id);
-                    return Content(job.BuildLog.ToString());
-                }
-                catch
-                {
-                    return NotFound();
-                }
+                var job = _jobs.Find(id);
+                return Content(job.BuildLog.ToString());
+            }
+            catch
+            {
+                return NotFound();
             }
         }
 
         [HttpGet("{id}/buildlog/{start}")]
         public IActionResult BuildLog(int id, int start)
         {
-            lock (_jobs)
+            try
             {
-                try
-                {
-                    var job = _jobs.Find(id);
+                var job = _jobs.Find(id);
 
-                    return Json(job.BuildLog.Get(start));
-                }
-                catch
-                {
-                    return NotFound();
-                }
+                return Json(job.BuildLog.Get(start));
+            }
+            catch
+            {
+                return NotFound();
             }
         }
 
         [HttpGet("{id}/output")]
         public IActionResult Output(int id)
         {
-            lock (_jobs)
+            try
             {
-                try
-                {
-                    var job = _jobs.Find(id);
-                    return Content(job.Output.ToString());
-                }
-                catch
-                {
-                    return NotFound();
-                }
+                var job = _jobs.Find(id);
+                return Content(job.Output.ToString());
+            }
+            catch
+            {
+                return NotFound();
             }
         }
 
         [HttpGet("{id}/output/{start}")]
         public IActionResult Output(int id, int start)
         {
-            lock (_jobs)
+            try
             {
-                try
-                {
-                    var job = _jobs.Find(id);
+                var job = _jobs.Find(id);
 
-                    return Json(job.Output.Get(start));
-                }
-                catch
-                {
-                    return NotFound();
-                }
+                return Json(job.Output.Get(start));
+            }
+            catch
+            {
+                return NotFound();
             }
         }
 
         [HttpGet("{id}/eventpipe")]
         public IActionResult EventPipe(int id)
         {
-            lock (_jobs)
+            try
             {
-                try
-                {
-                    var job = _jobs.Find(id);
+                var job = _jobs.Find(id);
 
-                    foreach (var file in Directory.GetFiles(job.BasePath, "*.netperf"))
-                    {
-                        return new GZipFileResult(file);
-                    }
-
-                    return NotFound();
-                }
-                catch
+                foreach (var file in Directory.GetFiles(job.BasePath, "*.netperf"))
                 {
-                    return NotFound();
+                    return new GZipFileResult(file);
                 }
+
+                return NotFound();
+            }
+            catch
+            {
+                return NotFound();
             }
         }
 
@@ -725,6 +679,5 @@ namespace Microsoft.Crank.Agent.Controllers
                 }
             }
         }
-
     }
 }
