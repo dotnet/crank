@@ -95,7 +95,13 @@ namespace Microsoft.Crank.Controller
                 {
                     throw new Exception("Error while queuing job");
                 }
-                else if (state == JobState.Initializing)
+
+                if (state == JobState.Deleted)
+                {
+                    throw new Exception("Job was canceled by the agent");
+                }
+                
+                if (state == JobState.Initializing)
                 {
                     break;
                 }

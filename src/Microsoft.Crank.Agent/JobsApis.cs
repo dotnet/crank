@@ -32,7 +32,11 @@ namespace Microsoft.Crank.Agent
                 return Task.CompletedTask;
             }
 
+            // Mark when the job was last read to notify that the driver is still connected
+            job.LastDriverCommunicationUtc = DateTime.UtcNow;
+
             context.Response.StatusCode = 200;
+            
             return context.Response.WriteAsync(job.State.ToString());
         }
 
@@ -48,6 +52,7 @@ namespace Microsoft.Crank.Agent
 
             // Mark when the job was last read to notify that the driver is still connected
             job.LastDriverCommunicationUtc = DateTime.UtcNow;
+
             context.Response.StatusCode = 200;
 
             return Task.CompletedTask;
