@@ -18,7 +18,7 @@ jobs:
     variables:
       connections: 256  # total number of HTTP connections to keep open with each thread handling N = connections/threads
       duration: 15 # duration in seconds
-      warmup: 0 # warmup in seconds
+      warmup: 15 # warmup in seconds
       threads: 32 # total number of threads to use
       pipeline: 1
       script: '' # path or url of a LUA script, e.g., https://raw.githubusercontent.com/wg/wrk/master/scripts/post.lua

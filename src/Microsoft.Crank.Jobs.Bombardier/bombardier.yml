@@ -17,7 +17,7 @@ jobs:
     waitForExit: true
     variables:
       connections: 256
-      warmup: 0
+      warmup: 15
       duration: 15
       requests: 0
       rate: 0

@@ -18,8 +18,8 @@ jobs:
     waitForExit: true
     variables:
       connections: 256
-      warmup: 5
-      duration: 5
+      warmup: 15
+      duration: 15
       pipeline: 1
       min: 0
       rate: 0
