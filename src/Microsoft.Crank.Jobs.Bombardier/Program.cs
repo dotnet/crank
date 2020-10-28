@@ -46,6 +46,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
             TryGetArgumentValue("-w", argsList, out int warmup);
             TryGetArgumentValue("-d", argsList, out int duration);
             TryGetArgumentValue("-n", argsList, out int requests);
+            TryGetArgumentValue("-f", argsList, out string bodyFile);
 
             if (duration == 0 && requests == 0)
             {
@@ -56,6 +57,8 @@ namespace Microsoft.Crank.Jobs.Bombardier
             args = argsList.ToArray();
 
             string bombardierUrl = null;
+            string bombardierVersion = "1.2.5";
+
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 bombardierUrl = "https://github.com/codesenberg/bombardier/releases/download/v1.2.5/bombardier-windows-amd64.exe";
@@ -79,23 +82,21 @@ namespace Microsoft.Crank.Jobs.Bombardier
                 return -1;
             }
 
-            var cacheFolder = Path.Combine(Path.GetTempPath(), ".crank");
+            var bombardierFileName = Path.Combine(Path.GetTempPath(), ".crank", bombardierVersion, Path.GetFileName(bombardierUrl));
 
-            if (!Directory.Exists(cacheFolder))
-            {
-                Directory.CreateDirectory(cacheFolder);
+            if (!File.Exists(bombardierFileName))
+            {            
+                Directory.CreateDirectory(Path.GetDirectoryName(bombardierFileName));
+
+                Console.WriteLine($"Downloading bombardier from {bombardierUrl} to {bombardierFileName}");
+
+                using (var downloadStream = await _httpClient.GetStreamAsync(bombardierUrl))
+                using (var fileStream = File.Create(bombardierFileName))
+                {
+                    await downloadStream.CopyToAsync(fileStream);
+                }
             }
-
-            var bombardierFileName = Path.Combine(cacheFolder, Path.GetFileName(bombardierUrl));
-
-            Console.WriteLine($"Downloading bombardier from {bombardierUrl} to {bombardierFileName}");
-
-            using (var downloadStream = await _httpClient.GetStreamAsync(bombardierUrl))
-            using (var fileStream = File.Create(bombardierFileName))
-            {
-                await downloadStream.CopyToAsync(fileStream);
-            }
-
+            
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ||
                 RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
@@ -107,6 +108,26 @@ namespace Microsoft.Crank.Jobs.Bombardier
             {
                 Console.WriteLine($"Allow running bombardier");
                 Process.Start("spctl", "--add " + bombardierFileName);
+            }
+
+            if (!String.IsNullOrEmpty(bodyFile))
+            {
+                if (bodyFile.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine($"Downloading body file {bodyFile}");
+                    var tempFile = Path.GetTempFileName();
+
+                    using (var downloadStream = await _httpClient.GetStreamAsync(bodyFile))
+                    using (var fileStream = File.Create(tempFile))
+                    {
+                        await downloadStream.CopyToAsync(fileStream);
+                    }
+
+                    bodyFile = tempFile;
+                }
+
+                argsList.Add("-f");
+                argsList.Add(bodyFile);
             }
 
             args = argsList.Select(Quote).ToArray();
@@ -228,6 +249,15 @@ namespace Microsoft.Crank.Jobs.Bombardier
             // B/s to MB/s
             BenchmarksEventSource.Measure("bombardier/throughput", bytesPerSecond / 1024 / 1024);
 
+            // Clean temporary files
+            try
+            {
+                File.Delete(bodyFile);
+            }
+            catch
+            {
+            }
+
             return 0;
         }
 
@@ -249,7 +279,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
             }
         }
 
-        private static bool TryGetArgumentValue(string argName, List<string> argsList, out int value)
+        private static bool TryGetArgumentValue<T>(string argName, List<string> argsList, out T value)
         {
             var argumentIndex = argsList.FindIndex(arg => string.Equals(arg, argName, StringComparison.OrdinalIgnoreCase));
             if (argumentIndex >= 0)
@@ -258,14 +288,18 @@ namespace Microsoft.Crank.Jobs.Bombardier
                 argsList.RemoveAt(argumentIndex);
                 argsList.RemoveAt(argumentIndex);
 
-                return int.TryParse(copy, out value) && value > 0;
+                try
+                {
+                    value = (T) Convert.ChangeType(copy, typeof(T));
+                    return true;
+                }
+                catch
+                {
+                }
             }
-            else
-            {
-                value = default;
 
-                return false;
-            }
+            value = default(T);
+            return false;
         }
 
         public static async Task MeasureFirstRequest(string[] args)

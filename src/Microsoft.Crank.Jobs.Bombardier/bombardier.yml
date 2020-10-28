@@ -26,4 +26,5 @@ jobs:
       serverAddress: localhost
       serverPort: 5000
       path: 
-    arguments: "-c {{connections}} -w {{warmup}} -d {{duration}} -n {{requests}} --insecure -l {% if rate != 0 %} --rate {{ rate }} {% endif %} {% if transport %} --{{ transport}} {% endif %} {{headers[presetHeaders]}} {% if serverUri == blank or serverUri == empty %} {{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}} {% else %} {{serverUri}}:{{serverPort}}{{path}} {% endif %}"
+      bodyFile: # path or url for a file to use as the body content
+    arguments: "-c {{connections}} -w {{warmup}} -d {{duration}} -n {{requests}} --insecure -l {% if rate != 0 %} --rate {{ rate }} {% endif %} {% if transport %} --{{ transport}} {% endif %} {{headers[presetHeaders]}} {% if serverUri == blank or serverUri == empty %} {{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}} {% else %} {{serverUri}}:{{serverPort}}{{path}} {% endif %} {% if bodyFile != blank or bodyFile != empty %} -f {{bodyFile}} {% endif %}"
