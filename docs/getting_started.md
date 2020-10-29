@@ -55,7 +55,7 @@ scenarios:
 profiles:
   local:
     variables:
-      serverUri: http://localhost
+      serverAddress: localhost
     jobs: 
       application:
         endpoints: 
