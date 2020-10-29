@@ -122,4 +122,3 @@ Options:
     --load.variables.warmup 0 
     --load.variables.duration 5  
     --variables preset-headers=none 
-    --variables serverUri=http://10.0.0.110:5000 

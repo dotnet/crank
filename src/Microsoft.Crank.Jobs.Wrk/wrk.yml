@@ -27,7 +27,4 @@ jobs:
       serverAddress: localhost
       serverPort: 5000
       serverPath: /
-    requiredVariables:
-      serverUri: http://10.0.0.102
-      serverPort: 5000
     arguments: "-c {{connections}} {% if serverUri == blank or serverUri == empty %} {{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}} {% else %} {{serverUri}}:{{serverPort}}{{path}} {% endif %} --latency -d {{duration}}s -w {{warmup}}s -t {{threads}} {{headers[presetHeaders]}} {% if pipeline > 1 %} -s scripts/pipeline.lua -- {{ pipeline }} {% elsif script != empty or script != blank  %} -s {{script}} -- {{scriptArguments}} {% endif %}"
