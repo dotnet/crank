@@ -26,7 +26,9 @@ There are also some built in jobs:
 
 ## Get Started
 
-See the [Documentation](docs)
+- Read the [documentation](docs)
+- Install the crank controller dotnet tool: `dotnet tool update Microsoft.Crank.Controller --version "0.1.0-*" --global`
+- Use some [predefined scenarios](https://github.com/aspnet/Benchmarks/tree/master/scenarios)
 
 ## How to Engage, Contribute, and Give Feedback
 
