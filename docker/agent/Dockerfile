@@ -18,7 +18,8 @@ RUN apt-get update \
         git \
         procps \
         cgroup-bin \
-        curl
+        curl \
+        wget
 
 # Build and install h2load. Required as there isn't a way to distribute h2load as a single file to download
 RUN apt-get update \
