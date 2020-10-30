@@ -17,7 +17,8 @@ namespace Microsoft.Crank.Jobs.HttpClient
 {
     class Program
     {
-        // private static HttpMessageInvoker _httpMessageInvoker;
+        private static object _synLock = new object();
+        private static HttpMessageInvoker _httpMessageInvoker;
         private static bool _running;
         private static bool _measuring;
 
@@ -167,22 +168,30 @@ namespace Microsoft.Crank.Jobs.HttpClient
 
         private static HttpMessageInvoker CreateHttpMessageInvoker()
         {
-            var httpHandler = new SocketsHttpHandler();
+            if (_httpMessageInvoker == null)
+            {
+                lock (_synLock)
+                {
+                    var httpHandler = new SocketsHttpHandler();
 
-            httpHandler.MaxConnectionsPerServer = 1;
-            httpHandler.AllowAutoRedirect = false;
-            httpHandler.UseProxy = false;
-            httpHandler.AutomaticDecompression = System.Net.DecompressionMethods.None;
-            // Accept any SSL certificate
-            httpHandler.SslOptions.RemoteCertificateValidationCallback += (object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => true;
+                    httpHandler.MaxConnectionsPerServer = Connections;
+                    httpHandler.AllowAutoRedirect = false;
+                    httpHandler.UseProxy = false;
+                    httpHandler.AutomaticDecompression = System.Net.DecompressionMethods.None;
+                    // Accept any SSL certificate
+                    httpHandler.SslOptions.RemoteCertificateValidationCallback += (object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => true;
 
-            return new HttpMessageInvoker(httpHandler);
+                    _httpMessageInvoker = new HttpMessageInvoker(httpHandler);
+                }
+            }
+
+            return _httpMessageInvoker;
         }
 
         public static async Task<WorkerResult> DoWorkAsync()
         {
             var httpMessageInvoker = CreateHttpMessageInvoker();
-
+            
             var requestMessage = new HttpRequestMessage();
             requestMessage.Method = HttpMethod.Get;
 
