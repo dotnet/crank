@@ -48,6 +48,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Crank.AzureDevOps
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Crank.EventSources", "src\Microsoft.Crank.EventSources\Microsoft.Crank.EventSources.csproj", "{2C9E2686-6C86-4D32-B57E-EDC8047EB8B8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Crank.Jobs.HttpClient", "src\Microsoft.Crank.Jobs.HttpClient\Microsoft.Crank.Jobs.HttpClient.csproj", "{7BAB625A-3338-4BF1-BD0C-D5ECCAC254B5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -110,6 +112,10 @@ Global
 		{2C9E2686-6C86-4D32-B57E-EDC8047EB8B8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2C9E2686-6C86-4D32-B57E-EDC8047EB8B8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2C9E2686-6C86-4D32-B57E-EDC8047EB8B8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7BAB625A-3338-4BF1-BD0C-D5ECCAC254B5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7BAB625A-3338-4BF1-BD0C-D5ECCAC254B5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7BAB625A-3338-4BF1-BD0C-D5ECCAC254B5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7BAB625A-3338-4BF1-BD0C-D5ECCAC254B5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -129,6 +135,7 @@ Global
 		{8FF6CBDB-2629-4A35-BC1B-794CE1A43451} = {07A30A34-2DDA-45EE-B767-28021086B235}
 		{BB0422DA-E7C5-47FB-8EF5-E34F57B51E44} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
 		{2C9E2686-6C86-4D32-B57E-EDC8047EB8B8} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
+		{7BAB625A-3338-4BF1-BD0C-D5ECCAC254B5} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {C48AD7EE-82B1-4307-A869-3FC14AC9B21F}
