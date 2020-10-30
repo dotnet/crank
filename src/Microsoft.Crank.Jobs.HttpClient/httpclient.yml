@@ -8,7 +8,7 @@
   presetHeaders: none
 
 jobs:
-  pipelining:
+  httpclient:
     source:
       repository: https://github.com/dotnet/crank.git
       branchOrCommit: sebros/httpclient
