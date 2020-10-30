@@ -17,7 +17,7 @@ namespace Microsoft.Crank.Jobs.HttpClient
 {
     class Program
     {
-        private static HttpMessageInvoker _httpMessageInvoker;
+        // private static HttpMessageInvoker _httpMessageInvoker;
         private static bool _running;
         private static bool _measuring;
 
@@ -62,7 +62,7 @@ namespace Microsoft.Crank.Jobs.HttpClient
 
         public static async Task RunAsync()
         {
-            InitializeHttpClient();
+            // InitializeHttpClient();
 
             Console.WriteLine($"Running {ExecutionTimeSeconds}s test @ {ServerUrl}");
 
@@ -145,38 +145,44 @@ namespace Microsoft.Crank.Jobs.HttpClient
             Console.WriteLine($"Socket Errors:   {result.SocketErrors:N0}");
 
             // If multiple samples are provided, take the max RPS, then sum the result from all clients
-            BenchmarksEventSource.Register("httpclient/avg-rps", Operations.Max, Operations.Sum, "RPS", "Requests per second", "n0");
             BenchmarksEventSource.Register("httpclient/connections", Operations.Max, Operations.Sum, "Connections", "Number of active connections", "n0");
-            BenchmarksEventSource.Register("httpclient/status-1xx", Operations.Sum, Operations.Sum, "1xx Requests", "1xx Requests", "n0");
-            BenchmarksEventSource.Register("httpclient/status-2xx", Operations.Sum, Operations.Sum, "2xx Requests", "2xx Requests", "n0");
-            BenchmarksEventSource.Register("httpclient/status-3xx", Operations.Sum, Operations.Sum, "3xx Requests", "3xx Requests", "n0");
-            BenchmarksEventSource.Register("httpclient/status-4xx", Operations.Sum, Operations.Sum, "4xx Requests", "4xx Requests", "n0");
-            BenchmarksEventSource.Register("httpclient/status-5xx", Operations.Sum, Operations.Sum, "5xx Requests", "5xx Requests", "n0");
-            BenchmarksEventSource.Register("httpclient/socket-errors", Operations.Sum, Operations.Sum, "Socket Errors", "Socket Errors", "n0");
+            BenchmarksEventSource.Register("httpclient/badresponses", Operations.Max, Operations.Sum, "Bad responses", "Non-2xx or 3xx responses", "n0");
+            BenchmarksEventSource.Register("httpclient/latency/mean", Operations.Max, Operations.Sum, "Mean latency (us)", "Mean latency (us)", "n0");
+            BenchmarksEventSource.Register("httpclient/latency/max", Operations.Max, Operations.Sum, "Max latency (us)", "Max latency (us)", "n0");
+            BenchmarksEventSource.Register("httpclient/requests", Operations.Max, Operations.Sum, "Requests", "Total number of requests", "n0");
+            BenchmarksEventSource.Register("httpclient/rps/mean", Operations.Max, Operations.Sum, "Requests/sec", "Requests per second", "n0");
+            BenchmarksEventSource.Register("httpclient/throughput", Operations.Max, Operations.Sum, "Read throughput (MB/s)", "Read throughput (MB/s)", "n2");
+            BenchmarksEventSource.Register("httpclient/errors", Operations.Sum, Operations.Sum, "Socket Errors", "Socket Errors", "n0");
 
-            BenchmarksEventSource.Measure("httpclient/avg-rps", totalTps);
+            BenchmarksEventSource.Measure("httpclient/rps-mean", totalTps);
             BenchmarksEventSource.Measure("httpclient/connections", Connections);
-            BenchmarksEventSource.Measure("httpclient/status-2xx", result.Status2xx);
-            BenchmarksEventSource.Measure("httpclient/socket-errors", result.SocketErrors);
+            BenchmarksEventSource.Measure("httpclient/requests", result.Status1xx + result.Status2xx + result.Status3xx + result.Status4xx + result.Status5xx + result.SocketErrors);
+            BenchmarksEventSource.Measure("httpclient/badresponses", result.Status1xx + result.Status4xx + result.Status5xx);
+            BenchmarksEventSource.Measure("httpclient/errors", result.SocketErrors);
 
+            BenchmarksEventSource.Measure("httpclient/latency/mean", 0);
+            BenchmarksEventSource.Measure("httpclient/latency/max", 0);
+            BenchmarksEventSource.Measure("httpclient/throughput", 0);
         }
 
-        private static void InitializeHttpClient()
+        private static HttpMessageInvoker CreateHttpMessageInvoker()
         {
             var httpHandler = new SocketsHttpHandler();
 
-            httpHandler.MaxConnectionsPerServer = Connections;
+            httpHandler.MaxConnectionsPerServer = 1;
             httpHandler.AllowAutoRedirect = false;
             httpHandler.UseProxy = false;
             httpHandler.AutomaticDecompression = System.Net.DecompressionMethods.None;
             // Accept any SSL certificate
             httpHandler.SslOptions.RemoteCertificateValidationCallback += (object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => true;
 
-            _httpMessageInvoker = new HttpMessageInvoker(httpHandler);
+            return new HttpMessageInvoker(httpHandler);
         }
 
         public static async Task<WorkerResult> DoWorkAsync()
         {
+            var httpMessageInvoker = CreateHttpMessageInvoker();
+
             var requestMessage = new HttpRequestMessage();
             requestMessage.Method = HttpMethod.Get;
 
@@ -207,7 +213,7 @@ namespace Microsoft.Crank.Jobs.HttpClient
                 {
                     // sw.Start();
 
-                    using var responseMessage = await _httpMessageInvoker.SendAsync(requestMessage, CancellationToken.None);
+                    using var responseMessage = await httpMessageInvoker.SendAsync(requestMessage, CancellationToken.None);
 
                     // sw.Stop();
                     // Add the latency divided by the pipeline depth
