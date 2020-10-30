@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
@@ -27,17 +28,19 @@ namespace Microsoft.Crank.Jobs.HttpClient
         public static int ExecutionTimeSeconds { get; set; }
         public static int Connections { get; set; }
         public static List<string> Headers { get; set; }
+        public static Version Version { get; set; }
 
         static async Task Main(string[] args)
         {
             var app = new CommandLineApplication();
 
             app.HelpOption("-h|--help");
-            var optionUrl = app.Option("-u|--url <URL>", "The server url to request", CommandOptionType.SingleValue);
-            var optionConnections = app.Option<int>("-c|--connections <N>", "Total number of HTTP connections to keep open", CommandOptionType.SingleValue);
-            var optionWarmup = app.Option<int>("-w|--warmup <N>", "Duration of the warmup in seconds", CommandOptionType.SingleValue);
-            var optionDuration = app.Option<int>("-d|--duration <N>", "Duration of the test in seconds", CommandOptionType.SingleValue);
+            var optionUrl = app.Option("-u|--url <URL>", "The server url to request", CommandOptionType.SingleValue).IsRequired();
+            var optionConnections = app.Option<int>("-c|--connections <N>", "Total number of HTTP connections to open. Default is 10.", CommandOptionType.SingleValue);
+            var optionWarmup = app.Option<int>("-w|--warmup <N>", "Duration of the warmup in seconds. Default is 5.", CommandOptionType.SingleValue);
+            var optionDuration = app.Option<int>("-d|--duration <N>", "Duration of the test in seconds. Default is 5.", CommandOptionType.SingleValue);
             var optionHeaders = app.Option("-H|--header <HEADER>", "HTTP header to add to request, e.g. \"User-Agent: edge\"", CommandOptionType.MultipleValue);
+            var optionVersion = app.Option("-v|--version <1.0,1.1,2.0>", "HTTP version, e.g. \"2.0\". Default is 1.1", CommandOptionType.SingleValue);
 
             app.OnExecuteAsync(cancellationToken =>
             {
@@ -47,13 +50,34 @@ namespace Microsoft.Crank.Jobs.HttpClient
 
                 WarmupTimeSeconds = optionWarmup.HasValue()
                     ? int.Parse(optionWarmup.Value())
-                    : 0;
+                    : 5;
 
-                ExecutionTimeSeconds = int.Parse(optionDuration.Value());
+                ExecutionTimeSeconds = optionDuration.HasValue()
+                    ? int.Parse(optionDuration.Value())
+                    : 5;
 
-                Connections = int.Parse(optionConnections.Value());
+                Connections = optionConnections.HasValue()
+                    ? int.Parse(optionConnections.Value())
+                    : 10;
 
                 Headers = new List<string>(optionHeaders.Values);
+
+                if (!optionVersion.HasValue())
+                {
+                    Version = HttpVersion.Version11;
+                }
+                else
+                {
+                    switch (optionVersion.Value())
+                    {
+                        case "1.0" : Version = HttpVersion.Version10; break;
+                        case "1.1" : Version = HttpVersion.Version11; break;
+                        case "2.0" : Version = HttpVersion.Version20; break;
+                        default:
+                            Console.WriteLine("Unkown HTTP version: {0}", optionVersion.Value());
+                            break;
+                    }
+                }
 
                 return RunAsync();
             });
@@ -174,6 +198,8 @@ namespace Microsoft.Crank.Jobs.HttpClient
                 {
                     var httpHandler = new SocketsHttpHandler();
 
+                    // There should be only as many connections as Tasks concurrently, so there is no need
+                    // to limit the max connections per server 
                     // httpHandler.MaxConnectionsPerServer = Connections;
                     httpHandler.AllowAutoRedirect = false;
                     httpHandler.UseProxy = false;
@@ -208,7 +234,7 @@ namespace Microsoft.Crank.Jobs.HttpClient
 
             requestMessage.Headers.Host = uri.Authority;
             requestMessage.RequestUri = uri;
-            requestMessage.Version = new Version(1, 1);
+            requestMessage.Version = Version;
 
             // Counters local to this worker
             var counters = new int[5];
