@@ -174,7 +174,7 @@ namespace Microsoft.Crank.Jobs.HttpClient
                 {
                     var httpHandler = new SocketsHttpHandler();
 
-                    httpHandler.MaxConnectionsPerServer = Connections;
+                    // httpHandler.MaxConnectionsPerServer = Connections;
                     httpHandler.AllowAutoRedirect = false;
                     httpHandler.UseProxy = false;
                     httpHandler.AutomaticDecompression = System.Net.DecompressionMethods.None;
