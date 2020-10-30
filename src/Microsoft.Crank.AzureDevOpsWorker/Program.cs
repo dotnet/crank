@@ -78,7 +78,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                         Console.WriteLine("Invoking application with arguments: " + arguments);
 
                         // The DriverJob manages the application's lifetime and standard output
-                        driverJob = new Job("crank.exe", arguments);
+                        driverJob = new Job("dotnet", "crank.dll " + arguments, typeof(Program).Assembly.Location);
 
                         driverJob.OnStandardOutput = log => Console.WriteLine(log);
 
