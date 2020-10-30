@@ -154,7 +154,7 @@ namespace Microsoft.Crank.Jobs.HttpClient
             BenchmarksEventSource.Register("httpclient/throughput", Operations.Max, Operations.Sum, "Read throughput (MB/s)", "Read throughput (MB/s)", "n2");
             BenchmarksEventSource.Register("httpclient/errors", Operations.Sum, Operations.Sum, "Socket Errors", "Socket Errors", "n0");
 
-            BenchmarksEventSource.Measure("httpclient/rps-mean", totalTps);
+            BenchmarksEventSource.Measure("httpclient/rps/mean", totalTps);
             BenchmarksEventSource.Measure("httpclient/connections", Connections);
             BenchmarksEventSource.Measure("httpclient/requests", result.Status1xx + result.Status2xx + result.Status3xx + result.Status4xx + result.Status5xx + result.SocketErrors);
             BenchmarksEventSource.Measure("httpclient/badresponses", result.Status1xx + result.Status4xx + result.Status5xx);
