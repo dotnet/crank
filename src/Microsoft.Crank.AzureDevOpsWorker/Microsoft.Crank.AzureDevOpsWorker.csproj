@@ -16,10 +16,6 @@
     <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="3.0.0" />
     <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.0.0-preview.8" />
   </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\Microsoft.Crank.Controller\Microsoft.Crank.Controller.csproj" />
-  </ItemGroup>
   
   <ItemGroup>
     <None Update="jobs.example.json">
