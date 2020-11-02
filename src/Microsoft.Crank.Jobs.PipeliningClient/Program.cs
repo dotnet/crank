@@ -127,6 +127,8 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
 
             await Task.WhenAll(CreateTasks());
 
+            await Task.WhenAll(workerTasks);
+            
             Console.WriteLine($"Stopped...");
 
             var result = new WorkerResult
