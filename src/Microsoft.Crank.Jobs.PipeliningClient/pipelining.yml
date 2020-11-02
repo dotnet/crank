@@ -26,4 +26,4 @@ jobs:
       serverAddress: localhost
       serverPort: 5000
       path: /
-    arguments: '--url "{{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}" --connections {{connections}} {% if min != 0 %} -m {{ min }} {% endif %} {% if rate != 0 %} -r {{ rate }} {% endif %}{% if interval != 1 %} -i {{ interval }} {% endif %} --warmup {{warmup}} --duration {{duration}} --pipeline {{pipeline}} {{headers[presetHeaders]}}'
+    arguments: '--url "{{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}" --connections {{connections}} --warmup {{warmup}} --duration {{duration}} --pipeline {{pipeline}} {{headers[presetHeaders]}}'
