@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using McMaster.Extensions.CommandLineUtils;
 using Microsoft.Crank.EventSources;
@@ -186,7 +187,7 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                 // Creating a new connection every time it is necessary
                 using (var connection = new HttpConnection(ServerUrl, PipelineDepth, Headers))
                 {
-                    await connection.ConnectAsync();
+                    await connection.ConnectAsync(new CancellationTokenSource(2000).Token);
 
                     try
                     {
@@ -196,7 +197,7 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                         {
                             // sw.Start();
 
-                            var responses = await connection.SendRequestsAsync();
+                            var responses = await connection.SendRequestsAsync(new CancellationTokenSource(2000).Token);
 
                             // sw.Stop();
                             // Add the latency divided by the pipeline depth
