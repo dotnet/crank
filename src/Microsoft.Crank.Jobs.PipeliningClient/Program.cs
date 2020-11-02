@@ -64,7 +64,7 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                 return RunAsync();
             });
 
-            await app.ExecuteAsync(args);            
+            await app.ExecuteAsync(args);
         }
 
         public static async Task RunAsync()
@@ -81,8 +81,18 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                     {
                         if (WarmupTimeSeconds > 0)
                         {
-                            Console.WriteLine($"Warming up for {WarmupTimeSeconds}s...");
-                            await Task.Delay(TimeSpan.FromSeconds(WarmupTimeSeconds));
+                            Console.WriteLine($"Warming up for {WarmupTimeSeconds}s");
+                            var warmup = Task.Delay(TimeSpan.FromSeconds(WarmupTimeSeconds));
+
+                            do
+                            {
+                                await Task.Delay(1000);
+
+                                Console.Write(".");
+
+                            } while (!warmup.IsCompleted && !warmup.IsCanceled && !warmup.IsFaulted);
+
+                            Console.WriteLine();
                         }
 
                         Console.WriteLine($"Running for {ExecutionTimeSeconds}s...");
@@ -91,7 +101,7 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
 
                         startTime = DateTime.UtcNow;
 
-                        var otherTasks = new List<Task>();
+                        var duration = Task.Delay(TimeSpan.FromSeconds(ExecutionTimeSeconds));
 
                         do
                         {
@@ -99,23 +109,18 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
 
                             Console.Write(".");
 
-                        } while (_running);
+                        } while (!duration.IsCompleted && !duration.IsCanceled && !duration.IsFaulted);
 
                         Console.WriteLine();
-                    });
-
-                // Shutdown everything
-                yield return Task.Run(
-                   async () =>
-                   {
-                       await Task.Delay(TimeSpan.FromSeconds(WarmupTimeSeconds + ExecutionTimeSeconds));
-
-                       _running = false;
-
+                       
                        Console.WriteLine($"Stopping...");
 
                        stopTime = DateTime.UtcNow;
-                   });
+
+                       _running = false;
+
+                        Console.WriteLine();
+                    });
             }
 
             _running = true;
@@ -128,7 +133,7 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
             await Task.WhenAll(CreateTasks());
 
             await Task.WhenAll(workerTasks);
-            
+
             Console.WriteLine($"Stopped...");
 
             var result = new WorkerResult
@@ -141,7 +146,7 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                 SocketErrors = workerTasks.Select(x => x.Result.SocketErrors).Sum()
             };
 
-            var totalTps = (int)((result.Status1xx + result.Status2xx + result.Status3xx + result.Status4xx + result.Status5xx ) / (stopTime - startTime).TotalSeconds);
+            var totalTps = (int)((result.Status1xx + result.Status2xx + result.Status3xx + result.Status4xx + result.Status5xx) / (stopTime - startTime).TotalSeconds);
 
             Console.WriteLine($"Average RPS:     {totalTps:N0}");
             Console.WriteLine($"1xx:             {result.Status1xx:N0}");
@@ -175,7 +180,7 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
         public static async Task<WorkerResult> DoWorkAsync()
         {
             var result = new WorkerResult();
-                
+
             while (_running)
             {
                 // Creating a new connection every time it is necessary
@@ -197,24 +202,23 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                             // Add the latency divided by the pipeline depth
 
                             var doBreak = false;
-                            
-                            for (var k = 0; k < responses.Length; k++ )
-                            {
-                                var response = responses[k];
 
-                                if (_measuring)
+                            if (_measuring)
+                            {
+                                for (var k = 0; k < responses.Length; k++)
                                 {
+                                    var response = responses[k];
+
                                     if (response.State == HttpResponseState.Completed)
                                     {
                                         switch (response.StatusCode / 100)
                                         {
-                                            case 1 : result.Status1xx++; break;
-                                            case 2 : result.Status2xx++; break;
-                                            case 3 : result.Status3xx++; break;
-                                            case 4 : result.Status4xx++; break;
-                                            case 5 : result.Status5xx++; break;
-                                            default : result.SocketErrors++; break;
-
+                                            case 1: result.Status1xx++; break;
+                                            case 2: result.Status2xx++; break;
+                                            case 3: result.Status3xx++; break;
+                                            case 4: result.Status4xx++; break;
+                                            case 5: result.Status5xx++; break;
+                                            default: result.SocketErrors++; break;
                                         }
                                     }
                                     else
