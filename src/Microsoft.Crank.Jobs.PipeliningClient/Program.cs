@@ -21,9 +21,6 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
         public static int WarmupTimeSeconds { get; set; }
         public static int ExecutionTimeSeconds { get; set; }
         public static int Connections { get; set; }
-        public static int MinConnections { get; set; }
-        public static int ConnectionRate { get; set; }
-        public static double Period { get; set; }
         public static List<string> Headers { get; set; }
 
         private static List<KeyValuePair<int, int>> _statistics = new List<KeyValuePair<int, int>>();
@@ -119,14 +116,6 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
 
                        stopTime = DateTime.UtcNow;
                    });
-
-                // Create as many as the --min-connections argument
-                foreach (var task in Enumerable.Range(0, MinConnections)
-                    .Select(_ => Task.Run(DoWorkAsync)))
-                {
-                    yield return task;
-                }
-
             }
 
             _running = true;
