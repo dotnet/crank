@@ -61,7 +61,9 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
 
             _requestBytes = buffer.AsMemory();
 
-            _hostEndPoint = new IPEndPoint(IPAddress.Parse(host.Host), host.Port.Value);
+            var ipAddress = Dns.GetHostAddresses(host.Host).First();
+
+            _hostEndPoint = new IPEndPoint(ipAddress, host.Port.Value);
 
             _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
@@ -228,7 +230,7 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
 
                 case HttpResponseState.Headers:
 
-                    // Read evey headers
+                    // Read every headers
                     while (sequenceReader.TryReadTo(out ReadOnlySpan<byte> headerLine, NewLine))
                     {
                         // Is that the end of the headers?

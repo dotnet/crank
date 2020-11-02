@@ -87,8 +87,6 @@ namespace Microsoft.Crank.Jobs.HttpClient
 
         public static async Task RunAsync()
         {
-            // InitializeHttpClient();
-
             Console.WriteLine($"Running {ExecutionTimeSeconds}s test @ {ServerUrl}");
 
             DateTime startTime = default, stopTime = default;
@@ -220,8 +218,6 @@ namespace Microsoft.Crank.Jobs.HttpClient
             
             var requestMessage = new HttpRequestMessage();
             requestMessage.Method = HttpMethod.Get;
-
-            var result = new WorkerResult();
 
             // Copy the request headers
             foreach (var header in Headers)

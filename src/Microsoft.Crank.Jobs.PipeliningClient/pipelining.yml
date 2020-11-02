@@ -11,7 +11,7 @@ jobs:
   pipelining:
     source:
       repository: https://github.com/dotnet/crank.git
-      branchOrCommit: master
+      branchOrCommit: sebros/httpclient
       project: src/Microsoft.Crank.Jobs.PipeliningClient/Microsoft.Crank.Jobs.PipeliningClient.csproj
     readyStateText: Pipelining Client
     isConsoleApp: true
@@ -21,9 +21,6 @@ jobs:
       warmup: 15
       duration: 15
       pipeline: 1
-      min: 0
-      rate: 0
-      interval: 1
       presetHeaders: none
       serverScheme: http
       serverAddress: localhost

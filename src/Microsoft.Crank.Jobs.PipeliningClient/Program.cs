@@ -4,9 +4,7 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using McMaster.Extensions.CommandLineUtils;
 using Microsoft.Crank.EventSources;
@@ -15,16 +13,6 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
 {
     class Program
     {
-        private static object _synLock = new object();
-
-        private static int _counter;
-        private static int _errors;
-        private static int _socketErrors;
-
-        private static int _activeConnections;
-
-        private static int _periodicCounter;
-
         private static bool _running;
         private static bool _measuring;
 
@@ -45,13 +33,10 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
             var app = new CommandLineApplication();
 
             app.HelpOption("-h|--help");
-            var optionUrl = app.Option("-u|--url <URL>", "The server url to request", CommandOptionType.SingleValue);
-            var optionConnections = app.Option<int>("-c|--connections <N>", "Total number of HTTP connections to keep open", CommandOptionType.SingleValue);
-            var optionPeriod = app.Option<double>("-i|--interval <F>", "Interval in seconds between connection increments. Default is 1. The value can be smaller than 1.", CommandOptionType.SingleValue);
-            var optionMinConnections = app.Option<int>("-m|--min-connections <N>", "Total number of HTTP connections to start the warmup or the actual load. If not specified the number of connections is initially created.", CommandOptionType.SingleValue);
-            var optionRateConnections = app.Option<int>("-r|--rate <N>", "Total number of HTTP connections to create during each Period, until the max number of connections is reached.", CommandOptionType.SingleValue);
-            var optionWarmup = app.Option<int>("-w|--warmup <N>", "Duration of the warmup in seconds", CommandOptionType.SingleValue);
-            var optionDuration = app.Option<int>("-d|--duration <N>", "Duration of the test in seconds", CommandOptionType.SingleValue);
+            var optionUrl = app.Option("-u|--url <URL>", "The server url to request", CommandOptionType.SingleValue).IsRequired();
+            var optionConnections = app.Option<int>("-c|--connections <N>", "Total number of HTTP connections to keep open. Default is 10.", CommandOptionType.SingleValue);
+            var optionWarmup = app.Option<int>("-w|--warmup <N>", "Duration of the warmup in seconds. Default is 5.", CommandOptionType.SingleValue);
+            var optionDuration = app.Option<int>("-d|--duration <N>", "Duration of the test in seconds. Default is 5.", CommandOptionType.SingleValue);
             var optionHeaders = app.Option("-H|--header <HEADER>", "HTTP header to add to request, e.g. \"User-Agent: edge\"", CommandOptionType.MultipleValue);
             var optionPipeline = app.Option<int>("-p|--pipeline <N>", "The pipelining depth", CommandOptionType.SingleValue);
 
@@ -67,40 +52,15 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
 
                 WarmupTimeSeconds = optionWarmup.HasValue()
                     ? int.Parse(optionWarmup.Value())
-                    : 0;
+                    : 5;
 
-                ExecutionTimeSeconds = int.Parse(optionDuration.Value());
+                ExecutionTimeSeconds = optionDuration.HasValue()
+                    ? int.Parse(optionDuration.Value())
+                    : 5;
 
-                Connections = int.Parse(optionConnections.Value());
-
-                MinConnections = optionMinConnections.HasValue()
-                    ? int.Parse(optionMinConnections.Value())
-                    : Connections;
-
-                _activeConnections = MinConnections;
-
-                if (MinConnections > Connections)
-                {
-                    Console.WriteLine("The minimum number of connections can't be greater than the number of connections.");
-                    app.ShowHelp();
-                    return Task.CompletedTask;
-                }
-
-                Period = optionPeriod.HasValue()
-                    ? double.Parse(optionPeriod.Value())
-                    : 1;
-
-                ConnectionRate = optionRateConnections.HasValue()
-                    ? int.Parse(optionRateConnections.Value())
-                    : (int) ((Connections - MinConnections) / Period)
-                    ;
-                
-                
-                if (Period < 0 || Period > WarmupTimeSeconds + ExecutionTimeSeconds)
-                {
-                    Console.WriteLine("Invalid period argument, resetting.");
-                    Period = 1;
-                }
+                Connections = optionConnections.HasValue()
+                    ? int.Parse(optionConnections.Value())
+                    : 10;
 
                 Headers = new List<string>(optionHeaders.Values);
 
@@ -130,14 +90,6 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
 
                         Console.WriteLine($"Running for {ExecutionTimeSeconds}s...");
 
-                        // Restart counters when measurement actually begins
-                        lock (_synLock)
-                        {
-                            _counter = 0;
-                            _errors = 0;
-                            _socketErrors = 0;
-                        }
-
                         _measuring = true;
 
                         startTime = DateTime.UtcNow;
@@ -146,35 +98,13 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
 
                         do
                         {
-                            await Task.Delay(TimeSpan.FromSeconds(Period));
+                            await Task.Delay(1000);
 
-                            var periodicTps = (int)(_periodicCounter / Period);
-                            BenchmarksEventSource.Measure("pipelineclient/periodic-rps", periodicTps);
-                            BenchmarksEventSource.Measure("pipelineclient/connections", _activeConnections);
-
-                            _statistics.Add(new KeyValuePair<int, int>(_activeConnections, periodicTps));
-
-                            lock (_synLock)
-                            {
-                                _periodicCounter = 0;
-                            }
-
-                            if (_running && _activeConnections < Connections)
-                            {
-                                var connectionsToCreate = _activeConnections + ConnectionRate <= Connections
-                                    ? ConnectionRate
-                                    : Connections - _activeConnections
-                                    ;
-
-                                _activeConnections += connectionsToCreate;
-
-                                otherTasks.AddRange(Enumerable.Range(0, connectionsToCreate).Select(_ => Task.Run(DoWorkAsync)));
-                            }
+                            Console.Write(".");
 
                         } while (_running);
 
-                        await Task.WhenAll(otherTasks);
-
+                        Console.WriteLine();
                     });
 
                 // Shutdown everything
@@ -201,45 +131,60 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
 
             _running = true;
 
+            var workerTasks = Enumerable
+                .Range(0, Connections)
+                .Select(_ => Task.Run(DoWorkAsync))
+                .ToList();
+
             await Task.WhenAll(CreateTasks());
 
             Console.WriteLine($"Stopped...");
 
-            var totalTps = (int)(_counter / (stopTime - startTime).TotalSeconds);
+            var result = new WorkerResult
+            {
+                Status1xx = workerTasks.Select(x => x.Result.Status1xx).Sum(),
+                Status2xx = workerTasks.Select(x => x.Result.Status2xx).Sum(),
+                Status3xx = workerTasks.Select(x => x.Result.Status3xx).Sum(),
+                Status4xx = workerTasks.Select(x => x.Result.Status4xx).Sum(),
+                Status5xx = workerTasks.Select(x => x.Result.Status5xx).Sum(),
+                SocketErrors = workerTasks.Select(x => x.Result.SocketErrors).Sum()
+            };
+
+            var totalTps = (int)((result.Status1xx + result.Status2xx + result.Status3xx + result.Status4xx + result.Status5xx ) / (stopTime - startTime).TotalSeconds);
 
             Console.WriteLine($"Average RPS:     {totalTps:N0}");
-            Console.WriteLine($"2xx:             {_counter:N0}");
-            Console.WriteLine($"Bad Responses:   {_errors:N0}");
-            Console.WriteLine($"Socket Errors:   {_socketErrors:N0}");
+            Console.WriteLine($"1xx:             {result.Status1xx:N0}");
+            Console.WriteLine($"2xx:             {result.Status2xx:N0}");
+            Console.WriteLine($"3xx:             {result.Status3xx:N0}");
+            Console.WriteLine($"4xx:             {result.Status4xx:N0}");
+            Console.WriteLine($"5xx:             {result.Status5xx:N0}");
+            Console.WriteLine($"Socket Errors:   {result.SocketErrors:N0}");
 
             // If multiple samples are provided, take the max RPS, then sum the result from all clients
-            BenchmarksEventSource.Register("pipelineclient/avg-rps", Operations.Max, Operations.Sum, "RPS", "Requests per second", "n0");
             BenchmarksEventSource.Register("pipelineclient/connections", Operations.Max, Operations.Sum, "Connections", "Number of active connections", "n0");
-            BenchmarksEventSource.Register("pipelineclient/periodic-rps", Operations.Max, Operations.Sum, "Max RPS", "Instant requests per second", "n0");
-            BenchmarksEventSource.Register("pipelineclient/status-2xx", Operations.Sum, Operations.Sum, "Successful Requests", "Successful Requests", "n0");
-            BenchmarksEventSource.Register("pipelineclient/bad-response", Operations.Sum, Operations.Sum, "Bad Responses", "Bad Responses", "n0");
-            BenchmarksEventSource.Register("pipelineclient/socket-errors", Operations.Sum, Operations.Sum, "Socket Errors", "Socket Errors", "n0");
+            BenchmarksEventSource.Register("pipelineclient/badresponses", Operations.Max, Operations.Sum, "Bad responses", "Non-2xx or 3xx responses", "n0");
+            BenchmarksEventSource.Register("pipelineclient/latency/mean", Operations.Max, Operations.Sum, "Mean latency (us)", "Mean latency (us)", "n0");
+            BenchmarksEventSource.Register("pipelineclient/latency/max", Operations.Max, Operations.Sum, "Max latency (us)", "Max latency (us)", "n0");
+            BenchmarksEventSource.Register("pipelineclient/requests", Operations.Max, Operations.Sum, "Requests", "Total number of requests", "n0");
+            BenchmarksEventSource.Register("pipelineclient/rps/mean", Operations.Max, Operations.Sum, "Requests/sec", "Requests per second", "n0");
+            BenchmarksEventSource.Register("pipelineclient/throughput", Operations.Max, Operations.Sum, "Read throughput (MB/s)", "Read throughput (MB/s)", "n2");
+            BenchmarksEventSource.Register("pipelineclient/errors", Operations.Sum, Operations.Sum, "Socket Errors", "Socket Errors", "n0");
 
-            BenchmarksEventSource.Measure("pipelineclient/avg-rps", totalTps);
+            BenchmarksEventSource.Measure("pipelineclient/rps/mean", totalTps);
             BenchmarksEventSource.Measure("pipelineclient/connections", Connections);
-            BenchmarksEventSource.Measure("pipelineclient/status-2xx", _counter);
-            BenchmarksEventSource.Measure("pipelineclient/bad-response", _errors);
-            BenchmarksEventSource.Measure("pipelineclient/socket-errors", _socketErrors);
+            BenchmarksEventSource.Measure("pipelineclient/requests", result.Status1xx + result.Status2xx + result.Status3xx + result.Status4xx + result.Status5xx + result.SocketErrors);
+            BenchmarksEventSource.Measure("pipelineclient/badresponses", result.Status1xx + result.Status4xx + result.Status5xx);
+            BenchmarksEventSource.Measure("pipelineclient/errors", result.SocketErrors);
 
-            if (MinConnections != Connections)
-            {
-                Console.WriteLine();
-                Console.WriteLine($"| Connections | {"RPS ".PadRight(11, ' ')} |");
-                Console.WriteLine($"| ----------- | ----------- |");
-                foreach (var entry in _statistics)
-                {
-                    Console.WriteLine($"| {entry.Key.ToString().PadRight(11)} | {entry.Value.ToString().PadRight(11)} |");
-                }
-            }
+            BenchmarksEventSource.Measure("httpclient/latency/mean", 0);
+            BenchmarksEventSource.Measure("httpclient/latency/max", 0);
+            BenchmarksEventSource.Measure("httpclient/throughput", 0);
         }
 
-        public static async Task DoWorkAsync()
+        public static async Task<WorkerResult> DoWorkAsync()
         {
+            var result = new WorkerResult();
+                
             while (_running)
             {
                 // Creating a new connection every time it is necessary
@@ -247,22 +192,17 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                 {
                     await connection.ConnectAsync();
 
-                    // Counters local to this connection
-                    var counter = 0;
-                    var errors = 0;
-                    var socketErrors = 0;
-
                     try
                     {
-                        var sw = new Stopwatch();
+                        // var sw = new Stopwatch();
 
                         while (_running)
                         {
-                            sw.Start();
+                            // sw.Start();
 
                             var responses = await connection.SendRequestsAsync();
 
-                            sw.Stop();
+                            // sw.Stop();
                             // Add the latency divided by the pipeline depth
 
                             var doBreak = false;
@@ -275,19 +215,20 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                                 {
                                     if (response.State == HttpResponseState.Completed)
                                     {
-                                        if (response.StatusCode >= 200 && response.StatusCode < 300)
+                                        switch (response.StatusCode / 100)
                                         {
-                                            counter++;
-                                            _periodicCounter++;
-                                        }
-                                        else
-                                        {
-                                            errors++;
+                                            case 1 : result.Status1xx++; break;
+                                            case 2 : result.Status2xx++; break;
+                                            case 3 : result.Status3xx++; break;
+                                            case 4 : result.Status4xx++; break;
+                                            case 5 : result.Status5xx++; break;
+                                            default : result.SocketErrors++; break;
+
                                         }
                                     }
                                     else
                                     {
-                                        socketErrors++;
+                                        result.SocketErrors++;
                                         doBreak = true;
                                     }
                                 }
@@ -301,20 +242,12 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                     }
                     catch
                     {
-                        socketErrors++;
-                    }
-                    finally
-                    {
-                        // Update the global counters when the connections is ending
-                        lock (_synLock)
-                        {
-                            _counter += counter;
-                            _errors += errors;
-                            _socketErrors += socketErrors;
-                        }
+                        result.SocketErrors++;
                     }
                 }
             }
+
+            return result;
         }
     }
 }
