@@ -200,9 +200,11 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                         {
                             // sw.Start();
 
-                            Console.Write(".{0}", connectionId);
+                            Console.Write("{0}+", connectionId);
 
                             var responses = await connection.SendRequestsAsync(new CancellationTokenSource(2000).Token);
+
+                            Console.Write("{0}-", connectionId);
 
                             // sw.Stop();
                             // Add the latency divided by the pipeline depth
