@@ -62,14 +62,16 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
 
             _requestBytes = buffer.AsMemory();
 
-            var ipAddress = Dns.GetHostAddresses(host.Host).First();
+            if (!IPAddress.TryParse(host.Host, out var ipAddress))
+            {
+                ipAddress = Dns.GetHostAddresses(host.Host).First();
+            }
 
             _hostEndPoint = new IPEndPoint(ipAddress, host.Port.Value);
 
             _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
             _pipe = new Pipe();
-
         }
 
         public async Task ConnectAsync(CancellationToken cancellationToken = default)
