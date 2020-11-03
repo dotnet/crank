@@ -16,7 +16,6 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
     {
         private static bool _running;
         private static bool _measuring;
-
         public static string ServerUrl { get; set; }
         public static int PipelineDepth { get; set; }
         public static int WarmupTimeSeconds { get; set; }
@@ -117,10 +116,6 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                        Console.WriteLine($"Stopping...");
 
                        stopTime = DateTime.UtcNow;
-
-                       _running = false;
-
-                        Console.WriteLine();
                     });
             }
 
@@ -132,6 +127,8 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                 .ToList();
 
             await Task.WhenAll(CreateTasks());
+
+            _running = false;
 
             await Task.WhenAll(workerTasks);
 
@@ -178,19 +175,23 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
             // BenchmarksEventSource.Measure("httpclient/throughput", 0);
         }
 
+        private static int _connectionCount = 0;
         public static async Task<WorkerResult> DoWorkAsync()
         {
             var result = new WorkerResult();
+            var connectionId = Interlocked.Increment(ref _connectionCount);
 
             while (_running)
             {
                 // Creating a new connection every time it is necessary
                 using (var connection = new HttpConnection(ServerUrl, PipelineDepth, Headers))
                 {
-                    Console.WriteLine("New connection");
+                    Console.WriteLine("New connection {0}", connectionId);
 
                     await connection.ConnectAsync(new CancellationTokenSource(2000).Token);
 
+                    Console.WriteLine("Connected {0}", connectionId);
+                    
                     try
                     {
                         // var sw = new Stopwatch();
@@ -198,6 +199,8 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                         while (_running)
                         {
                             // sw.Start();
+
+                            Console.Write(".{0}", connectionId);
 
                             var responses = await connection.SendRequestsAsync(new CancellationTokenSource(2000).Token);
 
@@ -245,7 +248,7 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                 }
             }
 
-            Console.WriteLine("Connection closed");
+            Console.WriteLine("Connection closed {0}", connectionId);
 
 
             return result;
