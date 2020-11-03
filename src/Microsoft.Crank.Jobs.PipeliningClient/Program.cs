@@ -188,7 +188,7 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                 {
                     Console.WriteLine("Connection created ({0})", connectionId);
 
-                    await connection.ConnectAsync(new CancellationTokenSource(2000).Token);
+                    await connection.ConnectAsync();
 
                     try
                     {
@@ -198,7 +198,7 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                         {
                             // sw.Start();
 
-                            var responses = await connection.SendRequestsAsync(new CancellationTokenSource(2000).Token);
+                            var responses = await connection.SendRequestsAsync();
 
                             // sw.Stop();
                             // Add the latency divided by the pipeline depth

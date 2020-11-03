@@ -92,15 +92,15 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
             _pipe = new Pipe();
         }
 
-        public async Task ConnectAsync(CancellationToken cancellationToken = default)
+        public async Task ConnectAsync()
         {
-            await _socket.ConnectAsync(_hostEndPoint, cancellationToken);
+            await _socket.ConnectAsync(_hostEndPoint);
             var writing = FillPipeAsync(_socket, _pipe.Writer);
         }
 
-        public async Task<HttpResponse[]> SendRequestsAsync(CancellationToken cancellationToken = default)
+        public async Task<HttpResponse[]> SendRequestsAsync()
         {
-            await _socket.SendAsync(_requestBytes, SocketFlags.None, cancellationToken);
+            await _socket.SendAsync(_requestBytes, SocketFlags.None);
 
             for (var k = 0; k < _pipelineDepth; k++)
             {
@@ -128,7 +128,7 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
             }
         }
 
-        private async Task FillPipeAsync(Socket socket, PipeWriter writer, CancellationToken cancellationToken = default)
+        private async Task FillPipeAsync(Socket socket, PipeWriter writer)
         {
             const int minimumBufferSize = 512;
 
@@ -137,7 +137,7 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                 // Allocate at least 512 bytes from the PipeWriter
                 Memory<byte> memory = writer.GetMemory(minimumBufferSize);
 
-                int bytesRead = await socket.ReceiveAsync(memory, SocketFlags.None, cancellationToken);
+                int bytesRead = await socket.ReceiveAsync(memory, SocketFlags.None);
 
                 // Indicates that the server is done with sending more data
                 if (bytesRead == 0)
