@@ -82,17 +82,15 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
 
         public async Task<HttpResponse[]> SendRequestsAsync(CancellationToken cancellationToken = default)
         {
-            Console.Write("a");
             await _socket.SendAsync(_requestBytes, SocketFlags.None, cancellationToken);
-            Console.Write("b");
+
             for (var k = 0; k < _pipelineDepth; k++)
             {
                 var httpResponse = _responses[k];
                 httpResponse.Reset();
 
-                Console.Write("c");
                 await ReadPipeAsync(_pipe.Reader, httpResponse);
-                Console.Write("d");
+
                 // Stop sending request if the communication faced a problem (socket error)
                 if (httpResponse.State != HttpResponseState.Completed)
                 {
@@ -149,13 +147,16 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
         {
             while (true)
             {
+                Console.Write("a");
                 ReadResult result = await reader.ReadAsync();
+                Console.Write("b");
                 var buffer = result.Buffer;
 
                 ParseHttpResponse(ref buffer, httpResponse, out var examined);
 
+                Console.Write("c");
                 reader.AdvanceTo(buffer.Start, examined);
-
+                Console.Write("d");
                 // Stop when the response is complete
                 if (httpResponse.State == HttpResponseState.Completed)
                 {
