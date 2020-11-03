@@ -41,17 +41,35 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
 
             UriHelper.FromAbsolute(_url, out var scheme, out var host, out var path, out var query, out var fragment);
 
-            var request = $"GET {path.Value}/{query.Value} HTTP/1.1\r\n";
+            var getPath = path.Value;
+
+            if (query.HasValue)
+            {
+                getPath += "/" + query.Value;
+            }
+
+            if (fragment.HasValue)
+            {
+                getPath += "#" + fragment.Value;
+            }
+
+            var request = $"GET {getPath} HTTP/1.1\r\n";
 
             if (!headers.Any(h => h.StartsWith("Host:")))
             {
                 request += $"Host: {host.Value}\r\n";
             }
 
-            request += "Content-Length: 0\r\n" +
-                String.Join("\r\n", headers) +
-                "\r\n";
+            if (headers.Any())
+            {
+                request += String.Join("\r\n", headers) + "\r\n";
+            }
 
+            // TODO: If a body is defined, add the Content-Length header 
+            // request += "Content-Length: 0\r\n";
+
+            request += "\r\n";
+            
             var requestPayload = Encoding.UTF8.GetBytes(request);
             var buffer = new byte[requestPayload.Length * pipelineDepth];
 
@@ -147,16 +165,13 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
         {
             while (true)
             {
-                Console.Write("a");
                 ReadResult result = await reader.ReadAsync();
-                Console.Write("b");
                 var buffer = result.Buffer;
 
                 ParseHttpResponse(ref buffer, httpResponse, out var examined);
 
-                Console.Write("c");
                 reader.AdvanceTo(buffer.Start, examined);
-                Console.Write("d");
+
                 // Stop when the response is complete
                 if (httpResponse.State == HttpResponseState.Completed)
                 {
