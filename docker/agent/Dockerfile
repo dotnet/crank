@@ -66,4 +66,4 @@ RUN chmod +x /usr/bin/perfcollect
 
 COPY --from=build-env /app /app
 
-ENTRYPOINT [ "/app/crank-agent", "--url", "http://*:5001" ]
+ENTRYPOINT [ "/app/crank-agent" ]
