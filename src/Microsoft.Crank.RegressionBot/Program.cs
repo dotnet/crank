@@ -757,7 +757,7 @@ namespace Microsoft.Crank.RegressionBot
             {
                 if (_options.Verbose)
                 {
-                    Console.WriteLine($"Checking issue: {issue.Url}");
+                    Console.WriteLine($"Checking issue: {issue.HtmlUrl}");
                 }
 
                 if (String.IsNullOrWhiteSpace(issue.Body))
@@ -798,6 +798,11 @@ namespace Microsoft.Crank.RegressionBot
 
                     // Check if a custom marker is present to force the issue to be updated
                     var updateRequested = issue.Body.Contains("<!-- update -->");
+
+                    if (updateRequested)
+                    {
+                        Console.WriteLine("Update requested");
+                    }
 
                     if (issueNeedsUpdate || updateRequested)
                     {
