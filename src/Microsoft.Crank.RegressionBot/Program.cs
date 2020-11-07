@@ -828,6 +828,10 @@ namespace Microsoft.Crank.RegressionBot
                         Console.WriteLine("Issue doesn't need to be updated");
                     }
                 }
+                else
+                {
+                    Console.WriteLine("Not all regressions were detected, skipping");
+                }
             }
 
             // Exclude all un-recovered issues to be reported on new issues
