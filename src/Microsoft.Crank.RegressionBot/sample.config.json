@@ -18,8 +18,8 @@
           ]
         }
       ],
-      "daysToLoad": 7,
-      "daysToAnalyze": 7,
+      "daysToLoad": 14,
+      "daysToStdev": 7,
       "regressions": {
         "probes": [
           {
