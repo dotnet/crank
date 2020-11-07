@@ -788,6 +788,7 @@ namespace Microsoft.Crank.RegressionBot
                     regressionsToReport.Remove(r);
                 }
 
+                // Only try to update an issue if all the regressions have been detected
                 if (allRegressionsInIssue.Count() == regressionSummaries.Count())
                 {
                     // We could find all the regressions from this issue.
@@ -795,7 +796,10 @@ namespace Microsoft.Crank.RegressionBot
 
                     var issueNeedsUpdate = allRegressionsInIssue.Any(x => x.HasRecovered != regressionSummaries[x.Identifier].HasRecovered);
 
-                    if (issueNeedsUpdate)
+                    // Check if a custom marker is present to force the issue to be updated
+                    var updateRequested = issue.Body.Contains("<!-- update -->");
+
+                    if (issueNeedsUpdate || updateRequested)
                     {
                         Console.WriteLine("Updating issue...");
                         var update = issue.ToUpdate();
