@@ -32,10 +32,10 @@
           "default": 14,
           "minimum": 1
         },
-        "daysToStdev":{
+        "stdevCount":{
           "type": "integer",
-          "title": "Number of days to use to create a standard deviation. Should be smaller than 'daysToLoad'.",
-          "default": 7,
+          "title": "Number of measures to use to create a standard deviation.",
+          "default": 6,
           "minimum": 1
         },
         "daysToSkip":{

@@ -19,7 +19,7 @@
         }
       ],
       "daysToLoad": 14,
-      "daysToStdev": 7,
+      "stdevCount": 6,
       "regressions": {
         "probes": [
           {

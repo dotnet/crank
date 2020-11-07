@@ -433,7 +433,7 @@ namespace Microsoft.Crank.RegressionBot
                 yield break;
             }
 
-            var detectionMinDateTimeUtc = DateTime.UtcNow.AddDays(0 - source.DaysToStdev);
+            var loadStartDateTimeUtc = DateTime.UtcNow.AddDays(0 - source.DaysToLoad);
             var detectionMaxDateTimeUtc = DateTime.UtcNow.AddDays(0 - source.DaysToSkip);
             
             var allResults = new List<BenchmarksResult>();
@@ -447,7 +447,7 @@ namespace Microsoft.Crank.RegressionBot
                 using (var command = new SqlCommand(String.Format(Queries.Latest, source.Table), connection))
                 {
                     // Load 14 days or data, to measure 7 days of standard deviation prior to detection
-                    command.Parameters.AddWithValue("@startDate", DateTime.UtcNow.AddDays(0 - source.DaysToLoad));
+                    command.Parameters.AddWithValue("@startDate", loadStartDateTimeUtc);
                     
                     await connection.OpenAsync();
 
@@ -542,37 +542,43 @@ namespace Microsoft.Crank.RegressionBot
                         Console.WriteLine($"Values: {JsonConvert.SerializeObject(resultSet.Select(x => x.Value).ToArray())}");
                     }
 
+                    var values = resultSet.Select(x => x.Value).ToArray();
+
                     // Look for 2 consecutive values that are outside of the threshold, 
                     // subsequent to 3 consecutive values that are inside the threshold.  
 
                     for (var i = 0; i < resultSet.Length - 5; i++)
                     {
-                        // Ignore results before the searched date and after the skipped dates
-                        if (resultSet[i].Result.DateTimeUtc < detectionMinDateTimeUtc
-                        || resultSet[i].Result.DateTimeUtc >= detectionMaxDateTimeUtc)
+                        // Skip the measurement if it's too recent
+                        if (resultSet[i].Result.DateTimeUtc >= detectionMaxDateTimeUtc)
                         {
                             continue;
                         }
 
-                        Console.WriteLine($"Checking {resultSet[i].Value}");
-                        
-                        // DaysToStdev days back from the current measurement
-                        var firstStdevDateTime = resultSet[i].Result.DateTimeUtc.AddDays(-1 * source.DaysToStdev);
-                        var values = resultSet.Where(x => x.Result.DateTimeUtc >= firstStdevDateTime && x.Result.DateTimeUtc < resultSet[i].Result.DateTimeUtc).Select(x => x.Value).ToArray();
-
-                        if (values.Length < 3 && probe.Unit == ThresholdUnits.StDev)
+                        if (_options.Verbose)
                         {
-                            Console.WriteLine($"Not enough values to build a standard deviation: {JsonConvert.SerializeObject(values)}");
+                            Console.WriteLine($"Checking {resultSet[i].Value}");
+                        }
+
+                        // StdevCount measures before current measurement + 2 (to include the first 2 measures in the stdev)
+                        var stdevs = values.Take(i + 2).TakeLast(source.StdevCount).ToArray();
+
+                        if (stdevs.Length < source.StdevCount && probe.Unit == ThresholdUnits.StDev)
+                        {
+                            Console.WriteLine($"Not enough values to build a standard deviation: {JsonConvert.SerializeObject(stdevs)}");
                             continue;
                         }
 
                         // Calculate the stdev from all values up to the verified window
-                        double average = values.Average();
-                        double sumOfSquaresOfDifferences = values.Sum(val => (val - average) * (val - average));
-                        double standardDeviation = Math.Sqrt(sumOfSquaresOfDifferences / values.Length);
+                        double average = stdevs.Average();
+                        double sumOfSquaresOfDifferences = stdevs.Sum(val => (val - average) * (val - average));
+                        double standardDeviation = Math.Sqrt(sumOfSquaresOfDifferences / stdevs.Length);
                         
-                        Console.WriteLine($"Stdev: {standardDeviation} from values {JsonConvert.SerializeObject(values)}");
-
+                        if (_options.Verbose)
+                        {
+                            Console.WriteLine($"Stdev: {standardDeviation} from values {JsonConvert.SerializeObject(stdevs)}");
+                        }
+                        
                         var value1 = Math.Abs(values[i+1] - values[i]);
                         var value2 = Math.Abs(values[i+2] - values[i]);
                         var value3 = Math.Abs(values[i+3] - values[i+2]);
