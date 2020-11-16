@@ -12,6 +12,7 @@
   <ItemGroup>
     <!-- We need the Agent to be built before the tests run -->
     <ProjectReference Include="..\..\src\Microsoft.Crank.Agent\Microsoft.Crank.Agent.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Crank.Controller\Microsoft.Crank.Controller.csproj" />
   </ItemGroup>
 
   <ItemGroup>

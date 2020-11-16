@@ -653,6 +653,76 @@ namespace Microsoft.Crank.Agent.Controllers
             }
         }
 
+        [HttpGet("services/{service}")]
+        public IActionResult LatestService(string service)
+        {
+            lock (_jobs)
+            {
+                return DetailResult(() => GetLatestJob(service));
+            }
+        }
+
+        [HttpGet("services/{service}/measurements")]
+        public IActionResult LatestServiceMeasurements(string service, string path)
+        {
+            lock (_jobs)
+            {
+                var filter = this.Request.Query["name"];
+
+                IEnumerable<Measurement> measurements = null;
+
+                if (filter.Any())
+                {
+                    measurements = GetLatestJob(service)
+                        ?.Measurements
+                        ?.Where(x => x.Name.Equals(filter.First(), StringComparison.OrdinalIgnoreCase))
+                        ;
+                }
+                else
+                {
+                    measurements = GetLatestJob(service)
+                    ?.Measurements
+                    ;
+
+                }
+
+                return ObjectOrNotFoundResult(measurements);
+            }
+        }
+
+        [HttpGet("services/{service}/measurements/last")]
+        public IActionResult LatestServiceLatestMeasurement(string service, string path)
+        {
+            var filter = this.Request.Query["name"];
+
+            Measurement measurement = null;
+
+            if (filter.Any())
+            {
+                measurement = GetLatestJob(service)
+                    ?.Measurements
+                    ?.LastOrDefault(x => x.Name.Equals(filter.First(), StringComparison.OrdinalIgnoreCase))
+                    ;
+            }
+            else
+            {
+                measurement = GetLatestJob(service)
+                    ?.Measurements
+                    ?.LastOrDefault()
+                    ;
+            }
+
+            return ObjectOrNotFoundResult(measurement);
+        }
+        private Job GetLatestJob(string name)
+        {
+            return _jobs
+                .GetAll()
+                .OrderByDescending(x => x.Id)
+                .FirstOrDefault(x => x.Service.Equals(name, StringComparison.OrdinalIgnoreCase))
+                ;
+        }
+
         private static void Log(string message)
         {
             var time = DateTime.Now.ToString("hh:mm:ss.fff");
@@ -678,6 +748,28 @@ namespace Microsoft.Crank.Agent.Controllers
                     Log("Could not delete temporary folder: " + _folder);
                 }
             }
+        }
+
+        private IActionResult DetailResult(Func<Job> filter)
+        {
+            var job = filter();
+
+            if (job == null)
+            {
+                return NotFound();
+            }
+
+            return new ObjectResult(job);
+        }
+
+        private IActionResult ObjectOrNotFoundResult(object obj)
+        {
+            if (obj == null)
+            {
+                return NotFound();
+            }
+
+            return new ObjectResult(obj);
         }
     }
 }
