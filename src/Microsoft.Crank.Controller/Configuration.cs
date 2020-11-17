@@ -16,6 +16,7 @@ namespace Microsoft.Crank.Controller
         public Dictionary<string, Dictionary<string, Scenario>> Scenarios { get; set; } = new Dictionary<string, Dictionary<string, Scenario>>();
 
         public Dictionary<string, object> Profiles { get; set; } = new Dictionary<string, object>();
+        public Dictionary<string, string> Scripts { get; set; } = new Dictionary<string, string>();
     }
 
     public class Scenario

@@ -23,6 +23,7 @@ using YamlDotNet.Serialization;
 using System.Text;
 using Manatee.Json.Schema;
 using Manatee.Json;
+using Jint;
 
 namespace Microsoft.Crank.Controller
 {
@@ -40,6 +41,8 @@ namespace Microsoft.Crank.Controller
 
         // Default to arguments which should be sufficient for collecting trace of default Plaintext run
         private const string _defaultTraceArguments = "BufferSizeMB=1024;CircularMB=1024;clrEvents=JITSymbols;kernelEvents=process+thread+ImageLoad+Profile";
+
+        private static ScriptConsole _scriptConsole = new ScriptConsole();
 
         private static CommandOption
             _configOption,
@@ -65,7 +68,8 @@ namespace Microsoft.Crank.Controller
             _displayIterationsOption,
             _iterationsOption,
             _verboseOption,
-            _quietOption
+            _quietOption,
+            _scriptOption
             ;
 
         // The dynamic arguments that will alter the configurations
@@ -137,6 +141,7 @@ namespace Microsoft.Crank.Controller
             _scenarioOption = app.Option("-s|--scenario", "Scenario to execute", CommandOptionType.SingleValue);
             _jobOption = app.Option("-j|--job", "Name of job to define", CommandOptionType.MultipleValue);
             _profileOption = app.Option("--profile", "Profile name", CommandOptionType.MultipleValue);
+            _scriptOption = app.Option("--script", "Script name", CommandOptionType.MultipleValue);
             _outputOption = app.Option("-o|--output", "Output filename", CommandOptionType.SingleValue);
             _compareOption = app.Option("--compare", "An optional filename to compare the results to. Can be used multiple times.", CommandOptionType.MultipleValue);
             _variableOption = app.Option("--variable", "Variable", CommandOptionType.MultipleValue);
@@ -316,7 +321,7 @@ namespace Microsoft.Crank.Controller
                     }
                 }
 
-                var configuration = await BuildConfigurationAsync(_configOption.Values, scenarioName, _jobOption.Values, Arguments, variables, _profileOption.Values);
+                var configuration = await BuildConfigurationAsync(_configOption.Values, scenarioName, _jobOption.Values, Arguments, variables, _profileOption.Values, _scriptOption.Values);
 
                 // Storing the list of services to run as part of the selected scenario
                 var dependencies = String.IsNullOrEmpty(scenarioName)
@@ -412,10 +417,10 @@ namespace Microsoft.Crank.Controller
                         session,
                         iterations,
                         exclude,
-                        span
+                        span,
+                        _scriptOption.Values
                         );
                 }
-
 
                 // Display diff
 
@@ -459,7 +464,8 @@ namespace Microsoft.Crank.Controller
             string session,
             int iterations,
             int exclude,
-            TimeSpan span
+            TimeSpan span,
+            IEnumerable<string> scripts
             )
         {
             
@@ -1192,7 +1198,8 @@ namespace Microsoft.Crank.Controller
             IEnumerable<string> customJobs,
             IEnumerable<KeyValuePair<string, string>> arguments,
             JObject commandLineVariables,
-            IEnumerable<string> profiles
+            IEnumerable<string> profiles,
+            IEnumerable<string> scripts
             )
         {
             JObject configuration = null;
@@ -1369,6 +1376,15 @@ namespace Microsoft.Crank.Controller
                     job.Value.WaitForExit = true;
                     job.Value.ReadyStateText ??= "BenchmarkRunner: Start";
                     job.Value.Arguments = DefaultBenchmarkDotNetArguments + " " + job.Value.Arguments;
+                }
+            }
+
+            foreach (var script in scripts)
+            {
+                if (!configurationInstance.Scripts.ContainsKey(script))
+                {
+                    var availablescripts = String.Join("', '", configurationInstance.Scripts.Keys);
+                    throw new ControllerException($"Could not find a script named '{script}'. Possible values: '{availablescripts}'");
                 }
             }
 
@@ -1695,31 +1711,77 @@ namespace Microsoft.Crank.Controller
                 var jobResult = jobResults.Jobs[jobName] = new JobResult();
                 var jobConnections = jobsByDependency[jobName];
 
-                jobResult.Results = SummarizeResults(jobConnections);
+                jobResult.Results = AggregateAndReduceResults(jobConnections);
 
                 // Insert metadata
-                if (!_excludeMetadataOption.HasValue())
-                {
-                    jobResult.Metadata = jobConnections[0].Job.Metadata.ToArray();
+                jobResult.Metadata = jobConnections[0].Job.Metadata.ToArray();
 
-                }
-
-                // Insert measurements
-                if (!_excludeMeasurementsOption.HasValue())
+                foreach (var jobConnection in jobConnections)
                 {
-                    foreach (var jobConnection in jobConnections)
-                    {
-                        jobResult.Measurements.Add(jobConnection.Job.Measurements.ToArray());
-                    }
+                    jobResult.Measurements.Add(jobConnection.Job.Measurements.ToArray());
                 }
 
                 jobResult.Environment = await jobConnections.First().GetInfoAsync();
             }
 
+            // Apply scripts
+
+            // When scripts are executed, the metadata and measurements are still available.
+            // The metadata is taken from the first job connection, while the measurements
+            // of any job connection (multi endpoint job) are taken.
+            // The "measurements" property is an array of arrays of measurements.
+            // The "results" property contains all measures that are already aggregated and reduced.
+             
+            if (_scriptOption.Values.Any())
+            {
+                var engine =  new Engine();
+                
+                engine.SetValue("benchmarks", jobResults);
+                engine.SetValue("console", _scriptConsole);
+                engine.SetValue("require", new Action<string> (ImportScript));
+
+                void ImportScript(string s)
+                {
+                    if (!configuration.Scripts.ContainsKey(s))
+                    {
+                        var availablescripts = String.Join("', '", configuration.Scripts.Keys);
+                        throw new ControllerException($"Could not find a script named '{s}'. Possible values: '{availablescripts}'");
+                    }
+
+                    engine.Execute(configuration.Scripts[s]);
+                }
+
+                foreach (var scriptName in _scriptOption.Values)
+                {
+                    var scriptContent = configuration.Scripts[scriptName];
+
+                    engine.Execute(scriptContent);
+                }
+            }
+
+            // // Remove metadata
+
+            foreach (var jobName in dependencies)
+            {
+                var jobResult = jobResults.Jobs[jobName];
+
+                // Exclude metadata
+                if (_excludeMetadataOption.HasValue())
+                {
+                    jobResult.Metadata = Array.Empty<MeasurementMetadata>();
+                }
+
+                // Exclude measurements
+                if (_excludeMeasurementsOption.HasValue())
+                {
+                    jobResult.Measurements.Clear();
+                }
+            }
+
             return jobResults;
         }
 
-        private static Dictionary<string, object> SummarizeResults(IEnumerable<JobConnection> jobs)
+        private static Dictionary<string, object> AggregateAndReduceResults(IEnumerable<JobConnection> jobs)
         {
             if (jobs == null || !jobs.Any())
             {

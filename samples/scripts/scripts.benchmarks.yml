@@ -1,0 +1,31 @@
+scripts:
+  say_hello: |
+    console.log("hello")
+    console.info("world")
+    console.warn("this is")
+    console.error("scary")
+
+  add_current_time: |
+    benchmarks.properties["time"] = new Date().toISOString();
+
+  add_allocations_per_request: |
+    var allocations = benchmarks.jobs.application.results["runtime-counter/alloc-rate"]
+    var rps = benchmarks.jobs.load.results["wrk/requests"];
+    benchmarks.jobs.application.results["alloc-per-request"] = allocations / rps;
+
+  add_p95_memory: |
+    require("percentiles");
+    var memories = benchmarks.jobs.application.measurements[0]
+      .filter(m => m.name == "benchmarks/working-set")
+      .map(x => x.value);
+    var value = percentile(memories, 95);
+    console.info(`p95 of working set is ${value}`);
+    benchmarks.jobs.application.results["benchmarks/working-set/p95"] = value;
+
+  percentiles: |
+    function percentile(items, th) {
+      var ordered = items.sort((a, b) => a - b); // by default sort() uses ordinal comparison
+      index = Math.max(0, Math.round(ordered.length * th / 100) - 1);
+      return ordered[index];
+    }
+  
