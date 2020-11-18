@@ -1367,24 +1367,43 @@ namespace Microsoft.Crank.Controller
 
             var result = configuration.ToObject<Configuration>();
 
-            // If the job is a BenchmarkDotNet application, define default arguments
-            // so we can download the results as JSon
-            foreach (var job in result.Jobs)
-            {
-                if (job.Value.Options.BenchmarkDotNet)
-                {
-                    job.Value.WaitForExit = true;
-                    job.Value.ReadyStateText ??= "BenchmarkRunner: Start";
-                    job.Value.Arguments = DefaultBenchmarkDotNetArguments + " " + job.Value.Arguments;
-                }
-            }
 
+            // Validates that the scripts defined in the command line exist
             foreach (var script in scripts)
             {
                 if (!configurationInstance.Scripts.ContainsKey(script))
                 {
                     var availablescripts = String.Join("', '", configurationInstance.Scripts.Keys);
                     throw new ControllerException($"Could not find a script named '{script}'. Possible values: '{availablescripts}'");
+                }
+            }
+
+            // Jobs post configuration
+            foreach (var job in result.Jobs)
+            {
+                // If the job is a BenchmarkDotNet application, define default arguments so we can download the results as JSon
+                if (job.Value.Options.BenchmarkDotNet)
+                {
+                    job.Value.WaitForExit = true;
+                    job.Value.ReadyStateText ??= "BenchmarkRunner: Start";
+                    job.Value.Arguments = DefaultBenchmarkDotNetArguments + " " + job.Value.Arguments;
+                }
+
+                // Copy the dotnet counters from the list of providers
+                if (job.Value.Options.CounterProviders.Any())
+                {
+                    foreach (var provider in job.Value.Options.CounterProviders)
+                    {
+                        var allProviderSections = configurationInstance.Counters.Where(x => x.Name.Equals(provider, StringComparison.OrdinalIgnoreCase));
+
+                        foreach (var providerSection in allProviderSections)
+                        {
+                            foreach (var counter in providerSection.Values)
+                            {
+                                job.Value.Counters.Add(new DotnetCounter { Provider = providerSection.Name, Name = counter.Name, Measurement = counter.Measurement });
+                            }
+                        }
+                    }
                 }
             }
 
@@ -1732,31 +1751,37 @@ namespace Microsoft.Crank.Controller
             // The "measurements" property is an array of arrays of measurements.
             // The "results" property contains all measures that are already aggregated and reduced.
              
-            if (_scriptOption.Values.Any())
+            var engine =  new Engine();
+            
+            engine.SetValue("benchmarks", jobResults);
+            engine.SetValue("console", _scriptConsole);
+            engine.SetValue("require", new Action<string> (ImportScript));
+
+            void ImportScript(string s)
             {
-                var engine =  new Engine();
-                
-                engine.SetValue("benchmarks", jobResults);
-                engine.SetValue("console", _scriptConsole);
-                engine.SetValue("require", new Action<string> (ImportScript));
-
-                void ImportScript(string s)
+                if (!configuration.Scripts.ContainsKey(s))
                 {
-                    if (!configuration.Scripts.ContainsKey(s))
-                    {
-                        var availablescripts = String.Join("', '", configuration.Scripts.Keys);
-                        throw new ControllerException($"Could not find a script named '{s}'. Possible values: '{availablescripts}'");
-                    }
-
-                    engine.Execute(configuration.Scripts[s]);
+                    var availablescripts = String.Join("', '", configuration.Scripts.Keys);
+                    throw new ControllerException($"Could not find a script named '{s}'. Possible values: '{availablescripts}'");
                 }
 
-                foreach (var scriptName in _scriptOption.Values)
-                {
-                    var scriptContent = configuration.Scripts[scriptName];
+                engine.Execute(configuration.Scripts[s]);
+            }                
 
-                    engine.Execute(scriptContent);
+            // Import default scripts section
+            foreach (var script in configuration.DefaultScripts)
+            {
+                if (!String.IsNullOrWhiteSpace(script))
+                {
+                    engine.Execute(script);
                 }
+            }
+            
+            foreach (var scriptName in _scriptOption.Values)
+            {
+                var scriptContent = configuration.Scripts[scriptName];
+
+                engine.Execute(scriptContent);
             }
 
             // // Remove metadata

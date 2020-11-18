@@ -1,0 +1,38 @@
+counters:
+- name: System.Runtime
+  values: 
+  - name: cpu-usage
+    measurement: runtime-counter/cpu-usage
+    description: Amount of time the process has utilized the CPU (ms)
+  - name: working-set
+    measurement: runtime-counter/working-set
+    description: Amount of working set used by the process (MB)
+  - name: gc-heap-size
+    measurement: runtime-counter/gc-heap-size
+    description: Total heap size reported by the GC (MB)
+
+  Microsoft-AspNetCore-Server-Kestrel:
+  - name: System.Runtime
+    values: 
+    - name: connections-per-second
+      measurement: kestrel-counter/connections-per-second
+      description: Connection Rate
+
+results:
+# todo: call aggregate on each collection of results, then reduce on the new set
+- measurement: runtime-counter/cpu-usage
+  name: Max CPU Usage (%)
+  format: n0
+  aggregate: max
+  reduce: max
+  enabled: true # set to false to override any previous setting and exclude this result
+
+defaultScripts:
+  - |
+    console.warn("Default script is loaded")
+
+    function max(values) {
+      let max = undefined;
+      values.forEach(x => max = Math.max(max, x));
+      return max;
+    }
