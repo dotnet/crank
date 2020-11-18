@@ -76,12 +76,12 @@ namespace Microsoft.Crank.Agent
         //private static readonly string _releaseMetadata = "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/releases-index.json";
 
         // Use this feed once https://github.com/dotnet/aspnetcore/pull/26788 is fixed
-        // private static readonly string _latestSdkVersionUrl = "https://aka.ms/dotnet/net6/dev/Sdk/productCommit-win-x64.txt";
-        private static readonly string _latestSdkVersionUrl = "https://aka.ms/dotnet/net5/daily/Sdk/productCommit-win-x64.txt";
+        private static readonly string _latestSdkVersionUrl = "https://aka.ms/dotnet/net6/dev/Sdk/productCommit-win-x64.txt";
+        //private static readonly string _latestSdkVersionUrl = "https://aka.ms/dotnet/net5/daily/Sdk/productCommit-win-x64.txt";
         
         private static readonly string _aspnetSdkVersionUrl = "https://raw.githubusercontent.com/dotnet/aspnetcore/master/global.json";
         private static readonly string[] _runtimeFeedUrls = new string[] {
-            //"https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2",
+            "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2",
             "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2",
             "https://dotnetfeed.blob.core.windows.net/dotnet-core/flatcontainer",
             "https://api.nuget.org/v3/flatcontainer" };
@@ -2104,6 +2104,12 @@ namespace Microsoft.Crank.Agent
                 channel = job.Channel;
             }
 
+            // Until there is a "current" version of net6.0, use "edge"
+            if (targetFramework.Equals("net6.0"))
+            {
+                channel = "edge";
+            }
+
             if (String.IsNullOrEmpty(runtimeVersion))
             {
                 runtimeVersion = channel;
@@ -3224,6 +3230,13 @@ namespace Microsoft.Crank.Agent
         /// </summary>
         private static async Task<(string Runtime, string Desktop, string AspNet, string Sdk)> GetCurrentVersions(string targetFramework)
         {
+            // There are currently no release for net6.0
+            // Remove once there is at least a preview and a "release-metadata" file
+            if (targetFramework.Equals("net6.0", StringComparison.OrdinalIgnoreCase))
+            {
+                return (null, null, null, null);
+            }
+
             var frameworkVersion = targetFramework.Substring(targetFramework.Length - 3); // 3.1
             var metadataUrl = $"https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/{frameworkVersion}/releases.json";
 
