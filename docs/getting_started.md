@@ -142,6 +142,6 @@ Note: The agent and controller can also be executed [directly from source](devel
 
 On Windows you'll get a popup alert every time an app is started. To discard these follow these steps:
 
-1- Open the __Windows Security__ application from the __Start__ menu
-2- Click on __Settings__ at the bottom left
-3- Turn the firewall notifications off
+- Open the __Windows Security__ application from the __Start__ menu
+- Click on __Settings__ at the bottom left
+- Turn the firewall notifications off
