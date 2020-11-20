@@ -1451,8 +1451,6 @@ namespace Microsoft.Crank.Agent
 
         private static async Task StopPerfcollectAsync(Process perfCollectProcess)
         {
-            Log.WriteLine($"Stopping PerfCollect");
-
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
                 Log.WriteLine($"PerfCollect is only supported on Linux");
