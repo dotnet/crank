@@ -137,3 +137,11 @@ Max RPS:              221,956
 Each service deployed (application and load) have reported their metrics, including the Requests Per Second.
 
 Note: The agent and controller can also be executed [directly from source](development.md) if dotnet tools can't be installed.
+
+## Windows Defender notifications
+
+On Windows you'll get a popup alert every time an app is started. To discard these follow these steps:
+
+1- Open the __Windows Security__ application from the __Start__ menu
+2- Click on __Settings__ at the bottom left
+3- Turn the firewall notifications off
