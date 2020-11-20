@@ -1137,7 +1137,7 @@ namespace Microsoft.Crank.Agent
                                 }
                             }
 
-                            async Task StopJobAsync()
+                            async Task StopJobAsync(bool abortCollection = false)
                             {
                                 // Delete the benchmarks group
                                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && (job.MemoryLimitInBytes > 0 || job.CpuLimitRatio > 0 || !String.IsNullOrEmpty(job.CpuSet)))
@@ -1175,34 +1175,39 @@ namespace Microsoft.Crank.Agent
                                 {
                                     var processId = process.Id;
 
-                                    if (job.Collect)
+                                    // Invoking Stop should also abort collection only the job failed.
+                                    // The normal workflow is to stop collection using the TraceCollecting state
+                                    if (abortCollection)
                                     {
-                                        // Abort all perfview processes
-                                        if (OperatingSystem == OperatingSystem.Windows)
+                                        if (job.Collect)
                                         {
-                                            var perfViewProcess = RunPerfview("abort", Path.GetPathRoot(_perfviewPath));
-                                        }
-                                        else if (OperatingSystem == OperatingSystem.Linux)
-                                        {
-                                            await StopPerfcollectAsync(perfCollectProcess);
-                                        }
-                                    }
-
-                                    if (job.DotNetTrace)
-                                    {
-                                        // Stop dotnet-trace if still active
-                                        if (dotnetTraceTask != null)
-                                        {
-                                            if (!dotnetTraceTask.IsCompleted)
+                                            // Abort all perfview processes
+                                            if (OperatingSystem == OperatingSystem.Windows)
                                             {
-                                                Log.WriteLine("Stopping dotnet-trace");
+                                                var perfViewProcess = RunPerfview("abort", Path.GetPathRoot(_perfviewPath));
+                                            }
+                                            else if (OperatingSystem == OperatingSystem.Linux)
+                                            {
+                                                await StopPerfcollectAsync(perfCollectProcess);
+                                            }
+                                        }
 
-                                                dotnetTraceManualReset.Set();
+                                        if (job.DotNetTrace)
+                                        {
+                                            // Stop dotnet-trace if still active
+                                            if (dotnetTraceTask != null)
+                                            {
+                                                if (!dotnetTraceTask.IsCompleted)
+                                                {
+                                                    Log.WriteLine("Stopping dotnet-trace");
 
-                                                await dotnetTraceTask;
+                                                    dotnetTraceManualReset.Set();
 
-                                                dotnetTraceManualReset = null;
-                                                dotnetTraceTask = null;
+                                                    await dotnetTraceTask;
+
+                                                    dotnetTraceManualReset = null;
+                                                    dotnetTraceTask = null;
+                                                }
                                             }
                                         }
                                     }
@@ -1311,7 +1316,7 @@ namespace Microsoft.Crank.Agent
 
                             async Task DeleteJobAsync()
                             {
-                                await StopJobAsync();
+                                await StopJobAsync(abortCollection: true);
 
                                 if (_cleanup && !job.NoClean && tempDir != null)
                                 {
@@ -1446,6 +1451,8 @@ namespace Microsoft.Crank.Agent
 
         private static async Task StopPerfcollectAsync(Process perfCollectProcess)
         {
+            Log.WriteLine($"Stopping PerfCollect");
+
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
                 Log.WriteLine($"PerfCollect is only supported on Linux");
@@ -1502,7 +1509,8 @@ namespace Microsoft.Crank.Agent
 
                 } while (perfCollectProcess != null && !perfCollectProcess.HasExited);
             }
-            Log.WriteLine($"Process has stopped");
+
+            Log.WriteLine($"PerfCollect process has stopped");
 
             perfCollectProcess = null;
 

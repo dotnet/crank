@@ -13,7 +13,7 @@ namespace Microsoft.Crank.Models
         Failed,
         Stopping,
         Stopped,
-        TraceCollecting,
+        TraceCollecting, // The driver has requested the trace to be collected
         TraceCollected,
         Deleting,
         Deleted,
