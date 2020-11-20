@@ -727,37 +727,38 @@ namespace Microsoft.Crank.Controller
                     }
                 }
 
-                // Display results
+                // Normalize results
                 foreach (var jobName in dependencies)
                 {
-                    // When running iterations, don't display the results unless the flag is set
-
-                    if (iterations > 1 && !_displayIterationsOption.HasValue())
-                    {
-                        continue;
-                    }
-
                     var service = configuration.Jobs[jobName];
 
                     // Skip failed jobs
-                    if (!jobsByDependency.ContainsKey(jobName))
+                    if (!jobsByDependency.TryGetValue(jobName, out var jobConnections))
                     {
                         continue;
                     }
 
-                    var jobConnections = jobsByDependency[jobName];
-
                     // Convert any json result to an object
                     NormalizeResults(jobConnections);
-
-                    if (!service.Options.DiscardResults)
-                    {
-                        Console.WriteLine();
-                        WriteMeasuresTable(jobName, jobConnections);
-                    }
                 }
 
                 var jobResults = await CreateJobResultsAsync(configuration, dependencies, jobsByDependency);
+
+                // Display results
+                foreach (var jobName in dependencies)
+                {
+                    var service = configuration.Jobs[jobName];
+
+                    if (service.Options.DiscardResults)
+                    {
+                        continue;
+                    }
+
+                    var job = jobResults.Jobs[jobName];
+
+                    Console.WriteLine();
+                    WriteResults(jobName, job);
+                }
 
                 foreach (var property in _propertyOption.Values)
                 {
@@ -786,6 +787,8 @@ namespace Microsoft.Crank.Controller
                 }
 
                 // Save results
+
+                CleanMeasurements(jobResults);
 
                 if (_outputOption.HasValue())
                 {
@@ -1010,6 +1013,8 @@ namespace Microsoft.Crank.Controller
 
                 // Store data
 
+                CleanMeasurements(jobResults);
+
                 if (!String.IsNullOrEmpty(_sqlConnectionString))
                 {
                     var executionResult = new ExecutionResult();
@@ -1106,12 +1111,12 @@ namespace Microsoft.Crank.Controller
                     // Convert any json result to an object
                     NormalizeResults(new[] { job });
 
+                    var jobResults = await CreateJobResultsAsync(configuration, dependencies, new Dictionary<string, List<JobConnection>> { [jobName] = new List<JobConnection> { job } });
+
                     if (!service.Options.DiscardResults)
                     {
-                        WriteMeasures(job);
+                        WriteResults(jobName, jobResults.Jobs[jobName]);
                     }
-
-                    var jobResults = await CreateJobResultsAsync(configuration, dependencies, new Dictionary<string, List<JobConnection>> { [jobName] = new List<JobConnection> { job } });
 
                     foreach (var property in _propertyOption.Values)
                     {
@@ -1121,6 +1126,8 @@ namespace Microsoft.Crank.Controller
                     }
 
                     // Save results
+
+                    CleanMeasurements(jobResults);
 
                     if (_outputOption.HasValue())
                     {
@@ -1203,6 +1210,10 @@ namespace Microsoft.Crank.Controller
             )
         {
             JObject configuration = null;
+            
+            var defaultConfigFilename = Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "default.config.yml");
+
+            configurationFileOrUrls = new [] { defaultConfigFilename }.Union(configurationFileOrUrls);
 
             // Merge all configuration sources
             foreach (var configurationFileOrUrl in configurationFileOrUrls)
@@ -1394,13 +1405,13 @@ namespace Microsoft.Crank.Controller
                 {
                     foreach (var provider in job.Value.Options.CounterProviders)
                     {
-                        var allProviderSections = configurationInstance.Counters.Where(x => x.Name.Equals(provider, StringComparison.OrdinalIgnoreCase));
+                        var allProviderSections = configurationInstance.Counters.Where(x => x.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase));
 
                         foreach (var providerSection in allProviderSections)
                         {
                             foreach (var counter in providerSection.Values)
                             {
-                                job.Value.Counters.Add(new DotnetCounter { Provider = providerSection.Name, Name = counter.Name, Measurement = counter.Measurement });
+                                job.Value.Counters.Add(new DotnetCounter { Provider = providerSection.Provider, Name = counter.Name, Measurement = counter.Measurement });
                             }
                         }
                     }
@@ -1677,6 +1688,9 @@ namespace Microsoft.Crank.Controller
             };
         }
 
+        /// <summary>
+        /// Converts any "json" serialized value (format: json) to an object
+        /// </summary>
         private static void NormalizeResults(IEnumerable<JobConnection> jobs)
         {
             if (jobs == null || !jobs.Any())
@@ -1711,46 +1725,11 @@ namespace Microsoft.Crank.Controller
         }
 
         private static async Task<JobResults> CreateJobResultsAsync(Configuration configuration, string[] dependencies, Dictionary<string, List<JobConnection>> jobsByDependency)
-        {
+        {            
             var jobResults = new JobResults();
 
-            foreach (var jobName in dependencies)
-            {
-                if (configuration.Jobs[jobName].Options.DiscardResults)
-                {
-                    continue;
-                }
+            // Initializes the JS engine to compute results
 
-                // Skip failed jobs
-                if (!jobsByDependency.ContainsKey(jobName))
-                {
-                    continue;
-                }
-
-                var jobResult = jobResults.Jobs[jobName] = new JobResult();
-                var jobConnections = jobsByDependency[jobName];
-
-                jobResult.Results = AggregateAndReduceResults(jobConnections);
-
-                // Insert metadata
-                jobResult.Metadata = jobConnections[0].Job.Metadata.ToArray();
-
-                foreach (var jobConnection in jobConnections)
-                {
-                    jobResult.Measurements.Add(jobConnection.Job.Measurements.ToArray());
-                }
-
-                jobResult.Environment = await jobConnections.First().GetInfoAsync();
-            }
-
-            // Apply scripts
-
-            // When scripts are executed, the metadata and measurements are still available.
-            // The metadata is taken from the first job connection, while the measurements
-            // of any job connection (multi endpoint job) are taken.
-            // The "measurements" property is an array of arrays of measurements.
-            // The "results" property contains all measures that are already aggregated and reduced.
-             
             var engine =  new Engine();
             
             engine.SetValue("benchmarks", jobResults);
@@ -1768,7 +1747,7 @@ namespace Microsoft.Crank.Controller
                 engine.Execute(configuration.Scripts[s]);
             }                
 
-            // Import default scripts section
+            // Import default scripts sections
             foreach (var script in configuration.DefaultScripts)
             {
                 if (!String.IsNullOrWhiteSpace(script))
@@ -1776,7 +1755,110 @@ namespace Microsoft.Crank.Controller
                     engine.Execute(script);
                 }
             }
+
+            foreach (var jobName in dependencies)
+            {
+                if (configuration.Jobs[jobName].Options.DiscardResults)
+                {
+                    continue;
+                }
+
+                // Skip failed jobs
+                if (!jobsByDependency.ContainsKey(jobName))
+                {
+                    continue;
+                }
+
+                var jobResult = jobResults.Jobs[jobName] = new JobResult();
+                var jobConnections = jobsByDependency[jobName];
+
+                // Calculate results from configuration and job metadata
+
+                var resultDefinitions = jobConnections[0].Job.Metadata.Select(x => 
+                    new Result { 
+                        Measurement = x .Name, 
+                        Name = x.Name,
+                        Description = x.ShortDescription,
+                        Format = x.Format,
+                        Aggregate = x.Aggregate.ToString().ToLowerInvariant(),
+                        Reduce = x.Reduce.ToString().ToLowerInvariant()
+                        }
+                    ).GroupBy(x => x.Name).ToDictionary(x => x.Key, x => x.Last());
+                
+                // Update any result definition with the ones in the configuration
+                foreach (var result in configuration.Results)
+                {
+                    resultDefinitions.TryGetValue(result.Name, out var existing);
+
+                    if (existing == null)
+                    {
+                        // Add the result if it is not already defined by a metadata from the job
+                        resultDefinitions[result.Name] = result;
+                    }
+                    else 
+                    {
+                        if (result.Excluded)
+                        {
+                            existing.Excluded = true;
+                        }
+
+                        if (!String.IsNullOrWhiteSpace(result.Aggregate))
+                        {
+                            existing.Aggregate = result.Aggregate;
+                        }
+
+                        if (!String.IsNullOrWhiteSpace(result.Reduce))
+                        {
+                            existing.Reduce = result.Reduce;
+                        }
+
+                        if (!String.IsNullOrWhiteSpace(result.Format))
+                        {
+                            existing.Format = result.Format;
+                        }
+
+                        if (!String.IsNullOrWhiteSpace(result.Name))
+                        {
+                            existing.Name = result.Name;
+                        }
+
+                        if (!String.IsNullOrWhiteSpace(result.Description))
+                        {
+                            existing.Description = result.Description;
+                        }
+                    }
+                }
+
+                // Update job's metadata with custom results
+                jobResult.Metadata = resultDefinitions.Values.Select(x => 
+                    new ResultMetadata 
+                    {
+                        Name = x .Name,
+                        Description = x.Description,
+                        Format = x.Format
+                    })
+                    .ToArray();                
+                
+                jobResult.Results = AggregateAndReduceResults(jobConnections, engine, resultDefinitions.Values.ToList());
+                
+                foreach (var jobConnection in jobConnections)
+                {
+                    jobResult.Measurements.Add(jobConnection.Job.Measurements.ToArray());
+                }
+
+                jobResult.Environment = await jobConnections.First().GetInfoAsync();
+            }
+
+            // Apply scripts
+
+            // When scripts are executed, the metadata and measurements are still available.
+            // The metadata is taken from the first job connection, while the measurements
+            // of any job connection (multi endpoint job) are taken.
+            // The "measurements" property is an array of arrays of measurements.
+            // The "results" property contains all measures that are already aggregated and reduced.
+             
             
+            // Run custom scripts after the results are computed
             foreach (var scriptName in _scriptOption.Values)
             {
                 var scriptContent = configuration.Scripts[scriptName];
@@ -1784,16 +1866,18 @@ namespace Microsoft.Crank.Controller
                 engine.Execute(scriptContent);
             }
 
-            // // Remove metadata
+            return jobResults;
+        }
 
-            foreach (var jobName in dependencies)
+        private static void CleanMeasurements(JobResults jobResults)
+        {
+            // Remove metadata
+            foreach (var jobResult in jobResults.Jobs.Values)
             {
-                var jobResult = jobResults.Jobs[jobName];
-
                 // Exclude metadata
                 if (_excludeMetadataOption.HasValue())
                 {
-                    jobResult.Metadata = Array.Empty<MeasurementMetadata>();
+                    jobResult.Metadata = Array.Empty<ResultMetadata>();
                 }
 
                 // Exclude measurements
@@ -1802,11 +1886,9 @@ namespace Microsoft.Crank.Controller
                     jobResult.Measurements.Clear();
                 }
             }
-
-            return jobResults;
         }
 
-        private static Dictionary<string, object> AggregateAndReduceResults(IEnumerable<JobConnection> jobs)
+        private static Dictionary<string, object> AggregateAndReduceResults(IEnumerable<JobConnection> jobs, Engine engine, List<Result> resultDefinitions)
         {
             if (jobs == null || !jobs.Any())
             {
@@ -1821,71 +1903,32 @@ namespace Microsoft.Crank.Controller
 
                 var summaries = new Dictionary<string, object>();
 
-                foreach (var metadata in job.Job.Metadata)
+                foreach (var name in measurements.Keys)
                 {
-                    if (!measurements.ContainsKey(metadata.Name))
+                    foreach (var resultDefinition in resultDefinitions.Where(x => x.Measurement == name))
                     {
-                        continue;
-                    }
+                        object aggregated = null;
 
-                    object result = 0;
+                        try
+                        {
+                            aggregated = engine.Invoke(resultDefinition.Aggregate, arguments: new object [] { measurements[name].Select(x => x.Value).ToArray() }).ToObject();
+                        }
+                        catch
+                        {
+                            Console.WriteLine($"Could not aggregate: {name} with {resultDefinition.Aggregate}");
+                            continue;
+                        }
 
-                    switch (metadata.Aggregate)
-                    {
-                        case Operation.All:
-                            result = measurements[metadata.Name].Select(x => x.Value).ToArray();
-                            break;
-
-                        case Operation.First:
-                            result = measurements[metadata.Name].First().Value;
-                            break;
-
-                        case Operation.Last:
-                            result = measurements[metadata.Name].Last().Value;
-                            break;
-
-                        case Operation.Avg:
-                            result = measurements[metadata.Name].Average(x => Convert.ToDouble(x.Value));
-                            break;
-
-                        case Operation.Count:
-                            result = measurements[metadata.Name].Count();
-                            break;
-
-                        case Operation.Max:
-                            result = measurements[metadata.Name].Max(x => Convert.ToDouble(x.Value));
-                            break;
-
-                        case Operation.Median:
-                            result = Percentile(50)(measurements[metadata.Name].Select(x => Convert.ToDouble(x.Value)));
-                            break;
-
-                        case Operation.Min:
-                            result = measurements[metadata.Name].Min(x => Convert.ToDouble(x.Value));
-                            break;
-
-                        case Operation.Sum:
-                            result = measurements[metadata.Name].Sum(x => Convert.ToDouble(x.Value));
-                            break;
-
-                        case Operation.Delta:
-                            result = measurements[metadata.Name].Max(x => Convert.ToDouble(x.Value)) - measurements[metadata.Name].Min(x => Convert.ToDouble(x.Value));
-                            break;
-
-                        default:
-                            result = measurements[metadata.Name].First().Value;
-                            break;
-                    }
-
-                    try
-                    {
-                        summaries[metadata.Name] = Convert.ToDouble(result);
-                    }
-                    catch
-                    {
-                        // If the value can't be converted to double, just keep it
-                        // e.g., bombardier/raw
-                        summaries[metadata.Name] = result;
+                        try
+                        {
+                            summaries[resultDefinition.Name] = Convert.ToDouble(aggregated);
+                        }
+                        catch
+                        {
+                            // If the value can't be converted to double, just keep it
+                            // e.g., bombardier/raw
+                            summaries[resultDefinition.Name] = aggregated;
+                        }
                     }
                 }
 
@@ -1900,181 +1943,138 @@ namespace Microsoft.Crank.Controller
 
             var reduced = new Dictionary<string, object>();
 
-            var maxWidth = jobs.First().Job.Metadata.Max(x => x.ShortDescription.Length) + 2;
-
-            foreach (var metadata in jobs.First().Job.Metadata)
+            foreach (var resultDefinition in resultDefinitions)
             {
-                var reducedValues = groups.SelectMany(x => x)
-                    .Where(x => x.Key == metadata.Name);
+                var values = groups.SelectMany(x => x).Where(x => x.Key == resultDefinition.Name).ToArray();
 
-                // some values are not emitted, even if metadata is present, causing aggregation to fail
-                if (reducedValues.Count() == 0)
+                // No measurement for this result
+                if (values.Length == 0)
                 {
                     continue;
                 }
 
                 object reducedValue = null;
 
-                switch (metadata.Reduce)
+                try
                 {
-                    case Operation.All:
-                        reducedValue = reducedValues.ToArray();
-                        break;
-
-                    case Operation.First:
-                        reducedValue = reducedValues.First().Value;
-                        break;
-
-                    case Operation.Last:
-                        reducedValue = reducedValues.Last().Value;
-                        break;
-
-                    case Operation.Avg:
-                        reducedValue = reducedValues.Average(x => Convert.ToDouble(x.Value));
-                        break;
-
-                    case Operation.Count:
-                        reducedValue = reducedValues.Count();
-                        break;
-
-                    case Operation.Max:
-                        reducedValue = reducedValues.Max(x => Convert.ToDouble(x.Value));
-                        break;
-
-                    case Operation.Median:
-                        reducedValue = Percentile(50)(reducedValues.Select(x => Convert.ToDouble(x.Value)));
-                        break;
-
-                    case Operation.Min:
-                        reducedValue = reducedValues.Min(x => Convert.ToDouble(x.Value));
-                        break;
-
-                    case Operation.Sum:
-                        reducedValue = reducedValues.Sum(x => Convert.ToDouble(x.Value));
-                        break;
-
-                    case Operation.Delta:
-                        reducedValue = reducedValues.Max(x => Convert.ToDouble(x.Value)) - reducedValues.Min(x => Convert.ToDouble(x.Value));
-                        break;
-
-                    default:
-                        reducedValue = reducedValues.First().Value;
-                        break;
+                    reducedValue = engine.Invoke(resultDefinition.Reduce, arguments: new object [] { values }).ToObject();
+                }
+                catch
+                {
+                    Console.WriteLine($"Could not reduce: {resultDefinition.Name} with {resultDefinition.Reduce}");
+                    continue;
                 }
 
-                reduced[metadata.Name] = reducedValue;
-
-                Log.Quiet("");
-                Log.Quiet($"# Summary");
-
-                if (metadata.Format != "object")
-                {
-                    if (!String.IsNullOrEmpty(metadata.Format))
-                    {
-                        Console.WriteLine($"{(metadata.ShortDescription + ":").PadRight(maxWidth)} {Convert.ToDouble(reducedValue).ToString(metadata.Format)}");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"{(metadata.ShortDescription + ":").PadRight(maxWidth)} {reducedValue.ToString()}");
-                    }
-                }
-
+                reduced[resultDefinition.Name] = reducedValue;
             }
 
             return reduced;
         }
 
-        private static void WriteMeasures(JobConnection job)
+        private static void WriteResults(string jobName, JobResult jobResult)
         {
-            // Handle old server versions that don't expose measurements
-            if (!job.Job.Measurements.Any() || !job.Job.Metadata.Any())
+            var renderChart = _renderChartOption.HasValue();
+
+            // 1 column per jobConnection
+            var table = new ResultTable(2); 
+
+            // Add a chart column?
+            if (renderChart)
             {
-                return;
+                table = new ResultTable(table.Columns + 1); 
             }
 
-            // Group by name for easy lookup
-            var measurements = job.Job.Measurements.GroupBy(x => x.Name).ToDictionary(x => x.Key, x => x.ToList());
-            var maxWidth = job.Job.Metadata.Max(x => x.ShortDescription.Length) + 2;
+            table.Headers.Add(jobName);
+            table.Headers.Add("");
 
-            var previousSource = "";
-
-            foreach (var metadata in job.Job.Metadata)
+            if (renderChart)
             {
-                if (!measurements.ContainsKey(metadata.Name))
+                table.Headers.Add("");
+            }
+
+            foreach (var metadata in jobResult.Metadata)
+            {
+                if (!jobResult.Results.ContainsKey(metadata.Name) || metadata.Format == "object")
                 {
                     continue;
                 }
 
-                if (previousSource != metadata.Source)
+                var row = table.AddRow();
+
+                var cell = new Cell();
+                cell.Elements.Add(new CellElement() { Text = metadata.Description, Alignment = CellTextAlignment.Left });
+                row.Add(cell);
+
+                cell = new Cell();
+                row.Add(cell);
+
+                var value = jobResult.Results[metadata.Name];
+
+                if (value is string s)
                 {
-                    Log.Quiet("");
-                    Log.Quiet($"## {metadata.Source}:");
-
-                    previousSource = metadata.Source;
+                    cell.Elements.Add(new CellElement(s, CellTextAlignment.Left));
                 }
-
-                object result = 0;
-
-                switch (metadata.Aggregate)
-                {
-                    case Operation.All:
-                        result = measurements[metadata.Name].Select(x => x.Value).ToArray();
-                        break;
-
-                    case Operation.First:
-                        result = measurements[metadata.Name].First().Value;
-                        break;
-
-                    case Operation.Last:
-                        result = measurements[metadata.Name].Last().Value;
-                        break;
-
-                    case Operation.Avg:
-                        result = measurements[metadata.Name].Average(x => Convert.ToDouble(x.Value));
-                        break;
-
-                    case Operation.Count:
-                        result = measurements[metadata.Name].Count();
-                        break;
-
-                    case Operation.Max:
-                        result = measurements[metadata.Name].Max(x => Convert.ToDouble(x.Value));
-                        break;
-
-                    case Operation.Median:
-                        result = Percentile(50)(measurements[metadata.Name].Select(x => Convert.ToDouble(x.Value)));
-                        break;
-
-                    case Operation.Min:
-                        result = measurements[metadata.Name].Min(x => Convert.ToDouble(x.Value));
-                        break;
-
-                    case Operation.Sum:
-                        result = measurements[metadata.Name].Sum(x => Convert.ToDouble(x.Value));
-                        break;
-
-                    case Operation.Delta:
-                        result = measurements[metadata.Name].Max(x => Convert.ToDouble(x.Value)) - measurements[metadata.Name].Min(x => Convert.ToDouble(x.Value));
-                        break;
-
-                    default:
-                        result = measurements[metadata.Name].First().Value;
-                        break;
-                }
-
-                // We don't render the result if it's a raw object
-                if (metadata.Format != "object")
+                else if (value is double d)
                 {
                     if (!String.IsNullOrEmpty(metadata.Format))
                     {
-                        Console.WriteLine($"{(metadata.ShortDescription + ":").PadRight(maxWidth)} {Convert.ToDouble(result).ToString(metadata.Format)}");
+                        cell.Elements.Add(new CellElement(d.ToString(metadata.Format), CellTextAlignment.Left));
                     }
                     else
                     {
-                        Console.WriteLine($"{(metadata.ShortDescription + ":").PadRight(maxWidth)} {result.ToString()}");
+                        cell.Elements.Add(new CellElement(d.ToString("n2"), CellTextAlignment.Left));
+                    }
+                }
+                
+                if (renderChart)
+                {
+                    try
+                    {
+                        var autoScale = _chartScaleOption.HasValue() && _chartScaleOption.Value() == "auto";
+
+                        Console.OutputEncoding = Encoding.UTF8;
+
+                        var chars = _chartTypeOption.HasValue() && _chartTypeOption.Value() == "hex" 
+                            ? hexChartChars
+                            : barChartChars
+                            ;
+
+                        var values = jobResult.Measurements[0].Where(x => x.Name.Equals(metadata.Name, StringComparison.OrdinalIgnoreCase)).Select(x => Convert.ToDouble(x.Value)).ToArray();
+                        
+                        // Exclude zeros from min value so we can use a blank space for exact zeros
+                        var min = values.Where(x => x != 0).Min();
+                        var max = values.Max();
+                        var delta = autoScale ? max - min : max;
+                        var step = delta / (chars.Length - 1);
+
+                        var normalizedValues = values.Select(x => x == 0 ? 0 : (int) Math.Round((x - (autoScale ? min : 0)) / step));
+
+                        if (step != 0 && values.Length > 1)
+                        {
+                            if (normalizedValues.All(x => x >= 0 && x < chars.Length))
+                            {
+                                var chart = new String(normalizedValues.Select(x => chars[x]).ToArray());
+                                row.Add(new Cell(new CellElement(chart, CellTextAlignment.Left)));
+                            }
+                            else
+                            {
+                                row.Add(new Cell());    
+                            }                            
+                        }
+                        else
+                        {
+                            row.Add(new Cell());
+                        }
+                    }
+                    catch
+                    {
+                        row.Add(new Cell());
                     }
                 }
             }
+
+            table.Render(Console.Out);
+            Console.WriteLine();
         }
 
         private static void WriteMeasuresTable(string jobName, IList<JobConnection> jobConnections)
@@ -2286,47 +2286,7 @@ namespace Microsoft.Crank.Controller
                 var jobName = job.Key;
                 var jobResult = job.Value;
 
-                // 1 column per jobConnection
-                var table = new ResultTable(2); 
-
-                table.Headers.Add(jobName);
-                table.Headers.Add("");
-
-                foreach (var metadata in jobResult.Metadata)
-                {
-                    if (jobResult.Results.ContainsKey(metadata.Name) && metadata.Format != "object")
-                    {
-                        var row = table.AddRow();
-
-                        var cell = new Cell();
-                        cell.Elements.Add(new CellElement() { Text = metadata.ShortDescription, Alignment = CellTextAlignment.Left });
-                        row.Add(cell);
-
-                        cell = new Cell();
-                        row.Add(cell);
-
-                        var value = jobResult.Results[metadata.Name];
-
-                        if (value is string s)
-                        {
-                            cell.Elements.Add(new CellElement(s, CellTextAlignment.Left));
-                        }
-                        else if (value is double d)
-                        {
-                            if (!String.IsNullOrEmpty(metadata.Format))
-                            {
-                                cell.Elements.Add(new CellElement(d.ToString(metadata.Format), CellTextAlignment.Left));
-                            }
-                            else
-                            {
-                                cell.Elements.Add(new CellElement(d.ToString("n2"), CellTextAlignment.Left));
-                            }
-                        }
-                    }
-                }
-
-                table.Render(Console.Out);
-                Console.WriteLine();
+                WriteResults(jobName, jobResult);
             }            
         }
 

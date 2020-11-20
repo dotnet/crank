@@ -20,5 +20,6 @@ namespace Microsoft.Crank.Models
         /// Name of the measurement, runtime/cpu-usage
         /// </summary>
         public string Measurement { get; set; }
+        
     }
 }

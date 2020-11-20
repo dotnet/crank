@@ -1,38 +1,109 @@
 counters:
-- name: System.Runtime
+  # creates measurements from dotnet counters
+- provider: System.Runtime
   values: 
   - name: cpu-usage
     measurement: runtime-counter/cpu-usage
     description: Amount of time the process has utilized the CPU (ms)
+
   - name: working-set
     measurement: runtime-counter/working-set
     description: Amount of working set used by the process (MB)
+
   - name: gc-heap-size
     measurement: runtime-counter/gc-heap-size
     description: Total heap size reported by the GC (MB)
 
-  Microsoft-AspNetCore-Server-Kestrel:
-  - name: System.Runtime
-    values: 
-    - name: connections-per-second
-      measurement: kestrel-counter/connections-per-second
-      description: Connection Rate
+- provider: Microsoft-AspNetCore-Server-Kestrel
+  values: 
+  - name: connections-per-second
+    measurement: kestrel-counter/connections-per-second
+    description: Connection Rate
 
 results:
-# todo: call aggregate on each collection of results, then reduce on the new set
-- measurement: runtime-counter/cpu-usage
-  name: Max CPU Usage (%)
+  # creates results from measurements
+- name: runtime-counter/cpu-usage
+  measurement: runtime-counter/cpu-usage
+  description: Max CPU Usage (%)
   format: n0
   aggregate: max
   reduce: max
-  enabled: true # set to false to override any previous setting and exclude this result
+  
+- name: runtime-counter/working-set
+  measurement: runtime-counter/working-set
+  description: Max Working Set (MB)
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: runtime-counter/working-set/p95
+  measurement: runtime-counter/working-set
+  description: p95 Working Set (MB)
+  format: n0
+  aggregate: percentile95
+  reduce: max
+
+- name: runtime-counter/gc-heap-size
+  measurement: runtime-counter/gc-heap-size
+  description: Max GC Heap Size (MB)
+  format: n0
+  aggregate: max
+  reduce: max
 
 defaultScripts:
   - |
-    console.warn("Default script is loaded")
-
     function max(values) {
-      let max = undefined;
-      values.forEach(x => max = Math.max(max, x));
-      return max;
+      return Math.max(...values);
     }
+
+    function min(values) {
+      return Math.max(...values);
+    }
+
+    function last(values) {
+      return values.length == 0 ? null : values[values.length-1];
+    }
+
+    function first(values) {
+      return values.length == 0 ? null : values[0];
+    }
+
+    function all(values) {
+      return values.length == 0 ? null : values[0];
+    }
+
+    function avg(values) {
+      return values.reduce((acc, next) => acc + next) / values.length;
+    }
+
+    function sum(values) {
+      return values.reduce((acc, next) => acc + next);
+    }    
+
+    function median(values) {
+      return percentile(values, 50);
+    }  
+
+    function count(values) {
+      return values.length;
+    }      
+
+    function count(values) {
+      return values.length;
+    }      
+
+    function delta(values) {
+      return max(values) - min(values);
+    }      
+
+    function percentile(values, th) {
+      var ordered = values.sort((a, b) => a - b); // by default sort() uses ordinal comparison
+      index = Math.max(0, Math.round(ordered.length * th / 100) - 1);
+      return ordered[index];
+    }
+
+    var percentile99 = x => percentile(x, 99)
+    var percentile95 = x => percentile(x, 95)
+    var percentile90 = x => percentile(x, 90)
+    var percentile75 = x => percentile(x, 90)
+    var percentile50 = x => percentile(x, 90)

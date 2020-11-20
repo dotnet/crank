@@ -483,9 +483,9 @@ namespace Microsoft.Crank.Agent
                                             Name = "benchmarks/cpu/raw",
                                             Aggregate = Operation.Max,
                                             Reduce = Operation.Max,
-                                            Format = "n2", // two decimals
+                                            Format = "n0",
                                             LongDescription = "Raw CPU value (not normalized by number of cores)",
-                                            ShortDescription = "Raw CPU Usage (%)"
+                                            ShortDescription = "Cores usage (%)"
                                         });
                                     }
 
@@ -759,7 +759,7 @@ namespace Microsoft.Crank.Agent
                                                                 var workingSetRaw = data[1];
                                                                 var usedMemoryRaw = workingSetRaw.Split('/')[0].Trim();
                                                                 var cpu = double.Parse(cpuPercentRaw.Trim('%'));
-                                                                var rawCPU = cpu;
+                                                                var rawCpu = cpu;
 
                                                                 // On Windows the CPU already takes the number or HT into account
                                                                 if (OperatingSystem == OperatingSystem.Linux)
@@ -808,7 +808,7 @@ namespace Microsoft.Crank.Agent
                                                                 {
                                                                     Name = "benchmarks/cpu/raw",
                                                                     Timestamp = now,
-                                                                    Value = rawCPU
+                                                                    Value = Math.Round(rawCpu)
                                                                 });
 
                                                                 if (job.CollectSwapMemory && OperatingSystem == OperatingSystem.Linux)
@@ -929,7 +929,7 @@ namespace Microsoft.Crank.Agent
                                                                     {
                                                                         Name = "benchmarks/cpu/raw",
                                                                         Timestamp = now,
-                                                                        Value = rawCpu
+                                                                        Value = Math.Round(rawCpu)
                                                                     });
 
                                                                     if (job.CollectSwapMemory && OperatingSystem == OperatingSystem.Linux)
@@ -3900,8 +3900,6 @@ namespace Microsoft.Crank.Agent
                             return;
                         }
 
-                        var measurement = new Measurement();
-
                         var payloadVal = (IDictionary<string, object>)(eventData.PayloadValue(0));
                         var payloadFields = (IDictionary<string, object>)(payloadVal["Payload"]);
 
@@ -3914,7 +3912,17 @@ namespace Microsoft.Crank.Agent
                         }
 
                         // TODO: optimize by pre-computing a searchable structure
-                        measurement.Name = job.Counters.First(x => x.Provider.Equals(eventData.ProviderName, StringComparison.OrdinalIgnoreCase) && x.Name.Equals(counterName, StringComparison.OrdinalIgnoreCase))?.Measurement;
+                        var counter = job.Counters.FirstOrDefault(x => x.Provider.Equals(eventData.ProviderName, StringComparison.OrdinalIgnoreCase) && x.Name.Equals(counterName, StringComparison.OrdinalIgnoreCase));
+
+                        if (counter == null)
+                        {
+                            // The counter is not tracked
+                            return;
+                        }
+
+                        var measurement = new Measurement();
+
+                        measurement.Name = counter.Measurement;
 
                         switch (payloadFields["CounterType"])
                         {

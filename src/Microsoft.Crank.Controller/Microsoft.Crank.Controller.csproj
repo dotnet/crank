@@ -29,6 +29,8 @@
   <ItemGroup>
     <Content Include="benchmarks.schema.json" CopyToOutputDirectory="PreserveNewest" />
     <Compile Remove="benchmarks.schema.json" />
+    <Content Include="default.config.yml" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Remove="default.config.yml" />
   </ItemGroup>
 
 </Project>

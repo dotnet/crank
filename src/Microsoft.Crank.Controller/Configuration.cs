@@ -49,7 +49,7 @@ namespace Microsoft.Crank.Controller
         /// <summary>
         /// The name of the dotnet counters list, e.g. System.Runtime
         /// </summary>
-        public string Name { get; set; } 
+        public string Provider { get; set; } 
 
         public List<Counter> Values { get; set; } = new List<Counter>();
     }
@@ -74,16 +74,23 @@ namespace Microsoft.Crank.Controller
 
     public class Result
     {
-        public string Name { get; set; }
-
+        /// <summary>
+        /// The name of the measurements sent back from the jobs
+        /// </summary>
         public string Measurement { get; set; }
-        
-        public string Format { get; set; } = "n0";
-        
-        public string Aggregate { get; set; } = "max";
-        
-        public string Reduce { get; set; } = "max";
 
-        public bool Enabled { get; set; } = true;
+        /// <summary>
+        /// The name of the result to create
+        /// </summary>
+        public string Name { get; set; }
+        public string Description { get; set; }
+        
+        public string Format { get; set; }
+        
+        public string Aggregate { get; set; }
+        
+        public string Reduce { get; set; }
+
+        public bool Excluded { get; set; }
     }
 }
