@@ -102,6 +102,11 @@ namespace Microsoft.Crank.Models
         public string PerfViewTraceFile { get; set; }
 
         // Other collection options
+
+        /// <summary>
+        /// Whether to collect the startup phase or not.
+        /// If <c>false</c> (default) the collection is triggered when the ready state is detected.
+        /// </summary>
         public bool CollectStartup { get; set; }
         public bool CollectCounters { get; set; }
 
