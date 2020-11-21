@@ -1,10 +1,13 @@
 counters:
   # creates measurements from dotnet counters
 - provider: System.Runtime
+
+  # https://github.com/dotnet/diagnostics/blob/master/src/Tools/dotnet-counters/KnownData.cs
+  
   values: 
   - name: cpu-usage
     measurement: runtime-counter/cpu-usage
-    description: Amount of time the process has utilized the CPU (ms)
+    description: Percentage of time the process has utilized the CPU (%)
 
   - name: working-set
     measurement: runtime-counter/working-set
@@ -14,14 +17,305 @@ counters:
     measurement: runtime-counter/gc-heap-size
     description: Total heap size reported by the GC (MB)
 
+  - name: gen-0-gc-count
+    measurement: runtime-counter/gen-0-gc-count
+    description: Number of Gen 0 GCs / min
+
+  - name: gen-1-gc-count
+    measurement: runtime-counter/gen-1-gc-count
+    description: Number of Gen 1 GCs / min
+
+  - name: gen-2-gc-count
+    measurement: runtime-counter/gen-2-gc-count
+    description: Number of Gen 2 GCs / min
+
+  - name: time-in-gc
+    measurement: runtime-counter/time-in-gc
+    description: '% time in GC since the last GC'
+
+  - name: gen-0-size
+    measurement: runtime-counter/gen-0-size
+    description: Gen 0 Heap Size
+
+  - name: gen-1-size
+    measurement: runtime-counter/gen-1-size
+    description: Gen 1 Heap Size
+
+  - name: gen-1-size
+    measurement: runtime-counter/gen-1-size
+    description: Gen 1 Heap Size
+
+  - name: loh-size
+    measurement: runtime-counter/loh-size
+    description: LOH (Large Object Heap) Size
+
+  - name: poh-size
+    measurement: runtime-counter/
+    description: POH (Pinned Object Heap) Size
+
+  - name: alloc-rate
+    measurement: runtime-counter/alloc-rate
+    description: Number of bytes allocated in the managed heap per second
+
+  - name: gc-fragmentation
+    measurement: runtime-counter/gc-fragmentation
+    description: GC Heap Fragmentation
+
+  - name: assembly-count
+    measurement: runtime-counter/assembly-count
+    description: Number of Assemblies Loaded
+
+  - name: exception-count
+    measurement: runtime-counter/exception-count
+    description: Number of Exceptions / sec
+
+  - name: threadpool-thread-count
+    measurement: runtime-counter/threadpool-thread-count
+    description: Number of ThreadPool Threads
+
+  - name: monitor-lock-contention-count
+    measurement: runtime-counter/monitor-lock-contention-count
+    description: Number of times there were contention when trying to take the monitor lock per second
+
+  - name: threadpool-queue-length
+    measurement: runtime-counter/threadpool-queue-length
+    description: ThreadPool Work Items Queue Length
+
+  - name: threadpool-completed-items-count
+    measurement: runtime-counter/threadpool-completed-items-count
+    description: ThreadPool Completed Work Items Count
+
+  - name: active-timer-count
+    measurement: runtime-counter/active-timer-count
+    description: Number of timers that are currently active
+
+  - name: il-bytes-jitted
+    measurement: runtime-counter/il-bytes-jitted
+    description: Total IL bytes jitted
+
+  - name: methods-jitted-count
+    measurement: runtime-counter/methods-jitted-count
+    description: Number of methods jitted
+
 - provider: Microsoft-AspNetCore-Server-Kestrel
   values: 
   - name: connections-per-second
     measurement: kestrel-counter/connections-per-second
     description: Connection Rate
 
+  - name: total-connections
+    measurement: kestrel-counter/total-connections
+    description: Total Connections
+
+  - name: tls-handshakes-per-second
+    measurement: kestrel-counter/tls-handshakes-per-second
+    description: Rate at which TLS Handshakes are made
+
+  - name: total-tls-handshakes
+    measurement: kestrel-counter/total-tls-handshakes
+    description: Total number of TLS handshakes made
+
+  - name: current-tls-handshakes
+    measurement: kestrel-counter/current-tls-handshakes
+    description: Number of currently active TLS handshakes
+
+  - name: failed-tls-handshakes
+    measurement: kestrel-counter/failed-tls-handshakes
+    description: Total number of failed TLS handshakes
+
+  - name: current-connections
+    measurement: kestrel-counter/current-connections
+    description: Number of current connections
+
+  - name: connection-queue-length
+    measurement: kestrel-counter/connection-queue-length
+    description: Length of Kestrel Connection Queue
+
+  - name: request-queue-length
+    measurement: kestrel-counter/request-queue-length
+    description: Length total HTTP request queue
+
+  - name: current-upgraded-requests
+    measurement: kestrel-counter/current-upgraded-requests
+    description: Current Upgraded Requests (WebSockets)
+
+- provider: Microsoft.AspNetCore.Hosting
+  values: 
+  - name: requests-per-second
+    measurement: aspnet-counter/requests-per-second
+    description: Request rate
+
+  - name: total-requests
+    measurement: aspnet-counter/total-requests
+    description: Total number of requests
+
+  - name: current-requests
+    measurement: aspnet-counter/current-requests
+    description: Current number of requests
+
+  - name: failed-requests
+    measurement: aspnet-counter/failed-requests
+    description: Failed number of requests
+
+- provider: System.Net.Http
+  values: 
+  - name: requests-started
+    measurement: system-net-http-counter/requests-started
+    description: Requests Started
+
+  - name: requests-started-rate
+    measurement: system-net-http-counter/requests-started-rate
+    description: Requests Started Rate
+
+  - name: requests-aborted
+    measurement: system-net-http-counter/requests-aborted
+    description: Requests Aborted
+
+  - name: requests-aborted-rate
+    measurement: system-net-http-counter/requests-aborted-rate
+    description: Requests Aborted Rate
+
+  - name: current-requests
+    measurement: system-net-http-counter/current-requests
+    description: Current Requests
+
+# SignalR
+- provider: Microsoft.AspNetCore.Http.Connections
+  values: 
+  - name: connections-started
+    measurement: signalr-counter/connections-started
+    description: Total Connections Started
+
+  - name: connections-stopped
+    measurement: signalr-counter/connections-stopped
+    description: Total Connections Stopped
+
+  - name: connections-timed-out
+    measurement: signalr-counter/connections-timed-out
+    description: Total Connections Timed Out
+
+  - name: current-connections
+    measurement: signalr-counter/current-connections
+    description: Current Connections
+
+  - name: connections-duration
+    measurement: signalr-counter/connections-duration
+    description: Average Connection Duration (ms)
+
+- provider: Grpc.AspNetCore.Server
+  values: 
+  - name: total-calls
+    measurement: grpc-server-counter/total-calls
+    description: Total Calls
+
+  - name: current-calls
+    measurement: grpc-server-counter/current-calls
+    description: Current Calls
+
+  - name: calls-failed
+    measurement: grpc-server-counter/calls-failed
+    description: Total Calls Failed
+
+  - name: calls-deadline-exceeded
+    measurement: grpc-server-counter/calls-deadline-exceeded
+    description: Total Calls Deadline Exceeded
+
+  - name: messages-sent
+    measurement: grpc-server-counter/messages-sent
+    description: Total Messages Sent
+
+  - name: messages-received
+    measurement: grpc-server-counter/messages-received
+    description: Total Messages Received
+
+  - name: calls-unimplemented
+    measurement: grpc-server-counter/calls-unimplemented
+    description: Total Calls Unimplemented
+
+- provider: Grpc.Net.Client
+  values: 
+  - name: total-calls
+    measurement: grpc-client-counter/total-calls
+    description: Total Calls
+
+  - name: current-calls
+    measurement: grpc-client-counter/current-calls
+    description: Current Calls
+
+  - name: calls-failed
+    measurement: grpc-client-counter/calls-failed
+    description: Total Calls Failed
+
+  - name: calls-deadline-exceeded
+    measurement: grpc-client-counter/calls-deadline-exceeded
+    description: Total Calls Deadline Exceeded
+
+  - name: messages-sent
+    measurement: grpc-client-counter/messages-sent
+    description: Total Messages Sent
+
+  - name: messages-received
+    measurement: grpc-client-counter/messages-received
+    description: Total Messages Received
+
+- provider: Npgsql
+  values: 
+  - name: bytes-written-per-second
+    measurement: npgsql-counter/bytes-written-per-second
+    description: Bytes Written
+
+  - name: bytes-read-per-second
+    measurement: npgsql-counter/bytes-read-per-second
+    description: Bytes Read
+
+  - name: commands-per-second
+    measurement: npgsql-counter/commands-per-second
+    description: Command Rate
+
+  - name: total-commands
+    measurement: npgsql-counter/total-commands
+    description: Total Commands
+
+  - name: current-commands
+    measurement: npgsql-counter/current-commands
+    description: Current Commands
+
+  - name: failed-commands
+    measurement: npgsql-counter/failed-commands
+    description: Failed Commands
+
+  - name: prepared-commands-ratio
+    measurement: npgsql-counter/prepared-commands-ratio
+    description: Prepared Commands Ratio
+
+  - name: connection-pools
+    measurement: npgsql-counter/connection-pools
+    description: Connection Pools
+
+  - name: idle-connections
+    measurement: npgsql-counter/idle-connections
+    description: Idle Connections
+
+  - name: busy-connections
+    measurement: npgsql-counter/busy-connections
+    description: Busy Connections
+
+  - name: multiplexing-average-commands-per-batch
+    measurement: npgsql-counter/multiplexing-average-commands-per-batch
+    description: Average commands per multiplexing batch
+
+  - name: multiplexing-average-waits-per-batch
+    measurement: npgsql-counter/multiplexing-average-waits-per-batch
+    description: Average waits per multiplexing batch
+
+  - name: multiplexing-average-write-time-per-batch
+    measurement: npgsql-counter/multiplexing-average-write-time-per-batch
+    description: Average write time per multiplexing batch (us)
+
 results:
   # creates results from measurements
+
+  # System.Runtime counters
 - name: runtime-counter/cpu-usage
   measurement: runtime-counter/cpu-usage
   description: Max CPU Usage (%)
@@ -36,16 +330,248 @@ results:
   aggregate: max
   reduce: max
 
-- name: runtime-counter/working-set/p95
-  measurement: runtime-counter/working-set
-  description: p95 Working Set (MB)
-  format: n0
-  aggregate: percentile95
-  reduce: max
-
 - name: runtime-counter/gc-heap-size
   measurement: runtime-counter/gc-heap-size
   description: Max GC Heap Size (MB)
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: runtime-counter/gen-0-gc-count
+  measurement: runtime-counter/gen-0-gc-count
+  description: Max Number of Gen 0 GCs / min
+  format: n2
+  aggregate: max
+  reduce: max
+
+- name: runtime-counter/gen-1-gc-count
+  measurement: runtime-counter/gen-1-gc-count
+  description: Max Number of Gen 1 GCs / min
+  format: n2
+  aggregate: max
+  reduce: max
+
+- name: runtime-counter/gen-2-gc-count
+  measurement: runtime-counter/gen-2-gc-count
+  description: Max Number of Gen 2 GCs / min
+  format: n2
+  aggregate: max
+  reduce: max
+
+- name: runtime-counter/time-in-gc
+  measurement: runtime-counter/time-in-gc
+  description: Max Time in GC (%)
+  format: n2
+  aggregate: max
+  reduce: max
+
+- name: runtime-counter/gen-0-size
+  measurement: runtime-counter/gen-0-size
+  description: Max Gen 0 Size (B)
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: runtime-counter/gen-1-size
+  measurement: runtime-counter/gen-1-size
+  description: Max Gen 1 Size (B)
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: runtime-counter/gen-2-size
+  measurement: runtime-counter/gen-2-size
+  description: Max Gen 2 Size (B)
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: runtime-counter/loh-size
+  measurement: runtime-counter/loh-size
+  description: Max LOH Size (B)
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: runtime-counter/poh-size
+  measurement: runtime-counter/poh-size
+  description: Max POH Size (B)
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: runtime-counter/alloc-rate
+  measurement: runtime-counter/alloc-rate
+  description: Max Allocation Rate (B/sec)
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: runtime-counter/gc-fragmentation
+  measurement: runtime-counter/gc-fragmentation
+  description: Max GC Heap Fragmentation
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: runtime-counter/assembly-count
+  measurement: runtime-counter/assembly-count
+  description: '# of Assemblies Loaded'
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: runtime-counter/exception-count
+  measurement: runtime-counter/exception-count
+  description: Max Exceptions (#/s)
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: runtime-counter/monitor-lock-contention-count
+  measurement: runtime-counter/monitor-lock-contention-count
+  description: Max Lock Contention (#/s)
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: runtime-counter/threadpool-thread-count
+  measurement: runtime-counter/threadpool-thread-count
+  description: Max ThreadPool Threads Count
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: runtime-counter/threadpool-queue-length
+  measurement: runtime-counter/threadpool-queue-length
+  description: Max ThreadPool Queue Length
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: runtime-counter/threadpool-completed-items-count
+  measurement: runtime-counter/threadpool-completed-items-count
+  description: Max ThreadPool Items (#/s)
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: runtime-counter/active-timer-count
+  measurement: runtime-counter/active-timer-count
+  description: Max Active Timers
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: runtime-counter/il-bytes-jitted
+  measurement: runtime-counter/il-bytes-jitted
+  description: IL Jitted (B)
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: runtime-counter/methods-jitted-count
+  measurement: runtime-counter/methods-jitted-count
+  description: Methods Jitted
+  format: n0
+  aggregate: max
+  reduce: max  
+
+# Microsoft-AspNetCore-Server-Kestrel counters
+
+- name: kestrel-counter/connections-per-second
+  measurement: kestrel-counter/connections-per-second
+  description: Max Connections per second
+
+- name: kestrel-counter/total-connections
+  measurement: kestrel-counter/total-connections
+  description: Max Connections
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: kestrel-counter/tls-handshakes-per-second
+  measurement: kestrel-counter/tls-handshakes-per-second
+  description: Max TLS Handshakes per second
+  format: n0
+  aggregate: max
+  reduce: max
+  
+- name: kestrel-counter/total-tls-handshakes
+  measurement: kestrel-counter/total-tls-handshakes
+  description: Total TLS Handshakes
+  format: n0
+  aggregate: max
+  reduce: max
+  
+- name: kestrel-counter/current-tls-handshakes
+  measurement: kestrel-counter/current-tls-handshakes
+  description: Max Active TLS Handshakes
+  format: n0
+  aggregate: max
+  reduce: max
+  
+- name: kestrel-counter/failed-tls-handshakes
+  measurement: kestrel-counter/failed-tls-handshakes
+  description: Total Dailed TLS Handshakes
+  format: n0
+  aggregate: max
+  reduce: max
+  
+- name: kestrel-counter/current-connections
+  measurement: kestrel-counter/current-connections
+  description: Max Active Connections
+  format: n0
+  aggregate: max
+  reduce: max
+  
+- name: kestrel-counter/connection-queue-length
+  measurement: kestrel-counter/connection-queue-length
+  description: Max Connection Queue Length
+  format: n0
+  aggregate: max
+  reduce: max
+  
+- name: kestrel-counter/request-queue-length
+  measurement: kestrel-counter/request-queue-length
+  description: Max Request Queue Length
+  format: n0
+  aggregate: max
+  reduce: max
+  
+- name: kestrel-counter/current-upgraded-requests
+  measurement: kestrel-counter/current-upgraded-requests
+  description: Max Active Upgraded Requests (WebSockets)
+  format: n0
+  aggregate: max
+  reduce: max
+
+# Microsoft.AspNetCore.Hosting
+
+- name: aspnet-counter/requests-per-second
+  measurement: aspnet-counter/requests-per-second
+  description: Max Requests per second
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: aspnet-counter/total-requests
+  measurement: aspnet-counter/total-requests
+  description: Total Requests
+  format: n0
+  aggregate: max
+  reduce: max
+  
+- name: aspnet-counter/current-requests
+  measurement: aspnet-counter/current-requests
+  description: Max Active Requests
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: aspnet-counter/failed-requests
+  measurement: aspnet-counter/failed-requests
+  description: Failed Requests
   format: n0
   aggregate: max
   reduce: max
