@@ -1,4 +1,4 @@
-defaultScript:
+defaultScripts:
   - |
     console.log("this section is loaded by default and before named scripts")
 
