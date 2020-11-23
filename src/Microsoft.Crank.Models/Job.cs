@@ -103,7 +103,10 @@ namespace Microsoft.Crank.Models
 
         // Other collection options
         public bool CollectStartup { get; set; }
-
+        
+        // For backward compatibility. Use Options.CollectCounters instead
+        public bool CollectCounters { get; set; }
+        
         /// <summary>
         /// The list of performance counter providers to be collected. Defaults to <c>System.Runtime</c>.
         /// </summary>
@@ -206,6 +209,7 @@ namespace Microsoft.Crank.Models
         public List<string> BuildArchives { get; set; } = new List<string>();
         public List<string> OutputArchives { get; set; } = new List<string>();
         public bool BenchmarkDotNet { get; set; }
+        public bool? CollectCounters { get; set; }
         public List<string> CounterProviders { get; set; } = new List<string>();
     }
 }

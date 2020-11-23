@@ -1400,8 +1400,20 @@ namespace Microsoft.Crank.Controller
                     job.Value.Arguments = DefaultBenchmarkDotNetArguments + " " + job.Value.Arguments;
                 }
 
+                if (job.Value.CollectCounters)
+                {
+                    Log.Write($"WARNING: '{job.Key}.collectCounters' has been deprecated, in the future please use '{job.Key}.options.collectCounters'.");
+                    job.Value.Options.CollectCounters = true;
+                }
+
+                // if CollectCounters is set and no provider are defined, use System.Runtime as the default provider
+                if (job.Value.Options.CollectCounters == true && !job.Value.Options.CounterProviders.Any())
+                {
+                    job.Value.Options.CounterProviders.Add("System.Runtime");
+                }
+
                 // Copy the dotnet counters from the list of providers
-                if (job.Value.Options.CounterProviders.Any())
+                if (job.Value.Options.CollectCounters != false && job.Value.Options.CounterProviders.Any())
                 {
                     foreach (var provider in job.Value.Options.CounterProviders)
                     {
