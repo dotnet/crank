@@ -75,9 +75,7 @@ namespace Microsoft.Crank.Agent
         //private static readonly string _latestDesktopApiUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.win-x64/index.json";
         //private static readonly string _releaseMetadata = "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/releases-index.json";
 
-        // Use this feed once https://github.com/dotnet/aspnetcore/pull/26788 is fixed
-        private static readonly string _latestSdkVersionUrl = "https://aka.ms/dotnet/net6/dev/Sdk/productCommit-win-x64.txt";
-        //private static readonly string _latestSdkVersionUrl = "https://aka.ms/dotnet/net5/daily/Sdk/productCommit-win-x64.txt";
+        // private static readonly string _latestSdkVersionUrl = "https://aka.ms/dotnet/net6/dev/Sdk/productCommit-win-x64.txt";
         
         private static readonly string _aspnetSdkVersionUrl = "https://raw.githubusercontent.com/dotnet/aspnetcore/master/global.json";
         private static readonly string[] _runtimeFeedUrls = new string[] {
@@ -3022,7 +3020,7 @@ namespace Microsoft.Crank.Agent
             runtimeOptions.Remove("framework");
 
             // Create the "frameworks" property instead
-            var frameworks = new JArray();
+                var frameworks = new JArray();
             runtimeOptions.TryAdd("frameworks", frameworks);
 
             frameworks.Add(
@@ -3053,8 +3051,12 @@ namespace Microsoft.Crank.Agent
             }
             else if (String.Equals(sdkVersion, "Edge", StringComparison.OrdinalIgnoreCase))
             {
-                sdkVersion = await ParseLatestVersionFile(_latestSdkVersionUrl);
-                Log.WriteLine($"SDK: {sdkVersion} (Edge)");
+                // hard-coded value until https://github.com/dotnet/sdk/issues/14660 is fixed
+                sdkVersion = "6.0.100-alpha.1.20568.5";
+                Log.WriteLine($"SDK: {sdkVersion} (Edge - hard-coded)");
+
+                // sdkVersion = await ParseLatestVersionFile(_latestSdkVersionUrl);
+                // Log.WriteLine($"SDK: {sdkVersion} (Edge)");
             }
             else
             {
