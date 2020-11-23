@@ -1407,6 +1407,11 @@ namespace Microsoft.Crank.Controller
                     {
                         var allProviderSections = configurationInstance.Counters.Where(x => x.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase));
 
+                        if (!allProviderSections.Any())
+                        {
+                            throw new ControllerException($"Could not find the counters provider named '{provider}'. Possible values: {String.Join(", ", configurationInstance.Counters.Select(x => x.Provider))}");
+                        }
+
                         foreach (var providerSection in allProviderSections)
                         {
                             foreach (var counter in providerSection.Values)

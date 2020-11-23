@@ -312,15 +312,21 @@ counters:
     measurement: npgsql-counter/multiplexing-average-write-time-per-batch
     description: Average write time per multiplexing batch (us)
 
-results:
-  # creates results from measurements
+results: # creates results from measurements
 
-  # System.Runtime counters
+# System.Runtime counters
 - name: runtime-counter/cpu-usage
   measurement: runtime-counter/cpu-usage
   description: Max CPU Usage (%)
   format: n0
   aggregate: max
+  reduce: max
+
+- name: runtime-counter/cpu-usage/avg
+  measurement: runtime-counter/cpu-usage
+  description: Avg CPU Usage (%)
+  format: n0
+  aggregate: percentile95
   reduce: max
   
 - name: runtime-counter/working-set
@@ -576,6 +582,264 @@ results:
   aggregate: max
   reduce: max
 
+# System.Net.Http
+
+- name: system-net-http-counter/requests-started
+  measurement: system-net-http-counter/requests-started
+  description: Total Requests Started
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: system-net-http-counter/requests-started-rate
+  measurement: system-net-http-counter/requests-started-rate
+  description: Max Requests Started per second
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: system-net-http-counter/requests-aborted
+  measurement: system-net-http-counter/requests-aborted
+  description: Total Requests Aborted
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: system-net-http-counter/requests-aborted-rate
+  measurement: system-net-http-counter/requests-aborted-rate
+  description: Max Requests Aborted per second
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: system-net-http-counter/current-requests
+  measurement: system-net-http-counter/current-requests
+  description: Max Active Requests
+  format: n0
+  aggregate: max
+  reduce: max
+
+# Microsoft.AspNetCore.Http.Connections (SignalR)
+- name: signalr-counter/connections-started
+  measurement: signalr-counter/connections-started
+  description: Total Connections Started
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: signalr-counter/connections-stopped
+  measurement: signalr-counter/connections-stopped
+  description: Total Connections Stopped
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: signalr-counter/connections-timed-out
+  measurement: signalr-counter/connections-timed-out
+  description: Total Connections Timed Out
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: signalr-counter/current-connections
+  measurement: signalr-counter/current-connections
+  description: Max Active Connections
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: signalr-counter/connections-duration
+  measurement: signalr-counter/connections-duration
+  description: Max Average Connection Duration per second (ms)
+  format: n0
+  aggregate: Max
+  reduce: max
+
+# Grpc.AspNetCore.Server
+- name: grpc-server-counter/total-calls
+  measurement: grpc-server-counter/total-calls
+  description: Total Calls
+  format: n0
+  aggregate: Max
+  reduce: max
+
+- name: grpc-server-counter/current-calls
+  measurement: grpc-server-counter/current-calls
+  description: Max Active Calls
+  format: n0
+  aggregate: Max
+  reduce: max
+
+- name: grpc-server-counter/calls-failed
+  measurement: grpc-server-counter/calls-failed
+  description: Total Calls Failed
+  format: n0
+  aggregate: Max
+  reduce: max
+
+- name: grpc-server-counter/calls-deadline-exceeded
+  measurement: grpc-server-counter/calls-deadline-exceeded
+  description: Total Calls Deadline Exceeded
+  format: n0
+  aggregate: Max
+  reduce: max
+
+- name: grpc-server-counter/messages-sent
+  measurement: grpc-server-counter/messages-sent
+  description: Total Messages Sent
+  format: n0
+  aggregate: Max
+  reduce: max
+
+- name: grpc-server-counter/messages-received
+  measurement: grpc-server-counter/messages-received
+  description: Total Messages Received
+  format: n0
+  aggregate: Max
+  reduce: max
+
+- name: grpc-server-counter/calls-unimplemented
+  measurement: grpc-server-counter/calls-unimplemented
+  description: Total Calls Unimplemented
+  format: n0
+  aggregate: Max
+  reduce: max
+
+# Grpc.Net.Client
+- name: grpc-client-counter/total-calls
+  measurement: grpc-client-counter/total-calls
+  description: Total Calls
+  format: n0
+  aggregate: Max
+  reduce: max
+
+- name: grpc-client-counter/current-calls
+  measurement: grpc-client-counter/current-calls
+  description: Max Active Calls
+  format: n0
+  aggregate: Max
+  reduce: max
+
+- name: grpc-client-counter/calls-failed
+  measurement: grpc-client-counter/calls-failed
+  description: Total Calls Failed
+  format: n0
+  aggregate: Max
+  reduce: max
+
+- name: grpc-client-counter/calls-deadline-exceeded
+  measurement: grpc-client-counter/calls-deadline-exceeded
+  description: Total Calls Deadline Exceeded
+  format: n0
+  aggregate: Max
+  reduce: max
+
+- name: grpc-client-counter/messages-sent
+  measurement: grpc-client-counter/messages-sent
+  description: Total Messages Sent
+  format: n0
+  aggregate: Max
+  reduce: max
+
+- name: grpc-client-counter/messages-received
+  measurement: grpc-client-counter/messages-received
+  description: Total Messages Received
+  format: n0
+  aggregate: Max
+  reduce: max
+
+# Npgsql
+- name: npgsql-counter/bytes-written-per-second
+  measurement: npgsql-counter/bytes-written-per-second
+  description: Total Bytes Written
+  format: n0
+  aggregate: Max
+  reduce: max
+
+- name: npgsql-counter/bytes-read-per-second
+  measurement: npgsql-counter/bytes-read-per-second
+  description: Total Bytes Read
+  format: n0
+  aggregate: Max
+  reduce: max
+
+- name: npgsql-counter/commands-per-second
+  measurement: npgsql-counter/commands-per-second
+  description: Max Command Rate
+  format: n0
+  aggregate: Max
+  reduce: max
+
+- name: npgsql-counter/total-commands
+  measurement: npgsql-counter/total-commands
+  description: Total Commands
+  format: n0
+  aggregate: Max
+  reduce: max
+
+- name: npgsql-counter/current-commands
+  measurement: npgsql-counter/current-commands
+  description: Max Active Commands per second
+  format: n0
+  aggregate: Max
+  reduce: max
+
+- name: npgsql-counter/failed-commands
+  measurement: npgsql-counter/failed-commands
+  description: Total Failed Commands
+  format: n0
+  aggregate: Max
+  reduce: max
+
+- name: npgsql-counter/prepared-commands-ratio
+  measurement: npgsql-counter/prepared-commands-ratio
+  description: Max Prepared Commands Ratio
+  format: n0
+  aggregate: Max
+  reduce: max
+
+- name: npgsql-counter/connection-pools
+  measurement: npgsql-counter/connection-pools
+  description: Max Connection Pools
+  format: n0
+  aggregate: Max
+  reduce: max
+
+- name: npgsql-counter/idle-connections
+  measurement: npgsql-counter/idle-connections
+  description: Max Idle Connections
+  format: n0
+  aggregate: Max
+  reduce: max
+
+- name: npgsql-counter/busy-connections
+  measurement: npgsql-counter/busy-connections
+  description: Max Busy Connections
+  format: n0
+  aggregate: Max
+  reduce: max
+
+- name: npgsql-counter/multiplexing-average-commands-per-batch
+  measurement: npgsql-counter/multiplexing-average-commands-per-batch
+  description: Max Average commands per multiplexing batch per second
+  format: n0
+  aggregate: Max
+  reduce: max
+
+- name: npgsql-counter/multiplexing-average-waits-per-batch
+  measurement: npgsql-counter/multiplexing-average-waits-per-batch
+  description: Max Average waits per multiplexing batch per second
+  format: n0
+  aggregate: Max
+  reduce: max
+
+- name: npgsql-counter/multiplexing-average-write-time-per-batch
+  measurement: npgsql-counter/multiplexing-average-write-time-per-batch
+  description: Max Average write time per multiplexing batch (us) per second
+  format: n0
+  aggregate: Max
+  reduce: max
+
 defaultScripts:
   - |
     function max(values) {
@@ -609,10 +873,6 @@ defaultScripts:
     function median(values) {
       return percentile(values, 50);
     }  
-
-    function count(values) {
-      return values.length;
-    }      
 
     function count(values) {
       return values.length;

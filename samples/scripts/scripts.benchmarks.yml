@@ -9,20 +9,25 @@ defaultScript:
     }
 
 scripts:
+
+  # displays a message using all different colors
   say_hello: |
     console.log("hello")
     console.info("world")
     console.warn("this is")
     console.error("scary")
 
+  # records the current date and time as a custom property
   add_current_time: |
     benchmarks.properties["time"] = new Date().toISOString();
 
+  # calculats the allocations per request by using results from application and load
   add_allocations_per_request: |
     var allocations = benchmarks.jobs.application.results["runtime-counter/alloc-rate"]
     var rps = benchmarks.jobs.load.results["wrk/requests"];
     benchmarks.jobs.application.results["alloc-per-request"] = allocations / rps;
 
+  # computes the 95th percentile of the working set from all the data points (measurements)
   add_p95_memory: |
     var memories = benchmarks.jobs.application.measurements[0]
       .filter(m => m.name == "benchmarks/working-set")
