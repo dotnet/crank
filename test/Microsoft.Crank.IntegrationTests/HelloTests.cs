@@ -248,8 +248,6 @@ namespace Microsoft.Crank.IntegrationTests
 
             cancel.Cancel();
 
-            var results = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(_crankTestsDirectory, "results.json")));
-            
             Assert.Contains("Lock Contention", result.StandardOutput);
         }        
     }
