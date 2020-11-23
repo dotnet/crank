@@ -35,6 +35,7 @@ Options:
   --chart                                                        Renders a chart for multi-value results.
   --chart-type [bar (default) | hex]                             Type of chart to render. Values are 'bar' (default) or 'hex'
   --chart-scale [off (default)| auto]                            Scale for chart. Values are 'off' (default) or 'auto'. When scale is off, the min value starts at 0.
+  --script [name]                                                Execute a named script available in the configuration files. Can be used multiple times.
 
   These options are specific to a Job service named [JOB]
 
@@ -113,7 +114,7 @@ Options:
     --application.endpoints http://asp-perf-lin:5001
     --application.sdkversion 5.0.100-alpha1-015721 
     --application.dotnetTrace true 
-    --application.collectCounters true 
+    --application.options.counterProviders System.Runtime 
 
     --load.endpoints http://asp-perf-win:5001 
     --load.source.localFolder ..\..\..\..\PipeliningClient\ 

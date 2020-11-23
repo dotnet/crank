@@ -141,7 +141,7 @@ namespace Microsoft.Crank.Controller
             _scenarioOption = app.Option("-s|--scenario", "Scenario to execute", CommandOptionType.SingleValue);
             _jobOption = app.Option("-j|--job", "Name of job to define", CommandOptionType.MultipleValue);
             _profileOption = app.Option("--profile", "Profile name", CommandOptionType.MultipleValue);
-            _scriptOption = app.Option("--script", "Script name", CommandOptionType.MultipleValue);
+            _scriptOption = app.Option("--script", "Execute a named script available in the configuration files. Can be used multiple times.", CommandOptionType.MultipleValue);
             _outputOption = app.Option("-o|--output", "Output filename", CommandOptionType.SingleValue);
             _compareOption = app.Option("--compare", "An optional filename to compare the results to. Can be used multiple times.", CommandOptionType.MultipleValue);
             _variableOption = app.Option("--variable", "Variable", CommandOptionType.MultipleValue);
