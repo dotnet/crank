@@ -3317,7 +3317,7 @@ namespace Microsoft.Crank.Agent
                 catch (HttpRequestException)
                 {
                     // No need to retry on a 404
-                    if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    if (response != null && response.StatusCode == System.Net.HttpStatusCode.NotFound)
                     {
                         break;
                     }
