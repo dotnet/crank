@@ -15,6 +15,8 @@
 |-------|------------|
 |**[Storing results](storing_results.md)** | Storing results locally or in a SQL Server database.
 |**[Using different .NET versions](dotnet_versions.md)** | Benchmarking with different .NET versions.
+|**[Collecting event counters](event_counters.md)** | Collecting predefined and custom event counters.
+|**[Post-processing results](post_processing.md)** | Adding custom results and running scripts.
 
 
 ## Reference documentation

@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
 using Microsoft.Crank.Agent;
+using System.Dynamic;
 
 namespace Microsoft.Crank.IntegrationTests
 {
@@ -87,6 +88,7 @@ namespace Microsoft.Crank.IntegrationTests
             var agentReadyTcs = new TaskCompletionSource<bool>();
             var stopAgentCts = new CancellationTokenSource();
 
+            // Start the agent
             var agent = ProcessUtil.RunAsync(
                 "dotnet", 
                 "exec crank-agent.dll", 
@@ -135,5 +137,118 @@ namespace Microsoft.Crank.IntegrationTests
             Assert.Contains("Requests/sec", result.StandardOutput);
             Assert.Contains(".NET Core SDK Version", result.StandardOutput);
         }
+
+        [Fact]
+        public async Task ExecutesScripts()
+        {
+            var agentReadyTcs = new TaskCompletionSource<bool>();
+            var stopAgentCts = new CancellationTokenSource();
+
+            // Start the agent
+            var agent = ProcessUtil.RunAsync(
+                "dotnet", 
+                "exec crank-agent.dll", 
+                workingDirectory: _crankAgentDirectory,
+                captureOutput: true,
+                throwOnError: false,
+                timeout: TimeSpan.FromMinutes(5),
+                cancellationToken: stopAgentCts.Token,
+                outputDataReceived: t => 
+                { 
+                    _output.WriteLine($"[AGT] {t}");
+
+                    if (t.Contains("Agent ready"))
+                    {
+                        agentReadyTcs.SetResult(true);
+                    }
+                } 
+            );
+            
+            // Wait either for the message of the agent to stop
+            await Task.WhenAny(agentReadyTcs.Task, agent);
+
+            _output.WriteLine($"Starting controller");
+
+            var result = await ProcessUtil.RunAsync(
+                "dotnet", 
+                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --config ./assets/scripts.benchmarks.yml --script add_current_time --output results.json", 
+                workingDirectory: _crankTestsDirectory,
+                captureOutput: true,
+                timeout: TimeSpan.FromMinutes(5),
+                throwOnError: false,
+                outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); } 
+            );
+
+            Assert.Equal(0, result.ExitCode);
+                
+            stopAgentCts.Cancel();
+
+            var cancel = new CancellationTokenSource();
+
+            // Give 5 seconds to the agent to stop
+            await Task.WhenAny(agent, Task.Delay(TimeSpan.FromSeconds(5), cancel.Token));
+
+            cancel.Cancel();
+
+            var results = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(_crankTestsDirectory, "results.json")));
+            
+            Assert.Contains("a default script", result.StandardOutput);
+            Assert.NotEmpty(results.RootElement.GetProperty("jobResults").GetProperty("properties").GetProperty("time").GetString());
+        }
+
+        [Fact]
+        public async Task DotnetCounters()
+        {
+            var agentReadyTcs = new TaskCompletionSource<bool>();
+            var stopAgentCts = new CancellationTokenSource();
+
+            // Start the agent
+            var agent = ProcessUtil.RunAsync(
+                "dotnet", 
+                "exec crank-agent.dll", 
+                workingDirectory: _crankAgentDirectory,
+                captureOutput: true,
+                throwOnError: false,
+                timeout: TimeSpan.FromMinutes(5),
+                cancellationToken: stopAgentCts.Token,
+                outputDataReceived: t => 
+                { 
+                    _output.WriteLine($"[AGT] {t}");
+
+                    if (t.Contains("Agent ready"))
+                    {
+                        agentReadyTcs.SetResult(true);
+                    }
+                } 
+            );
+            
+            // Wait either for the message of the agent to stop
+            await Task.WhenAny(agentReadyTcs.Task, agent);
+
+            _output.WriteLine($"Starting controller");
+
+            var result = await ProcessUtil.RunAsync(
+                "dotnet", 
+                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --application.options.counterProviders System.Runtime", 
+                workingDirectory: _crankTestsDirectory,
+                captureOutput: true,
+                timeout: TimeSpan.FromMinutes(5),
+                throwOnError: false,
+                outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); } 
+            );
+
+            Assert.Equal(0, result.ExitCode);
+                
+            stopAgentCts.Cancel();
+
+            var cancel = new CancellationTokenSource();
+
+            // Give 5 seconds to the agent to stop
+            await Task.WhenAny(agent, Task.Delay(TimeSpan.FromSeconds(5), cancel.Token));
+
+            cancel.Cancel();
+
+            Assert.Contains("Lock Contention", result.StandardOutput);
+        }        
     }
 }

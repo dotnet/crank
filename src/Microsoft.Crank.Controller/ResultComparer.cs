@@ -85,7 +85,7 @@ namespace Microsoft.Crank.Controller
 
                     var cell = new Cell();
 
-                    cell.Elements.Add(new CellElement() { Text = metadata.ShortDescription, Alignment = CellTextAlignment.Left });
+                    cell.Elements.Add(new CellElement() { Text = metadata.Description, Alignment = CellTextAlignment.Left });
 
                     row.Add(cell);
 

@@ -1,0 +1,10 @@
+defaultScripts:
+  - |
+    console.log("a default script")
+
+scripts:
+
+  # records the current date and time as a custom property
+  add_current_time: |
+    benchmarks.properties["time"] = new Date().toISOString();
+
