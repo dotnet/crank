@@ -579,11 +579,11 @@ namespace Microsoft.Crank.RegressionBot
                             Console.WriteLine($"Stdev: {standardDeviation} from values {JsonConvert.SerializeObject(stdevs)}");
                         }
                         
-                        var value1 = Math.Abs(values[i+1] - values[i]);
-                        var value2 = Math.Abs(values[i+2] - values[i]);
-                        var value3 = Math.Abs(values[i+3] - values[i+2]);
-                        var value4 = Math.Abs(values[i+4] - values[i+2]);
-
+                        var value1 = values[i+1] - values[i];
+                        var value2 = values[i+2] - values[i];
+                        var value3 = values[i+3] - values[i+2];
+                        var value4 = values[i+4] - values[i+2];
+                        
                         if (_options.Verbose)
                         {
                             Console.WriteLine($"{descriptor} {probe.Path} {resultSet[i+2].Result.DateTimeUtc} {values[i+0]} {values[i+1]} {values[i+2]} {values[i+3]} ({value3}) {values[i+4]} ({value4}) / {standardDeviation * probe.Threshold:n0}");
@@ -595,28 +595,28 @@ namespace Microsoft.Crank.RegressionBot
                         {
                             case ThresholdUnits.StDev:
                                 // factor of standard deviation
-                                hasRegressed = value1 < standardDeviation
-                                    && value2 < standardDeviation
-                                    && value3 >= probe.Threshold * standardDeviation
-                                    && value4 >= probe.Threshold * standardDeviation
+                                hasRegressed = Math.Abs(value1) < standardDeviation
+                                    && Math.Abs(value2) < standardDeviation
+                                    && Math.Abs(value3) >= probe.Threshold * standardDeviation
+                                    && Math.Abs(value4) >= probe.Threshold * standardDeviation
                                     && Math.Sign(value3) == Math.Sign(value4);
 
                                 break;
                             case ThresholdUnits.Percent:
                                 // percentage of the average of values
-                                hasRegressed = value1 < average * (probe.Threshold / 100)
-                                    && value2 < average * (probe.Threshold / 100)
-                                    && value3 >= average * (probe.Threshold / 100)
-                                    && value4 >= average * (probe.Threshold / 100)
+                                hasRegressed = Math.Abs(value1) < average * (probe.Threshold / 100)
+                                    && Math.Abs(value2) < average * (probe.Threshold / 100)
+                                    && Math.Abs(value3) >= average * (probe.Threshold / 100)
+                                    && Math.Abs(value4) >= average * (probe.Threshold / 100)
                                     && Math.Sign(value3) == Math.Sign(value4);
 
                                 break;                            
                             case ThresholdUnits.Absolute:
                                 // absolute deviation
-                                hasRegressed = value1 < probe.Threshold
-                                    && value2 < probe.Threshold
-                                    && value3 >= probe.Threshold
-                                    && value4 >= probe.Threshold
+                                hasRegressed = Math.Abs(value1) < probe.Threshold
+                                    && Math.Abs(value2) < probe.Threshold
+                                    && Math.Abs(value3) >= probe.Threshold
+                                    && Math.Abs(value4) >= probe.Threshold
                                     && Math.Sign(value3) == Math.Sign(value4);
 
                                 break;
