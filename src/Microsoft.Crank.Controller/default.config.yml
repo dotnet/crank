@@ -321,13 +321,6 @@ results: # creates results from measurements
   format: n0
   aggregate: max
   reduce: max
-
-- name: runtime-counter/cpu-usage/avg
-  measurement: runtime-counter/cpu-usage
-  description: Avg CPU Usage (%)
-  format: n0
-  aggregate: percentile95
-  reduce: max
   
 - name: runtime-counter/working-set
   measurement: runtime-counter/working-set
@@ -859,7 +852,7 @@ defaultScripts:
     }
 
     function all(values) {
-      return values.length == 0 ? null : values[0];
+      return values.length == 0 ? [] : values;
     }
 
     function avg(values) {
