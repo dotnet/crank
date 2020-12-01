@@ -8,10 +8,30 @@ namespace Microsoft.Crank.Agent
 {
     public static class Log
     {
-        public static void WriteLine(string message)
+        public static void WriteLine(string message, bool timestamp = true)
         {
             var time = DateTime.Now.ToString("hh:mm:ss.fff");
-            Console.WriteLine($"[{time}] {message}");
+            if (timestamp)
+            {
+                Console.WriteLine($"[{time}] {message}");
+            }
+            else
+            {
+                Console.WriteLine($"{message}");
+            }
+        }
+
+        public static void Write(string message, bool timestamp = true)
+        {
+            var time = DateTime.Now.ToString("hh:mm:ss.fff");
+            if (timestamp)
+            {
+                Console.Write($"[{time}] {message}");
+            }
+            else
+            {
+                Console.Write($"{message}");
+            }
         }
     }
 }

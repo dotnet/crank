@@ -703,6 +703,7 @@ namespace Microsoft.Crank.Agent
                                             {
                                                 if (context.Disposed || context.Timer == null)
                                                 {
+                                                    Log.WriteLine("[Warning!!!] Heartbeat still active while context is disposed");
                                                     return;
                                                 }
 
@@ -716,11 +717,15 @@ namespace Microsoft.Crank.Agent
                                                     // Stops the job in case the driver is not running
                                                     if (now - job.LastDriverCommunicationUtc > DriverTimeout)
                                                     {
-                                                        Log.WriteLine($"[Heartbeat] Driver didn't communicate for {DriverTimeout}. Halting job '{job.Service}' ({job.Id}).");
-                                                        if (job.State == JobState.Running || job.State == JobState.TraceCollected)
+                                                        if (job.State == JobState.Running)
                                                         {
+                                                            Log.WriteLine($"[Heartbeat] Driver didn't communicate for {DriverTimeout}. Halting job '{job.Service}' ({job.Id}).");
                                                             Log.WriteLine($"{job.State} -> Stopping");
                                                             job.State = JobState.Stopping;
+                                                        }
+                                                        else
+                                                        {
+                                                            Log.WriteLine($"Heartbeat is active, job is '{job.State}' and driver is AWOL. Job deletion must have failed.");
                                                         }
                                                     }
 
@@ -1098,7 +1103,7 @@ namespace Microsoft.Crank.Agent
                                 {
                                     try
                                     {
-                                        Log.WriteLine($"Stopping counter event pipes for job '{job.Service}' ({job.Id})");
+                                        Log.Write($"Stopping counter event pipes for job '{job.Service}' ({job.Id})");
                                         if (process != null && !eventPipeTerminated && !process.HasExited)
                                         {
                                             EventPipeClient.StopTracing(process.Id, eventPipeSessionId);
@@ -1110,6 +1115,7 @@ namespace Microsoft.Crank.Agent
                                     }
                                                                         
                                     eventPipeTask = null;
+                                    Log.WriteLine($"... Success!", false);
                                 }
                             }
 
@@ -1120,7 +1126,7 @@ namespace Microsoft.Crank.Agent
                                 {
                                     try
                                     {
-                                        Log.WriteLine($"Stopping measurement event pipes for job '{job.Service}' ({job.Id})");
+                                        Log.Write($"Stopping measurement event pipes for job '{job.Service}' ({job.Id})");
                                         if (process != null && !measurementsTerminated && !process.HasExited)
                                         {
                                             EventPipeClient.StopTracing(process.Id, measurementsSessionId);
@@ -1132,11 +1138,40 @@ namespace Microsoft.Crank.Agent
                                     }
 
                                     measurementsTask = null;
+                                    Log.WriteLine($"... Success!", false);
                                 }
                             }
 
                             async Task StopJobAsync(bool abortCollection = false)
                             {
+                                // Check if we already passed here
+                                if (context.Timer == null)
+                                {
+                                    return;
+                                }
+                                
+                                Log.Write("Stopping heartbeat");
+                                    
+                                Monitor.Enter(_synLock);
+
+                                try
+                                {
+                                    context.Timer?.Dispose();
+                                    Log.WriteLine("... Success!", false);
+                                }
+                                catch (Exception e)
+                                {
+                                    Log.WriteLine("... Error!", false);
+                                    Log.WriteLine(e.ToString());
+                                }
+                                finally
+                                {
+                                    context.Timer = null;
+                                    context.Disposed = true;
+
+                                    Monitor.Exit(_synLock);
+                                }
+
                                 // Delete the benchmarks group
                                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && (job.MemoryLimitInBytes > 0 || job.CpuLimitRatio > 0 || !String.IsNullOrEmpty(job.CpuSet)))
                                 {
@@ -1145,29 +1180,9 @@ namespace Microsoft.Crank.Agent
                                     await ProcessUtil.RunAsync("cgdelete", $"cpu,memory,cpuset:{controller}", log: true, throwOnError: false);
                                 }
 
-                                // Check if we already passed here
-                                if (context.Timer == null)
-                                {
-                                    return;
-                                }
-
                                 StopCounters();
 
                                 StopMeasurement();
-                                
-                                Monitor.Enter(_synLock);
-
-                                try
-                                {
-                                    context.Disposed = true;
-
-                                    context.Timer?.Dispose();
-                                    context.Timer = null;
-                                }
-                                finally
-                                {
-                                    Monitor.Exit(_synLock);
-                                }
 
                                 if (process != null && !process.HasExited)
                                 {
