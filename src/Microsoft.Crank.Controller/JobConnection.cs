@@ -660,11 +660,11 @@ namespace Microsoft.Crank.Controller
 
                 try
                 {
-                    await _httpClient.DownloadFileAsync(uri, _serverJobUri, traceDestination);
+                    await _httpClient.DownloadFileWithProgressAsync(uri, _serverJobUri, traceDestination);
                 }
-                catch
+                catch (Exception e)
                 {
-                    Log.Write($"The trace was not captured on the server");
+                    Log.Write($"The trace was not captured on the server: " + e.ToString());
                 }
             }
             catch (Exception e)
