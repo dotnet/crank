@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Threading.Tasks;
@@ -21,6 +22,8 @@ public class GZipFileResult : ActionResult
     {
         context.HttpContext.Response.Headers.Add(HeaderNames.Vary, HeaderNames.ContentEncoding);
         var stream = File.OpenRead(FileName);
+        
+        context.HttpContext.Response.Headers["FileLength"] = new FileInfo(FileName).Length.ToString(CultureInfo.InvariantCulture);
         
         try
         {
