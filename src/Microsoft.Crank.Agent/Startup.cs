@@ -3798,6 +3798,11 @@ namespace Microsoft.Crank.Agent
                         }
                         catch (TimeoutException)
                         {
+                            Log.WriteLine("Counters EventPipeClient.CollectTracing -> Timeout");
+                        }
+                        catch (Exception e)
+                        {
+                            Log.WriteLine("Counters EventPipeClient.CollectTracing -> " + e.ToString());
                         }
 
                         await Task.Delay(100);
@@ -3923,7 +3928,13 @@ namespace Microsoft.Crank.Agent
                         }
                         catch (TimeoutException)
                         {
+                            Log.WriteLine("Measurement EventPipeClient.CollectTracing -> Timeout");
                         }
+                        catch (Exception e)
+                        {
+                            Log.WriteLine("Measurement EventPipeClient.CollectTracing -> " + e.ToString());
+                        }
+
 
                         await Task.Delay(100);
                     }
@@ -3952,6 +3963,8 @@ namespace Microsoft.Crank.Agent
                             //    Value = eventData.PayloadByName("value")
                             //});
                             //}
+
+                            Log.Write("Measurement received");
 
                             if (eventData.EventName.StartsWith("Measure"))
                             {
