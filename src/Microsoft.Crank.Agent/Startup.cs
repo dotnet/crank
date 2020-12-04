@@ -1182,7 +1182,9 @@ namespace Microsoft.Crank.Agent
 
                                 StopCounters();
 
+                                Log.Write("StopMeasurement:Before");
                                 StopMeasurement();
+                                Log.Write("StopMeasurement:After");
 
                                 if (process != null && !process.HasExited)
                                 {
