@@ -126,6 +126,7 @@ namespace Microsoft.Crank.Agent
         private static Task eventPipeTask = null;
         private static bool eventPipeTerminated = false;
         private static EventPipeSession measurementsSession = null;
+        private static EventPipeEventSource measurementsSource = null;
 
         static Startup()
         {
@@ -427,6 +428,7 @@ namespace Microsoft.Crank.Agent
                             eventPipeTerminated = context.EventPipeTerminated;
 
                             measurementsSession = context.MeasurementsSession;
+                            measurementsSource = context.MeasurementsSource;
 
                             if (job.State == JobState.New)
                             {
@@ -1116,25 +1118,38 @@ namespace Microsoft.Crank.Agent
                             void StopMeasurement()
                             {
                                 // Releasing Measurements
-                                if (measurementsSession != null)
+                                
+                                Log.Write($"Stopping measurement event pipes for job '{job.Service}' ({job.Id})");
+                                
+                                try
                                 {
-                                    try
+                                    if (measurementsSession != null)
                                     {
-                                        Log.Write($"Stopping measurement event pipes for job '{job.Service}' ({job.Id})");
-                                        if (process != null && !process.HasExited)
-                                        {
-                                            measurementsSession.Stop();
-                                            measurementsSession.Dispose();
-                                            measurementsSession = null;
-                                        }
+                                        measurementsSession.Stop();
+                                        measurementsSession.Dispose();
+                                        measurementsSession = null;
                                     }
-                                    catch (Exception e)
-                                    {
-                                        Log.WriteLine("Error in StopMeasurement(): " + e.ToString());
-                                    }
-
-                                    Log.WriteLine($"... Success!", false);
                                 }
+                                catch (Exception e)
+                                {
+                                    Log.WriteLine("Error in StopMeasurement(): " + e.ToString());
+                                }
+
+                                try
+                                {
+                                    if (measurementsSource != null)
+                                    {
+                                        measurementsSource.StopProcessing();
+                                        measurementsSource.Dispose();
+                                        measurementsSource = null;
+                                    }
+                                }
+                                catch (Exception e)
+                                {
+                                    Log.WriteLine("Error in StopMeasurement(): " + e.ToString());
+                                }
+
+                                Log.WriteLine($"... Success!", false);
                             }
 
                             async Task StopJobAsync(bool abortCollection = false)
@@ -1356,6 +1371,7 @@ namespace Microsoft.Crank.Agent
                             context.EventPipeTerminated = eventPipeTerminated;
 
                             context.MeasurementsSession = measurementsSession;
+                            context.MeasurementsSource = measurementsSource;
 
                             await Task.Delay(1000);
                         }
@@ -3930,9 +3946,9 @@ namespace Microsoft.Crank.Agent
                 return;
             }
 
-            var source = new EventPipeEventSource(measurementsSession.EventStream);
+            measurementsSource = new EventPipeEventSource(measurementsSession.EventStream);
 
-            source.Dynamic.All += (TraceEvent eventData) => 
+            measurementsSource.Dynamic.All += (TraceEvent eventData) => 
             {
                 // We only track event counters for System.Runtime
                 if (eventData.ProviderName == "Benchmarks")
@@ -3977,10 +3993,9 @@ namespace Microsoft.Crank.Agent
             try
             {
                 // Run asynchronously so it doesn't block the agent
-                Task.Run(() => 
+                Task.Run(() =>
                 {
-                    source.Process();
-
+                    measurementsSource.Process();
                     Log.WriteLine($"Event pipe source released");
                 });
             }
