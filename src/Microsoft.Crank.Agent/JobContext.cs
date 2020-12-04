@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Crank.Models;
+using Microsoft.Diagnostics.NETCore.Client;
 
 namespace Microsoft.Crank.Agent
 {
@@ -31,8 +32,6 @@ namespace Microsoft.Crank.Agent
         public Task EventPipeTask { get; set; }
         public bool EventPipeTerminated { get; set; }
 
-        public ulong MeasurementsSessionId { get; set; }
-        public Task MeasurementsTask { get; set; }
-        public bool MeasurementsTerminated { get; set; }
+        public EventPipeSession MeasurementsSession { get; set; }
     }
 }

@@ -22,11 +22,10 @@ using Microsoft.Crank.Models;
 using BenchmarksServer;
 using McMaster.Extensions.CommandLineUtils;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.Diagnostics.Tools.RuntimeClient;
 using Microsoft.Diagnostics.Tools.Trace;
 using Microsoft.Diagnostics.Tracing;
+using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -126,10 +125,7 @@ namespace Microsoft.Crank.Agent
         private static ulong eventPipeSessionId = 0;
         private static Task eventPipeTask = null;
         private static bool eventPipeTerminated = false;
-
-        private static ulong measurementsSessionId = 0;
-        private static Task measurementsTask = null;
-        private static bool measurementsTerminated = false;
+        private static EventPipeSession measurementsSession = null;
 
         static Startup()
         {
@@ -430,9 +426,7 @@ namespace Microsoft.Crank.Agent
                             eventPipeTask = context.EventPipeTask;
                             eventPipeTerminated = context.EventPipeTerminated;
 
-                            measurementsSessionId = context.MeasurementsSessionId;
-                            measurementsTask = context.MeasurementsTask;
-                            measurementsTerminated = context.MeasurementsTerminated;
+                            measurementsSession = context.MeasurementsSession;
 
                             if (job.State == JobState.New)
                             {
@@ -1098,46 +1092,47 @@ namespace Microsoft.Crank.Agent
 
                             void StopCounters()
                             {
-                                // Releasing EventPipe
-                                if (eventPipeTask != null)
-                                {
-                                    try
-                                    {
-                                        Log.Write($"Stopping counter event pipes for job '{job.Service}' ({job.Id})");
-                                        if (process != null && !eventPipeTerminated && !process.HasExited)
-                                        {
-                                            EventPipeClient.StopTracing(process.Id, eventPipeSessionId);
-                                        }
-                                    }
-                                    catch (EndOfStreamException)
-                                    {
-                                        // If the app we're monitoring exits abruptly, this may throw in which case we just swallow the exception and exit gracefully.
-                                    }
+                                // // Releasing EventPipe
+                                // if (eventPipeTask != null)
+                                // {
+                                //     try
+                                //     {
+                                //         Log.Write($"Stopping counter event pipes for job '{job.Service}' ({job.Id})");
+                                //         if (process != null && !eventPipeTerminated && !process.HasExited)
+                                //         {
+                                //             EventPipeClient.StopTracing(process.Id, eventPipeSessionId);
+                                //         }
+                                //     }
+                                //     catch (EndOfStreamException)
+                                //     {
+                                //         // If the app we're monitoring exits abruptly, this may throw in which case we just swallow the exception and exit gracefully.
+                                //     }
                                                                         
-                                    eventPipeTask = null;
-                                    Log.WriteLine($"... Success!", false);
-                                }
+                                //     eventPipeTask = null;
+                                //     Log.WriteLine($"... Success!", false);
+                                // }
                             }
 
                             void StopMeasurement()
                             {
                                 // Releasing Measurements
-                                if (measurementsTask != null)
+                                if (measurementsSession != null)
                                 {
                                     try
                                     {
                                         Log.Write($"Stopping measurement event pipes for job '{job.Service}' ({job.Id})");
-                                        if (process != null && !measurementsTerminated && !process.HasExited)
+                                        if (process != null && !process.HasExited)
                                         {
-                                            EventPipeClient.StopTracing(process.Id, measurementsSessionId);
+                                            measurementsSession.Stop();
+                                            measurementsSession.Dispose();
+                                            measurementsSession = null;
                                         }
                                     }
-                                    catch (EndOfStreamException)
+                                    catch (Exception e)
                                     {
-                                        // If the app we're monitoring exits abruptly, this may throw in which case we just swallow the exception and exit gracefully.
+                                        Log.WriteLine("Error in StopMeasurement(): " + e.ToString());
                                     }
 
-                                    measurementsTask = null;
                                     Log.WriteLine($"... Success!", false);
                                 }
                             }
@@ -1360,9 +1355,7 @@ namespace Microsoft.Crank.Agent
                             context.EventPipeTask = eventPipeTask;
                             context.EventPipeTerminated = eventPipeTerminated;
 
-                            context.MeasurementsSessionId = measurementsSessionId;
-                            context.MeasurementsTask = measurementsTask;
-                            context.MeasurementsTerminated = measurementsTerminated;
+                            context.MeasurementsSession = measurementsSession;
 
                             await Task.Delay(1000);
                         }
@@ -3764,131 +3757,131 @@ namespace Microsoft.Crank.Agent
 
         private static void StartCounters(Job job)
         {
-            eventPipeTerminated = false;
-            eventPipeTask = new Task(async () =>
-            {
-                var providerNames = job.Counters.Select(x => x.Provider).Distinct().ToArray();
+            // eventPipeTerminated = false;
+            // eventPipeTask = new Task(async () =>
+            // {
+            //     var providerNames = job.Counters.Select(x => x.Provider).Distinct().ToArray();
 
-                Log.WriteLine($"Listening to counter event pipes (providers: {string.Join(", ", providerNames)})");
+            //     Log.WriteLine($"Listening to counter event pipes (providers: {string.Join(", ", providerNames)})");
 
-                try
-                {
-                    var providerList = providerNames
-                        .Select(p => new EventPipeProvider(
-                            name: p,
-                            eventLevel: EventLevel.Informational,
-                            arguments: new Dictionary<string, string>() 
-                                { { "EventCounterIntervalSec", "1" } })
-                        )
-                        .ToList();
+            //     try
+            //     {
+            //         var providerList = providerNames
+            //             .Select(p => new EventPipeProvider(
+            //                 name: p,
+            //                 eventLevel: EventLevel.Informational,
+            //                 arguments: new Dictionary<string, string>() 
+            //                     { { "EventCounterIntervalSec", "1" } })
+            //             )
+            //             .ToList();
 
-                    var configuration = new EventPipeSessionConfiguration(
-                            circularBufferSizeMB: 1000,
-                            format: EventPipeSerializationFormat.NetTrace,
-                            providers: providerList);
+            //         var configuration = new EventPipeSessionConfiguration(
+            //                 circularBufferSizeMB: 1000,
+            //                 format: EventPipeSerializationFormat.NetTrace,
+            //                 providers: providerList);
 
-                    EventPipeEventSource source = null;
-                    Stream binaryReader = null;
+            //         EventPipeEventSource source = null;
+            //         Stream binaryReader = null;
 
-                    var retries = 10;
-                    while (retries-- > 0)
-                    {
-                        try
-                        {
-                            binaryReader = EventPipeClient.CollectTracing(job.ProcessId, configuration, out eventPipeSessionId);
-                            break;
-                        }
-                        catch (TimeoutException)
-                        {
-                            Log.WriteLine("Counters EventPipeClient.CollectTracing -> Timeout");
-                        }
-                        catch (Exception e)
-                        {
-                            Log.WriteLine("Counters EventPipeClient.CollectTracing -> " + e.ToString());
-                        }
+            //         var retries = 10;
+            //         while (retries-- > 0)
+            //         {
+            //             try
+            //             {
+            //                 binaryReader = EventPipeClient.CollectTracing(job.ProcessId, configuration, out eventPipeSessionId);
+            //                 break;
+            //             }
+            //             catch (TimeoutException)
+            //             {
+            //                 Log.WriteLine("Counters EventPipeClient.CollectTracing -> Timeout");
+            //             }
+            //             catch (Exception e)
+            //             {
+            //                 Log.WriteLine("Counters EventPipeClient.CollectTracing -> " + e.ToString());
+            //             }
 
-                        await Task.Delay(100);
-                    }
+            //             await Task.Delay(100);
+            //         }
 
-                    if (retries == -1)
-                    {
-                        Log.WriteLine("[ERROR] Failed to create counters event pipe client");
-                        return;
-                    }
+            //         if (retries == -1)
+            //         {
+            //             Log.WriteLine("[ERROR] Failed to create counters event pipe client");
+            //             return;
+            //         }
 
-                    source = new EventPipeEventSource(binaryReader);
+            //         source = new EventPipeEventSource(binaryReader);
 
-                    source.Dynamic.All += (eventData) =>
-                    {
-                        // We only track event counters
-                        if (!eventData.EventName.Equals("EventCounters"))
-                        {
-                            return;
-                        }
+            //         source.Dynamic.All += (eventData) =>
+            //         {
+            //             // We only track event counters
+            //             if (!eventData.EventName.Equals("EventCounters"))
+            //             {
+            //                 return;
+            //             }
 
-                        var payloadVal = (IDictionary<string, object>)(eventData.PayloadValue(0));
-                        var payloadFields = (IDictionary<string, object>)(payloadVal["Payload"]);
+            //             var payloadVal = (IDictionary<string, object>)(eventData.PayloadValue(0));
+            //             var payloadFields = (IDictionary<string, object>)(payloadVal["Payload"]);
 
-                        var counterName = payloadFields["Name"].ToString();
+            //             var counterName = payloadFields["Name"].ToString();
 
-                        // Skip value if the provider is unknown
-                        if (!providerNames.Contains(eventData.ProviderName, StringComparer.OrdinalIgnoreCase))
-                        {
-                            return;
-                        }
+            //             // Skip value if the provider is unknown
+            //             if (!providerNames.Contains(eventData.ProviderName, StringComparer.OrdinalIgnoreCase))
+            //             {
+            //                 return;
+            //             }
 
-                        // TODO: optimize by pre-computing a searchable structure
-                        var counter = job.Counters.FirstOrDefault(x => x.Provider.Equals(eventData.ProviderName, StringComparison.OrdinalIgnoreCase) && x.Name.Equals(counterName, StringComparison.OrdinalIgnoreCase));
+            //             // TODO: optimize by pre-computing a searchable structure
+            //             var counter = job.Counters.FirstOrDefault(x => x.Provider.Equals(eventData.ProviderName, StringComparison.OrdinalIgnoreCase) && x.Name.Equals(counterName, StringComparison.OrdinalIgnoreCase));
 
-                        if (counter == null)
-                        {
-                            // The counter is not tracked
-                            return;
-                        }
+            //             if (counter == null)
+            //             {
+            //                 // The counter is not tracked
+            //                 return;
+            //             }
 
-                        var measurement = new Measurement();
+            //             var measurement = new Measurement();
 
-                        measurement.Name = counter.Measurement;
+            //             measurement.Name = counter.Measurement;
 
-                        switch (payloadFields["CounterType"])
-                        {
-                            case "Sum":
-                                measurement.Value = payloadFields["Increment"];
-                                break;
-                            case "Mean":
-                                measurement.Value = payloadFields["Mean"];
-                                break;
-                            default:
-                                Log.WriteLine($"Unknown CounterType: {payloadFields["CounterType"]}");
-                                break;
-                        }
+            //             switch (payloadFields["CounterType"])
+            //             {
+            //                 case "Sum":
+            //                     measurement.Value = payloadFields["Increment"];
+            //                     break;
+            //                 case "Mean":
+            //                     measurement.Value = payloadFields["Mean"];
+            //                     break;
+            //                 default:
+            //                     Log.WriteLine($"Unknown CounterType: {payloadFields["CounterType"]}");
+            //                     break;
+            //             }
 
-                        measurement.Timestamp = eventData.TimeStamp;
+            //             measurement.Timestamp = eventData.TimeStamp;
 
-                        job.Measurements.Enqueue(measurement);
-                    };
+            //             job.Measurements.Enqueue(measurement);
+            //         };
 
-                    source.Process();
-                }
-                catch (Exception ex)
-                {
-                    if (ex.Message == "Read past end of stream.")
-                    {
-                        // Expected if the process has exited by itself
-                        // and the event pipe is till trying to read from it
-                    }
-                    else
-                    {
-                        Log.WriteLine($"[ERROR] {ex.ToString()}");
-                    }
-                }
-                finally
-                {
-                    eventPipeTerminated = true; // This indicates that the runtime is done. We shouldn't try to talk to it anymore.
-                }
-            });
+            //         source.Process();
+            //     }
+            //     catch (Exception ex)
+            //     {
+            //         if (ex.Message == "Read past end of stream.")
+            //         {
+            //             // Expected if the process has exited by itself
+            //             // and the event pipe is till trying to read from it
+            //         }
+            //         else
+            //         {
+            //             Log.WriteLine($"[ERROR] {ex.ToString()}");
+            //         }
+            //     }
+            //     finally
+            //     {
+            //         eventPipeTerminated = true; // This indicates that the runtime is done. We shouldn't try to talk to it anymore.
+            //     }
+            // });
 
-            eventPipeTask.Start();
+            // eventPipeTask.Start();
         }
 
         private static void StartMeasurement(Job job)
@@ -3898,122 +3891,113 @@ namespace Microsoft.Crank.Agent
                 throw new ArgumentException($"Undefined process id for '{job.Service}'");
             }
 
-            measurementsTerminated = false;
-            measurementsTask = new Task(async () =>
+            Log.WriteLine("Starting measurement");
+
+            var client = new DiagnosticsClient(job.ProcessId);
+
+            var providerList = new List<EventPipeProvider>()
+                {
+                    new EventPipeProvider(
+                        name: "Benchmarks",
+                        eventLevel: EventLevel.Verbose),
+                };
+
+            // var session = client.StartEventPipeSession(providerList);
+
+            // EventPipeEventSource source = null;
+            // Stream binaryReader = null;
+
+            // var retries = 10;
+            // while (retries-- > 0)
+            // {
+            //     try
+            //     {
+            //         binaryReader = EventPipeClient.CollectTracing(job.ProcessId, configuration, out measurementsSessionId);
+            //         break;
+            //     }
+            //     catch (TimeoutException)
+            //     {
+            //         Log.WriteLine("Measurement EventPipeClient.CollectTracing -> Timeout");
+            //     }
+            //     catch (Exception e)
+            //     {
+            //         Log.WriteLine("Measurement EventPipeClient.CollectTracing -> " + e.ToString());
+            //     }
+
+
+            //     await Task.Delay(100);
+            // }
+
+            // if (retries == -1)
+            // {
+            //     Log.WriteLine("[ERROR] Failed to create measurements event pipe client");
+            //     return;
+            // }
+
+            measurementsSession = client.StartEventPipeSession(providerList);
+        
+            var source = new EventPipeEventSource(measurementsSession.EventStream);
+
+            source.Dynamic.All += (TraceEvent eventData) => 
             {
-                Log.WriteLine("Starting measurement");
-
-                try
+                // We only track event counters for System.Runtime
+                if (eventData.ProviderName == "Benchmarks")
                 {
-                    var providerList = new List<EventPipeProvider>()
-                        {
-                            new EventPipeProvider(
-                                name: "Benchmarks",
-                                eventLevel: EventLevel.Verbose),
-                        };
+                    // TODO: Catch all event counters automatically
+                    // And configure the filterData in the provider
+                    //if (!eventData.EventName.Equals("EventCounters"))
+                    //{
+                    //job.Measurements.Enqueue(new Measurement
+                    //{
+                    //    Timestamp = eventData.TimeStamp,
+                    //    Name = eventData.PayloadByName("name").ToString(),
+                    //    Value = eventData.PayloadByName("value")
+                    //});
+                    //}
 
-                    var configuration = new EventPipeSessionConfiguration(
-                            circularBufferSizeMB: 1000,
-                            format: EventPipeSerializationFormat.NetTrace,
-                            providers: providerList);
+                    Log.Write("Measurement received");
 
-                    EventPipeEventSource source = null;
-                    Stream binaryReader = null;
-
-                    var retries = 10;
-                    while (retries-- > 0)
+                    if (eventData.EventName.StartsWith("Measure"))
                     {
-                        try
+                        job.Measurements.Enqueue(new Measurement
                         {
-                            binaryReader = EventPipeClient.CollectTracing(job.ProcessId, configuration, out measurementsSessionId);
-                            break;
-                        }
-                        catch (TimeoutException)
-                        {
-                            Log.WriteLine("Measurement EventPipeClient.CollectTracing -> Timeout");
-                        }
-                        catch (Exception e)
-                        {
-                            Log.WriteLine("Measurement EventPipeClient.CollectTracing -> " + e.ToString());
-                        }
-
-
-                        await Task.Delay(100);
+                            Timestamp = eventData.TimeStamp,
+                            Name = eventData.PayloadByName("name").ToString(),
+                            Value = eventData.PayloadByName("value")
+                        });
                     }
-
-                    if (retries == -1)
+                    else if (eventData.EventName == "Metadata")
                     {
-                        Log.WriteLine("[ERROR] Failed to create measurements event pipe client");
-                        return;
-                    }
-
-                    source = new EventPipeEventSource(binaryReader);
-
-                    source.Dynamic.All += (eventData) =>
-                    {
-                        // We only track event counters for System.Runtime
-                        if (eventData.ProviderName == "Benchmarks")
+                        job.Metadata.Enqueue(new MeasurementMetadata
                         {
-                            // TODO: Catch all event counters automatically
-                            // And configure the filterData in the provider
-                            //if (!eventData.EventName.Equals("EventCounters"))
-                            //{
-                            //job.Measurements.Enqueue(new Measurement
-                            //{
-                            //    Timestamp = eventData.TimeStamp,
-                            //    Name = eventData.PayloadByName("name").ToString(),
-                            //    Value = eventData.PayloadByName("value")
-                            //});
-                            //}
-
-                            Log.Write("Measurement received");
-
-                            if (eventData.EventName.StartsWith("Measure"))
-                            {
-                                job.Measurements.Enqueue(new Measurement
-                                {
-                                    Timestamp = eventData.TimeStamp,
-                                    Name = eventData.PayloadByName("name").ToString(),
-                                    Value = eventData.PayloadByName("value")
-                                });
-                            }
-                            else if (eventData.EventName == "Metadata")
-                            {
-                                job.Metadata.Enqueue(new MeasurementMetadata
-                                {
-                                    Source = "Benchmark",
-                                    Name = eventData.PayloadByName("name").ToString(),
-                                    Aggregate = Enum.Parse<Operation>(eventData.PayloadByName("aggregate").ToString(), true),
-                                    Reduce = Enum.Parse<Operation>(eventData.PayloadByName("reduce").ToString(), true),
-                                    ShortDescription = eventData.PayloadByName("shortDescription").ToString(),
-                                    LongDescription = eventData.PayloadByName("longDescription").ToString(),
-                                    Format = eventData.PayloadByName("format").ToString(),
-                                });
-                            }
-                        }
-                    };
-
-                    source.Process();
-                }
-                catch (Exception ex)
-                {
-                    if (ex.Message == "Read past end of stream.")
-                    {
-                        // Expected if the process has exited by itself
-                        // and the event pipe is till trying to read from it
-                    }
-                    else
-                    {
-                        Log.WriteLine($"[ERROR] {ex.ToString()}");
+                            Source = "Benchmark",
+                            Name = eventData.PayloadByName("name").ToString(),
+                            Aggregate = Enum.Parse<Operation>(eventData.PayloadByName("aggregate").ToString(), true),
+                            Reduce = Enum.Parse<Operation>(eventData.PayloadByName("reduce").ToString(), true),
+                            ShortDescription = eventData.PayloadByName("shortDescription").ToString(),
+                            LongDescription = eventData.PayloadByName("longDescription").ToString(),
+                            Format = eventData.PayloadByName("format").ToString(),
+                        });
                     }
                 }
-                finally
-                {
-                    measurementsTerminated = true; // This indicates that the runtime is done. We shouldn't try to talk to it anymore.
-                }
-            });
+            };
 
-            measurementsTask.Start();
+            try
+            {
+                source.Process();
+            }
+            catch (Exception e)
+            {
+                if (e.Message == "Read past end of stream.")
+                {
+                    // Expected if the process has exited by itself
+                    // and the event pipe is till trying to read from it
+                }
+                else
+                {
+                    Log.WriteLine($"[ERROR] {e.ToString()}");
+                }
+            }
         }
 
         private static void StartCollection(string workingDirectory, Job job)
@@ -4557,147 +4541,151 @@ namespace Microsoft.Crank.Agent
         /// </param>
         private static async Task<int> Collect(ManualResetEvent shouldExit, int processId, FileInfo output, int buffersize, string providers, TimeSpan duration)
         {
-            if (String.IsNullOrWhiteSpace(providers))
-            {
-                providers = "cpu-sampling";
-            }
+            await Task.Delay(0);
+            
+            // if (String.IsNullOrWhiteSpace(providers))
+            // {
+            //     providers = "cpu-sampling";
+            // }
 
-            var providerArguments = providers.Split(new [] { ',', ' '}, StringSplitOptions.RemoveEmptyEntries);
+            // var providerArguments = providers.Split(new [] { ',', ' '}, StringSplitOptions.RemoveEmptyEntries);
 
-            IEnumerable<EventPipeProvider> providerCollection = new List<EventPipeProvider>();
+            // IEnumerable<EventPipeProvider> providerCollection = new List<EventPipeProvider>();
 
-            foreach (var providerArgument in providerArguments)
-            {
-                // Is it a profile (cpu-sampling, ...)?
-                if (TraceExtensions.DotNETRuntimeProfiles.TryGetValue(providerArgument, out var profile))
-                {
-                    Log.WriteLine($"Adding dotnet-trace profiles: {providerArgument}");
-                    providerCollection = TraceExtensions.Merge(providerCollection, profile);
-                }
-                else
-                {
-                    // Is it a CLREvent set (GC+GCHandle)?
-                    var clrEvents = TraceExtensions.ToCLREventPipeProviders(providerArgument);
-                    if (clrEvents.Any())
-                    {
-                        Log.WriteLine($"Adding dotnet-trace clrEvents: {providerArgument}");
-                        providerCollection = TraceExtensions.Merge(providerCollection, clrEvents);
-                    }
-                    else
-                    {
-                        // Is it a known provider (KnownProviderName[:Keywords[:Level][:KeyValueArgs]])?
-                        var knownProvider = TraceExtensions.ToProvider(providerArgument);
-                        if (knownProvider.Any())
-                        {
-                            Log.WriteLine($"Adding dotnet-trace provider: {providerArgument}");
-                            providerCollection = TraceExtensions.Merge(providerCollection, knownProvider);
-                        }
-                    }
-                }
-            }
-
-
-            if (!providerCollection.Any())
-            {
-                Log.WriteLine($"Tracing arguments not valid: {providers}");
-
-                return -1;
-            }
-            else
-            {
-                Log.WriteLine($"dotnet-trace providers: ");
+            // foreach (var providerArgument in providerArguments)
+            // {
+            //     // Is it a profile (cpu-sampling, ...)?
+            //     if (TraceExtensions.DotNETRuntimeProfiles.TryGetValue(providerArgument, out var profile))
+            //     {
+            //         Log.WriteLine($"Adding dotnet-trace profiles: {providerArgument}");
+            //         providerCollection = TraceExtensions.Merge(providerCollection, profile);
+            //     }
+            //     else
+            //     {
+            //         // Is it a CLREvent set (GC+GCHandle)?
+            //         var clrEvents = TraceExtensions.ToCLREventPipeProviders(providerArgument);
+            //         if (clrEvents.Any())
+            //         {
+            //             Log.WriteLine($"Adding dotnet-trace clrEvents: {providerArgument}");
+            //             providerCollection = TraceExtensions.Merge(providerCollection, clrEvents);
+            //         }
+            //         else
+            //         {
+            //             // Is it a known provider (KnownProviderName[:Keywords[:Level][:KeyValueArgs]])?
+            //             var knownProvider = TraceExtensions.ToProvider(providerArgument);
+            //             if (knownProvider.Any())
+            //             {
+            //                 Log.WriteLine($"Adding dotnet-trace provider: {providerArgument}");
+            //                 providerCollection = TraceExtensions.Merge(providerCollection, knownProvider);
+            //             }
+            //         }
+            //     }
+            // }
 
 
-                foreach (var provider in providerCollection)
-                {
-                    Log.WriteLine(provider.ToString());
-                }
-            }
+            // if (!providerCollection.Any())
+            // {
+            //     Log.WriteLine($"Tracing arguments not valid: {providers}");
 
-            var process = Process.GetProcessById(processId);
-            var configuration = new EventPipeSessionConfiguration(
-                circularBufferSizeMB: buffersize,
-                format: EventPipeSerializationFormat.NetTrace,
-                providers: providerCollection.ToList().AsReadOnly());
+            //     return -1;
+            // }
+            // else
+            // {
+            //     Log.WriteLine($"dotnet-trace providers: ");
 
-            var shouldStopAfterDuration = duration != default(TimeSpan);
-            var failed = false;
-            var terminated = false;
-            System.Timers.Timer durationTimer = null;
 
-            Log.WriteLine($"Tracing process {processId} on file {output.FullName}");
+            //     foreach (var provider in providerCollection)
+            //     {
+            //         Log.WriteLine(provider.ToString());
+            //     }
+            // }
 
-            ulong sessionId = 0;
-            using (Stream stream = EventPipeClient.CollectTracing(processId, configuration, out sessionId))
-            {
-                if (sessionId == 0)
-                {
-                    return -1;
-                }
+            // var process = Process.GetProcessById(processId);
+            // var configuration = new EventPipeSessionConfiguration(
+            //     circularBufferSizeMB: buffersize,
+            //     format: EventPipeSerializationFormat.NetTrace,
+            //     providers: providerCollection.ToList().AsReadOnly());
 
-                if (shouldStopAfterDuration)
-                {
-                    durationTimer = new System.Timers.Timer(duration.TotalMilliseconds);
-                    durationTimer.Elapsed += (s, e) => shouldExit.Set();
-                    durationTimer.AutoReset = false;
-                }
+            // var shouldStopAfterDuration = duration != default(TimeSpan);
+            // var failed = false;
+            // var terminated = false;
+            // System.Timers.Timer durationTimer = null;
 
-                var collectingTask = new Task(() =>
-                {
-                    try
-                    {
-                        var stopwatch = new Stopwatch();
-                        durationTimer?.Start();
-                        stopwatch.Start();
+            // Log.WriteLine($"Tracing process {processId} on file {output.FullName}");
 
-                        using (var fs = new FileStream(output.FullName, FileMode.Create, FileAccess.Write))
-                        {
-                            var buffer = new byte[16 * 1024];
+            // ulong sessionId = 0;
+            // using (Stream stream = EventPipeClient.CollectTracing(processId, configuration, out sessionId))
+            // {
+            //     if (sessionId == 0)
+            //     {
+            //         return -1;
+            //     }
 
-                            while (true)
-                            {
-                                int nBytesRead = stream.Read(buffer, 0, buffer.Length);
-                                if (nBytesRead <= 0)
-                                    break;
-                                fs.Write(buffer, 0, nBytesRead);
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.WriteLine($"Tracing failed with exception {ex}");
+            //     if (shouldStopAfterDuration)
+            //     {
+            //         durationTimer = new System.Timers.Timer(duration.TotalMilliseconds);
+            //         durationTimer.Elapsed += (s, e) => shouldExit.Set();
+            //         durationTimer.AutoReset = false;
+            //     }
 
-                        failed = true;
-                    }
-                    finally
-                    {
-                        terminated = true;
-                        shouldExit.Set();
+            //     var collectingTask = new Task(() =>
+            //     {
+            //         try
+            //         {
+            //             var stopwatch = new Stopwatch();
+            //             durationTimer?.Start();
+            //             stopwatch.Start();
 
-                        Log.WriteLine($"Tracing terminated.");
-                    }
-                });
-                collectingTask.Start();
+            //             using (var fs = new FileStream(output.FullName, FileMode.Create, FileAccess.Write))
+            //             {
+            //                 var buffer = new byte[16 * 1024];
 
-                do
-                {
-                    await Task.Delay(100);
-                } while (!shouldExit.WaitOne(0));
+            //                 while (true)
+            //                 {
+            //                     int nBytesRead = stream.Read(buffer, 0, buffer.Length);
+            //                     if (nBytesRead <= 0)
+            //                         break;
+            //                     fs.Write(buffer, 0, nBytesRead);
+            //                 }
+            //             }
+            //         }
+            //         catch (Exception ex)
+            //         {
+            //             Log.WriteLine($"Tracing failed with exception {ex}");
 
-                Log.WriteLine($"Tracing stopped");
+            //             failed = true;
+            //         }
+            //         finally
+            //         {
+            //             terminated = true;
+            //             shouldExit.Set();
 
-                if (!terminated)
-                {
-                    durationTimer?.Stop();
-                    EventPipeClient.StopTracing(processId, sessionId);
-                }
+            //             Log.WriteLine($"Tracing terminated.");
+            //         }
+            //     });
+            //     collectingTask.Start();
 
-                await collectingTask;
-            }
+            //     do
+            //     {
+            //         await Task.Delay(100);
+            //     } while (!shouldExit.WaitOne(0));
 
-            durationTimer?.Dispose();
+            //     Log.WriteLine($"Tracing stopped");
 
-            return failed ? -1 : 0;
+            //     if (!terminated)
+            //     {
+            //         durationTimer?.Stop();
+            //         EventPipeClient.StopTracing(processId, sessionId);
+            //     }
+
+            //     await collectingTask;
+            // }
+
+            // durationTimer?.Dispose();
+
+            // return failed ? -1 : 0;
+
+            return 0;
         }
 
         public static void CreateTemporaryFolders()
