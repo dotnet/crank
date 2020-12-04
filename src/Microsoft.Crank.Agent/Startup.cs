@@ -3949,8 +3949,6 @@ namespace Microsoft.Crank.Agent
                     //});
                     //}
 
-                    Log.Write("Measurement received");
-
                     if (eventData.EventName.StartsWith("Measure"))
                     {
                         job.Measurements.Enqueue(new Measurement
@@ -3978,7 +3976,13 @@ namespace Microsoft.Crank.Agent
 
             try
             {
-                source.Process();
+                // Run asynchronously so it doesn't block the agent
+                Task.Run(() => 
+                {
+                    source.Process();
+
+                    Log.WriteLine($"Event pipe source released");
+                });
             }
             catch (Exception e)
             {
