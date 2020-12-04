@@ -3699,7 +3699,7 @@ namespace Microsoft.Crank.Agent
                 StartCounters(job);
             }
 
-            StartMeasurement(job);
+            await StartMeasurementAsync(job);
 
             if (job.MemoryLimitInBytes > 0)
             {
@@ -3884,7 +3884,7 @@ namespace Microsoft.Crank.Agent
             // eventPipeTask.Start();
         }
 
-        private static void StartMeasurement(Job job)
+        private static async Task StartMeasurementAsync(Job job)
         {
             if (job.ProcessId == 0)
             {
@@ -3907,34 +3907,33 @@ namespace Microsoft.Crank.Agent
             // EventPipeEventSource source = null;
             // Stream binaryReader = null;
 
-            // var retries = 10;
-            // while (retries-- > 0)
-            // {
-            //     try
-            //     {
-            //         binaryReader = EventPipeClient.CollectTracing(job.ProcessId, configuration, out measurementsSessionId);
-            //         break;
-            //     }
-            //     catch (TimeoutException)
-            //     {
-            //         Log.WriteLine("Measurement EventPipeClient.CollectTracing -> Timeout");
-            //     }
-            //     catch (Exception e)
-            //     {
-            //         Log.WriteLine("Measurement EventPipeClient.CollectTracing -> " + e.ToString());
-            //     }
+            var retries = 10;
+            while (retries-- > 0)
+            {
+                try
+                {
+                    measurementsSession = client.StartEventPipeSession(providerList);
 
+                    break;
+                }
+                catch (TimeoutException)
+                {
+                    Log.WriteLine("Measurement EventPipeClient.CollectTracing -> Timeout");
+                }
+                catch (Exception e)
+                {
+                    Log.WriteLine("Measurement EventPipeClient.CollectTracing -> " + e.ToString());
+                }
 
-            //     await Task.Delay(100);
-            // }
+                await Task.Delay(100);
+            }
 
-            // if (retries == -1)
-            // {
-            //     Log.WriteLine("[ERROR] Failed to create measurements event pipe client");
-            //     return;
-            // }
+            if (retries == -1)
+            {
+                Log.WriteLine("[ERROR] Failed to create measurements event pipe client");
+                return;
+            }
 
-            measurementsSession = client.StartEventPipeSession(providerList);
         
             var source = new EventPipeEventSource(measurementsSession.EventStream);
 
@@ -4542,7 +4541,7 @@ namespace Microsoft.Crank.Agent
         private static async Task<int> Collect(ManualResetEvent shouldExit, int processId, FileInfo output, int buffersize, string providers, TimeSpan duration)
         {
             await Task.Delay(0);
-            
+
             // if (String.IsNullOrWhiteSpace(providers))
             // {
             //     providers = "cpu-sampling";
