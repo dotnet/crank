@@ -3896,45 +3896,40 @@ namespace Microsoft.Crank.Agent
             var client = new DiagnosticsClient(job.ProcessId);
 
             var providerList = new List<EventPipeProvider>()
-                {
-                    new EventPipeProvider(
-                        name: "Benchmarks",
-                        eventLevel: EventLevel.Verbose),
-                };
+            {
+                new EventPipeProvider(
+                    name: "Benchmarks",
+                    eventLevel: EventLevel.Verbose),
+            };
 
-            // var session = client.StartEventPipeSession(providerList);
-
-            // EventPipeEventSource source = null;
-            // Stream binaryReader = null;
-
-            var retries = 10;
-            while (retries-- > 0)
+            var retries = 0;
+            while (retries <= 10)
             {
                 try
                 {
                     measurementsSession = client.StartEventPipeSession(providerList);
-
                     break;
                 }
-                catch (TimeoutException)
+                catch (ServerNotAvailableException)
                 {
-                    Log.WriteLine("Measurement EventPipeClient.CollectTracing -> Timeout");
+                    Log.WriteLine("Ipc endpoint not available, retrying...");
+                    await Task.Delay(100);
                 }
                 catch (Exception e)
                 {
                     Log.WriteLine("Measurement EventPipeClient.CollectTracing -> " + e.ToString());
+                    await Task.Delay(100);
                 }
 
-                await Task.Delay(100);
+                retries++;
             }
 
-            if (retries == -1)
+            if (retries >= 10)
             {
                 Log.WriteLine("[ERROR] Failed to create measurements event pipe client");
                 return;
             }
 
-        
             var source = new EventPipeEventSource(measurementsSession.EventStream);
 
             source.Dynamic.All += (TraceEvent eventData) => 
