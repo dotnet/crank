@@ -3749,7 +3749,8 @@ namespace Microsoft.Crank.Agent
                 RunAndTrace();
             }
 
-            await StartCountersAsync(job);
+            // Don't wait for the counters to be ready as it could get stuck and block the agent
+            StartCountersAsync(job);
             
             if (job.MemoryLimitInBytes > 0)
             {
