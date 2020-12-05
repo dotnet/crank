@@ -125,8 +125,8 @@ namespace Microsoft.Crank.Agent
         private static ulong eventPipeSessionId = 0;
         private static Task eventPipeTask = null;
         private static bool eventPipeTerminated = false;
-        private static EventPipeSession measurementsSession = null;
-        private static EventPipeEventSource measurementsSource = null;
+        private static Task countersTask = null;
+        private static TaskCompletionSource<bool> countersCompletionSource = null;
 
         static Startup()
         {
@@ -203,6 +203,8 @@ namespace Microsoft.Crank.Agent
             var dockerHostnameOption = app.Option("-nd|--docker-hostname", $"Hostname for benchmark server when running Docker on a different hostname.",
                 CommandOptionType.SingleValue);
             var hardwareOption = app.Option("--hardware", "Hardware (Cloud or Physical).  Required.",
+                CommandOptionType.SingleValue);
+            var dotnethomeOption = app.Option("--dotnethome", "Folder to reuse for sdk and runtime installs.",
                 CommandOptionType.SingleValue);
             var hardwareVersionOption = app.Option("--hardware-version", "Hardware version (e.g, D3V2, Z420, ...).  Required.",
                 CommandOptionType.SingleValue);
@@ -287,6 +289,11 @@ namespace Microsoft.Crank.Agent
                 var hostname = hostnameOption.HasValue() ? hostnameOption.Value() : _defaultHostname;
                 var dockerHostname = dockerHostnameOption.HasValue() ? dockerHostnameOption.Value() : hostname;
 
+                if (dotnethomeOption.HasValue())
+                {
+                    InitializeDotnetHome(dotnethomeOption.Value());
+                }
+
                 return Run(url, hostname, dockerHostname).Result;
             });
 
@@ -322,6 +329,73 @@ namespace Microsoft.Crank.Agent
             await processJobsTask;
 
             return 0;
+        }
+
+        private static void InitializeDotnetHome(string dotnethome)
+        {
+            if (String.IsNullOrEmpty(dotnethome))
+            {
+                return;
+            }
+
+            if (!Directory.Exists(dotnethome))
+            {
+                Directory.CreateDirectory(dotnethome);
+
+                throw new Exception($"dotnethome not found: '{dotnethome}'");
+            }
+
+            Log.WriteLine($"Using existing dotnet home folder: {dotnethome}");
+
+            var sdkLocation = Path.Combine(dotnethome, "sdk");
+
+            if (Directory.Exists(sdkLocation))
+            {
+                foreach (var sdkFolder in Directory.GetDirectories(sdkLocation))
+                {
+                    var sdkVersion = new DirectoryInfo(sdkFolder).Name;
+                    _installedSdks.Add(sdkVersion);
+                    Log.WriteLine($"Found sdk {sdkVersion}");
+                }
+            }
+            
+            var runtimeLocation = Path.Combine(dotnethome, "shared", "Microsoft.NETCore.App");
+
+            if (Directory.Exists(runtimeLocation))
+            {
+                foreach (var runtimeFolder in Directory.GetDirectories(runtimeLocation))
+                {
+                    var runtimeVersion = new DirectoryInfo(runtimeFolder).Name;
+                    _installedDotnetRuntimes.Add(runtimeVersion);
+                    Log.WriteLine($"Found runtime {runtimeVersion}");
+                }
+            }
+
+            var aspnetLocation = Path.Combine(dotnethome, "shared", "Microsoft.AspNetCore.App");
+
+            if (Directory.Exists(aspnetLocation))
+            {
+                foreach (var aspnetFolder in Directory.GetDirectories(aspnetLocation))
+                {
+                    var aspnetVersion = new DirectoryInfo(aspnetFolder).Name;
+                    _installedAspNetRuntimes.Add(aspnetVersion);
+                    Log.WriteLine($"Found aspnet {aspnetVersion}");
+                }
+            }
+
+            var desktopLocation = Path.Combine(dotnethome, "shared", "Microsoft.WindowsDesktop.App");
+
+            if (Directory.Exists(desktopLocation))
+            {
+                foreach (var windowsFolder in Directory.GetDirectories(desktopLocation))
+                {
+                    var desktopVersion = new DirectoryInfo(windowsFolder).Name;
+                    _installedDesktopRuntimes.Add(desktopVersion);
+                    Log.WriteLine($"Found desktop {desktopVersion}");
+                }
+            }
+
+            _dotnethome = dotnethome;
         }
 
         private static async Task ProcessJobs(string hostname, string dockerHostname, CancellationToken cancellationToken)
@@ -427,8 +501,8 @@ namespace Microsoft.Crank.Agent
                             eventPipeTask = context.EventPipeTask;
                             eventPipeTerminated = context.EventPipeTerminated;
 
-                            measurementsSession = context.MeasurementsSession;
-                            measurementsSource = context.MeasurementsSource;
+                            countersTask = context.CountersTask;
+                            countersCompletionSource = context.CountersCompletionSource;
 
                             if (job.State == JobState.New)
                             {
@@ -699,7 +773,7 @@ namespace Microsoft.Crank.Agent
                                             {
                                                 if (context.Disposed || context.Timer == null)
                                                 {
-                                                    Log.WriteLine("[Warning!!!] Heartbeat still active while context is disposed");
+                                                    Log.WriteLine($"[Warning!!!] Heartbeat still active while context is disposed ({job.Service})");
                                                     return;
                                                 }
 
@@ -721,7 +795,7 @@ namespace Microsoft.Crank.Agent
                                                         }
                                                         else
                                                         {
-                                                            Log.WriteLine($"Heartbeat is active, job is '{job.State}' and driver is AWOL. Job deletion must have failed.");
+                                                            Log.WriteLine($"Heartbeat is active ({job.Service}), job is '{job.State}' and driver is AWOL. Job deletion must have failed.");
                                                         }
                                                     }
 
@@ -1094,62 +1168,30 @@ namespace Microsoft.Crank.Agent
 
                             void StopCounters()
                             {
-                                // // Releasing EventPipe
-                                // if (eventPipeTask != null)
-                                // {
-                                //     try
-                                //     {
-                                //         Log.Write($"Stopping counter event pipes for job '{job.Service}' ({job.Id})");
-                                //         if (process != null && !eventPipeTerminated && !process.HasExited)
-                                //         {
-                                //             EventPipeClient.StopTracing(process.Id, eventPipeSessionId);
-                                //         }
-                                //     }
-                                //     catch (EndOfStreamException)
-                                //     {
-                                //         // If the app we're monitoring exits abruptly, this may throw in which case we just swallow the exception and exit gracefully.
-                                //     }
-                                                                        
-                                //     eventPipeTask = null;
-                                //     Log.WriteLine($"... Success!", false);
-                                // }
-                            }
-
-                            void StopMeasurement()
-                            {
-                                // Releasing Measurements
+                                // Releasing Counters
                                 
-                                Log.Write($"Stopping measurement event pipes for job '{job.Service}' ({job.Id})");
+                                Log.WriteLine($"Stopping counters event pipes for job '{job.Service}' ({job.Id})");
                                 
                                 try
                                 {
-                                    if (measurementsSession != null)
+                                    if (countersTask != null)
                                     {
-                                        measurementsSession.Stop();
-                                        measurementsSession.Dispose();
-                                        measurementsSession = null;
+                                        countersCompletionSource.SetResult(true);
+
+                                        Task.WaitAny(new Task[] { countersTask }, 5000);
+
+                                        if (!countersTask.IsCompleted)
+                                        {
+                                            Log.WriteLine("[ERROR] Counters could not be stopped in time");
+                                        }
                                     }
                                 }
                                 catch (Exception e)
                                 {
-                                    Log.WriteLine("Error in StopMeasurement(): " + e.ToString());
+                                    Log.WriteLine("Error in StopCounters(): " + e.ToString());
                                 }
 
-                                try
-                                {
-                                    if (measurementsSource != null)
-                                    {
-                                        measurementsSource.StopProcessing();
-                                        measurementsSource.Dispose();
-                                        measurementsSource = null;
-                                    }
-                                }
-                                catch (Exception e)
-                                {
-                                    Log.WriteLine("Error in StopMeasurement(): " + e.ToString());
-                                }
-
-                                Log.WriteLine($"... Success!", false);
+                                Log.WriteLine($"Counters stopped");
                             }
 
                             async Task StopJobAsync(bool abortCollection = false)
@@ -1159,8 +1201,8 @@ namespace Microsoft.Crank.Agent
                                 {
                                     return;
                                 }
-                                
-                                Log.Write("Stopping heartbeat");
+
+                                Log.Write($"Stopping heartbeat ({job.Service})");
                                     
                                 Monitor.Enter(_synLock);
 
@@ -1191,10 +1233,6 @@ namespace Microsoft.Crank.Agent
                                 }
 
                                 StopCounters();
-
-                                Log.Write("StopMeasurement:Before");
-                                StopMeasurement();
-                                Log.Write("StopMeasurement:After");
 
                                 if (process != null && !process.HasExited)
                                 {
@@ -1370,8 +1408,8 @@ namespace Microsoft.Crank.Agent
                             context.EventPipeTask = eventPipeTask;
                             context.EventPipeTerminated = eventPipeTerminated;
 
-                            context.MeasurementsSession = measurementsSession;
-                            context.MeasurementsSource = measurementsSource;
+                            context.CountersTask = countersTask;
+                            context.CountersCompletionSource = countersCompletionSource;
 
                             await Task.Delay(1000);
                         }
@@ -2225,8 +2263,9 @@ namespace Microsoft.Crank.Agent
 
                         if (!beforeDesktop.Contains(targetFramework))
                         {
-                            if (!_installedDesktopRuntimes.Contains(desktopVersion) &&
-                                !_ignoredDesktopRuntimes.Contains(desktopVersion))
+                            if (!String.IsNullOrEmpty(desktopVersion) 
+                                && !_installedDesktopRuntimes.Contains(desktopVersion) 
+                                && !_ignoredDesktopRuntimes.Contains(desktopVersion))
                             {
                                 dotnetInstallStep = $"Desktop runtime '{desktopVersion}'";
                                 Log.WriteLine($"Installing {dotnetInstallStep} ...");
@@ -3710,13 +3749,8 @@ namespace Microsoft.Crank.Agent
                 RunAndTrace();
             }
 
-            if (job.Counters.Any())
-            {
-                StartCounters(job);
-            }
-
-            await StartMeasurementAsync(job);
-
+            await StartCountersAsync(job);
+            
             if (job.MemoryLimitInBytes > 0)
             {
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -3771,169 +3805,52 @@ namespace Microsoft.Crank.Agent
             return $"benchmarks-{Process.GetCurrentProcess().Id}-{job.Id}";
         }
 
-        private static void StartCounters(Job job)
-        {
-            // eventPipeTerminated = false;
-            // eventPipeTask = new Task(async () =>
-            // {
-            //     var providerNames = job.Counters.Select(x => x.Provider).Distinct().ToArray();
-
-            //     Log.WriteLine($"Listening to counter event pipes (providers: {string.Join(", ", providerNames)})");
-
-            //     try
-            //     {
-            //         var providerList = providerNames
-            //             .Select(p => new EventPipeProvider(
-            //                 name: p,
-            //                 eventLevel: EventLevel.Informational,
-            //                 arguments: new Dictionary<string, string>() 
-            //                     { { "EventCounterIntervalSec", "1" } })
-            //             )
-            //             .ToList();
-
-            //         var configuration = new EventPipeSessionConfiguration(
-            //                 circularBufferSizeMB: 1000,
-            //                 format: EventPipeSerializationFormat.NetTrace,
-            //                 providers: providerList);
-
-            //         EventPipeEventSource source = null;
-            //         Stream binaryReader = null;
-
-            //         var retries = 10;
-            //         while (retries-- > 0)
-            //         {
-            //             try
-            //             {
-            //                 binaryReader = EventPipeClient.CollectTracing(job.ProcessId, configuration, out eventPipeSessionId);
-            //                 break;
-            //             }
-            //             catch (TimeoutException)
-            //             {
-            //                 Log.WriteLine("Counters EventPipeClient.CollectTracing -> Timeout");
-            //             }
-            //             catch (Exception e)
-            //             {
-            //                 Log.WriteLine("Counters EventPipeClient.CollectTracing -> " + e.ToString());
-            //             }
-
-            //             await Task.Delay(100);
-            //         }
-
-            //         if (retries == -1)
-            //         {
-            //             Log.WriteLine("[ERROR] Failed to create counters event pipe client");
-            //             return;
-            //         }
-
-            //         source = new EventPipeEventSource(binaryReader);
-
-            //         source.Dynamic.All += (eventData) =>
-            //         {
-            //             // We only track event counters
-            //             if (!eventData.EventName.Equals("EventCounters"))
-            //             {
-            //                 return;
-            //             }
-
-            //             var payloadVal = (IDictionary<string, object>)(eventData.PayloadValue(0));
-            //             var payloadFields = (IDictionary<string, object>)(payloadVal["Payload"]);
-
-            //             var counterName = payloadFields["Name"].ToString();
-
-            //             // Skip value if the provider is unknown
-            //             if (!providerNames.Contains(eventData.ProviderName, StringComparer.OrdinalIgnoreCase))
-            //             {
-            //                 return;
-            //             }
-
-            //             // TODO: optimize by pre-computing a searchable structure
-            //             var counter = job.Counters.FirstOrDefault(x => x.Provider.Equals(eventData.ProviderName, StringComparison.OrdinalIgnoreCase) && x.Name.Equals(counterName, StringComparison.OrdinalIgnoreCase));
-
-            //             if (counter == null)
-            //             {
-            //                 // The counter is not tracked
-            //                 return;
-            //             }
-
-            //             var measurement = new Measurement();
-
-            //             measurement.Name = counter.Measurement;
-
-            //             switch (payloadFields["CounterType"])
-            //             {
-            //                 case "Sum":
-            //                     measurement.Value = payloadFields["Increment"];
-            //                     break;
-            //                 case "Mean":
-            //                     measurement.Value = payloadFields["Mean"];
-            //                     break;
-            //                 default:
-            //                     Log.WriteLine($"Unknown CounterType: {payloadFields["CounterType"]}");
-            //                     break;
-            //             }
-
-            //             measurement.Timestamp = eventData.TimeStamp;
-
-            //             job.Measurements.Enqueue(measurement);
-            //         };
-
-            //         source.Process();
-            //     }
-            //     catch (Exception ex)
-            //     {
-            //         if (ex.Message == "Read past end of stream.")
-            //         {
-            //             // Expected if the process has exited by itself
-            //             // and the event pipe is till trying to read from it
-            //         }
-            //         else
-            //         {
-            //             Log.WriteLine($"[ERROR] {ex.ToString()}");
-            //         }
-            //     }
-            //     finally
-            //     {
-            //         eventPipeTerminated = true; // This indicates that the runtime is done. We shouldn't try to talk to it anymore.
-            //     }
-            // });
-
-            // eventPipeTask.Start();
-        }
-
-        private static async Task StartMeasurementAsync(Job job)
+        private static async Task StartCountersAsync(Job job)
         {
             if (job.ProcessId == 0)
             {
                 throw new ArgumentException($"Undefined process id for '{job.Service}'");
             }
 
-            Log.WriteLine("Starting measurement");
+            Log.WriteLine("Starting counters");
 
             var client = new DiagnosticsClient(job.ProcessId);
 
-            var providerList = new List<EventPipeProvider>()
-            {
+            var providerNames = job.Counters.Select(x => x.Provider).Distinct().ToArray();
+
+            var providerList = providerNames
+                .Select(p => new EventPipeProvider(
+                    name: p,
+                    eventLevel: EventLevel.Informational,
+                    arguments: new Dictionary<string, string>() 
+                        { { "EventCounterIntervalSec", "1" } })
+                )
+                .ToList();
+
+            providerList.Add(
                 new EventPipeProvider(
                     name: "Benchmarks",
-                    eventLevel: EventLevel.Verbose),
-            };
+                    eventLevel: EventLevel.Verbose)
+            );
+
+            EventPipeSession session = null;
 
             var retries = 0;
             while (retries <= 10)
             {
                 try
                 {
-                    measurementsSession = client.StartEventPipeSession(providerList);
+                    session = client.StartEventPipeSession(providerList);
                     break;
                 }
                 catch (ServerNotAvailableException)
                 {
-                    Log.WriteLine("Ipc endpoint not available, retrying...");
+                    Log.WriteLine("IPC endpoint not available, retrying...");
                     await Task.Delay(100);
                 }
                 catch (Exception e)
                 {
-                    Log.WriteLine("Measurement EventPipeClient.CollectTracing -> " + e.ToString());
+                    Log.WriteLine("[ERROR] DiagnosticsClient.StartEventPipeSession() -> " + e.ToString());
                     await Task.Delay(100);
                 }
 
@@ -3942,13 +3859,13 @@ namespace Microsoft.Crank.Agent
 
             if (retries >= 10)
             {
-                Log.WriteLine("[ERROR] Failed to create measurements event pipe client");
+                Log.WriteLine("[ERROR] Failed to create event pipe client");
                 return;
             }
 
-            measurementsSource = new EventPipeEventSource(measurementsSession.EventStream);
+            var source = new EventPipeEventSource(session.EventStream);
 
-            measurementsSource.Dynamic.All += (TraceEvent eventData) => 
+            source.Dynamic.All += (TraceEvent eventData) => 
             {
                 // We only track event counters for System.Runtime
                 if (eventData.ProviderName == "Benchmarks")
@@ -3990,27 +3907,94 @@ namespace Microsoft.Crank.Agent
                 }
             };
 
-            try
+            source.Dynamic.All += (TraceEvent eventData) => 
             {
-                // Run asynchronously so it doesn't block the agent
-                Task.Run(() =>
+                // We only track event counters
+                if (!eventData.EventName.Equals("EventCounters"))
                 {
-                    measurementsSource.Process();
-                    Log.WriteLine($"Event pipe source released");
-                });
-            }
-            catch (Exception e)
+                    return;
+                }
+
+                var payloadVal = (IDictionary<string, object>)(eventData.PayloadValue(0));
+                var payloadFields = (IDictionary<string, object>)(payloadVal["Payload"]);
+
+                var counterName = payloadFields["Name"].ToString();
+
+                // Skip value if the provider is unknown
+                if (!providerNames.Contains(eventData.ProviderName, StringComparer.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+
+                // TODO: optimize by pre-computing a searchable structure
+                var counter = job.Counters.FirstOrDefault(x => x.Provider.Equals(eventData.ProviderName, StringComparison.OrdinalIgnoreCase) && x.Name.Equals(counterName, StringComparison.OrdinalIgnoreCase));
+
+                if (counter == null)
+                {
+                    // The counter is not tracked
+                    return;
+                }
+
+                var measurement = new Measurement();
+
+                measurement.Name = counter.Measurement;
+
+                switch (payloadFields["CounterType"])
+                {
+                    case "Sum":
+                        measurement.Value = payloadFields["Increment"];
+                        break;
+                    case "Mean":
+                        measurement.Value = payloadFields["Mean"];
+                        break;
+                    default:
+                        Log.WriteLine($"Unknown CounterType: {payloadFields["CounterType"]}");
+                        break;
+                }
+
+                measurement.Timestamp = eventData.TimeStamp;
+
+                job.Measurements.Enqueue(measurement);                
+            };
+
+            countersCompletionSource = new TaskCompletionSource<bool>();
+            
+            // Run asynchronously so it doesn't block the agent
+            var streamTask = Task.Run(() =>
             {
-                if (e.Message == "Read past end of stream.")
+                try
                 {
-                    // Expected if the process has exited by itself
-                    // and the event pipe is till trying to read from it
+                    Log.WriteLine($"Processing event pipe source ({job.Service})...");
+                    source.Process();
+                    Log.WriteLine($"Event pipe source stopped ({job.Service})");
                 }
-                else
+                catch (Exception e)
                 {
-                    Log.WriteLine($"[ERROR] {e.ToString()}");
+                    if (e.Message == "Read past end of stream.")
+                    {
+                        // Expected if the process has exited by itself
+                        // and the event pipe is till trying to read from it
+                    }
+                    else
+                    {
+                        Log.WriteLine($"[ERROR] source.Process() -> {e.ToString()}");
+                    }
                 }
-            }
+            });
+
+            var stopTask = Task.Run(async () =>
+            {
+                await Task.WhenAny(streamTask, countersCompletionSource.Task);
+
+                Log.WriteLine($"Stopping event pipe session ({job.Service})...");
+
+                // It also interrupts the source.Process() blocking operation
+                session.Stop();
+                session.Dispose();
+                Log.WriteLine($"Event pipe session stopped ({job.Service})...");
+            });
+
+            countersTask = Task.WhenAll(streamTask, stopTask);
         }
 
         private static void StartCollection(string workingDirectory, Job job)
