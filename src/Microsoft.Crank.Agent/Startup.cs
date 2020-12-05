@@ -1184,6 +1184,8 @@ namespace Microsoft.Crank.Agent
                                         {
                                             Log.WriteLine("[ERROR] Counters could not be stopped in time");
                                         }
+                                        
+                                        Log.WriteLine($"Counters stopped");
                                     }
                                     else
                                     {
@@ -1199,8 +1201,6 @@ namespace Microsoft.Crank.Agent
                                     countersTask = null;
                                     countersCompletionSource = null;
                                 }
-
-                                Log.WriteLine($"Counters stopped");
                             }
 
                             async Task StopJobAsync(bool abortCollection = false)
