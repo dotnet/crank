@@ -3841,7 +3841,7 @@ namespace Microsoft.Crank.Agent
             {
                 try
                 {
-                    session = client.StartEventPipeSession(providerList);
+                    session = client.StartEventPipeSession(providerList, true, 1000);
                     break;
                 }
                 catch (ServerNotAvailableException)
@@ -3860,9 +3860,11 @@ namespace Microsoft.Crank.Agent
 
             if (retries >= 10)
             {
-                Log.WriteLine("[ERROR] Failed to create event pipe client");
+                Log.WriteLine("[ERROR] Failed to create event pipe client after 10 attempts");
                 return;
             }
+
+            Log.WriteLine("Event pipe session started");
 
             var source = new EventPipeEventSource(session.EventStream);
 
