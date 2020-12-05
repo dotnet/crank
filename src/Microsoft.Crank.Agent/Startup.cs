@@ -1174,7 +1174,7 @@ namespace Microsoft.Crank.Agent
                                 
                                 try
                                 {
-                                    if (countersTask != null)
+                                    if (countersTask != null && countersCompletionSource != null)
                                     {
                                         countersCompletionSource.SetResult(true);
 
@@ -1185,10 +1185,19 @@ namespace Microsoft.Crank.Agent
                                             Log.WriteLine("[ERROR] Counters could not be stopped in time");
                                         }
                                     }
+                                    else
+                                    {
+                                        Log.WriteLine($"[WARNING] No event source open for job '{job.Service}' ({job.Id})");
+                                    }
                                 }
                                 catch (Exception e)
                                 {
                                     Log.WriteLine("Error in StopCounters(): " + e.ToString());
+                                }
+                                finally
+                                {
+                                    countersTask = null;
+                                    countersCompletionSource = null;
                                 }
 
                                 Log.WriteLine($"Counters stopped");
@@ -3841,12 +3850,17 @@ namespace Microsoft.Crank.Agent
             {
                 try
                 {
-                    session = client.StartEventPipeSession(providerList, true, 1000);
+                    session = client.StartEventPipeSession(providerList);
                     break;
                 }
                 catch (ServerNotAvailableException)
                 {
                     Log.WriteLine("IPC endpoint not available, retrying...");
+                    await Task.Delay(100);
+                }
+                catch (EndOfStreamException)
+                {
+                    Log.WriteLine($"[ERROR] Application stopped before an event pipe session could be created ({job.Service})");
                     await Task.Delay(100);
                 }
                 catch (Exception e)
