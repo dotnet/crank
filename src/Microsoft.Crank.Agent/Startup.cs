@@ -3759,7 +3759,7 @@ namespace Microsoft.Crank.Agent
             }
 
             // Don't wait for the counters to be ready as it could get stuck and block the agent
-            StartCountersAsync(job);
+            var counterTask = StartCountersAsync(job);
             
             if (job.MemoryLimitInBytes > 0)
             {
@@ -4072,12 +4072,7 @@ namespace Microsoft.Crank.Agent
             job.PerfViewTraceFile = Path.Combine(job.BasePath, "trace.nettrace");
 
             dotnetTraceManualReset = new ManualResetEvent(false);
-            dotnetTraceTask = Collect(dotnetTraceManualReset, processId, new FileInfo(job.PerfViewTraceFile), 256, job.DotNetTraceProviders, default(TimeSpan));
-
-            if (dotnetTraceTask == null)
-            {
-                throw new Exception("NULL!!!");
-            }
+            dotnetTraceTask = Collect(dotnetTraceManualReset, processId, new FileInfo(job.PerfViewTraceFile), 256, job.DotNetTraceProviders, TimeSpan.MaxValue);
         }
 
         private static async Task UseMonoRuntimeAsync(string runtimeVersion, string outputFolder, string mode, Hardware? hardware)
@@ -4555,151 +4550,104 @@ namespace Microsoft.Crank.Agent
         /// </param>
         private static async Task<int> Collect(ManualResetEvent shouldExit, int processId, FileInfo output, int buffersize, string providers, TimeSpan duration)
         {
-            await Task.Delay(0);
+            if (String.IsNullOrWhiteSpace(providers))
+            {
+                providers = "cpu-sampling";
+            }
 
-            // if (String.IsNullOrWhiteSpace(providers))
-            // {
-            //     providers = "cpu-sampling";
-            // }
+            var providerArguments = providers.Split(new [] { ',', ' '}, StringSplitOptions.RemoveEmptyEntries);
 
-            // var providerArguments = providers.Split(new [] { ',', ' '}, StringSplitOptions.RemoveEmptyEntries);
+            IEnumerable<EventPipeProvider> providerCollection = new List<EventPipeProvider>();
 
-            // IEnumerable<EventPipeProvider> providerCollection = new List<EventPipeProvider>();
-
-            // foreach (var providerArgument in providerArguments)
-            // {
-            //     // Is it a profile (cpu-sampling, ...)?
-            //     if (TraceExtensions.DotNETRuntimeProfiles.TryGetValue(providerArgument, out var profile))
-            //     {
-            //         Log.WriteLine($"Adding dotnet-trace profiles: {providerArgument}");
-            //         providerCollection = TraceExtensions.Merge(providerCollection, profile);
-            //     }
-            //     else
-            //     {
-            //         // Is it a CLREvent set (GC+GCHandle)?
-            //         var clrEvents = TraceExtensions.ToCLREventPipeProviders(providerArgument);
-            //         if (clrEvents.Any())
-            //         {
-            //             Log.WriteLine($"Adding dotnet-trace clrEvents: {providerArgument}");
-            //             providerCollection = TraceExtensions.Merge(providerCollection, clrEvents);
-            //         }
-            //         else
-            //         {
-            //             // Is it a known provider (KnownProviderName[:Keywords[:Level][:KeyValueArgs]])?
-            //             var knownProvider = TraceExtensions.ToProvider(providerArgument);
-            //             if (knownProvider.Any())
-            //             {
-            //                 Log.WriteLine($"Adding dotnet-trace provider: {providerArgument}");
-            //                 providerCollection = TraceExtensions.Merge(providerCollection, knownProvider);
-            //             }
-            //         }
-            //     }
-            // }
+            foreach (var providerArgument in providerArguments)
+            {
+                // Is it a profile (cpu-sampling, ...)?
+                if (TraceExtensions.DotNETRuntimeProfiles.TryGetValue(providerArgument, out var profile))
+                {
+                    Log.WriteLine($"Adding dotnet-trace profiles: {providerArgument}");
+                    providerCollection = TraceExtensions.Merge(providerCollection, profile);
+                }
+                else
+                {
+                    // Is it a CLREvent set (GC+GCHandle)?
+                    var clrEvents = TraceExtensions.ToCLREventPipeProviders(providerArgument);
+                    if (clrEvents.Any())
+                    {
+                        Log.WriteLine($"Adding dotnet-trace clrEvents: {providerArgument}");
+                        providerCollection = TraceExtensions.Merge(providerCollection, clrEvents);
+                    }
+                    else
+                    {
+                        // Is it a known provider (KnownProviderName[:Keywords[:Level][:KeyValueArgs]])?
+                        var knownProvider = TraceExtensions.ToProvider(providerArgument);
+                        if (knownProvider.Any())
+                        {
+                            Log.WriteLine($"Adding dotnet-trace provider: {providerArgument}");
+                            providerCollection = TraceExtensions.Merge(providerCollection, knownProvider);
+                        }
+                    }
+                }
+            }
 
 
-            // if (!providerCollection.Any())
-            // {
-            //     Log.WriteLine($"Tracing arguments not valid: {providers}");
+            if (!providerCollection.Any())
+            {
+                Log.WriteLine($"Tracing arguments not valid: {providers}");
 
-            //     return -1;
-            // }
-            // else
-            // {
-            //     Log.WriteLine($"dotnet-trace providers: ");
+                return -1;
+            }
+            else
+            {
+                Log.WriteLine($"dotnet-trace providers: ");
 
 
-            //     foreach (var provider in providerCollection)
-            //     {
-            //         Log.WriteLine(provider.ToString());
-            //     }
-            // }
+                foreach (var provider in providerCollection)
+                {
+                    Log.WriteLine(provider.ToString());
+                }
+            }
 
-            // var process = Process.GetProcessById(processId);
-            // var configuration = new EventPipeSessionConfiguration(
-            //     circularBufferSizeMB: buffersize,
-            //     format: EventPipeSerializationFormat.NetTrace,
-            //     providers: providerCollection.ToList().AsReadOnly());
+            var failed = false;
 
-            // var shouldStopAfterDuration = duration != default(TimeSpan);
-            // var failed = false;
-            // var terminated = false;
-            // System.Timers.Timer durationTimer = null;
+            var client = new DiagnosticsClient(processId);
+            EventPipeSession traceSession = client.StartEventPipeSession(providerCollection, circularBufferMB: buffersize);
 
-            // Log.WriteLine($"Tracing process {processId} on file {output.FullName}");
+            var collectingTask = new Task(async () => 
+            {
+                try
+                {
+                    using (FileStream fs = new FileStream(output.FullName, FileMode.Create, FileAccess.Write))
+                    {
+                        await traceSession.EventStream.CopyToAsync(fs);
+                    }
 
-            // ulong sessionId = 0;
-            // using (Stream stream = EventPipeClient.CollectTracing(processId, configuration, out sessionId))
-            // {
-            //     if (sessionId == 0)
-            //     {
-            //         return -1;
-            //     }
+                    Log.WriteLine($"Tracing session ended.");
+                }
+                catch (Exception ex)
+                {
+                    Log.WriteLine($"Tracing failed with exception {ex}");
+                    failed = true;
+                }
+                finally
+                {
+                    shouldExit.Set();
+                }
+            });
 
-            //     if (shouldStopAfterDuration)
-            //     {
-            //         durationTimer = new System.Timers.Timer(duration.TotalMilliseconds);
-            //         durationTimer.Elapsed += (s, e) => shouldExit.Set();
-            //         durationTimer.AutoReset = false;
-            //     }
+            collectingTask.Start();
 
-            //     var collectingTask = new Task(() =>
-            //     {
-            //         try
-            //         {
-            //             var stopwatch = new Stopwatch();
-            //             durationTimer?.Start();
-            //             stopwatch.Start();
+            var durationTask = Task.Delay(duration);
 
-            //             using (var fs = new FileStream(output.FullName, FileMode.Create, FileAccess.Write))
-            //             {
-            //                 var buffer = new byte[16 * 1024];
+            while (!shouldExit.WaitOne(0) && !durationTask.IsCompleted)
+            {
+                await Task.Delay(100);
+            }
 
-            //                 while (true)
-            //                 {
-            //                     int nBytesRead = stream.Read(buffer, 0, buffer.Length);
-            //                     if (nBytesRead <= 0)
-            //                         break;
-            //                     fs.Write(buffer, 0, nBytesRead);
-            //                 }
-            //             }
-            //         }
-            //         catch (Exception ex)
-            //         {
-            //             Log.WriteLine($"Tracing failed with exception {ex}");
+            traceSession.Dispose();
 
-            //             failed = true;
-            //         }
-            //         finally
-            //         {
-            //             terminated = true;
-            //             shouldExit.Set();
+            Log.WriteLine($"Tracing finalized");
 
-            //             Log.WriteLine($"Tracing terminated.");
-            //         }
-            //     });
-            //     collectingTask.Start();
-
-            //     do
-            //     {
-            //         await Task.Delay(100);
-            //     } while (!shouldExit.WaitOne(0));
-
-            //     Log.WriteLine($"Tracing stopped");
-
-            //     if (!terminated)
-            //     {
-            //         durationTimer?.Stop();
-            //         EventPipeClient.StopTracing(processId, sessionId);
-            //     }
-
-            //     await collectingTask;
-            // }
-
-            // durationTimer?.Dispose();
-
-            // return failed ? -1 : 0;
-
-            return 0;
+            return failed ? -1 : 0;
         }
 
         public static void CreateTemporaryFolders()
