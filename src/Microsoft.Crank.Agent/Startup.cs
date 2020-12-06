@@ -341,8 +341,6 @@ namespace Microsoft.Crank.Agent
             if (!Directory.Exists(dotnethome))
             {
                 Directory.CreateDirectory(dotnethome);
-
-                throw new Exception($"dotnethome not found: '{dotnethome}'");
             }
 
             Log.WriteLine($"Using existing dotnet home folder: {dotnethome}");
