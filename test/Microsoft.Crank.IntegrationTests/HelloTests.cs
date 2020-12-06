@@ -52,7 +52,7 @@ namespace Microsoft.Crank.IntegrationTests
 
             var agent = ProcessUtil.RunAsync(
                 "dotnet", 
-                "exec crank-agent.dll --dotnethome ./agentssdks",
+                "exec crank-agent.dll", 
                 workingDirectory: _crankAgentDirectory,
                 captureOutput: true,
                 timeout: TimeSpan.FromSeconds(10),
@@ -91,7 +91,7 @@ namespace Microsoft.Crank.IntegrationTests
             // Start the agent
             var agent = ProcessUtil.RunAsync(
                 "dotnet", 
-                "exec crank-agent.dll --dotnethome ./agentssdks",
+                "exec crank-agent.dll", 
                 workingDirectory: _crankAgentDirectory,
                 captureOutput: true,
                 throwOnError: false,
@@ -147,7 +147,7 @@ namespace Microsoft.Crank.IntegrationTests
             // Start the agent
             var agent = ProcessUtil.RunAsync(
                 "dotnet", 
-                "exec crank-agent.dll --dotnethome ./agentssdks",
+                "exec crank-agent.dll", 
                 workingDirectory: _crankAgentDirectory,
                 captureOutput: true,
                 throwOnError: false,
@@ -205,7 +205,7 @@ namespace Microsoft.Crank.IntegrationTests
             // Start the agent
             var agent = ProcessUtil.RunAsync(
                 "dotnet", 
-                "exec crank-agent.dll --dotnethome ./agentssdks",
+                "exec crank-agent.dll", 
                 workingDirectory: _crankAgentDirectory,
                 captureOutput: true,
                 throwOnError: false,
