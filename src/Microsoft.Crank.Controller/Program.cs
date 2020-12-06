@@ -754,10 +754,12 @@ namespace Microsoft.Crank.Controller
                         continue;
                     }
 
-                    var job = jobResults.Jobs[jobName];
-
-                    Console.WriteLine();
-                    WriteResults(jobName, job);
+                    // The subsequent jobs of a failed job might not have run
+                    if (jobResults.Jobs.TryGetValue(jobName, out var job))
+                    {
+                        Console.WriteLine();
+                        WriteResults(jobName, job);
+                    }
                 }
 
                 foreach (var property in _propertyOption.Values)
