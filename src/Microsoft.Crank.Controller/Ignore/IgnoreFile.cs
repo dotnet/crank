@@ -10,12 +10,10 @@ namespace Microsoft.Crank.Controller.Ignore
     public class IgnoreFile
     {
         private readonly string _gitIgnorePath;
-        private readonly string _basePath;
 
         private IgnoreFile(string gitIgnorePath)
         {
             _gitIgnorePath = gitIgnorePath;
-            _basePath = Path.GetDirectoryName(_gitIgnorePath).Replace("\\", "/") + "/";
         }
 
         public List<IgnoreRule> Rules { get; } = new List<IgnoreRule>();
@@ -24,38 +22,61 @@ namespace Microsoft.Crank.Controller.Ignore
         /// Parses a gitignore file.
         /// </summary>
         /// <param name="path">The path of the file to parse.</param>
+        /// <param name="ignoreParentDirectories">If <c>true</c>, the gitignore files in parent directories will be included.</param>
         /// <returns>A list of <see cref="IgnoreRule"/> instances.</returns>
-        public static IgnoreFile Parse(string path)
+        public static IgnoreFile Parse(string path, bool includeParentDirectories = false)
         {
             var ignoreFile = new IgnoreFile(path);
 
-            // Ignore the .git folder by default
-            ignoreFile.Rules.Add(IgnoreRule.Parse(".git/"));
-
-            using (var stream = File.OpenText(path))
+            var currentDir = new DirectoryInfo(Path.GetDirectoryName(path));
+            
+            while (currentDir != null && currentDir.Exists)
             {
-                string rule = null;
+                var gitIgnoreFilename = Path.Combine(currentDir.FullName, ".gitignore");
 
-                while (null != (rule = stream.ReadLine()))
+                if (File.Exists(gitIgnoreFilename))
                 {
-                    // A blank line matches no files, so it can serve as a separator for readability.
-                    if (string.IsNullOrWhiteSpace(rule))
+                    var basePath = currentDir.FullName.Replace("\\", "/") + "/";
+
+                    var localRules = new List<IgnoreRule>();
+
+                    // Ignore .git folders by default
+                    localRules.Add(IgnoreRule.Parse(basePath, ".git/"));
+
+                    using (var stream = File.OpenText(gitIgnoreFilename))
                     {
-                        continue;
+                        string rule = null;
+
+                        while (null != (rule = stream.ReadLine()))
+                        {
+                            // A blank line matches no files, so it can serve as a separator for readability.
+                            if (string.IsNullOrWhiteSpace(rule))
+                            {
+                                continue;
+                            }
+
+                            // A line starting with # serves as a comment. 
+                            if (rule.StartsWith('#'))
+                            {
+                                continue;
+                            }
+
+                            var ignoreRule = IgnoreRule.Parse(basePath, rule);
+
+                            if (ignoreRule != null)
+                            {
+                                localRules.Add(ignoreRule);
+                            }
+                        }
                     }
 
-                    // A line starting with # serves as a comment. 
-                    if (rule.StartsWith('#'))
+                    // Insert the rules from this folder at the top of the list, while preserving the file order
+                    for (var i = 0; i < localRules.Count; i++)
                     {
-                        continue;
+                        ignoreFile.Rules.Insert(i, localRules[i]);
                     }
 
-                    var ignoreRule = IgnoreRule.Parse(rule);
-
-                    if (ignoreRule != null)
-                    {
-                        ignoreFile.Rules.Add(ignoreRule);
-                    }
+                    currentDir = currentDir.Parent;
                 }
             }
 
@@ -83,7 +104,7 @@ namespace Microsoft.Crank.Controller.Ignore
 
                 foreach (var rule in Rules)
                 {
-                    if (rule.Match(_basePath, gitFile))
+                    if (rule.Match(gitFile))
                     {
                         ignore = true;
 
@@ -108,7 +129,7 @@ namespace Microsoft.Crank.Controller.Ignore
 
                 foreach (var rule in Rules)
                 {
-                    if (rule.Match(_basePath, gitFile))
+                    if (rule.Match(gitFile))
                     {
                         ignore = true;
 

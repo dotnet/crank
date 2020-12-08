@@ -48,6 +48,7 @@ namespace Microsoft.Crank.Controller.Ignore
 
     public class IgnoreRule
     {
+        private string _basePath;
         private bool _matchFile = true;
         private bool _matchDir = true;
         private string _pattern;
@@ -55,7 +56,7 @@ namespace Microsoft.Crank.Controller.Ignore
         private Regex _regex;
         public bool Negate = false;
 
-        public bool Match(string basePath, IGitFile file)
+        public bool Match(IGitFile file)
         {
             if (!_matchDir && file.IsDirectory)
             {
@@ -67,12 +68,12 @@ namespace Microsoft.Crank.Controller.Ignore
                 return false;
             }
 
-            if (!file.Path.StartsWith(basePath))
+            if (!file.Path.StartsWith(_basePath))
             {
                 return false;
             }
 
-            var localPath = file.Path.Substring(basePath.Length);
+            var localPath = file.Path.Substring(_basePath.Length);
 
             return _regex.IsMatch(localPath);
         }
@@ -81,9 +82,11 @@ namespace Microsoft.Crank.Controller.Ignore
         {
         }
 
-        public static IgnoreRule Parse(string rule)
+        public static IgnoreRule Parse(string basePath, string rule)
         {
             var ignoreRule = new IgnoreRule();
+
+            ignoreRule._basePath = basePath;
 
             ignoreRule._rule = rule;
 
