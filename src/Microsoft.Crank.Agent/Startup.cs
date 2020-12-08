@@ -3848,6 +3848,7 @@ namespace Microsoft.Crank.Agent
             {
                 try
                 {
+                    Log.WriteLine("Starting event pipe session");
                     session = client.StartEventPipeSession(providerList);
                     break;
                 }
@@ -4295,6 +4296,7 @@ namespace Microsoft.Crank.Agent
             job.Url = ComputeServerUrl(hostname, job);
 
             // Mark the job as running to allow the Client to start the test
+            Log.WriteLine($"{job.State} -> Running");
             job.State = JobState.Running;
 
             return true;
