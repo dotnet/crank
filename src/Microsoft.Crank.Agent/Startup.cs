@@ -719,7 +719,12 @@ namespace Microsoft.Crank.Agent
                                             job.State = JobState.Failed;
 
                                             cts.Cancel();
-                                            await buildAndRunTask;
+                                            await Task.WhenAny(buildAndRunTask, Task.Delay(5000));
+
+                                            if (!buildAndRunTask.IsCompleted)
+                                            {
+                                                Log.WriteLine($"Build couldn't not be interrupted");
+                                            }
                                         }
 
                                         // Cancel the build if it's taking too long
@@ -3679,9 +3684,9 @@ namespace Microsoft.Crank.Agent
 
                     job.Output.AddLine(e.Data);
 
-                    if (job.State == JobState.Starting &&
-                        ((!String.IsNullOrEmpty(job.ReadyStateText) && e.Data.IndexOf(job.ReadyStateText, StringComparison.OrdinalIgnoreCase) >= 0) || job.IsConsoleApp))
+                    if (job.State == JobState.Starting && !String.IsNullOrEmpty(job.ReadyStateText) && e.Data.IndexOf(job.ReadyStateText, StringComparison.OrdinalIgnoreCase) >= 0)
                     {
+                        Log.WriteLine($"Ready state detected, application is now running...");
                         RunAndTrace();
                     }
 
@@ -3699,23 +3704,10 @@ namespace Microsoft.Crank.Agent
 
                     job.Output.AddLine(log);
 
-                    if (job.State == JobState.Starting &&
-                        ((!String.IsNullOrEmpty(job.ReadyStateText) && e.Data.IndexOf(job.ReadyStateText, StringComparison.OrdinalIgnoreCase) >= 0) || job.IsConsoleApp))
+                    if (job.State == JobState.Starting && !String.IsNullOrEmpty(job.ReadyStateText) && e.Data.IndexOf(job.ReadyStateText, StringComparison.OrdinalIgnoreCase) >= 0)
                     {
-                        MarkAsRunning(hostname, job, stopwatch);
-
-                        if (!job.CollectStartup)
-                        {
-                            if (job.Collect)
-                            {
-                                StartCollection(Path.Combine(benchmarksRepo, job.BasePath), job);
-                            }
-
-                            if (job.DotNetTrace)
-                            {
-                                StartDotNetTrace(process.Id, job);
-                            }
-                        }
+                        Log.WriteLine($"Ready state detected, application is now running...");
+                        RunAndTrace();
                     }
 
                     // Detect the app is wrapping a child process
@@ -3848,6 +3840,7 @@ namespace Microsoft.Crank.Agent
             {
                 try
                 {
+                    Log.WriteLine("Starting event pipe session");
                     session = client.StartEventPipeSession(providerList);
                     break;
                 }
@@ -3876,107 +3869,110 @@ namespace Microsoft.Crank.Agent
                 return;
             }
 
+            countersCompletionSource = new TaskCompletionSource<bool>();
+
             Log.WriteLine("Event pipe session started");
 
-            var source = new EventPipeEventSource(session.EventStream);
-
-            source.Dynamic.All += (TraceEvent eventData) => 
-            {
-                // We only track event counters for System.Runtime
-                if (eventData.ProviderName == "Benchmarks")
-                {
-                    // TODO: Catch all event counters automatically
-                    // And configure the filterData in the provider
-                    //if (!eventData.EventName.Equals("EventCounters"))
-                    //{
-                    //job.Measurements.Enqueue(new Measurement
-                    //{
-                    //    Timestamp = eventData.TimeStamp,
-                    //    Name = eventData.PayloadByName("name").ToString(),
-                    //    Value = eventData.PayloadByName("value")
-                    //});
-                    //}
-
-                    if (eventData.EventName.StartsWith("Measure"))
-                    {
-                        job.Measurements.Enqueue(new Measurement
-                        {
-                            Timestamp = eventData.TimeStamp,
-                            Name = eventData.PayloadByName("name").ToString(),
-                            Value = eventData.PayloadByName("value")
-                        });
-                    }
-                    else if (eventData.EventName == "Metadata")
-                    {
-                        job.Metadata.Enqueue(new MeasurementMetadata
-                        {
-                            Source = "Benchmark",
-                            Name = eventData.PayloadByName("name").ToString(),
-                            Aggregate = Enum.Parse<Operation>(eventData.PayloadByName("aggregate").ToString(), true),
-                            Reduce = Enum.Parse<Operation>(eventData.PayloadByName("reduce").ToString(), true),
-                            ShortDescription = eventData.PayloadByName("shortDescription").ToString(),
-                            LongDescription = eventData.PayloadByName("longDescription").ToString(),
-                            Format = eventData.PayloadByName("format").ToString(),
-                        });
-                    }
-                }
-            };
-
-            source.Dynamic.All += (TraceEvent eventData) => 
-            {
-                // We only track event counters
-                if (!eventData.EventName.Equals("EventCounters"))
-                {
-                    return;
-                }
-
-                var payloadVal = (IDictionary<string, object>)(eventData.PayloadValue(0));
-                var payloadFields = (IDictionary<string, object>)(payloadVal["Payload"]);
-
-                var counterName = payloadFields["Name"].ToString();
-
-                // Skip value if the provider is unknown
-                if (!providerNames.Contains(eventData.ProviderName, StringComparer.OrdinalIgnoreCase))
-                {
-                    return;
-                }
-
-                // TODO: optimize by pre-computing a searchable structure
-                var counter = job.Counters.FirstOrDefault(x => x.Provider.Equals(eventData.ProviderName, StringComparison.OrdinalIgnoreCase) && x.Name.Equals(counterName, StringComparison.OrdinalIgnoreCase));
-
-                if (counter == null)
-                {
-                    // The counter is not tracked
-                    return;
-                }
-
-                var measurement = new Measurement();
-
-                measurement.Name = counter.Measurement;
-
-                switch (payloadFields["CounterType"])
-                {
-                    case "Sum":
-                        measurement.Value = payloadFields["Increment"];
-                        break;
-                    case "Mean":
-                        measurement.Value = payloadFields["Mean"];
-                        break;
-                    default:
-                        Log.WriteLine($"Unknown CounterType: {payloadFields["CounterType"]}");
-                        break;
-                }
-
-                measurement.Timestamp = eventData.TimeStamp;
-
-                job.Measurements.Enqueue(measurement);                
-            };
-
-            countersCompletionSource = new TaskCompletionSource<bool>();
-            
             // Run asynchronously so it doesn't block the agent
             var streamTask = Task.Run(() =>
             {
+
+                var source = new EventPipeEventSource(session.EventStream);
+
+                Log.WriteLine("Event pipe source created");
+
+                source.Dynamic.All += (TraceEvent eventData) => 
+                {
+                    // We only track event counters for System.Runtime
+                    if (eventData.ProviderName == "Benchmarks")
+                    {
+                        // TODO: Catch all event counters automatically
+                        // And configure the filterData in the provider
+                        //if (!eventData.EventName.Equals("EventCounters"))
+                        //{
+                        //job.Measurements.Enqueue(new Measurement
+                        //{
+                        //    Timestamp = eventData.TimeStamp,
+                        //    Name = eventData.PayloadByName("name").ToString(),
+                        //    Value = eventData.PayloadByName("value")
+                        //});
+                        //}
+
+                        if (eventData.EventName.StartsWith("Measure"))
+                        {
+                            job.Measurements.Enqueue(new Measurement
+                            {
+                                Timestamp = eventData.TimeStamp,
+                                Name = eventData.PayloadByName("name").ToString(),
+                                Value = eventData.PayloadByName("value")
+                            });
+                        }
+                        else if (eventData.EventName == "Metadata")
+                        {
+                            job.Metadata.Enqueue(new MeasurementMetadata
+                            {
+                                Source = "Benchmark",
+                                Name = eventData.PayloadByName("name").ToString(),
+                                Aggregate = Enum.Parse<Operation>(eventData.PayloadByName("aggregate").ToString(), true),
+                                Reduce = Enum.Parse<Operation>(eventData.PayloadByName("reduce").ToString(), true),
+                                ShortDescription = eventData.PayloadByName("shortDescription").ToString(),
+                                LongDescription = eventData.PayloadByName("longDescription").ToString(),
+                                Format = eventData.PayloadByName("format").ToString(),
+                            });
+                        }
+                    }
+                };
+
+                source.Dynamic.All += (TraceEvent eventData) => 
+                {
+                    // We only track event counters
+                    if (!eventData.EventName.Equals("EventCounters"))
+                    {
+                        return;
+                    }
+
+                    var payloadVal = (IDictionary<string, object>)(eventData.PayloadValue(0));
+                    var payloadFields = (IDictionary<string, object>)(payloadVal["Payload"]);
+
+                    var counterName = payloadFields["Name"].ToString();
+
+                    // Skip value if the provider is unknown
+                    if (!providerNames.Contains(eventData.ProviderName, StringComparer.OrdinalIgnoreCase))
+                    {
+                        return;
+                    }
+
+                    // TODO: optimize by pre-computing a searchable structure
+                    var counter = job.Counters.FirstOrDefault(x => x.Provider.Equals(eventData.ProviderName, StringComparison.OrdinalIgnoreCase) && x.Name.Equals(counterName, StringComparison.OrdinalIgnoreCase));
+
+                    if (counter == null)
+                    {
+                        // The counter is not tracked
+                        return;
+                    }
+
+                    var measurement = new Measurement();
+
+                    measurement.Name = counter.Measurement;
+
+                    switch (payloadFields["CounterType"])
+                    {
+                        case "Sum":
+                            measurement.Value = payloadFields["Increment"];
+                            break;
+                        case "Mean":
+                            measurement.Value = payloadFields["Mean"];
+                            break;
+                        default:
+                            Log.WriteLine($"Unknown CounterType: {payloadFields["CounterType"]}");
+                            break;
+                    }
+
+                    measurement.Timestamp = eventData.TimeStamp;
+
+                    job.Measurements.Enqueue(measurement);                
+                };
+
                 try
                 {
                     Log.WriteLine($"Processing event pipe source ({job.Service})...");
@@ -4295,6 +4291,7 @@ namespace Microsoft.Crank.Agent
             job.Url = ComputeServerUrl(hostname, job);
 
             // Mark the job as running to allow the Client to start the test
+            Log.WriteLine($"{job.State} -> Running");
             job.State = JobState.Running;
 
             return true;
