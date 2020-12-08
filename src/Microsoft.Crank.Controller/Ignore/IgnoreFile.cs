@@ -43,6 +43,12 @@ namespace Microsoft.Crank.Controller.Ignore
                     // Ignore .git folders by default
                     localRules.Add(IgnoreRule.Parse(basePath, ".git/"));
 
+                    // Don't process parent folder if we are at the repository level
+                    if (Directory.Exists(Path.Combine(currentDir.FullName, ".git")))
+                    {
+                        currentDir = null;
+                    }
+
                     using (var stream = File.OpenText(gitIgnoreFilename))
                     {
                         string rule = null;
@@ -76,7 +82,7 @@ namespace Microsoft.Crank.Controller.Ignore
                         ignoreFile.Rules.Insert(i, localRules[i]);
                     }
 
-                    currentDir = currentDir.Parent;
+                    currentDir = currentDir?.Parent;
                 }
             }
 
