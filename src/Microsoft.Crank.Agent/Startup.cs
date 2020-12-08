@@ -2733,7 +2733,7 @@ namespace Microsoft.Crank.Agent
             {
                 if (job.UseMonoRuntime.Equals("llvm-aot"))
                 {
-                    await AOT4Mono(sdkVersion, runtimeVersion, outputFolder);
+                    await AOT4Mono(sdkVersion, runtimeVersion, outputFolder, job.Hardware);
                 }
             }
 
@@ -4158,15 +4158,26 @@ namespace Microsoft.Crank.Agent
             }
         }
 
-        private static async Task AOT4Mono(string dotnetSdkVersion, string runtimeVersion, string outputFolder)
+        private static async Task AOT4Mono(string dotnetSdkVersion, string runtimeVersion, string outputFolder, Hardware? hardware)
         {
+            
+            string pkgNameSuffix = "";
+            if (hardware == Hardware.ARM64)
+            {
+                pkgNameSuffix = "arm64";
+            }
+            else
+            {
+                pkgNameSuffix = "x64";
+            }
+
             try
             {
                 var fileName = "/bin/bash";
 
                 //Download dotnet sdk package
-                var dotnetMonoPath = Path.Combine(_rootTempDir, "dotnet-mono", $"dotnet-sdk-{dotnetSdkVersion}-linux-x64.tar.gz");
-                var packageName = "Microsoft.NETCore.App.Runtime.Mono.LLVM.AOT.linux-x64".ToLowerInvariant();
+                var dotnetMonoPath = Path.Combine(_rootTempDir, "dotnet-mono", $"dotnet-sdk-{dotnetSdkVersion}-linux-{pkgNameSuffix}.tar.gz");
+                var packageName = $"Microsoft.NETCore.App.Runtime.Mono.LLVM.AOT.linux-{pkgNameSuffix}".ToLowerInvariant();
                 var runtimePath = Path.Combine(_rootTempDir, "RuntimePackages", $"{packageName}.{runtimeVersion}.nupkg");
                 var llvmExtractDir = Path.Combine(Path.GetDirectoryName(runtimePath), "mono-llvm");
 		
@@ -4177,7 +4188,7 @@ namespace Microsoft.Crank.Agent
                     Log.WriteLine($"Downloading dotnet skd package for mono AOT");
 
                     var found = false;
-                    var url = $"https://dotnetcli.azureedge.net/dotnet/Sdk/{dotnetSdkVersion}/dotnet-sdk-{dotnetSdkVersion}-linux-x64.tar.gz";
+                    var url = $"https://dotnetcli.azureedge.net/dotnet/Sdk/{dotnetSdkVersion}/dotnet-sdk-{dotnetSdkVersion}-linux-{pkgNameSuffix}.tar.gz";
 
                     if (await DownloadFileAsync(url, dotnetMonoPath, maxRetries: 3, timeout: 60, throwOnError: false))
                     {
@@ -4190,7 +4201,7 @@ namespace Microsoft.Crank.Agent
                     }
                     else
                     {
-                        var strCmdTar = $"tar -xf dotnet-sdk-{dotnetSdkVersion}-linux-x64.tar.gz";
+                        var strCmdTar = $"tar -xf dotnet-sdk-{dotnetSdkVersion}-linux-{pkgNameSuffix}.tar.gz";
                         var resultTar = await ProcessUtil.RunAsync(fileName, 
                             ConvertCmd2Arg(strCmdTar),
                             workingDirectory: Path.GetDirectoryName(dotnetMonoPath),
@@ -4208,10 +4219,10 @@ namespace Microsoft.Crank.Agent
 
                     using (var archive = ZipFile.OpenRead(runtimePath))
                     {
-                        var llcExe = archive.GetEntry("runtimes/linux-x64/native/llc");
+                        var llcExe = archive.GetEntry($"runtimes/linux-{pkgNameSuffix}/native/llc");
                         llcExe.ExtractToFile(Path.Combine(llvmExtractDir, "llc"), true);
 
-                        var optExe = archive.GetEntry("runtimes/linux-x64/native/opt");
+                        var optExe = archive.GetEntry($"runtimes/linux-{pkgNameSuffix}/native/opt");
                         optExe.ExtractToFile(Path.Combine(llvmExtractDir, "opt"), true);
                     }
                     
