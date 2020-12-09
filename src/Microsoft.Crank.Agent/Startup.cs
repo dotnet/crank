@@ -1130,9 +1130,6 @@ namespace Microsoft.Crank.Agent
                                     Log.WriteLine($"{job.State} ->  TraceCollected");
                                     job.State = JobState.TraceCollected;
                                 }
-
-                                StopCounters();
-
                             }
                             else if (job.State == JobState.Starting)
                             {
@@ -4001,11 +3998,14 @@ namespace Microsoft.Crank.Agent
 
                 // It also interrupts the source.Process() blocking operation
                 session.Stop();
-                session.Dispose();
                 Log.WriteLine($"Event pipe session stopped ({job.Service})...");
             });
 
             countersTask = Task.WhenAll(streamTask, stopTask);
+            
+            // The event pipe session needs to be dispose after the source is interrupted
+            session.Dispose();
+            session = null;
         }
 
         private static void StartCollection(string workingDirectory, Job job)
