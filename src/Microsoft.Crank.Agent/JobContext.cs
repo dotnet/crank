@@ -33,6 +33,7 @@ namespace Microsoft.Crank.Agent
         public Task EventPipeTask { get; set; }
         public bool EventPipeTerminated { get; set; }
 
+        public EventPipeSession EventPipeSession { get; set; }
         public Task CountersTask { get; set; }
         public TaskCompletionSource<bool> CountersCompletionSource { get; set; }
     }

@@ -125,6 +125,8 @@ namespace Microsoft.Crank.Agent
         private static ulong eventPipeSessionId = 0;
         private static Task eventPipeTask = null;
         private static bool eventPipeTerminated = false;
+
+        private static EventPipeSession eventPipeSession = null;
         private static Task countersTask = null;
         private static TaskCompletionSource<bool> countersCompletionSource = null;
 
@@ -499,6 +501,7 @@ namespace Microsoft.Crank.Agent
                             eventPipeTask = context.EventPipeTask;
                             eventPipeTerminated = context.EventPipeTerminated;
 
+                            eventPipeSession = context.EventPipeSession;
                             countersTask = context.CountersTask;
                             countersCompletionSource = context.CountersCompletionSource;
 
@@ -1130,9 +1133,6 @@ namespace Microsoft.Crank.Agent
                                     Log.WriteLine($"{job.State} ->  TraceCollected");
                                     job.State = JobState.TraceCollected;
                                 }
-
-                                StopCounters();
-
                             }
                             else if (job.State == JobState.Starting)
                             {
@@ -1185,10 +1185,10 @@ namespace Microsoft.Crank.Agent
 
                                         if (!countersTask.IsCompleted)
                                         {
-                                            Log.WriteLine("[ERROR] Counters could not be stopped in time");
+                                            Log.WriteLine("[ERROR] Counters could not be stopped in time for job '{job.Service}' ({job.Id})");
                                         }
                                         
-                                        Log.WriteLine($"Counters stopped");
+                                        Log.WriteLine($"Counters stopped for job '{job.Service}' ({job.Id})");
                                     }
                                     else
                                     {
@@ -1420,6 +1420,7 @@ namespace Microsoft.Crank.Agent
                             context.EventPipeTask = eventPipeTask;
                             context.EventPipeTerminated = eventPipeTerminated;
 
+                            context.EventPipeSession = eventPipeSession;
                             context.CountersTask = countersTask;
                             context.CountersCompletionSource = countersCompletionSource;
 
@@ -3749,7 +3750,7 @@ namespace Microsoft.Crank.Agent
             }
 
             // Don't wait for the counters to be ready as it could get stuck and block the agent
-            var counterTask = StartCountersAsync(job);
+            var _ = StartCountersAsync(job);
             
             if (job.MemoryLimitInBytes > 0)
             {
@@ -3833,7 +3834,7 @@ namespace Microsoft.Crank.Agent
                     eventLevel: EventLevel.Verbose)
             );
 
-            EventPipeSession session = null;
+            eventPipeSession = null;
 
             var retries = 0;
             while (retries <= 10)
@@ -3841,7 +3842,7 @@ namespace Microsoft.Crank.Agent
                 try
                 {
                     Log.WriteLine("Starting event pipe session");
-                    session = client.StartEventPipeSession(providerList);
+                    eventPipeSession = client.StartEventPipeSession(providerList);
                     break;
                 }
                 catch (ServerNotAvailableException)
@@ -3877,7 +3878,7 @@ namespace Microsoft.Crank.Agent
             var streamTask = Task.Run(() =>
             {
 
-                var source = new EventPipeEventSource(session.EventStream);
+                var source = new EventPipeEventSource(eventPipeSession.EventStream);
 
                 Log.WriteLine("Event pipe source created");
 
@@ -3888,15 +3889,6 @@ namespace Microsoft.Crank.Agent
                     {
                         // TODO: Catch all event counters automatically
                         // And configure the filterData in the provider
-                        //if (!eventData.EventName.Equals("EventCounters"))
-                        //{
-                        //job.Measurements.Enqueue(new Measurement
-                        //{
-                        //    Timestamp = eventData.TimeStamp,
-                        //    Name = eventData.PayloadByName("name").ToString(),
-                        //    Value = eventData.PayloadByName("value")
-                        //});
-                        //}
 
                         if (eventData.EventName.StartsWith("Measure"))
                         {
@@ -3921,56 +3913,51 @@ namespace Microsoft.Crank.Agent
                             });
                         }
                     }
-                };
 
-                source.Dynamic.All += (TraceEvent eventData) => 
-                {
                     // We only track event counters
-                    if (!eventData.EventName.Equals("EventCounters"))
+                    if (eventData.EventName.Equals("EventCounters"))
                     {
-                        return;
+                        var payloadVal = (IDictionary<string, object>)(eventData.PayloadValue(0));
+                        var payloadFields = (IDictionary<string, object>)(payloadVal["Payload"]);
+
+                        var counterName = payloadFields["Name"].ToString();
+
+                        // Skip value if the provider is unknown
+                        if (!providerNames.Contains(eventData.ProviderName, StringComparer.OrdinalIgnoreCase))
+                        {
+                            return;
+                        }
+
+                        // TODO: optimize by pre-computing a searchable structure
+                        var counter = job.Counters.FirstOrDefault(x => x.Provider.Equals(eventData.ProviderName, StringComparison.OrdinalIgnoreCase) && x.Name.Equals(counterName, StringComparison.OrdinalIgnoreCase));
+
+                        if (counter == null)
+                        {
+                            // The counter is not tracked
+                            return;
+                        }
+
+                        var measurement = new Measurement();
+
+                        measurement.Name = counter.Measurement;
+
+                        switch (payloadFields["CounterType"])
+                        {
+                            case "Sum":
+                                measurement.Value = payloadFields["Increment"];
+                                break;
+                            case "Mean":
+                                measurement.Value = payloadFields["Mean"];
+                                break;
+                            default:
+                                Log.WriteLine($"Unknown CounterType: {payloadFields["CounterType"]}");
+                                break;
+                        }
+
+                        measurement.Timestamp = eventData.TimeStamp;
+
+                        job.Measurements.Enqueue(measurement);
                     }
-
-                    var payloadVal = (IDictionary<string, object>)(eventData.PayloadValue(0));
-                    var payloadFields = (IDictionary<string, object>)(payloadVal["Payload"]);
-
-                    var counterName = payloadFields["Name"].ToString();
-
-                    // Skip value if the provider is unknown
-                    if (!providerNames.Contains(eventData.ProviderName, StringComparer.OrdinalIgnoreCase))
-                    {
-                        return;
-                    }
-
-                    // TODO: optimize by pre-computing a searchable structure
-                    var counter = job.Counters.FirstOrDefault(x => x.Provider.Equals(eventData.ProviderName, StringComparison.OrdinalIgnoreCase) && x.Name.Equals(counterName, StringComparison.OrdinalIgnoreCase));
-
-                    if (counter == null)
-                    {
-                        // The counter is not tracked
-                        return;
-                    }
-
-                    var measurement = new Measurement();
-
-                    measurement.Name = counter.Measurement;
-
-                    switch (payloadFields["CounterType"])
-                    {
-                        case "Sum":
-                            measurement.Value = payloadFields["Increment"];
-                            break;
-                        case "Mean":
-                            measurement.Value = payloadFields["Mean"];
-                            break;
-                        default:
-                            Log.WriteLine($"Unknown CounterType: {payloadFields["CounterType"]}");
-                            break;
-                    }
-
-                    measurement.Timestamp = eventData.TimeStamp;
-
-                    job.Measurements.Enqueue(measurement);                
                 };
 
                 try
@@ -4000,12 +3987,17 @@ namespace Microsoft.Crank.Agent
                 Log.WriteLine($"Stopping event pipe session ({job.Service})...");
 
                 // It also interrupts the source.Process() blocking operation
-                session.Stop();
-                session.Dispose();
+                eventPipeSession.Stop();
                 Log.WriteLine($"Event pipe session stopped ({job.Service})...");
             });
 
             countersTask = Task.WhenAll(streamTask, stopTask);
+            
+            await countersTask;
+
+            // The event pipe session needs to be disposed after the source is interrupted
+            eventPipeSession.Dispose();
+            eventPipeSession = null;
         }
 
         private static void StartCollection(string workingDirectory, Job job)
