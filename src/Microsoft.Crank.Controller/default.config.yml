@@ -19,15 +19,15 @@ counters:
 
   - name: gen-0-gc-count
     measurement: runtime-counter/gen-0-gc-count
-    description: Number of Gen 0 GCs / min
+    description: Number of Gen 0 GCs / sec
 
   - name: gen-1-gc-count
     measurement: runtime-counter/gen-1-gc-count
-    description: Number of Gen 1 GCs / min
+    description: Number of Gen 1 GCs / sec
 
   - name: gen-2-gc-count
     measurement: runtime-counter/gen-2-gc-count
-    description: Number of Gen 2 GCs / min
+    description: Number of Gen 2 GCs / sec
 
   - name: time-in-gc
     measurement: runtime-counter/time-in-gc
@@ -338,21 +338,21 @@ results: # creates results from measurements
 
 - name: runtime-counter/gen-0-gc-count
   measurement: runtime-counter/gen-0-gc-count
-  description: Max Number of Gen 0 GCs / min
+  description: Max Number of Gen 0 GCs / sec
   format: n2
   aggregate: max
   reduce: max
 
 - name: runtime-counter/gen-1-gc-count
   measurement: runtime-counter/gen-1-gc-count
-  description: Max Number of Gen 1 GCs / min
+  description: Max Number of Gen 1 GCs / sec
   format: n2
   aggregate: max
   reduce: max
 
 - name: runtime-counter/gen-2-gc-count
   measurement: runtime-counter/gen-2-gc-count
-  description: Max Number of Gen 2 GCs / min
+  description: Max Number of Gen 2 GCs / sec
   format: n2
   aggregate: max
   reduce: max

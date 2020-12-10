@@ -29,9 +29,9 @@ crank --config /crank/samples/hello/hello.benchmarks.yml --scenario hello --prof
 | Max CPU Usage (%)             | 35         |            ▂█▇█▆▆██▆█▅▇▇▇███▇█▇▅    |
 | Max Working Set (MB)          | 93         | ▃▃▃▃▃▃▃▃▃▃▃▅▇▇█████████████████████ |
 | Max GC Heap Size (MB)         | 39         |            ▄▅▆▆▁▂▄▆▅▇▂▁▂▂▃▂▂█▅▆▂▂▂▂ |
-| Max Number of Gen 0 GCs / min | 3.00       |             ▅▅▅█▅▅▅▅▅█▅▅▅▅▅▅▃▅▅▅    |
-| Max Number of Gen 1 GCs / min | 1.00       |             █    █                  |
-| Max Number of Gen 2 GCs / min | 1.00       |                  █                  |
+| Max Number of Gen 0 GCs / sec | 3.00       |             ▅▅▅█▅▅▅▅▅█▅▅▅▅▅▅▃▅▅▅    |
+| Max Number of Gen 1 GCs / sec | 1.00       |             █    █                  |
+| Max Number of Gen 2 GCs / sec | 1.00       |                  █                  |
 | Max Time in GC (%)            | 1.00       |                             █       |
 | Max Gen 0 Size (B)            | 192        |             ███████████████████████ |
 | Max Gen 1 Size (B)            | 3,272,160  |                 █                   |
