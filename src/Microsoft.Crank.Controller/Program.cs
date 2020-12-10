@@ -417,7 +417,6 @@ namespace Microsoft.Crank.Controller
                         session,
                         iterations,
                         exclude,
-                        span,
                         _scriptOption.Values
                         );
                 }
@@ -464,7 +463,6 @@ namespace Microsoft.Crank.Controller
             string session,
             int iterations,
             int exclude,
-            TimeSpan span,
             IEnumerable<string> scripts
             )
         {
@@ -476,8 +474,6 @@ namespace Microsoft.Crank.Controller
 
             do
             {
-                // Repeat until the span duration is over
-
                 var executionResult = new ExecutionResult();
 
                 if (iterations > 1)
@@ -525,7 +521,7 @@ namespace Microsoft.Crank.Controller
                                 if (!await EnsureServerRequirementsAsync(jobs, service))
                                 {
                                     Log.Write($"Scenario skipped as the agent doesn't match the operating and architecture constraints for '{jobName}' ({String.Join("/", new[] { service.Options.RequiredArchitecture, service.Options.RequiredOperatingSystem })})");
-                                    return new ExecutionResult();
+                                    return new ExecutionResult { ReturnCode = 0 };
                                 }
 
                                 // Check that we are not creating a deadlock by starting this job
@@ -597,7 +593,6 @@ namespace Microsoft.Crank.Controller
                                                                     break;
                                                                 }
                                                             } 
-                                                            
 
                                                             throw new JobDeadlockException();
                                                         }
@@ -648,6 +643,9 @@ namespace Microsoft.Crank.Controller
                                         if (!String.IsNullOrEmpty(job.Job.Error))
                                         {
                                             Log.Write(job.Job.Error, notime: true, error: true);
+
+                                            // It might be necessary to get the formal exit code from the remove job
+                                            executionResult.ReturnCode = 1;
                                         }
                                     }
 
@@ -676,6 +674,7 @@ namespace Microsoft.Crank.Controller
                             if (aJobFailed)
                             {
                                 Log.Write($"Job has failed, interrupting benchmarks ...");
+                                executionResult.ReturnCode = 1;
                                 break;
                             }
                         }
@@ -802,20 +801,8 @@ namespace Microsoft.Crank.Controller
                         Directory.CreateDirectory(directory);
                     }
 
-                    var index = 1;
-                    
-                    // If running in a span, create a unique filename for each run
-                    if (span > TimeSpan.Zero)
-                    {
-                        do
-                        {
-                            var filenameWithoutExtension = Path.GetFileNameWithoutExtension(_outputOption.Value());
-                            filename = filenameWithoutExtension + "-" + index++ + Path.GetExtension(_outputOption.Value());
-                        } while (File.Exists(filename));
-                    }
-                    
                     // Skip saving the file if running with iterations and not the last run
-                    if (i == iterations || span > TimeSpan.Zero)
+                    if (i == iterations)
                     {
                         await File.WriteAllTextAsync(filename, JsonConvert.SerializeObject(executionResults.First(), Formatting.Indented, new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() }));
 
@@ -829,15 +816,10 @@ namespace Microsoft.Crank.Controller
                 if (!String.IsNullOrEmpty(_sqlConnectionString))
                 {
                     // Skip storing results if running with iterations and not the last run
-                    if (i == iterations || span > TimeSpan.Zero)
+                    if (i == iterations)
                     {
                         await JobSerializer.WriteJobResultsToSqlAsync(executionResult.JobResults, _sqlConnectionString, _tableName, session, _scenarioOption.Value(), _descriptionOption.Value());
                     }
-                }
-
-                if (span > TimeSpan.Zero)
-                {
-                    Log.Write(String.Format("Remaining job duration: {0}", GetRemainingTime()));
                 }
 
                 i = i + 1;
@@ -846,16 +828,6 @@ namespace Microsoft.Crank.Controller
 
             return executionResults.First();
 
-            TimeSpan GetRemainingTime()
-            {
-                return span - GetElapsedTime();
-            }
-
-            TimeSpan GetElapsedTime()
-            {
-                return DateTime.UtcNow - iterationStart;
-            }
-
             bool IsRepeatOver()
             {
                 if (iterations > 1)
@@ -863,7 +835,7 @@ namespace Microsoft.Crank.Controller
                     return i > iterations; 
                 }
 
-                return span == TimeSpan.Zero || GetElapsedTime() > span;
+                return true;
             }
 
             bool SpanShouldKeepJobRunning(string jobName)
@@ -1026,7 +998,10 @@ namespace Microsoft.Crank.Controller
                 }
             }
 
-            return new ExecutionResult { ReturnCode = 0 } ;
+            return new ExecutionResult
+            {
+                ReturnCode = String.IsNullOrEmpty(job.Job.Error) ? 0 : 1
+            };
         }
 
         private static async Task<ExecutionResult> RunAutoFlush(
@@ -2312,7 +2287,11 @@ namespace Microsoft.Crank.Controller
         private static ExecutionResult ComputeAverages(IEnumerable<ExecutionResult> executionResults)
         {
             var jobResults = new JobResults();
-            var executionResult = new ExecutionResult { JobResults = jobResults };
+            var executionResult = new ExecutionResult 
+            {
+                ReturnCode = executionResults.Any(x => x.ReturnCode != 0) ? 1 : 0,
+                JobResults = jobResults 
+            };
 
             foreach (var job in executionResults.First().JobResults.Jobs)
             {
