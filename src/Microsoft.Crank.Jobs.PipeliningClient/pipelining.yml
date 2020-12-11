@@ -11,7 +11,7 @@ jobs:
   pipelining:
     source:
       repository: https://github.com/dotnet/crank.git
-      branchOrCommit: sebros/httpclient
+      branchOrCommit: master
       project: src/Microsoft.Crank.Jobs.PipeliningClient/Microsoft.Crank.Jobs.PipeliningClient.csproj
     readyStateText: Pipelining Client
     isConsoleApp: true
