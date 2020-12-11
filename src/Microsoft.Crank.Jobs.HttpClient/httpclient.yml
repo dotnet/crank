@@ -8,12 +8,12 @@
   presetHeaders: none
 
 jobs:
-  pipelining:
+  httpclient:
     source:
       repository: https://github.com/dotnet/crank.git
       branchOrCommit: master
-      project: src/Microsoft.Crank.Jobs.PipeliningClient/Microsoft.Crank.Jobs.PipeliningClient.csproj
-    readyStateText: Pipelining Client
+      project: src/Microsoft.Crank.Jobs.HttpClient/Microsoft.Crank.Jobs.HttpClient.csproj
+    readyStateText: Http Client
     isConsoleApp: true
     waitForExit: true
     framework: net5.0
@@ -21,10 +21,10 @@ jobs:
       connections: 256
       warmup: 15
       duration: 15
-      pipeline: 1
       presetHeaders: none
       serverScheme: http
       serverAddress: localhost
       serverPort: 5000
       path: /
-    arguments: '--url "{{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}" --connections {{connections}} --warmup {{warmup}} --duration {{duration}} --pipeline {{pipeline}} {{headers[presetHeaders]}}'
+      httpVersion: 1.1
+    arguments: '--url "{{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}" --connections {{connections}} --warmup {{warmup}} --duration {{duration}} {{headers[presetHeaders]}} --version {{httpVersion}}'

@@ -12,6 +12,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http.Extensions;
 
@@ -40,17 +41,35 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
 
             UriHelper.FromAbsolute(_url, out var scheme, out var host, out var path, out var query, out var fragment);
 
-            var request = $"GET {path.Value}/{query.Value} HTTP/1.1\r\n";
+            var getPath = path.Value;
+
+            if (query.HasValue)
+            {
+                getPath += "/" + query.Value;
+            }
+
+            if (fragment.HasValue)
+            {
+                getPath += "#" + fragment.Value;
+            }
+
+            var request = $"GET {getPath} HTTP/1.1\r\n";
 
             if (!headers.Any(h => h.StartsWith("Host:")))
             {
                 request += $"Host: {host.Value}\r\n";
             }
 
-            request += "Content-Length: 0\r\n" +
-                String.Join("\r\n", headers) +
-                "\r\n";
+            if (headers.Any())
+            {
+                request += String.Join("\r\n", headers) + "\r\n";
+            }
 
+            // TODO: If a body is defined, add the Content-Length header 
+            // request += "Content-Length: 0\r\n";
+
+            request += "\r\n";
+            
             var requestPayload = Encoding.UTF8.GetBytes(request);
             var buffer = new byte[requestPayload.Length * pipelineDepth];
 
@@ -61,12 +80,16 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
 
             _requestBytes = buffer.AsMemory();
 
-            _hostEndPoint = new IPEndPoint(IPAddress.Parse(host.Host), host.Port.Value);
+            if (!IPAddress.TryParse(host.Host, out var ipAddress))
+            {
+                ipAddress = Dns.GetHostAddresses(host.Host).First();
+            }
+
+            _hostEndPoint = new IPEndPoint(ipAddress, host.Port.Value);
 
             _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
             _pipe = new Pipe();
-
         }
 
         public async Task ConnectAsync()
@@ -228,7 +251,7 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
 
                 case HttpResponseState.Headers:
 
-                    // Read evey headers
+                    // Read every headers
                     while (sequenceReader.TryReadTo(out ReadOnlySpan<byte> headerLine, NewLine))
                     {
                         // Is that the end of the headers?
