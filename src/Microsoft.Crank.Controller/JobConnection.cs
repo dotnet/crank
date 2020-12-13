@@ -142,7 +142,7 @@ namespace Microsoft.Crank.Controller
                         var tempFilename = Path.GetTempFileName();
                         File.Delete(tempFilename);
 
-                        Log.Write($"Using local folder: {Job.Source.LocalFolder}'");
+                        Log.Write($"Using local folder: \"{Job.Source.LocalFolder}\"");
 
                         var sourceDir = Job.Source.LocalFolder;
 
