@@ -41,9 +41,9 @@ counters:
     measurement: runtime-counter/gen-1-size
     description: Gen 1 Heap Size
 
-  - name: gen-1-size
-    measurement: runtime-counter/gen-1-size
-    description: Gen 1 Heap Size
+  - name: gen-2-size
+    measurement: runtime-counter/gen-2-size
+    description: Gen 2 Heap Size
 
   - name: loh-size
     measurement: runtime-counter/loh-size
