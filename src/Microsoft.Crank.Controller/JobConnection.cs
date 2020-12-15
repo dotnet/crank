@@ -142,7 +142,7 @@ namespace Microsoft.Crank.Controller
                         var tempFilename = Path.GetTempFileName();
                         File.Delete(tempFilename);
 
-                        Log.Write($"Using local folder: {Job.Source.LocalFolder}'");
+                        Log.Write($"Using local folder: \"{Job.Source.LocalFolder}\"");
 
                         var sourceDir = Job.Source.LocalFolder;
 
@@ -634,7 +634,7 @@ namespace Microsoft.Crank.Controller
                     traceDestination = traceDestination + "." + DateTime.Now.ToString("MM-dd-HH-mm-ss") + traceExtension;
                 }
 
-                Log.Write($"Collecting trace file '{traceDestination}' ...");
+                Log.Write($"Collecting trace file, this can take several seconds");
 
                 var uri = _serverJobUri + "/trace";
                 var response = await _httpClient.PostAsync(uri, new StringContent(""));
@@ -646,7 +646,7 @@ namespace Microsoft.Crank.Controller
 
                     if (state == JobState.TraceCollecting)
                     {
-                        // Server is collecting the trace
+                        Console.Write(".");
                     }
                     else
                     {
@@ -656,15 +656,17 @@ namespace Microsoft.Crank.Controller
                     await Task.Delay(1000);
                 }
 
-                Log.Write($"Downloading trace file...");
+                Console.WriteLine();
+
+                Log.Write($"Downloading trace file {traceDestination} ...");
 
                 try
                 {
-                    await _httpClient.DownloadFileAsync(uri, _serverJobUri, traceDestination);
+                    await _httpClient.DownloadFileWithProgressAsync(uri, _serverJobUri, traceDestination);
                 }
-                catch
+                catch (Exception e)
                 {
-                    Log.Write($"The trace was not captured on the server");
+                    Log.Write($"The trace was not captured on the server: " + e.ToString());
                 }
             }
             catch (Exception e)

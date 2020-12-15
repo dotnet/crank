@@ -22,6 +22,8 @@
     <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="2.0.55" />
     <PackageReference Include="Mono.Posix.NETStandard" Version="1.0.0" />
     <PackageReference Include="NuGet.Versioning" Version="5.5.1" />
+    <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" Version="0.2.152202" />
+    <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="2.0.62" />
   </ItemGroup>
 
   <ItemGroup>

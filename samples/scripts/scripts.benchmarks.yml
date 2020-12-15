@@ -1,0 +1,37 @@
+defaultScripts:
+  - |
+    console.log("this section is loaded by default and before named scripts")
+
+    function percentile(items, th) {
+      var ordered = items.sort((a, b) => a - b); // by default sort() uses ordinal comparison
+      index = Math.max(0, Math.round(ordered.length * th / 100) - 1);
+      return ordered[index];
+    }
+
+scripts:
+
+  # displays a message using all different colors
+  say_hello: |
+    console.log("hello")
+    console.info("world")
+    console.warn("this is")
+    console.error("scary")
+
+  # records the current date and time as a custom property
+  add_current_time: |
+    benchmarks.properties["time"] = new Date().toISOString();
+
+  # calculats the allocations per request by using results from application and load
+  add_allocations_per_request: |
+    var allocations = benchmarks.jobs.application.results["runtime-counter/alloc-rate"]
+    var rps = benchmarks.jobs.load.results["wrk/requests"];
+    benchmarks.jobs.application.results["alloc-per-request"] = allocations / rps;
+
+  # computes the 95th percentile of the working set from all the data points (measurements)
+  add_p95_memory: |
+    var memories = benchmarks.jobs.application.measurements[0]
+      .filter(m => m.name == "benchmarks/working-set")
+      .map(x => x.value);
+    var value = percentile(memories, 95);
+    console.info(`p95 of working set is ${value}`);
+    benchmarks.jobs.application.results["benchmarks/working-set/p95"] = value;

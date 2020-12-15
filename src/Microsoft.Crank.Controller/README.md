@@ -35,6 +35,7 @@ Options:
   --chart                                                        Renders a chart for multi-value results.
   --chart-type [bar (default) | hex]                             Type of chart to render. Values are 'bar' (default) or 'hex'
   --chart-scale [off (default)| auto]                            Scale for chart. Values are 'off' (default) or 'auto'. When scale is off, the min value starts at 0.
+  --script [name]                                                Execute a named script available in the configuration files. Can be used multiple times.
 
   These options are specific to a Job service named [JOB]
 
@@ -74,8 +75,8 @@ Options:
   --[JOB].dotnetTrace <true|false>                                         Whether to collect a diagnostics trace using dotnet-trace. An optional profile name or list of dotnet-trace providers can be passed. e.g., true
   --[JOB].dotnetTraceProviders <profile|provider|clrevent>                 A comma-separated list of trace providers. By default the profile 'cpu-sampling' is used. See https://github.com/dotnet/diagnostics/blob/master/documentation/dotnet-trace-instructions.md for details. e.g., "Microsoft-DotNETCore-SampleProfiler, gc-verbose, JIT+Contention".
   --[JOB].options.traceOutput <filename>                                   The name of the trace file. Can be a file prefix (app will add *.DATE*.zip) , or a specific name and no DATE* will be added e.g., c:\traces\mytrace
-  --[JOB].collectCounters <true|false>                                     Whether to collect dotnet counters.
-  --[JOB].counterProviders <provider>                                      The name of a performance counter provider from which to collect. e.g., System.Runtime (default if none is set), Microsoft-AspNetCore-Server-Kestrel, Microsoft.AspNetCore.Hosting, Microsoft.AspNetCore.Http.Connections, Grpc.AspNetCore.Server, Grpc.Net.client, Npgsql
+  --[JOB].options.collectCounters <true|false>                             Whether to collect dotnet counters. If set and 'counterProviders' is not, System.Runtime will be used by default.
+  --[JOB].options.counterProviders <provider>                              The name of a performance counter provider from which to collect. e.g., System.Runtime, Microsoft-AspNetCore-Server-Kestrel, Microsoft.AspNetCore.Hosting, Microsoft.AspNetCore.Http.Connections, Grpc.AspNetCore.Server, Grpc.Net.client, Npgsql
   --[JOB].collectStartup <true|false>                                      Whether to include the startup phase in the traces, i.e after the application is launched and before it is marked as ready. For a web application it means before it is ready to accept requests.
   --[JOB].collect <true|false>                                             Whether to collect native traces. Uses PerfView on Windows and Perf/PerfCollect on Linux.
   --[JOB].collectArguments <arguments>                                     Native traces arguments, e.g., "BufferSizeMB=1024;CircularMB=1024;clrEvents=JITSymbols;kernelEvents=process+thread+ImageLoad+Profile"
@@ -114,7 +115,7 @@ Options:
     --application.endpoints http://asp-perf-lin:5001
     --application.sdkversion 5.0.100-alpha1-015721 
     --application.dotnetTrace true 
-    --application.collectCounters true 
+    --application.options.collectCounters true
 
     --load.endpoints http://asp-perf-win:5001 
     --load.source.localFolder ..\..\..\..\PipeliningClient\ 

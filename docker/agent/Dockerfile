@@ -18,7 +18,8 @@ RUN apt-get update \
         git \
         procps \
         cgroup-bin \
-        curl
+        curl \
+        wget
 
 # Build and install h2load. Required as there isn't a way to distribute h2load as a single file to download
 RUN apt-get update \
@@ -65,4 +66,4 @@ RUN chmod +x /usr/bin/perfcollect
 
 COPY --from=build-env /app /app
 
-ENTRYPOINT [ "/app/crank-agent", "--url", "http://*:5001" ]
+ENTRYPOINT [ "/app/crank-agent" ]

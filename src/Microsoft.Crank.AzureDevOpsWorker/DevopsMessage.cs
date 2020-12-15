@@ -42,7 +42,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                     Convert.ToBase64String(Encoding.ASCII.GetBytes(":" + AuthToken)));
         }
 
-        public Task SendTaskStartedEventAsync()
+        public async Task<bool> SendTaskStartedEventAsync()
         {
             var taskStartedEventUrl = $"{PlanUrl}/{ProjectId}/_apis/distributedtask/hubs/{HubName}/plans/{PlanId}/events?api-version=2.0-preview.1";
 
@@ -55,11 +55,20 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
             var requestBody = JsonSerializer.Serialize(body);
 
-            return PostDataAsync(taskStartedEventUrl, requestBody);
+            try
+            {
+                var result = await PostDataAsync(taskStartedEventUrl, requestBody);
+                return result.IsSuccessStatusCode;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"SendTaskStartedEventAsync failed: {taskStartedEventUrl}");
+                Console.WriteLine(e.ToString());
+                return false;
+            }
         }
-
         
-        public Task SendTaskCompletedEventAsync(bool succeeded)
+        public async Task<bool> SendTaskCompletedEventAsync(bool succeeded)
         {
             var taskCompletedEventUrl = $"{PlanUrl}/{ProjectId}/_apis/distributedtask/hubs/{HubName}/plans/{PlanId}/events?api-version=2.0-preview.1";
 
@@ -73,10 +82,20 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             
             var requestBody = JsonSerializer.Serialize(body);
 
-            return PostDataAsync(taskCompletedEventUrl, requestBody);
+            try
+            {
+                var result = await PostDataAsync(taskCompletedEventUrl, requestBody);
+                return result.IsSuccessStatusCode;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"SendTaskCompletedEventAsync failed: {taskCompletedEventUrl}");
+                Console.WriteLine(e.ToString());
+                return false;
+            }        
         }
 
-        public Task SendTaskLogFeedsAsync(string message)
+        public async Task<bool> SendTaskLogFeedsAsync(string message)
         {
             var taskLogFeedsUrl = $"{PlanUrl}/{ProjectId}/_apis/distributedtask/hubs/{HubName}/plans/{PlanId}/timelines/{TimelineId}/records/{JobId}/feed?api-version=4.1";
 
@@ -88,7 +107,17 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
             var requestBody = JsonSerializer.Serialize(body);
 
-            return PostDataAsync(taskLogFeedsUrl, requestBody);
+            try
+            {
+                var result = await PostDataAsync(taskLogFeedsUrl, requestBody);
+                return result.IsSuccessStatusCode;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"SendTaskLogFeedsAsync failed: {taskLogFeedsUrl}");
+                Console.WriteLine(e.ToString());
+                return false;
+            }
         }
 
         public async Task<string> CreateTaskLogAsync()
@@ -102,12 +131,27 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
             var requestBody = JsonSerializer.Serialize(body);
 
-            var response = await PostDataAsync(taskLogCreateUrl, requestBody);
-
-            return await response.Content.ReadAsStringAsync();
+            try
+            {
+                var result = await PostDataAsync(taskLogCreateUrl, requestBody);
+                if (result.IsSuccessStatusCode)
+                {
+                    return await result.Content.ReadAsStringAsync();
+                }
+                else
+                {
+                    return null;
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"CreateTaskLogAsync failed: {taskLogCreateUrl}");
+                Console.WriteLine(e.ToString());
+                return null;
+            }
         }
 
-        public Task AppendToTaskLogAsync(string taskLogId, string message)
+        public async Task<bool> AppendToTaskLogAsync(string taskLogId, string message)
         {
             // Append to task log
             // url: {planUri}/{projectId}/_apis/distributedtask/hubs/{hubName}/plans/{planId}/logs/{taskLogId}?api-version=4.1
@@ -118,11 +162,20 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             var buffer = Encoding.UTF8.GetBytes(message);
             var byteContent = new ByteArrayContent(buffer);
                        
-
-            return PostDataAsync(appendLogContentUrl, byteContent);
+            try
+            {
+                var result = await PostDataAsync(appendLogContentUrl, byteContent);
+                return result.IsSuccessStatusCode;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"AppendToTaskLogAsync failed: {appendLogContentUrl}");
+                Console.WriteLine(e.ToString());
+                return false;
+            }
         }
 
-        public Task UpdateTaskTimelineRecordAsync(string taskLogObject)
+        public async Task<bool> UpdateTaskTimelineRecordAsync(string taskLogObject)
         {
             var updateTimelineUrl = $"{PlanUrl}/{ProjectId}/_apis/distributedtask/hubs/{HubName}/plans/{PlanId}/timelines/{TimelineId}/records?api-version=4.1";
 
@@ -140,15 +193,23 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
             var requestBody = JsonSerializer.Serialize(body);
 
-            return PatchDataAsync(updateTimelineUrl, requestBody);
+            try
+            {
+                var result = await PatchDataAsync(updateTimelineUrl, requestBody);
+                return result.IsSuccessStatusCode;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"UpdateTaskTimelineRecordAsync failed: {updateTimelineUrl}");
+                Console.WriteLine(e.ToString());
+                return false;
+            }
         }
 
         
         private async Task<HttpResponseMessage> PostDataAsync(string url, HttpContent content)
         {
             var response = await _httpClient.PostAsync(new Uri(url), content);
-
-            response.EnsureSuccessStatusCode();
 
             return response;
         }
@@ -161,8 +222,6 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
             var response = await _httpClient.PostAsync(new Uri(url), byteContent);
 
-            response.EnsureSuccessStatusCode();
-
             return response;
         }
 
@@ -174,10 +233,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
             var response = await _httpClient.PatchAsync(new Uri(url), byteContent);
 
-            response.EnsureSuccessStatusCode();
-
             return response;
         }
-
     }
 }

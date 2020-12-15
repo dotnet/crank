@@ -9,5 +9,7 @@
     <FileSignInfo Include="Manatee.Json.dll" CertificateName="3PartySHA2" />
     <FileSignInfo Include="Newtonsoft.Json.dll" CertificateName="3PartySHA2" />
     <FileSignInfo Include="YamlDotNet.dll" CertificateName="3PartySHA2" />
+    <FileSignInfo Include="Jint.dll" CertificateName="3PartySHA2" />
+    <FileSignInfo Include="Esprima.dll" CertificateName="3PartySHA2" />
   </ItemGroup>
 </Project>

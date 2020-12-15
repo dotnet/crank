@@ -1,0 +1,30 @@
+﻿variables:
+  headers:
+    none: ''
+    plaintext: '--header "Accept: text/plain,text/html;q=0.9,application/xhtml+xml;q=0.9,application/xml;q=0.8,*/*;q=0.7"'
+    html: '--header "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"'
+    json: '--header "Accept: application/json,text/html;q=0.9,application/xhtml+xml;q=0.9,application/xml;q=0.8,*/*;q=0.7"'
+    connectionclose: '--header "Connection: close"'
+  presetHeaders: none
+
+jobs:
+  httpclient:
+    source:
+      repository: https://github.com/dotnet/crank.git
+      branchOrCommit: master
+      project: src/Microsoft.Crank.Jobs.HttpClient/Microsoft.Crank.Jobs.HttpClient.csproj
+    readyStateText: Http Client
+    isConsoleApp: true
+    waitForExit: true
+    framework: net5.0
+    variables:
+      connections: 256
+      warmup: 15
+      duration: 15
+      presetHeaders: none
+      serverScheme: http
+      serverAddress: localhost
+      serverPort: 5000
+      path: /
+      httpVersion: 1.1
+    arguments: '--url "{{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}" --connections {{connections}} --warmup {{warmup}} --duration {{duration}} {{headers[presetHeaders]}} --version {{httpVersion}}'

@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
 
-docker stop crank-agent
-docker rm crank-agent
+NAME="$1"
+shift
+
+if [ -z "$NAME" ]
+then
+    NAME="crank-agent"
+fi
+
+docker stop "$NAME"
+docker rm "$NAME"

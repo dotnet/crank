@@ -17,8 +17,14 @@ namespace Microsoft.Crank.Controller
     public class JobResult
     {
         public Dictionary<string, object> Results { get; set; } = new Dictionary<string, object>();
-        public MeasurementMetadata[] Metadata { get; set; } = Array.Empty<MeasurementMetadata>();
+        public ResultMetadata[] Metadata { get; set; } = Array.Empty<ResultMetadata>();
         public List<Measurement[]> Measurements { get; set; } = new List<Measurement[]>();
         public Dictionary<string, object> Environment { get; set; } = new Dictionary<string, object>();
+    }
+    public class ResultMetadata
+    {
+        public string Name { get; set; }
+        public string Description { get; set; }
+        public string Format { get; set; }
     }
 }

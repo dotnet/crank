@@ -25,8 +25,8 @@ namespace Microsoft.Crank.RegressionBot
 
         public int DaysToLoad { get; set; } = 7;
 
-        // Numbers of days to analyze
-        public int DaysToAnalyze { get; set; } = 3;
+        // Numbers of values to use to build the stdev
+        public int StdevCount { get; set; } = 6;
 
         // Numbers of days to skip from the analysis
         public int DaysToSkip { get; set; } = 0;

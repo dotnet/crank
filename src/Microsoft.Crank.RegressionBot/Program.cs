@@ -433,7 +433,7 @@ namespace Microsoft.Crank.RegressionBot
                 yield break;
             }
 
-            var detectionMinDateTimeUtc = DateTime.UtcNow.AddDays(0 - source.DaysToAnalyze);
+            var loadStartDateTimeUtc = DateTime.UtcNow.AddDays(0 - source.DaysToLoad);
             var detectionMaxDateTimeUtc = DateTime.UtcNow.AddDays(0 - source.DaysToSkip);
             
             var allResults = new List<BenchmarksResult>();
@@ -447,7 +447,7 @@ namespace Microsoft.Crank.RegressionBot
                 using (var command = new SqlCommand(String.Format(Queries.Latest, source.Table), connection))
                 {
                     // Load 14 days or data, to measure 7 days of standard deviation prior to detection
-                    command.Parameters.AddWithValue("@startDate", DateTime.UtcNow.AddDays(0 - source.DaysToLoad));
+                    command.Parameters.AddWithValue("@startDate", loadStartDateTimeUtc);
                     
                     await connection.OpenAsync();
 
@@ -537,35 +537,53 @@ namespace Microsoft.Crank.RegressionBot
                         continue;
                     }
 
-                    // Calculate standard deviation
-                    var values = resultSet.Select(x => x.Value).ToArray();
-
                     if (_options.Verbose)
                     {
-                        Console.WriteLine($"Values: [{String.Join(",", values)}]");
+                        Console.WriteLine($"Values: {JsonConvert.SerializeObject(resultSet.Select(x => x.Value).ToArray())}");
                     }
 
-                    double average = values.Average();
-                    double sumOfSquaresOfDifferences = values.Sum(val => (val - average) * (val - average));
-                    double standardDeviation = Math.Sqrt(sumOfSquaresOfDifferences / values.Length);
+                    var values = resultSet.Select(x => x.Value).ToArray();
 
                     // Look for 2 consecutive values that are outside of the threshold, 
                     // subsequent to 3 consecutive values that are inside the threshold.  
 
                     for (var i = 0; i < resultSet.Length - 5; i++)
                     {
-                        // Ignore results before the searched date and after the skipped dates
-                        if (resultSet[i].Result.DateTimeUtc < detectionMinDateTimeUtc
-                        || resultSet[i].Result.DateTimeUtc >= detectionMaxDateTimeUtc)
+                        // Skip the measurement if it's too recent
+                        if (resultSet[i].Result.DateTimeUtc >= detectionMaxDateTimeUtc)
                         {
                             continue;
                         }
 
-                        var value1 = Math.Abs(values[i+1] - values[i]);
-                        var value2 = Math.Abs(values[i+2] - values[i]);
-                        var value3 = Math.Abs(values[i+3] - values[i+2]);
-                        var value4 = Math.Abs(values[i+4] - values[i+2]);
+                        if (_options.Verbose)
+                        {
+                            Console.WriteLine($"Checking {resultSet[i].Value}");
+                        }
 
+                        // StdevCount measures before current measurement + 2 (to include the first 2 measures in the stdev)
+                        var stdevs = values.Take(i + 2).TakeLast(source.StdevCount).ToArray();
+
+                        if (stdevs.Length < source.StdevCount && probe.Unit == ThresholdUnits.StDev)
+                        {
+                            Console.WriteLine($"Not enough values to build a standard deviation: {JsonConvert.SerializeObject(stdevs)}");
+                            continue;
+                        }
+
+                        // Calculate the stdev from all values up to the verified window
+                        double average = stdevs.Average();
+                        double sumOfSquaresOfDifferences = stdevs.Sum(val => (val - average) * (val - average));
+                        double standardDeviation = Math.Sqrt(sumOfSquaresOfDifferences / stdevs.Length);
+                        
+                        if (_options.Verbose)
+                        {
+                            Console.WriteLine($"Stdev: {standardDeviation} from values {JsonConvert.SerializeObject(stdevs)}");
+                        }
+                        
+                        var value1 = values[i+1] - values[i];
+                        var value2 = values[i+2] - values[i];
+                        var value3 = values[i+3] - values[i+2];
+                        var value4 = values[i+4] - values[i+2];
+                        
                         if (_options.Verbose)
                         {
                             Console.WriteLine($"{descriptor} {probe.Path} {resultSet[i+2].Result.DateTimeUtc} {values[i+0]} {values[i+1]} {values[i+2]} {values[i+3]} ({value3}) {values[i+4]} ({value4}) / {standardDeviation * probe.Threshold:n0}");
@@ -577,28 +595,28 @@ namespace Microsoft.Crank.RegressionBot
                         {
                             case ThresholdUnits.StDev:
                                 // factor of standard deviation
-                                hasRegressed = value1 < standardDeviation
-                                    && value2 < standardDeviation
-                                    && value3 >= probe.Threshold * standardDeviation
-                                    && value4 >= probe.Threshold * standardDeviation
+                                hasRegressed = Math.Abs(value1) < standardDeviation
+                                    && Math.Abs(value2) < standardDeviation
+                                    && Math.Abs(value3) >= probe.Threshold * standardDeviation
+                                    && Math.Abs(value4) >= probe.Threshold * standardDeviation
                                     && Math.Sign(value3) == Math.Sign(value4);
 
                                 break;
                             case ThresholdUnits.Percent:
                                 // percentage of the average of values
-                                hasRegressed = value1 < average * (probe.Threshold / 100)
-                                    && value2 < average * (probe.Threshold / 100)
-                                    && value3 >= average * (probe.Threshold / 100)
-                                    && value4 >= average * (probe.Threshold / 100)
+                                hasRegressed = Math.Abs(value1) < average * (probe.Threshold / 100)
+                                    && Math.Abs(value2) < average * (probe.Threshold / 100)
+                                    && Math.Abs(value3) >= average * (probe.Threshold / 100)
+                                    && Math.Abs(value4) >= average * (probe.Threshold / 100)
                                     && Math.Sign(value3) == Math.Sign(value4);
 
                                 break;                            
                             case ThresholdUnits.Absolute:
                                 // absolute deviation
-                                hasRegressed = value1 < probe.Threshold
-                                    && value2 < probe.Threshold
-                                    && value3 >= probe.Threshold
-                                    && value4 >= probe.Threshold
+                                hasRegressed = Math.Abs(value1) < probe.Threshold
+                                    && Math.Abs(value2) < probe.Threshold
+                                    && Math.Abs(value3) >= probe.Threshold
+                                    && Math.Abs(value4) >= probe.Threshold
                                     && Math.Sign(value3) == Math.Sign(value4);
 
                                 break;
@@ -757,7 +775,7 @@ namespace Microsoft.Crank.RegressionBot
             {
                 if (_options.Verbose)
                 {
-                    Console.WriteLine($"Checking issue: {issue.Url}");
+                    Console.WriteLine($"Checking issue: {issue.HtmlUrl}");
                 }
 
                 if (String.IsNullOrWhiteSpace(issue.Body))
@@ -788,6 +806,7 @@ namespace Microsoft.Crank.RegressionBot
                     regressionsToReport.Remove(r);
                 }
 
+                // Only try to update an issue if all the regressions have been detected
                 if (allRegressionsInIssue.Count() == regressionSummaries.Count())
                 {
                     // We could find all the regressions from this issue.
@@ -795,7 +814,15 @@ namespace Microsoft.Crank.RegressionBot
 
                     var issueNeedsUpdate = allRegressionsInIssue.Any(x => x.HasRecovered != regressionSummaries[x.Identifier].HasRecovered);
 
-                    if (issueNeedsUpdate)
+                    // Check if a custom marker is present to force the issue to be updated
+                    var updateRequested = issue.Body.Contains("<!-- update -->");
+
+                    if (updateRequested)
+                    {
+                        Console.WriteLine("Update requested");
+                    }
+
+                    if (issueNeedsUpdate || updateRequested)
                     {
                         Console.WriteLine("Updating issue...");
                         var update = issue.ToUpdate();
@@ -818,6 +845,10 @@ namespace Microsoft.Crank.RegressionBot
                     {
                         Console.WriteLine("Issue doesn't need to be updated");
                     }
+                }
+                else
+                {
+                    Console.WriteLine("Not all regressions were detected, skipping");
                 }
             }
 

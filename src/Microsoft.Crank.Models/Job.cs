@@ -102,13 +102,20 @@ namespace Microsoft.Crank.Models
         public string PerfViewTraceFile { get; set; }
 
         // Other collection options
-        public bool CollectStartup { get; set; }
-        public bool CollectCounters { get; set; }
 
+        /// <summary>
+        /// Whether to collect the startup phase or not.
+        /// If <c>false</c> (default) the collection is triggered when the ready state is detected.
+        /// </summary>
+        public bool CollectStartup { get; set; }
+        
+        // For backward compatibility. Use Options.CollectCounters instead
+        public bool CollectCounters { get; set; }
+        
         /// <summary>
         /// The list of performance counter providers to be collected. Defaults to <c>System.Runtime</c>.
         /// </summary>
-        public List<string> CounterProviders { get; set; } = new List<string>();
+        public List<DotnetCounter> Counters { get; set; } = new List<DotnetCounter>();
         public string BasePath { get; set; }
         public int ProcessId { get; set; }
         public int ChildProcessId { get; set; }
@@ -207,5 +214,7 @@ namespace Microsoft.Crank.Models
         public List<string> BuildArchives { get; set; } = new List<string>();
         public List<string> OutputArchives { get; set; } = new List<string>();
         public bool BenchmarkDotNet { get; set; }
+        public bool? CollectCounters { get; set; }
+        public List<string> CounterProviders { get; set; } = new List<string>();
     }
 }
