@@ -94,7 +94,7 @@ namespace Microsoft.Crank.Jobs.HttpClient
 
             if (CertPath.StartsWith("http", StringComparison.OrdinalIgnoreCase))
             {
-                Console.WriteLine($"Downloading cert from: {CertPath}")
+                Console.WriteLine($"Downloading cert from: {CertPath}");
                 var httpClientHandler = new HttpClientHandler();
                 httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
                     httpClientHandler.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
