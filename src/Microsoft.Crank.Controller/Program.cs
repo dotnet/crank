@@ -1907,9 +1907,9 @@ namespace Microsoft.Crank.Controller
                         {
                             aggregated = engine.Invoke(resultDefinition.Aggregate, arguments: new object [] { measurements[name].Select(x => x.Value).ToArray() }).ToObject();
                         }
-                        catch
+                        catch (Exception ex)
                         {
-                            Console.WriteLine($"Could not aggregate: {name} with {resultDefinition.Aggregate}");
+                            Console.WriteLine($"Could not aggregate: {name} with {resultDefinition.Aggregate} for job {job.Job.Id} error {ex.Message}");
                             continue;
                         }
 
@@ -1951,11 +1951,11 @@ namespace Microsoft.Crank.Controller
 
                 try
                 {
-                    reducedValue = engine.Invoke(resultDefinition.Reduce, arguments: new object [] { values }).ToObject();
+                    reducedValue = engine.Invoke(resultDefinition.Reduce, arguments: new object [] { values.Select(x => x.Value).ToArray() }).ToObject();
                 }
-                catch
+                catch (Exception ex)
                 {
-                    Console.WriteLine($"Could not reduce: {resultDefinition.Name} with {resultDefinition.Reduce}");
+                    Console.WriteLine($"Could not reduce: {resultDefinition.Name} with {resultDefinition.Reduce} error {ex.Message}");
                     continue;
                 }
 
