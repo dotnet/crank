@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -31,6 +32,7 @@ namespace Microsoft.Crank.Jobs.HttpClient
         public static Version Version { get; set; }
         public static string CertPath { get; set; }
         public static string CertPassword { get; set; }
+        public static X509Certificate2 Certificate { get; set; }
 
         static async Task Main(string[] args)
         {
@@ -83,12 +85,28 @@ namespace Microsoft.Crank.Jobs.HttpClient
                     }
                 }
 
-                CertPath = @"C:\Github\Benchmarks\src\BenchmarksClient\Certs\server.pfx";
-                //                optionCertPath.Value();
-                CertPassword = "1111";/// optionCertPwd.Value();
-
                 return RunAsync();
             });
+
+            CertPath = @"https://github.com/aspnet/Benchmarks/blob/haok/bench/src/Benchmarks/testCert.pfx?raw=true";
+            //                optionCertPath.Value();
+            CertPassword = "testPassword";/// optionCertPwd.Value();
+
+            if (CertPath.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            {
+                Console.WriteLine($"Downloading cert from: {CertPath}")
+                var httpClientHandler = new HttpClientHandler();
+                httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+                    httpClientHandler.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
+
+                var httpClient = new System.Net.Http.HttpClient(httpClientHandler);
+                var bytes = await httpClient.GetByteArrayAsync(CertPath);
+                Certificate = new X509Certificate2(bytes, CertPassword);
+            }
+            else
+            {
+                Certificate = new X509Certificate2(CertPath, CertPassword);
+            }
 
             await app.ExecuteAsync(args);
         }
@@ -213,10 +231,10 @@ namespace Microsoft.Crank.Jobs.HttpClient
                     // Accept any SSL certificate
                     httpHandler.SslOptions.RemoteCertificateValidationCallback += (object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => true;
 
-                    if (!string.IsNullOrEmpty(CertPath))
+                    if (Certificate != null)
                     {
-                        Console.WriteLine($"Using Cert at: {CertPath}");
-                        httpHandler.SslOptions.ClientCertificates.Add(new X509Certificate2(CertPath, CertPassword));
+                        Console.WriteLine($"Using Cert");
+                        httpHandler.SslOptions.ClientCertificates.Add(Certificate);
                     }
                     else
                     {
