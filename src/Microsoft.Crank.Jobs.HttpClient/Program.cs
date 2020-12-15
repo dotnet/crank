@@ -83,8 +83,9 @@ namespace Microsoft.Crank.Jobs.HttpClient
                     }
                 }
 
-                CertPath = optionCertPath.Value();
-                CertPassword = optionCertPwd.Value();
+                CertPath = @"C:\Github\Benchmarks\src\BenchmarksClient\Certs\server.pfx";
+                //                optionCertPath.Value();
+                CertPassword = "1111";/// optionCertPwd.Value();
 
                 return RunAsync();
             });
