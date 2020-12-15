@@ -218,6 +218,10 @@ namespace Microsoft.Crank.Jobs.HttpClient
                         Console.WriteLine($"Using Cert at: {CertPath}");
                         httpHandler.SslOptions.ClientCertificates.Add(new X509Certificate2(CertPath, CertPassword));
                     }
+                    else
+                    {
+                        Console.WriteLine($"No cert specified.");
+                    }
 
                     _httpMessageInvoker = new HttpMessageInvoker(httpHandler);
                 }
