@@ -48,7 +48,7 @@ namespace Microsoft.Crank.Jobs.HttpClient
 
             app.OnExecuteAsync(cancellationToken =>
             {
-                Console.WriteLine("Http Client");
+                Console.WriteLine("Http Client haok");
 
                 ServerUrl = optionUrl.Value();
 
