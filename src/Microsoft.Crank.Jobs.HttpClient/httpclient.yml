@@ -11,7 +11,7 @@ jobs:
   httpclient:
     source:
       repository: https://github.com/dotnet/crank.git
-      branchOrCommit: master
+      branchOrCommit: haok/crank
       project: src/Microsoft.Crank.Jobs.HttpClient/Microsoft.Crank.Jobs.HttpClient.csproj
     readyStateText: Http Client
     isConsoleApp: true
