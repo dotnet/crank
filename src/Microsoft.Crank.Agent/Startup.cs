@@ -690,21 +690,34 @@ namespace Microsoft.Crank.Agent
                                     {
                                         buildAndRunTask = Task.Run(async () =>
                                         {
-                                            benchmarksDir = await CloneRestoreAndBuild(tempDir, job, _dotnethome, cts.Token);
-
-                                            if (benchmarksDir == null)
+                                            if (job.Source.ExistingAppFolder != null)
                                             {
-                                                // Build error
-                                                job.State = JobState.Failed;
-                                            }
+                                                Log.WriteLine($"Using Local App Folder started: job.Source.ExistingAppFolder");
 
-                                            if (job.State != JobState.Failed && benchmarksDir != null)
-                                            {
-                                                process = await StartProcess(hostname, Path.Combine(tempDir, benchmarksDir), job, _dotnethome);
+                                                process = await StartProcess(hostname, Path.GetFullPath(job.Source.ExistingAppFolder), job, _dotnethome);
 
                                                 Log.WriteLine($"Process started: {job.ProcessId}");
 
                                                 workingDirectory = process.StartInfo.WorkingDirectory;
+                                            }
+                                            else
+                                            {
+                                                benchmarksDir = await CloneRestoreAndBuild(tempDir, job, _dotnethome, cts.Token);
+
+                                                if (benchmarksDir == null)
+                                                {
+                                                    // Build error
+                                                    job.State = JobState.Failed;
+                                                }
+
+                                                if (job.State != JobState.Failed && benchmarksDir != null)
+                                                {
+                                                    process = await StartProcess(hostname, Path.Combine(tempDir, benchmarksDir), job, _dotnethome);
+
+                                                    Log.WriteLine($"Process started: {job.ProcessId}");
+
+                                                    workingDirectory = process.StartInfo.WorkingDirectory;
+                                                }
                                             }
                                         });
                                     }
@@ -3523,7 +3536,10 @@ namespace Microsoft.Crank.Agent
 
             if (job.SelfContained)
             {
-                workingDirectory = Path.Combine(workingDirectory, "published");
+                if (job.Source.ExistingAppFolder == null)
+                {
+                    workingDirectory = Path.Combine(workingDirectory, "published");
+                }
 
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
@@ -3749,8 +3765,12 @@ namespace Microsoft.Crank.Agent
                 RunAndTrace();
             }
 
-            // Don't wait for the counters to be ready as it could get stuck and block the agent
-            var _ = StartCountersAsync(job);
+            // only collect if asked for, or not set
+            if (!job.Options.CollectCounters.HasValue || job.Options.CollectCounters.Value == true)
+            {
+                // Don't wait for the counters to be ready as it could get stuck and block the agent
+                var _ = StartCountersAsync(job);
+            }
             
             if (job.MemoryLimitInBytes > 0)
             {
@@ -3813,11 +3833,12 @@ namespace Microsoft.Crank.Agent
                 throw new ArgumentException($"Undefined process id for '{job.Service}'");
             }
 
-            Log.WriteLine("Starting counters");
+            Log.WriteLine($"Starting counters for processId {job.ProcessId}");
 
             var client = new DiagnosticsClient(job.ProcessId);
 
             var providerNames = job.Counters.Select(x => x.Provider).Distinct().ToArray();
+            Log.WriteLine($"Collecting providers: {string.Join(",", providerNames)}");
 
             var providerList = providerNames
                 .Select(p => new EventPipeProvider(
@@ -3841,7 +3862,7 @@ namespace Microsoft.Crank.Agent
             {
                 try
                 {
-                    Log.WriteLine("Starting event pipe session");
+                    Log.WriteLine($"Starting event pipe session for processId {job.ProcessId}");
                     eventPipeSession = client.StartEventPipeSession(providerList);
                     break;
                 }
@@ -3866,7 +3887,7 @@ namespace Microsoft.Crank.Agent
 
             if (retries >= 10)
             {
-                Log.WriteLine("[ERROR] Failed to create event pipe client after 10 attempts");
+                Log.WriteLine($"[ERROR] Failed to create event pipe client after 10 attempts for processId {job.ProcessId}");
                 return;
             }
 

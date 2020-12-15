@@ -24,6 +24,8 @@ namespace Microsoft.Crank.Models
         public string DockerFetchPath { get; set; }
         public string LocalFolder { get; set; }
 
+        public string ExistingAppFolder { get; set; }
+
         public bool IsDocker()
         {
             return !String.IsNullOrEmpty(DockerFile) || !String.IsNullOrEmpty(DockerImageName);

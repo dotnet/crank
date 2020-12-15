@@ -826,6 +826,8 @@ namespace Microsoft.Crank.Controller
 
                         await _httpClient.SendAsync(request);
                     }
+
+                    Log.Write($"Uploaded {fileContent.Headers.ContentLength} bytes");
                 }
             }
             catch (Exception e)
