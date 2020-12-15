@@ -29,6 +29,8 @@ namespace Microsoft.Crank.Jobs.HttpClient
         public static int Connections { get; set; }
         public static List<string> Headers { get; set; }
         public static Version Version { get; set; }
+        public static string CertPath { get; set; }
+        public static string CertPassword { get; set; }
 
         static async Task Main(string[] args)
         {
@@ -41,6 +43,8 @@ namespace Microsoft.Crank.Jobs.HttpClient
             var optionDuration = app.Option<int>("-d|--duration <N>", "Duration of the test in seconds. Default is 5.", CommandOptionType.SingleValue);
             var optionHeaders = app.Option("-H|--header <HEADER>", "HTTP header to add to request, e.g. \"User-Agent: edge\"", CommandOptionType.MultipleValue);
             var optionVersion = app.Option("-v|--version <1.0,1.1,2.0>", "HTTP version, e.g. \"2.0\". Default is 1.1", CommandOptionType.SingleValue);
+            var optionCertPath = app.Option("-t|--cert <filepath>", "The path to a cert pfx file.", CommandOptionType.SingleValue);
+            var optionCertPwd = app.Option("-p|--certpwd <password>", "The password for the cert pfx file.", CommandOptionType.SingleValue);
 
             app.OnExecuteAsync(cancellationToken =>
             {
@@ -78,6 +82,9 @@ namespace Microsoft.Crank.Jobs.HttpClient
                             break;
                     }
                 }
+
+                CertPath = optionCertPath.Value();
+                CertPassword = optionCertPwd.Value();
 
                 return RunAsync();
             });
@@ -204,6 +211,11 @@ namespace Microsoft.Crank.Jobs.HttpClient
                     httpHandler.AutomaticDecompression = System.Net.DecompressionMethods.None;
                     // Accept any SSL certificate
                     httpHandler.SslOptions.RemoteCertificateValidationCallback += (object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => true;
+
+                    if (!string.IsNullOrEmpty(CertPath))
+                    {
+                        httpHandler.SslOptions.ClientCertificates.Add(new X509Certificate2(CertPath, CertPassword));
+                    }
 
                     _httpMessageInvoker = new HttpMessageInvoker(httpHandler);
                 }
