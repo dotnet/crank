@@ -234,6 +234,7 @@ namespace Microsoft.Crank.Jobs.HttpClient
                     if (Certificate != null)
                     {
                         Console.WriteLine($"Using Cert");
+                        httpHandler.SslOptions.ClientCertificates = new X509CertificateCollection();
                         httpHandler.SslOptions.ClientCertificates.Add(Certificate);
                     }
                     else
