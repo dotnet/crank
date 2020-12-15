@@ -215,6 +215,7 @@ namespace Microsoft.Crank.Jobs.HttpClient
 
                     if (!string.IsNullOrEmpty(CertPath))
                     {
+                        Console.WriteLine($"Using Cert at: {CertPath}");
                         httpHandler.SslOptions.ClientCertificates.Add(new X509Certificate2(CertPath, CertPassword));
                     }
 
