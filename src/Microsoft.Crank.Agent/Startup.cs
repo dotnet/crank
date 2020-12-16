@@ -529,17 +529,25 @@ namespace Microsoft.Crank.Agent
                                     {
                                         tempDir = Path.Combine(_rootTempDir, job.Source.SourceKey);
 
-                                        if (!Directory.Exists(tempDir))
+                                        try
                                         {
-                                            Log.WriteLine("Creating resuable: " + tempDir);
-                                            Directory.CreateDirectory(tempDir);
-                                        }
-                                        else
-                                        {
-                                            Log.WriteLine("Reusing folder: " + tempDir);
+                                            if (!Directory.Exists(tempDir))
+                                            {
+                                                Log.WriteLine("Creating source folder: " + tempDir);
+                                                Directory.CreateDirectory(tempDir);
+                                            }
+                                            else
+                                            {
+                                                Log.WriteLine("Found source folder: " + tempDir);
 
-                                            // Force the controller to not send the local folder
-                                            job.Source.LocalFolder = null;
+                                                // Force the controller to not send the local folder
+                                                job.Source.LocalFolder = null;
+                                            }
+                                        }
+                                        catch
+                                        {
+                                            Log.WriteLine("[WARNING] Invalid source folder name: " + tempDir);
+                                            tempDir = null;
                                         }
                                     }
 
@@ -4743,6 +4751,8 @@ namespace Microsoft.Crank.Agent
             Log.WriteLine($"Checking requirements...");
 
             // Add a NuGet.config for the self-contained deployments to be able to find the runtime packages on the CI feeds
+            // This is not taken into account however if the source folder contains its own witha <clear /> statement as this one
+            // is defined in the root benchmarks agent folder.
 
             var rootNugetConfig = Path.Combine(_rootTempDir, "NuGet.Config");
 

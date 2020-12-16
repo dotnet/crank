@@ -111,6 +111,9 @@ namespace Microsoft.Crank.Controller
 
             while (true)
             {
+                // Once the job is in Initializing (previous loop) we need to download the full state
+                // since the source properties might have been changed to dismiss source upload.
+                
                 Job = await GetJobAsync();
 
                 #region Ensure the job is valid

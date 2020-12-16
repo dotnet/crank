@@ -1385,6 +1385,7 @@ namespace Microsoft.Crank.Controller
                     // Compute a custom source key
                     source.SourceKey = source.Repository
                         + source.Project
+                        + source.LocalFolder
                         + source.BranchOrCommit
                         + source.DockerImageName
                         + source.DockerFile
@@ -1392,11 +1393,11 @@ namespace Microsoft.Crank.Controller
                         + source.Repository
                         ;
 
-                    using (SHA256 sha256Hash = SHA256.Create())  
+                    using (var sha1 = SHA1.Create())  
                     {  
                         // Assume no collision since it's verified on the server
-                        var bytes = sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(job.Value.Source.SourceKey));
-                        source.SourceKey = Convert.ToBase64String(bytes).Substring(0, 8);
+                        var bytes = sha1.ComputeHash(Encoding.UTF8.GetBytes(job.Value.Source.SourceKey));
+                        source.SourceKey = String.Concat(bytes.Select(b => b.ToString("x2"))).Substring(0, 8);
                     }
 
                     if (job.Value.Options.ReuseBuild)
