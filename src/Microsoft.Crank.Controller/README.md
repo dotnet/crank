@@ -101,7 +101,9 @@ Options:
   ## Files
   --[JOB].options.buildFiles <filename>                                    Build files that will be copied before the application is built. Accepts globing patterns and recursive marker (**). Format is 'path[;destination]'. Path can be a URL. e.g., c:\images\mydockerimage.tar, c:\code\Program.cs
   --[JOB].options.outputFiles <filename>                                   Output files that will be copied in the final application folder. Accepts globing patterns and recursive marker (**). Format is 'path[;destination]'. Path can be a URL. e.g., c:\build\Microsoft.AspNetCore.Mvc.dll, c:\files\samples\picture.png;wwwroot\picture.png
-
+  --[JOB].options.reuseSource <true|false>                                  Reuse local or remote sources across benchmarks for the same source.
+  --[JOB].options.reuseBuild <true|false>                                   Reuse build files across benchmarks. Don't use with floating runtime versions.
+  
   ## Telemetry
 
   --[JOB].options.discardResults <true|false>                              Whether to discard all the results from this job, for instance during a warmup job.

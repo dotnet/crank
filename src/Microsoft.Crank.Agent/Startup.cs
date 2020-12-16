@@ -523,6 +523,31 @@ namespace Microsoft.Crank.Agent
                                 }
                                 else
                                 {
+                                    tempDir = null;
+
+                                    if (!String.IsNullOrEmpty(job.Source.SourceKey))
+                                    {
+                                        tempDir = Path.Combine(_rootTempDir, job.Source.SourceKey);
+
+                                        if (!Directory.Exists(tempDir))
+                                        {
+                                            Log.WriteLine("Creating resuable: " + tempDir);
+                                            Directory.CreateDirectory(tempDir);
+                                        }
+                                        else
+                                        {
+                                            Log.WriteLine("Reusing folder: " + tempDir);
+
+                                            // Force the controller to not send the local folder
+                                            job.Source.LocalFolder = null;
+                                        }
+                                    }
+
+                                    if (tempDir == null)
+                                    {
+                                        tempDir = GetTempDir();
+                                    }
+
                                     startMonitorTime = DateTime.UtcNow;
                                     Log.WriteLine($"{job.State} -> Initializing");
                                     job.State = JobState.Initializing;
@@ -666,8 +691,6 @@ namespace Microsoft.Crank.Agent
 
                                     startMonitorTime = DateTime.UtcNow;
 
-                                    Debug.Assert(tempDir == null);
-                                    tempDir = GetTempDir();
                                     workingDirectory = null;
                                     dockerImage = null;
 
@@ -1393,7 +1416,7 @@ namespace Microsoft.Crank.Agent
                             {
                                 await StopJobAsync(abortCollection: true);
 
-                                if (_cleanup && !job.NoClean && tempDir != null)
+                                if (_cleanup && !job.NoClean && String.IsNullOrEmpty(job.Source.SourceKey) && tempDir != null)
                                 {
                                     TryDeleteDir(tempDir, false);
                                 }
@@ -2021,7 +2044,7 @@ namespace Microsoft.Crank.Agent
                 {
                     await ProcessUtil.RunAsync("docker", $"rm --force {containerId}", throwOnError: false);
 
-                    if (job.NoClean)
+                    if (job.NoClean || !String.IsNullOrEmpty(job.Source.SourceKey))
                     {
                         await ProcessUtil.RunAsync("docker", $"rmi --force --no-prune {imageName}", throwOnError: false);
                     }
@@ -2046,70 +2069,104 @@ namespace Microsoft.Crank.Agent
         {
             // Clone
             string benchmarkedDir = null;
+            var reuseFolder = false;
 
-            if (job.Source.SourceCode != null)
+            // Is the path a previously created source folder?
+            if (!String.IsNullOrEmpty(job.Source.SourceKey))
             {
-                benchmarkedDir = "src";
-
-                var src = Path.Combine(path, benchmarkedDir);
-                var published = Path.Combine(src, "published");
-
-                if (String.IsNullOrEmpty(job.Executable))
+                // Check the source options are the same (repos, branch, ...)
+                var optionsPath = Path.Combine(path, "options.json");
+                
+                if (File.Exists(optionsPath))
                 {
-                    Log.WriteLine($"Extracting files to {src}");
-                    ZipFile.ExtractToDirectory(job.Source.SourceCode.TempFilename, src);
+                    var content = File.ReadAllText(optionsPath);
+                    var options = JsonConvert.DeserializeObject<Source>(content);
+
+                    if (options.Project != job.Source.Project
+                    || options.Repository != job.Source.Repository
+                    || options.BranchOrCommit != job.Source.BranchOrCommit)
+                    {
+                        throw new Exception("Linux runtime package not found");
+                    }
+
+                    reuseFolder = true;
+
+                    // benchmarkedDir can be "src" or a local git clone folder
+                    benchmarkedDir = new DirectoryInfo(Directory.GetDirectories(path).FirstOrDefault(x => !x.EndsWith("buildtools"))).Name;
                 }
                 else
                 {
-                    Log.WriteLine($"Extracting files to {published}");
-                    ZipFile.ExtractToDirectory(job.Source.SourceCode.TempFilename, published);
+                    // First time using this folder
+                    File.WriteAllText(optionsPath, JsonConvert.SerializeObject(job.Source));
+                    reuseFolder = false;
                 }
-
-                File.Delete(job.Source.SourceCode.TempFilename);
             }
-            else
+
+            if (!reuseFolder)
             {
-                // It's possible that the user specified a custom branch/commit for the benchmarks repo,
-                // so we need to add that to the set of sources to restore if it's not already there.
-                //
-                // Note that this is also going to de-dupe the repos if the same one was specified twice at
-                // the command-line (last first to support overrides).
-                var repositories = new HashSet<Source>(SourceRepoComparer.Instance);
-
-                repositories.Add(job.Source);
-
-                foreach (var source in repositories)
+                if (job.Source.SourceCode != null)
                 {
-                    if (cancellationToken.IsCancellationRequested)
+                    benchmarkedDir = "src";
+
+                    var src = Path.Combine(path, benchmarkedDir);
+                    var published = Path.Combine(src, "published");
+
+                    if (String.IsNullOrEmpty(job.Executable))
                     {
-                        return null;
+                        Log.WriteLine($"Extracting files to {src}");
+                        ZipFile.ExtractToDirectory(job.Source.SourceCode.TempFilename, src);
+                    }
+                    else
+                    {
+                        Log.WriteLine($"Extracting files to {published}");
+                        ZipFile.ExtractToDirectory(job.Source.SourceCode.TempFilename, published);
                     }
 
-                    var branchAndCommit = source.BranchOrCommit.Split('#', 2);
+                    File.Delete(job.Source.SourceCode.TempFilename);
+                }
+                else
+                {
+                    // It's possible that the user specified a custom branch/commit for the benchmarks repo,
+                    // so we need to add that to the set of sources to restore if it's not already there.
+                    //
+                    // Note that this is also going to de-dupe the repos if the same one was specified twice at
+                    // the command-line (last first to support overrides).
+                    var repositories = new HashSet<Source>(SourceRepoComparer.Instance);
 
-                    var dir = await Git.CloneAsync(path, source.Repository, shallow: branchAndCommit.Length == 1, branch: branchAndCommit[0], cancellationToken);
+                    repositories.Add(job.Source);
 
-                    var srcDir = Path.Combine(path, dir);
-
-                    if (SourceRepoComparer.Instance.Equals(source, job.Source))
+                    foreach (var source in repositories)
                     {
-                        benchmarkedDir = dir;
-                    }
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            return null;
+                        }
 
-                    if (branchAndCommit.Length > 1)
-                    {
-                        await Git.CheckoutAsync(srcDir, branchAndCommit[1], cancellationToken);
-                    }
+                        var branchAndCommit = source.BranchOrCommit.Split('#', 2);
 
-                    if (source.InitSubmodules)
-                    {
-                        await Git.InitSubModulesAsync(srcDir, cancellationToken);
+                        var dir = await Git.CloneAsync(path, source.Repository, shallow: branchAndCommit.Length == 1, branch: branchAndCommit[0], cancellationToken);
+
+                        var srcDir = Path.Combine(path, dir);
+
+                        if (SourceRepoComparer.Instance.Equals(source, job.Source))
+                        {
+                            benchmarkedDir = dir;
+                        }
+
+                        if (branchAndCommit.Length > 1)
+                        {
+                            await Git.CheckoutAsync(srcDir, branchAndCommit[1], cancellationToken);
+                        }
+
+                        if (source.InitSubmodules)
+                        {
+                            await Git.InitSubModulesAsync(srcDir, cancellationToken);
+                        }
                     }
                 }
             }
 
             Debug.Assert(benchmarkedDir != null);
-
 
             // Computes the location of the benchmarked app
             var benchmarkedApp = Path.Combine(path, benchmarkedDir);
@@ -2121,14 +2178,24 @@ namespace Microsoft.Crank.Agent
 
             Log.WriteLine($"Benchmarked Application in {benchmarkedApp}");
 
+            // Skip installing dotnet or building project if not necessary
             var requireDotnetBuild =
                 !String.IsNullOrEmpty(job.Source.Project) ||
                 String.Equals("dotnet", job.Executable, StringComparison.OrdinalIgnoreCase)
-                ;
+            ;
 
-            // Skip installing dotnet or building project if not necessary
             if (!requireDotnetBuild)
             {
+                Log.WriteLine("Skipping build step, no required");
+                return benchmarkedDir;
+            }
+
+            // Skip installing dotnet or building project if already built and build is not requested
+            requireDotnetBuild = !reuseFolder || !job.Source.NoBuild;
+
+            if (!requireDotnetBuild)
+            {
+                Log.WriteLine("Skipping build step, reusing previous build");
                 return benchmarkedDir;
             }
 
