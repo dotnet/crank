@@ -102,6 +102,7 @@ namespace Microsoft.Crank.Jobs.HttpClient
                 var httpClient = new System.Net.Http.HttpClient(httpClientHandler);
                 var bytes = await httpClient.GetByteArrayAsync(CertPath);
                 Certificate = new X509Certificate2(bytes, CertPassword);
+                Console.WriteLine("Cert Thumb: " + Certificate.Thumbprint);
             }
             else
             {
