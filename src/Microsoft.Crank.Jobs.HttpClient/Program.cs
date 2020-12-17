@@ -105,6 +105,7 @@ namespace Microsoft.Crank.Jobs.HttpClient
             }
             else
             {
+                Console.WriteLine($"Using cert from: {CertPath}");
                 Certificate = new X509Certificate2(CertPath, CertPassword);
             }
 
