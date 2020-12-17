@@ -34,6 +34,7 @@ using Newtonsoft.Json.Linq;
 using Repository;
 using OperatingSystem = Microsoft.Crank.Models.OperatingSystem;
 using NuGet.Versioning;
+using System.Net;
 
 namespace Microsoft.Crank.Agent
 {
@@ -91,7 +92,7 @@ namespace Microsoft.Crank.Agent
         private static readonly HashSet<string> _installedSdks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         private const string _defaultUrl = "http://*:5010";
-        private static readonly string _defaultHostname = Environment.MachineName.ToLowerInvariant();
+        private static readonly string _defaultHostname = Dns.GetHostName();
         private static string _perfviewPath;
         private static string _dotnetInstallPath;
 
@@ -485,7 +486,6 @@ namespace Microsoft.Crank.Agent
                             var context = group[job];
 
                             Log.WriteLine($"Processing job '{job.Service}' ({job.Id}) in state {job.State}");
-
                             // Restore context for the current job
                             var process = context.Process;
 
@@ -3751,7 +3751,7 @@ namespace Microsoft.Crank.Agent
 
             // Don't wait for the counters to be ready as it could get stuck and block the agent
             var _ = StartCountersAsync(job);
-            
+
             if (job.MemoryLimitInBytes > 0)
             {
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -4303,7 +4303,7 @@ namespace Microsoft.Crank.Agent
                 element.SetAttributeValue(name, value);
             }
 
-            using (var resourceStream = Assembly.GetCallingAssembly().GetManifestResourceStream("BenchmarksServer.applicationHost.config"))
+            using (var resourceStream = Assembly.GetCallingAssembly().GetManifestResourceStream("Microsoft.Crank.Agent.applicationHost.config"))
             {
                 var applicationHostConfig = XDocument.Load(resourceStream);
                 SetAttribute(applicationHostConfig, "/configuration/system.webServer/aspNetCore", "processPath", executable);
