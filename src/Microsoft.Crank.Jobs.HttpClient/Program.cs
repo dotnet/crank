@@ -50,7 +50,7 @@ namespace Microsoft.Crank.Jobs.HttpClient
 
             app.OnExecuteAsync(cancellationToken =>
             {
-                Console.WriteLine("Http Client haok");
+                Console.WriteLine("Http Client");
 
                 ServerUrl = optionUrl.Value();
 
@@ -303,8 +303,9 @@ namespace Microsoft.Crank.Jobs.HttpClient
                         counters[status / 100 - 1]++;
                     }
                 }
-                catch
+                catch (Exception e)
                 {
+                    Console.WriteLine(e);
                     if (_measuring)
                     {
                         socketErrors++;
