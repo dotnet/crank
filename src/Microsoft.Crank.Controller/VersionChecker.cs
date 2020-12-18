@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
@@ -14,16 +15,39 @@ namespace Microsoft.Crank.Controller
 {
     public static class VersionChecker
     {
+        static TimeSpan CacheTimeout = TimeSpan.FromDays(1);
+        static string PackageVersionUrl = "https://api.nuget.org/v3-flatcontainer/microsoft.crank.controller/index.json";
+
         public static async Task CheckUpdateAsync(HttpClient client)
         {
-            var packageVersionUrl = "https://api.nuget.org/v3-flatcontainer/microsoft.crank.controller/index.json";
-
+            // The NuGet version is cached in a local file for a day (CacheTimeout) so we don't query nuget.org
+            // on every run.
+            
             try
             {
-                var content = await client.GetStringAsync(packageVersionUrl);
-                var document = JObject.Parse(content);
-                var versions = (JArray)document["versions"];
-                var latest = versions.Select(x => new NuGetVersion(x.ToString())).Max();
+                var versionFilename = Path.Combine(Path.GetTempPath(), ".crank", "controller", "version.txt");
+
+                if (!File.Exists(versionFilename))
+                {            
+                    Directory.CreateDirectory(Path.GetDirectoryName(versionFilename));
+                }
+                
+                NuGetVersion latest;
+
+                // If the file is older than CacheTimeout, get the version from NuGet.org
+                if (DateTime.UtcNow - new FileInfo(versionFilename).LastWriteTimeUtc > CacheTimeout)
+                {
+                    var content = await client.GetStringAsync(PackageVersionUrl);
+                    var document = JObject.Parse(content);
+                    var versions = (JArray)document["versions"];
+                    latest = versions.Select(x => new NuGetVersion(x.ToString())).Max();
+
+                    File.WriteAllText(versionFilename, latest.ToNormalizedString());
+                }
+                else
+                {
+                    latest = NuGetVersion.Parse(File.ReadAllText(versionFilename));
+                }
 
                 var attribute = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>();
                 var current = new NuGetVersion(attribute.InformationalVersion);

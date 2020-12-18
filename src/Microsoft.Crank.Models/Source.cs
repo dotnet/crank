@@ -24,6 +24,18 @@ namespace Microsoft.Crank.Models
         public string DockerFetchPath { get; set; }
         public string LocalFolder { get; set; }
 
+        /// <summary>
+        /// When set by the controller, the server uses it to reuse the same source folder.
+        /// The value should vary when the source does. When the server can't find the source folder, the LocalFolder property is cleared
+        /// such that the controller doesn't send any local source.
+        /// </summary>
+        public string SourceKey { get; set;}
+
+        /// <summary>
+        /// When SourceKey is defined, indicates whether a build should still occur. 
+        /// </summary>
+        public bool NoBuild { get; set; }
+
         public bool IsDocker()
         {
             return !String.IsNullOrEmpty(DockerFile) || !String.IsNullOrEmpty(DockerImageName);

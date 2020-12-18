@@ -24,6 +24,7 @@ using System.Text;
 using Manatee.Json.Schema;
 using Manatee.Json;
 using Jint;
+using System.Security.Cryptography;
 
 namespace Microsoft.Crank.Controller
 {
@@ -1375,6 +1376,34 @@ namespace Microsoft.Crank.Controller
                     job.Value.WaitForExit = true;
                     job.Value.ReadyStateText ??= "BenchmarkRunner: Start";
                     job.Value.Arguments = DefaultBenchmarkDotNetArguments + " " + job.Value.Arguments;
+                }
+
+                if (job.Value.Options.ReuseSource || job.Value.Options.ReuseBuild)
+                {
+                    var source = job.Value.Source;
+
+                    // Compute a custom source key
+                    source.SourceKey = source.Repository
+                        + source.Project
+                        + source.LocalFolder
+                        + source.BranchOrCommit
+                        + source.DockerImageName
+                        + source.DockerFile
+                        + source.InitSubmodules.ToString()
+                        + source.Repository
+                        ;
+
+                    using (var sha1 = SHA1.Create())  
+                    {  
+                        // Assume no collision since it's verified on the server
+                        var bytes = sha1.ComputeHash(Encoding.UTF8.GetBytes(job.Value.Source.SourceKey));
+                        source.SourceKey = String.Concat(bytes.Select(b => b.ToString("x2"))).Substring(0, 8);
+                    }
+
+                    if (job.Value.Options.ReuseBuild)
+                    {
+                        source.NoBuild = true;
+                    }
                 }
 
                 if (job.Value.CollectCounters)

@@ -168,8 +168,6 @@ namespace Microsoft.Crank.Models
         [JsonProperty("BuildArchives")]
         private string[] BuildArchivesArgumentSetter { set { BuildArchivesArgument = value; } }
 
-        // V2
-
         public List<string> Endpoints { get; set; } = new List<string>();
 
         public JObject Variables { get; set; }
@@ -216,5 +214,13 @@ namespace Microsoft.Crank.Models
         public bool BenchmarkDotNet { get; set; }
         public bool? CollectCounters { get; set; }
         public List<string> CounterProviders { get; set; } = new List<string>();
+
+        // Don't clone and don't build if already cloned and built. 
+        // Don't use with floating runtime versions.
+        public bool ReuseBuild { get; set; }
+
+        // Don't clone if already cloned.
+        // Can be used with floating versions.
+        public bool ReuseSource { get; set; }
     }
 }
