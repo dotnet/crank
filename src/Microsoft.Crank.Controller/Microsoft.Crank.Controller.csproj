@@ -1,12 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
     <Description>Schedules jobs on the benchmarks agent.</Description>
     <ToolCommandName>crank</ToolCommandName>
     <AssemblyName>crank</AssemblyName>
     <PackAsTool>true</PackAsTool>
     <IsPackable>true</IsPackable>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
     <OutputType>Exe</OutputType>
     <Authors>Microsoft</Authors>
     <PackageId>Microsoft.Crank.Controller</PackageId>

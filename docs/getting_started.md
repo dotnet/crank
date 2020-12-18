@@ -4,15 +4,15 @@ This tutorial shows how to benchmark a simple .NET web application using the __b
 
 ## Installing crank
 
-1. Install [.NET Core 3.1](<http://dot.net>).
+1. Install [.NET Core 5.0](<http://dot.net>).
 2. Install Crank via the following command:
 
     ```text
-    dotnet tool install -g Microsoft.Crank.Controller --version "0.1.0-*" 
+    dotnet tool install -g Microsoft.Crank.Controller --version "0.2.0-*" 
     ```
 
     ```text
-    dotnet tool install -g Microsoft.Crank.Agent --version "0.1.0-*" 
+    dotnet tool install -g Microsoft.Crank.Agent --version "0.2.0-*" 
     ```
 
 3. Verify the installation was complete by running:
