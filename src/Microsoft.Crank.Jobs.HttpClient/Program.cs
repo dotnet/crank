@@ -264,9 +264,6 @@ namespace Microsoft.Crank.Jobs.HttpClient
                 var headerNameValue = header.Split(" ", 2, StringSplitOptions.RemoveEmptyEntries);
                 requestMessage.Headers.TryAddWithoutValidation(headerNameValue[0], headerNameValue[1]);
             }
-            requestMessage.Headers.TryAddWithoutValidation("X-ARR-ClientCert", Convert.ToBase64String(Certificate.GetRawCertData()));
-
-            Console.WriteLine("Header[X-ARR-ClientCert]: " + requestMessage.Headers.GetValues("X-ARR-ClientCert").First());
 
             var uri = new Uri(ServerUrl);
 
