@@ -782,7 +782,7 @@ namespace Microsoft.Crank.Controller
             {
                 var basePath = di.FullName;
 
-                var ignoreFile = IgnoreFile.Parse(Path.Combine(sourceDirectoryName, ".gitignore"));
+                var ignoreFile = IgnoreFile.Parse(Path.Combine(sourceDirectoryName, ".gitignore"), includeParentDirectories: true);
 
                 foreach (var gitFile in ignoreFile.ListDirectory(sourceDirectoryName))
                 {
@@ -795,8 +795,6 @@ namespace Microsoft.Crank.Controller
 
         private static async Task<int> UploadFileAsync(string filename, Job serverJob, string uri)
         {
-            Log.Write($"Uploading {filename}");
-
             try
             {
                 var outputFileSegments = filename.Split(';');
@@ -807,6 +805,8 @@ namespace Microsoft.Crank.Controller
                     Console.WriteLine($"File '{uploadFilename}' could not be loaded.");
                     return 8;
                 }
+
+                Log.Write($"Uploading {filename} ({(new FileInfo(filename).Length / 1024):n0}KB)");
 
                 var destinationFilename = outputFileSegments.Length > 1
                     ? outputFileSegments[1]
