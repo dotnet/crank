@@ -271,7 +271,7 @@ namespace Microsoft.Crank.RegressionBot
 
             var body = await CreateIssueBody(regressions, template);            
             
-            var title = "Performance regression: " + String.Join(", ", regressions.Select(x => x.CurrentResult.Scenario).Take(5));
+            var title = "Performance variation: " + String.Join(", ", regressions.Select(x => x.CurrentResult.Scenario).Take(5));
 
             if (regressions.Count() > 5)
             {
