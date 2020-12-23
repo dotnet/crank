@@ -88,27 +88,30 @@ namespace Microsoft.Crank.Jobs.HttpClient
                 return RunAsync();
             });
 
-            CertPath = optionCertPath.Value();
-            CertPassword = "testPassword";/// optionCertPwd.Value();
 
-            if (CertPath.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            if (optionCertPath.HasValue() && optionCertPwd.HasValue())
             {
-                Console.WriteLine($"Downloading cert from: {CertPath}");
-                var httpClientHandler = new HttpClientHandler();
-                httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+                CertPath = optionCertPath.Value();
+                CertPassword = optionCertPwd.Value();
+                if (CertPath.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine($"Downloading cert from: {CertPath}");
+                    var httpClientHandler = new HttpClientHandler();
+                    httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
                     httpClientHandler.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
 
-                var httpClient = new System.Net.Http.HttpClient(httpClientHandler);
-                var bytes = await httpClient.GetByteArrayAsync(CertPath);
-                Certificate = new X509Certificate2(bytes, CertPassword);
-                Console.WriteLine("Cert Thumb: " + Certificate.Thumbprint);
-            }
-            else
-            {
-                Console.WriteLine($"Using cert from: {CertPath}");
-                Certificate = new X509Certificate2(CertPath, CertPassword);
-            }
+                    var httpClient = new System.Net.Http.HttpClient(httpClientHandler);
+                    var bytes = await httpClient.GetByteArrayAsync(CertPath);
+                    Certificate = new X509Certificate2(bytes, CertPassword);
+                    Console.WriteLine("Cert Thumb: " + Certificate.Thumbprint);
+                }
+                else
+                {
+                    Console.WriteLine($"Using cert from: {CertPath}");
+                    Certificate = new X509Certificate2(CertPath, CertPassword);
+                }
 
+            }
             await app.ExecuteAsync(args);
         }
 
