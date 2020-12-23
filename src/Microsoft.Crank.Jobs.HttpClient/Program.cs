@@ -87,35 +87,35 @@ namespace Microsoft.Crank.Jobs.HttpClient
                     }
                 }
 
+                CertPath = optionCertPath.Value();
+                Console.WriteLine("CerPath: " + CertPath);
+                if (CertPath != null && !string.Equals(CertPath, "none", StringComparison.OrdinalIgnoreCase))
+                {
+                    CertPassword = optionCertPwd.Value();
+                    if (CertPath.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Console.WriteLine($"Downloading cert from: {CertPath}");
+                        var httpClientHandler = new HttpClientHandler
+                        {
+                            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
+                            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
+                        };
+
+                        var httpClient = new System.Net.Http.HttpClient(httpClientHandler);
+                        var bytes = await httpClient.GetByteArrayAsync(CertPath);
+                        Certificate = new X509Certificate2(bytes, CertPassword);
+                        Console.WriteLine("Cert Thumb: " + Certificate.Thumbprint);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Using cert from: {CertPath}");
+                        Certificate = new X509Certificate2(CertPath, CertPassword);
+                    }
+                }
+
                 return RunAsync();
             });
 
-            CertPath = optionCertPath.Value();
-            Console.WriteLine("CerPath: " + CertPath);
-            if (CertPath != null && !string.Equals(CertPath, "none", StringComparison.OrdinalIgnoreCase))
-            {
-                CertPassword = optionCertPwd.Value();
-                if (CertPath.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                {
-                    Console.WriteLine($"Downloading cert from: {CertPath}");
-                    var httpClientHandler = new HttpClientHandler
-                    {
-                        ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
-                        AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
-                    };
-
-                    var httpClient = new System.Net.Http.HttpClient(httpClientHandler);
-                    var bytes = await httpClient.GetByteArrayAsync(CertPath);
-                    Certificate = new X509Certificate2(bytes, CertPassword);
-                    Console.WriteLine("Cert Thumb: " + Certificate.Thumbprint);
-                }
-                else
-                {
-                    Console.WriteLine($"Using cert from: {CertPath}");
-                    Certificate = new X509Certificate2(CertPath, CertPassword);
-                }
-
-            }
             await app.ExecuteAsync(args);
         }
 
