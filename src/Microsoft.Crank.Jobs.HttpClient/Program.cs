@@ -36,6 +36,8 @@ namespace Microsoft.Crank.Jobs.HttpClient
 
         static async Task Main(string[] args)
         {
+            Console.WriteLine($"httpclient: {string.Join(" ", args)}");
+
             var app = new CommandLineApplication();
 
             app.HelpOption("-h|--help");

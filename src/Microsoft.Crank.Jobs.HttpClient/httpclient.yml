@@ -26,7 +26,7 @@ jobs:
       serverAddress: localhost
       serverPort: 5000
       path: /
-      certPath: none
+      certPath: https://github.com/aspnet/Benchmarks/blob/haok/bench/src/Benchmarks/testCert.pfx?raw=true
       certPwd: none
       httpVersion: 1.1
-    arguments: '--url "{{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}" --connections {{connections}} --warmup {{warmup}} --duration {{duration}} {{headers[presetHeaders]}} --version {{httpVersion}} --cert {{certPath}} --certpwd {{certPwd}} '
+    arguments: '--url "{{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}" --connections {{connections}} --warmup {{warmup}} --duration {{duration}} {{headers[presetHeaders]}} --version {{httpVersion}} --cert https://github.com/aspnet/Benchmarks/blob/haok/bench/src/Benchmarks/testCert.pfx?raw=true --certpwd {{certPwd}} '
