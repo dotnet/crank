@@ -36,7 +36,6 @@ namespace Microsoft.Crank.Jobs.HttpClient
 
         static async Task Main(string[] args)
         {
-            Console.WriteLine($"httpclient: {string.Join(" ", args)}");
 
             var app = new CommandLineApplication();
 
@@ -53,6 +52,7 @@ namespace Microsoft.Crank.Jobs.HttpClient
             app.OnExecuteAsync(cancellationToken =>
             {
                 Console.WriteLine("Http Client");
+                Console.WriteLine($"args: {string.Join(" ", args)}");
 
                 ServerUrl = optionUrl.Value();
 
