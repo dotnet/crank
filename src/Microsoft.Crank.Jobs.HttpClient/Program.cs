@@ -89,7 +89,8 @@ namespace Microsoft.Crank.Jobs.HttpClient
             });
 
             CertPath = optionCertPath.Value();
-            if (!string.Equals(CertPath, "none", StringComparison.OrdinalIgnoreCase))
+            Console.WriteLine("CerPath: " + CertPath);
+            if (CertPath != null && !string.Equals(CertPath, "none", StringComparison.OrdinalIgnoreCase))
             {
                 CertPassword = optionCertPwd.Value();
                 if (CertPath.StartsWith("http", StringComparison.OrdinalIgnoreCase))
