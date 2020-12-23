@@ -88,17 +88,18 @@ namespace Microsoft.Crank.Jobs.HttpClient
                 return RunAsync();
             });
 
-
-            if (optionCertPath.HasValue() && optionCertPwd.HasValue())
+            CertPath = optionCertPath.Value();
+            if (!string.Equals(CertPath, "none", StringComparison.OrdinalIgnoreCase))
             {
-                CertPath = optionCertPath.Value();
                 CertPassword = optionCertPwd.Value();
                 if (CertPath.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                 {
                     Console.WriteLine($"Downloading cert from: {CertPath}");
-                    var httpClientHandler = new HttpClientHandler();
-                    httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-                    httpClientHandler.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
+                    var httpClientHandler = new HttpClientHandler
+                    {
+                        ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
+                        AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
+                    };
 
                     var httpClient = new System.Net.Http.HttpClient(httpClientHandler);
                     var bytes = await httpClient.GetByteArrayAsync(CertPath);
