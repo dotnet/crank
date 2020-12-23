@@ -88,8 +88,7 @@ namespace Microsoft.Crank.Jobs.HttpClient
                 return RunAsync();
             });
 
-            CertPath = @"https://github.com/aspnet/Benchmarks/blob/haok/bench/src/Benchmarks/testCert.pfx?raw=true";
-            //                optionCertPath.Value();
+            CertPath = optionCertPath.Value();
             CertPassword = "testPassword";/// optionCertPwd.Value();
 
             if (CertPath.StartsWith("http", StringComparison.OrdinalIgnoreCase))
