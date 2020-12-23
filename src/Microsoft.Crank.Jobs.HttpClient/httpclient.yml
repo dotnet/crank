@@ -22,7 +22,7 @@ jobs:
       warmup: 15
       duration: 15
       presetHeaders: none
-      serverScheme: https
+      serverScheme: http
       serverAddress: localhost
       serverPort: 5000
       path: /
