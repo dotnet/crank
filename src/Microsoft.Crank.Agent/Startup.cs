@@ -3952,7 +3952,6 @@ namespace Microsoft.Crank.Agent
             // Run asynchronously so it doesn't block the agent
             var streamTask = Task.Run(() =>
             {
-
                 var source = new EventPipeEventSource(eventPipeSession.EventStream);
 
                 Log.WriteLine("Event pipe source created");
@@ -4063,7 +4062,7 @@ namespace Microsoft.Crank.Agent
 
                 // It also interrupts the source.Process() blocking operation
                 eventPipeSession.Stop();
-                Log.WriteLine($"Event pipe session stopped ({job.Service})...");
+                Log.WriteLine($"Event pipe session stopped ({job.Service})");
             });
 
             countersTask = Task.WhenAll(streamTask, stopTask);
@@ -4073,6 +4072,8 @@ namespace Microsoft.Crank.Agent
             // The event pipe session needs to be disposed after the source is interrupted
             eventPipeSession.Dispose();
             eventPipeSession = null;
+
+            Log.WriteLine($"Event pipes terminated ({job.Service})");
         }
 
         private static void StartCollection(string workingDirectory, Job job)
