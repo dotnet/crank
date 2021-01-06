@@ -13,6 +13,8 @@ jobs:
       repository: https://github.com/dotnet/crank.git
       branchOrCommit: master
       project: src/Microsoft.Crank.Jobs.Bombardier/Microsoft.Crank.Jobs.Bombardier.csproj
+      sourceKey: bombardier
+      noBuild: true
     readyStateText: Bombardier Client
     waitForExit: true
     variables:
