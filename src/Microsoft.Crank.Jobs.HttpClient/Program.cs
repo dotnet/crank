@@ -87,10 +87,10 @@ namespace Microsoft.Crank.Jobs.HttpClient
                     }
                 }
 
-                CertPath = optionCertPath.Value();
-                Console.WriteLine("CerPath: " + CertPath);
-                if (CertPath != null && !string.Equals(CertPath, "none", StringComparison.OrdinalIgnoreCase))
+                if (optionCertPath.HasValue())
                 {
+                    CertPath = optionCertPath.Value();
+                    Console.WriteLine("CerPath: " + CertPath);
                     CertPassword = optionCertPwd.Value();
                     if (CertPath.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                     {
@@ -311,9 +311,8 @@ namespace Microsoft.Crank.Jobs.HttpClient
                         counters[status / 100 - 1]++;
                     }
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
-                    Console.WriteLine(e);
                     if (_measuring)
                     {
                         socketErrors++;
