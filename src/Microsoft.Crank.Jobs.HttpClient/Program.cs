@@ -311,7 +311,7 @@ namespace Microsoft.Crank.Jobs.HttpClient
                         counters[status / 100 - 1]++;
                     }
                 }
-                catch (Exception)
+                catch
                 {
                     if (_measuring)
                     {
