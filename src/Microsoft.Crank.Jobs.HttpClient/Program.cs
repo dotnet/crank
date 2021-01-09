@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -18,7 +19,7 @@ namespace Microsoft.Crank.Jobs.HttpClient
 {
     class Program
     {
-        private static object _synLock = new object();
+        private static readonly object _synLock = new object();
         private static HttpMessageInvoker _httpMessageInvoker;
         private static bool _running;
         private static bool _measuring;
@@ -29,9 +30,13 @@ namespace Microsoft.Crank.Jobs.HttpClient
         public static int Connections { get; set; }
         public static List<string> Headers { get; set; }
         public static Version Version { get; set; }
+        public static string CertPath { get; set; }
+        public static string CertPassword { get; set; }
+        public static X509Certificate2 Certificate { get; set; }
 
         static async Task Main(string[] args)
         {
+
             var app = new CommandLineApplication();
 
             app.HelpOption("-h|--help");
@@ -41,10 +46,13 @@ namespace Microsoft.Crank.Jobs.HttpClient
             var optionDuration = app.Option<int>("-d|--duration <N>", "Duration of the test in seconds. Default is 5.", CommandOptionType.SingleValue);
             var optionHeaders = app.Option("-H|--header <HEADER>", "HTTP header to add to request, e.g. \"User-Agent: edge\"", CommandOptionType.MultipleValue);
             var optionVersion = app.Option("-v|--version <1.0,1.1,2.0>", "HTTP version, e.g. \"2.0\". Default is 1.1", CommandOptionType.SingleValue);
+            var optionCertPath = app.Option("-t|--cert <filepath>", "The path to a cert pfx file.", CommandOptionType.SingleValue);
+            var optionCertPwd = app.Option("-p|--certpwd <password>", "The password for the cert pfx file.", CommandOptionType.SingleValue);
 
-            app.OnExecuteAsync(cancellationToken =>
+            app.OnExecuteAsync(async cancellationToken =>
             {
                 Console.WriteLine("Http Client");
+                Console.WriteLine($"args: {string.Join(" ", args)}");
 
                 ServerUrl = optionUrl.Value();
 
@@ -79,7 +87,33 @@ namespace Microsoft.Crank.Jobs.HttpClient
                     }
                 }
 
-                return RunAsync();
+                if (optionCertPath.HasValue())
+                {
+                    CertPath = optionCertPath.Value();
+                    Console.WriteLine("CerPath: " + CertPath);
+                    CertPassword = optionCertPwd.Value();
+                    if (CertPath.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Console.WriteLine($"Downloading cert from: {CertPath}");
+                        var httpClientHandler = new HttpClientHandler
+                        {
+                            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
+                            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
+                        };
+
+                        var httpClient = new System.Net.Http.HttpClient(httpClientHandler);
+                        var bytes = await httpClient.GetByteArrayAsync(CertPath);
+                        Certificate = new X509Certificate2(bytes, CertPassword);
+                        Console.WriteLine("Cert Thumb: " + Certificate.Thumbprint);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Using cert from: {CertPath}");
+                        Certificate = new X509Certificate2(CertPath, CertPassword);
+                    }
+                }
+
+                await RunAsync();
             });
 
             await app.ExecuteAsync(args);
@@ -194,16 +228,30 @@ namespace Microsoft.Crank.Jobs.HttpClient
             {
                 lock (_synLock)
                 {
-                    var httpHandler = new SocketsHttpHandler();
-
-                    // There should be only as many connections as Tasks concurrently, so there is no need
-                    // to limit the max connections per server 
-                    // httpHandler.MaxConnectionsPerServer = Connections;
-                    httpHandler.AllowAutoRedirect = false;
-                    httpHandler.UseProxy = false;
-                    httpHandler.AutomaticDecompression = System.Net.DecompressionMethods.None;
+                    var httpHandler = new SocketsHttpHandler
+                    {
+                        // There should be only as many connections as Tasks concurrently, so there is no need
+                        // to limit the max connections per server 
+                        // httpHandler.MaxConnectionsPerServer = Connections;
+                        AllowAutoRedirect = false,
+                        UseProxy = false,
+                        AutomaticDecompression = System.Net.DecompressionMethods.None
+                    };
                     // Accept any SSL certificate
                     httpHandler.SslOptions.RemoteCertificateValidationCallback += (object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => true;
+
+                    if (Certificate != null)
+                    {
+                        Console.WriteLine($"Using Cert");
+                        httpHandler.SslOptions.ClientCertificates = new X509CertificateCollection
+                        {
+                            Certificate
+                        };
+                    }
+                    else
+                    {
+                        Console.WriteLine($"No cert specified.");
+                    }
 
                     _httpMessageInvoker = new HttpMessageInvoker(httpHandler);
                 }
@@ -215,9 +263,11 @@ namespace Microsoft.Crank.Jobs.HttpClient
         public static async Task<WorkerResult> DoWorkAsync()
         {
             var httpMessageInvoker = CreateHttpMessageInvoker();
-            
-            var requestMessage = new HttpRequestMessage();
-            requestMessage.Method = HttpMethod.Get;
+
+            var requestMessage = new HttpRequestMessage
+            {
+                Method = HttpMethod.Get
+            };
 
             // Copy the request headers
             foreach (var header in Headers)

@@ -27,4 +27,4 @@ jobs:
       serverPort: 5000
       path: /
       httpVersion: 1.1
-    arguments: '--url "{{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}" --connections {{connections}} --warmup {{warmup}} --duration {{duration}} {{headers[presetHeaders]}} --version {{httpVersion}}'
+    arguments: '--url "{{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}" --connections {{connections}} --warmup {{warmup}} --duration {{duration}} {{headers[presetHeaders]}} --version {{httpVersion}} --cert {{certPath}} --certpwd {{certPwd}}'
