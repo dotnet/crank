@@ -117,7 +117,14 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                     // Send any page of logs to the AzDo task log feed
                     if (logs.Any())
                     {
-                        await devopsMessage.SendTaskLogFeedsAsync(String.Join("\r\n", logs));
+                        var success = await devopsMessage.SendTaskLogFeedsAsync(String.Join("\r\n", logs));
+
+                        if (!success)
+                        {
+                            Console.ForegroundColor = ConsoleColor.DarkYellow;
+                            Console.WriteLine("SendTaskLogFeedsAsync failed. If the task was canceled, this jobs should be ignored stopped.");
+                            Console.ResetColor();
+                        }
                     }
 
                     await Task.Delay(TaskLogFeedDelay);
@@ -129,14 +136,23 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 // Create a task log entry
                 var taskLogObjectString = await devopsMessage?.CreateTaskLogAsync();
 
-                var taskLogObject = JsonSerializer.Deserialize<Dictionary<string, object>>(taskLogObjectString);
+                if (String.IsNullOrEmpty(taskLogObjectString))
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkYellow;
+                    Console.WriteLine("CreateTaskLogAsync failed. The job is probably canceled.");
+                    Console.ResetColor();
+                }
+                else
+                {
+                    var taskLogObject = JsonSerializer.Deserialize<Dictionary<string, object>>(taskLogObjectString);
 
-                var taskLogId = taskLogObject["id"].ToString();
+                    var taskLogId = taskLogObject["id"].ToString();
 
-                await devopsMessage?.AppendToTaskLogAsync(taskLogId, driverJob.OutputBuilder.ToString());
+                    await devopsMessage?.AppendToTaskLogAsync(taskLogId, driverJob.OutputBuilder.ToString());
 
-                // Attach task log to the timeline record
-                await devopsMessage?.UpdateTaskTimelineRecordAsync(taskLogObjectString);
+                    // Attach task log to the timeline record
+                    await devopsMessage?.UpdateTaskTimelineRecordAsync(taskLogObjectString);
+                }
 
                 // Mark the message as completed
                 await args.CompleteMessageAsync(message);
