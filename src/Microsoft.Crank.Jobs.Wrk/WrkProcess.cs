@@ -17,8 +17,7 @@ namespace Microsoft.Crank.Wrk
 {
     static class WrkProcess
     {
-        static string _wrkFilename;
-
+        private static string _wrkFilename;
         const string WrkUrl = "https://aspnetbenchmarks.blob.core.windows.net/tools/wrk";
 
         public static async Task MeasureFirstRequest(string[] args)
@@ -70,9 +69,8 @@ namespace Microsoft.Crank.Wrk
 
             try
             {
-                var wrkFilename = _wrkFilename;
                 await ProcessScriptFile(args, tempScriptFile);
-                return RunCore(wrkFilename, args, parseLatency);
+                return RunCore(_wrkFilename, args, parseLatency);
             }
             catch
             {
@@ -89,25 +87,23 @@ namespace Microsoft.Crank.Wrk
 
         public static async Task DownloadWrkAsync()
         {
-            var cacheFolder = Path.Combine(Path.GetTempPath(), ".crank");
+            _wrkFilename = Path.Combine(Path.GetTempPath(), ".crank", Path.GetFileName(WrkUrl));
 
-            if (!Directory.Exists(cacheFolder))
-            {
-                Directory.CreateDirectory(cacheFolder);
-            }
-
-            _wrkFilename = Path.Combine(cacheFolder, Path.GetFileName(WrkUrl));
-
-            Console.WriteLine($"Downloading wrk from {WrkUrl} to {_wrkFilename}");
+            if (!File.Exists(_wrkFilename))
+            {            
+                Directory.CreateDirectory(Path.GetDirectoryName(_wrkFilename));
             
-            using (var httpClient = new HttpClient())
-            using (var downloadStream = await httpClient.GetStreamAsync(WrkUrl))
-            using (var fileStream = File.Create(_wrkFilename))
-            {
-                await downloadStream.CopyToAsync(fileStream);
-            }
+                Console.WriteLine($"Downloading wrk from {WrkUrl} to {_wrkFilename}");
+                
+                using (var httpClient = new HttpClient())
+                using (var downloadStream = await httpClient.GetStreamAsync(WrkUrl))
+                using (var fileStream = File.Create(_wrkFilename))
+                {
+                    await downloadStream.CopyToAsync(fileStream);
+                }
 
-            Process.Start("chmod", "+x " + _wrkFilename);
+                Process.Start("chmod", "+x " + _wrkFilename);
+            }
         }
 
         static async Task ProcessScriptFile(string[] args, string tempScriptFile)
