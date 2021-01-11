@@ -3717,6 +3717,8 @@ namespace Microsoft.Crank.Agent
                 EnableRaisingEvents = true
             };
 
+            process.StartInfo.Environment.Add("DOTNET_EXE", GetDotNetExecutable(dotnetHome));
+
             process.StartInfo.Environment.Add("COREHOST_SERVER_GC", "1");
 
             // Force Kestrel server urls
