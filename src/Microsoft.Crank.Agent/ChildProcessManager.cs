@@ -92,7 +92,7 @@ namespace BenchmarksServer
             }
 
             [DllImport("kernel32", SetLastError = true)]
-            [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+            // [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
             private static extern bool CloseHandle(IntPtr hObject);
         }
 

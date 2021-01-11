@@ -55,7 +55,7 @@ namespace Microsoft.Crank.Controller
                 if (latest > current)
                 {
                     Console.ForegroundColor = ConsoleColor.DarkYellow;
-                    Console.WriteLine($"A new version is available on NuGet.org ({latest}). Run 'dotnet tool update Microsoft.Crank.Controller -g --version \"0.1.0-*\"' to update");
+                    Console.WriteLine($"A new version is available on NuGet.org ({latest}). Run 'dotnet tool update Microsoft.Crank.Controller -g --version \"0.2.0-*\"' to update");
                     Console.ResetColor();
                 }
             }
