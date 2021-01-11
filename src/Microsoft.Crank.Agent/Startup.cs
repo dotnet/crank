@@ -1216,7 +1216,7 @@ namespace Microsoft.Crank.Agent
 
                                         if (!countersTask.IsCompleted)
                                         {
-                                            Log.WriteLine("[ERROR] Counters could not be stopped in time for job '{job.Service}' ({job.Id})");
+                                            Log.WriteLine($"[ERROR] Counters could not be stopped in time for job '{job.Service}' ({job.Id})");
                                         }
                                         
                                         Log.WriteLine($"Counters stopped for job '{job.Service}' ({job.Id})");
