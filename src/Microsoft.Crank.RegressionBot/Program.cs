@@ -945,7 +945,7 @@ namespace Microsoft.Crank.RegressionBot
             // A custom Base64 payload is injected as a comment in the issue such that we
             // can come back on the issue to update its content
 
-            var data = MessagePackSerializer.Serialize(regressions);
+            var data = MessagePackSerializer.Serialize(regressions, MessagePack.Resolvers.ContractlessStandardResolver.Options);
             var base64 = Convert.ToBase64String(data);
             return $"<!-- {RegressionsPrefix}{base64}{RegressionsSuffix} -->";
         }
