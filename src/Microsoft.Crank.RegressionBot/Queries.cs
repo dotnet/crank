@@ -12,7 +12,7 @@ namespace Microsoft.Crank.RegressionBot
             WHERE 
                 [Excluded] = 0
                 AND [DateTimeUtc] >= @startDate
-            ORDER BY [DateTimeUtc] DESC
+            ORDER BY [Id] DESC
         ";
     }
 }

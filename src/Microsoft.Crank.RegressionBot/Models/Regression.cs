@@ -3,18 +3,26 @@
 // See the LICENSE file in the project root for more information.
 
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace Microsoft.Crank.RegressionBot.Models
 {
     public class Regression
     {
+        // The result before the one that is considered a regression
         public BenchmarksResult PreviousResult { get; set; }
+        
+        // The first result that is considered a regression
         public BenchmarksResult CurrentResult { get; set; }
+
         public double Change { get; set; }
+        
         public double StandardDeviation { get; set; }
+        
         public double Average { get; set; }
 
         // Whether the regression is now fixed
+        [JsonIgnore]
         public bool HasRecovered => RecoveredResult != null;
 
         // The result when the benchmark recovered
