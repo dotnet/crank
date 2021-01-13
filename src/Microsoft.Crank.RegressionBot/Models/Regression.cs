@@ -22,7 +22,7 @@ namespace Microsoft.Crank.RegressionBot.Models
         public double Average { get; set; }
 
         // Whether the regression is now fixed
-        [JsonIgnore]
+        [MessagePack.IgnoreMember]
         public bool HasRecovered => RecoveredResult != null;
 
         // The result when the benchmark recovered

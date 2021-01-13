@@ -22,6 +22,7 @@ using Newtonsoft.Json.Linq;
 using Octokit;
 using YamlDotNet.Serialization;
 using Microsoft.Crank.RegressionBot.Models;
+using MessagePack;
 
 namespace Microsoft.Crank.RegressionBot
 {
@@ -222,7 +223,19 @@ namespace Microsoft.Crank.RegressionBot
                 {
                     Console.WriteLine("Reporting new regressions...");
 
-                    await CreateRegressionIssue(newRegressions, template);
+                    var skip = 0;
+                    var pageSize = 10;
+
+                    while (true)
+                    {
+                        // Create issues with 10 regressions per issue max
+                        var page = regressions.Skip(skip).Take(pageSize);
+
+                        if (!page.Any()) break;
+
+                        await CreateRegressionIssue(page, template);
+                        skip += pageSize;
+                    }
                 }
                 else
                 {
@@ -924,16 +937,16 @@ namespace Microsoft.Crank.RegressionBot
             }
         }
         
-        private static string RegressionsPrefix = "{Regressions}";
-        private static string RegressionsSuffix = "{/Regressions}";
+        private static string RegressionsPrefix = "[MSGPACK]";
+        private static string RegressionsSuffix = "[/MSGPACK]";
         
         private static string CreateRegressionsBlock(IEnumerable<Regression> regressions)
         {
             // A custom Base64 payload is injected as a comment in the issue such that we
             // can come back on the issue to update its content
 
-            var json = JsonConvert.SerializeObject(regressions, Formatting.None);
-            var base64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
+            var data = MessagePackSerializer.Serialize(regressions);
+            var base64 = Convert.ToBase64String(data);
             return $"<!-- {RegressionsPrefix}{base64}{RegressionsSuffix} -->";
         }
 
@@ -959,14 +972,10 @@ namespace Microsoft.Crank.RegressionBot
 
             try
             {
-                var json = Encoding.UTF8.GetString(Convert.FromBase64String(base64));
-                var result = JsonConvert.DeserializeObject<Regression[]>(json);
-                Console.WriteLine($"Loaded {result.Length} regressions");
-                
-                // Temporary, migrating from RegressionSummary, to ignore values that are no full BenchmarkResult objects
-                result = result.Where(x => x.CurrentResult != null).ToArray();
-
-                return result;
+                var data = Convert.FromBase64String(base64);
+                var results = MessagePackSerializer.Deserialize<Regression[]>(data);
+                Console.WriteLine($"Loaded {results.Length} regressions");
+                return results;
             }
             catch
             {

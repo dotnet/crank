@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Crank.RegressionBot.Models
@@ -17,11 +16,11 @@ namespace Microsoft.Crank.RegressionBot.Models
         public string Scenario { get; set; }
         public string Description { get; set; }
         public string Document { get; set; }
-        
-        [JsonIgnore]
+
+        [MessagePack.IgnoreMember]
         private JObject _data;
-        
-        [JsonIgnore]
+
+        [MessagePack.IgnoreMember]
         public JObject Data => _data ??= JObject.Parse(Document);
     }
 }

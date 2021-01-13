@@ -19,6 +19,7 @@
     <PackageReference Include="Manatee.Json" Version="13.0.2" />
     <PackageReference Include="System.Linq.Async" Version="4.1.1" />
     <PackageReference Include="Fluid.Core" Version="1.0.0-beta-9693" />
+    <PackageReference Include="MessagePack" Version="2.2.85" />
   </ItemGroup>
 
   <ItemGroup>
