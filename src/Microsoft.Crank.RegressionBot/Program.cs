@@ -602,8 +602,8 @@ namespace Microsoft.Crank.RegressionBot
                         
                         if (_options.Verbose)
                         {
-                            Console.WriteLine($"Results evaluated: {values[i + 0]} {values[i + 1]} {values[i + 2]} {values[i + 3]} {values[i + 4]} ({value4}) / {standardDeviation * probe.Threshold:n0}");
-                            Console.WriteLine($"Deltas: {value1} {value2} {value3} {value4} Max range: {standardDeviation * probe.Threshold:n0}");
+                            Console.WriteLine($"Next values: {values[i + 0]} {values[i + 1]} {values[i + 2]} {values[i + 3]} {values[i + 4]}");
+                            Console.WriteLine($"Deviations: {value1:n0} {value2:n0} {value3:n0} {value4:n0} Allowed deviation: {standardDeviation * probe.Threshold:n0}");
                         }
 
                         var hasRegressed = false;
@@ -957,15 +957,16 @@ namespace Microsoft.Crank.RegressionBot
 
             var base64 = body.Substring(start, end - start);
 
-            if (_options.Verbose)
-            {
-                Console.WriteLine($"Base64: {base64}");
-            }
-
             try
             {
                 var json = Encoding.UTF8.GetString(Convert.FromBase64String(base64));
-                return JsonConvert.DeserializeObject<Regression[]>(json);
+                var result = JsonConvert.DeserializeObject<Regression[]>(json);
+                Console.WriteLine($"Loaded {result.Length} regressions");
+                
+                // Temporary, migrating from RegressionSummary, to ignore values that are no full BenchmarkResult objects
+                result = result.Where(x => x.CurrentResult != null).ToArray();
+
+                return result;
             }
             catch
             {
@@ -974,7 +975,7 @@ namespace Microsoft.Crank.RegressionBot
                     Console.WriteLine($"Error while parsing regressions");
                 }
 
-                return null;
+                return Array.Empty<Regression>();
             }
         }
     }
