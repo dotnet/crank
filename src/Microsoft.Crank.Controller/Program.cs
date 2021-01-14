@@ -1370,7 +1370,7 @@ namespace Microsoft.Crank.Controller
             // Jobs post configuration
             foreach (var job in result.Jobs)
             {
-                if (job.Value.OnConfigure.Any())
+                if (job.Value.OnConfigure != null && job.Value.OnConfigure.Any())
                 {
                     var engine =  new Engine();
                     
