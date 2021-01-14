@@ -190,6 +190,9 @@ namespace Microsoft.Crank.Models
 
         public List<string> Features { get; set; } = new List<string>();
 
+        /// Script that is executed once the templates have been processed.
+        public List<string> OnConfigure { get; set; } = new List<string>();
+
     }
 
     /// <summary>

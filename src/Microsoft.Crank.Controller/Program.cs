@@ -1370,6 +1370,19 @@ namespace Microsoft.Crank.Controller
             // Jobs post configuration
             foreach (var job in result.Jobs)
             {
+                if (job.Value.OnConfigure.Any())
+                {
+                    var engine =  new Engine();
+                    
+                    engine.SetValue("job", job.Value);
+                    engine.SetValue("console", _scriptConsole);
+
+                    foreach(var script in job.Value.OnConfigure)
+                    {
+                        engine.Execute(script);
+                    }                    
+                }
+
                 // If the job is a BenchmarkDotNet application, define default arguments so we can download the results as JSon
                 if (job.Value.Options.BenchmarkDotNet)
                 {

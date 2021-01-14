@@ -2094,13 +2094,16 @@ namespace Microsoft.Crank.Agent
                     || options.Repository != job.Source.Repository
                     || options.BranchOrCommit != job.Source.BranchOrCommit)
                     {
-                        throw new Exception("Linux runtime package not found");
+                        Log.WriteLine("[INFO] Ignoring existing source folder as it's not matching the request source settings");
+                        reuseFolder = false;
                     }
+                    else
+                    {
+                        reuseFolder = true;
 
-                    reuseFolder = true;
-
-                    // benchmarkedDir can be "src" or a local git clone folder
-                    benchmarkedDir = new DirectoryInfo(Directory.GetDirectories(path).FirstOrDefault(x => !x.EndsWith("buildtools"))).Name;
+                        // benchmarkedDir can be "src" or a local git clone folder
+                        benchmarkedDir = new DirectoryInfo(Directory.GetDirectories(path).FirstOrDefault(x => !x.EndsWith("buildtools"))).Name;
+                    }
                 }
                 else
                 {
