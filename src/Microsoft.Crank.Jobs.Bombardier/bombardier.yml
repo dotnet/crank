@@ -32,4 +32,3 @@ jobs:
       verb: # GET when nothing is specified
       customHeaders: [ ] # list of headers with the format: '<name1>: <value1>', e.g. [ 'content-type: application/json' ]
     arguments: "-c {{connections}} -w {{warmup}} -d {{duration}} -n {{requests}} --insecure -l {% if rate != 0 %} --rate {{ rate }} {% endif %} {% if transport %} --{{ transport}} {% endif %} {{headers[presetHeaders]}} {% for h in customHeaders %}{% assign s = h | split : ':' %}--header \"{{ s[0] }}: {{ s[1] | strip }}\" {% endfor %} {% if serverUri == blank or serverUri == empty %} {{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}} {% else %} {{serverUri}}:{{serverPort}}{{path}} {% endif %} {% if bodyFile != blank and bodyFile != empty %} -f {{bodyFile}} {% endif %}  {% if verb != blank and verb != empty %} -m {{verb}} {% endif %}"
-    timeout: "{{ duration | plus: 10 }}"
