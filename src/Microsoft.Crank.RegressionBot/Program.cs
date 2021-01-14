@@ -217,7 +217,15 @@ namespace Microsoft.Crank.RegressionBot
                 
                 Console.WriteLine("Updating existing issues...");
 
+                // The result of updating issues is the list of regressions that are not yet reported
                 var newRegressions = await UpdateIssues(regressions, s, template);
+
+                Console.WriteLine($"{newRegressions.Count()} of them were not reported");
+
+                // Exclude all regressions that have recovered, and have not been reported
+                newRegressions = newRegressions.Where(x => !x.HasRecovered);
+
+                Console.WriteLine($"{newRegressions.Count()} of them have not recovered");
 
                 if (newRegressions.Any())
                 {
@@ -229,7 +237,7 @@ namespace Microsoft.Crank.RegressionBot
                     while (true)
                     {
                         // Create issues with 10 regressions per issue max
-                        var page = regressions.Skip(skip).Take(pageSize);
+                        var page = newRegressions.Skip(skip).Take(pageSize);
 
                         if (!page.Any()) break;
 
@@ -576,7 +584,7 @@ namespace Microsoft.Crank.RegressionBot
 
                         if (_options.Verbose)
                         {
-                            Console.WriteLine($"Checking {resultSet[i].Value} at {resultSet[i].Result.DateTimeUtc}");
+                            Console.WriteLine($"Checking {resultSet[i + 3].Value} at {resultSet[i + 3].Result.DateTimeUtc} with values {JsonConvert.SerializeObject(values.Skip(i).Take(5).ToArray())}");
                         }
 
                         // Measure stdev by picking the StdevCount results before the currently checked one
@@ -656,13 +664,6 @@ namespace Microsoft.Crank.RegressionBot
 
                         if (hasRegressed)
                         {
-                            if (_options.Verbose)
-                            {
-                                Console.ForegroundColor = ConsoleColor.Red;
-                                Console.WriteLine("Regression detected");
-                                Console.ResetColor();
-                            }
-                            
                             var regression = new Regression 
                             {
                                 PreviousResult = resultSet[i+2].Result,
@@ -671,6 +672,13 @@ namespace Microsoft.Crank.RegressionBot
                                 StandardDeviation = standardDeviation,
                                 Average = average
                             };
+
+                            if (_options.Verbose)
+                            {
+                                Console.ForegroundColor = ConsoleColor.Red;
+                                Console.WriteLine($"Regression detected: {values[i + 2]:n0} to {values[i + 3]:n0} for {regression.Identifier}");
+                                Console.ResetColor();
+                            }
 
                             foreach (var rule in rules)
                             {
@@ -700,7 +708,7 @@ namespace Microsoft.Crank.RegressionBot
                             
                             for (var j = i + 5; j < resultSet.Length; j++)
                             {
-                                var nextValue = Math.Abs(values[j] - values[i+2]);
+                                var nextValue = values[j] - values[i+2];
 
                                 var hasRecovered = false;
 
@@ -708,19 +716,19 @@ namespace Microsoft.Crank.RegressionBot
                                 {
                                     case ThresholdUnits.StDev:
                                         // factor of standard deviation
-                                        hasRecovered = nextValue < probe.Threshold * standardDeviation
+                                        hasRecovered = Math.Abs(nextValue) < probe.Threshold * standardDeviation
                                             && Math.Sign(nextValue) == Math.Sign(value4);
 
                                         break;
                                     case ThresholdUnits.Percent:
                                         // percentage of the average of values
-                                        hasRecovered = nextValue < average * (probe.Threshold / 100)
+                                        hasRecovered = Math.Abs(nextValue) < average * (probe.Threshold / 100)
                                             && Math.Sign(nextValue) == Math.Sign(value4);
 
                                         break;                            
                                     case ThresholdUnits.Absolute:
                                         // absolute deviation
-                                        hasRecovered = nextValue < probe.Threshold
+                                        hasRecovered = Math.Abs(nextValue) < probe.Threshold
                                             && Math.Sign(nextValue) == Math.Sign(value4);
 
                                         break;
@@ -798,7 +806,7 @@ namespace Microsoft.Crank.RegressionBot
             Console.WriteLine($"Downloaded {issues.Count()} issues");
 
             // The list of regressions that remain to be reported
-            var regressionsToReport = new List<Regression>(regressions);
+            var regressionsToReport = new List<Regression>(regressions).ToDictionary(x => x.Identifier, x => x);
 
             foreach (var issue in issues)
             {
@@ -832,6 +840,12 @@ namespace Microsoft.Crank.RegressionBot
                 {
                     if (existingRegressions.TryGetValue(r.Identifier, out var localRegression))
                     {
+                        // If the issue has been reported, exclude it
+                        if (regressionsToReport.Remove(r.Identifier))
+                        {
+                            Console.WriteLine($"Issue already reported {r.CurrentResult.Description} at {r.CurrentResult.DateTimeUtc}");
+                        }
+
                         if (!localRegression.HasRecovered && r.HasRecovered)
                         {
                             Console.WriteLine($"Found update for {r.Identifier}");
@@ -840,12 +854,7 @@ namespace Microsoft.Crank.RegressionBot
                             issueNeedsUpdate = true;
                         }
                     }
-                    else
-                    {
-                        regressionsToReport.Add(r);
-                    }
                 }
-
 
                 if (issueNeedsUpdate)
                 {
@@ -872,7 +881,7 @@ namespace Microsoft.Crank.RegressionBot
                 }                
             }
 
-            return regressionsToReport;
+            return regressionsToReport.Values;
         }
 
         private static GitHubClient GetClient()
@@ -973,15 +982,15 @@ namespace Microsoft.Crank.RegressionBot
             try
             {
                 var data = Convert.FromBase64String(base64);
-                var results = MessagePackSerializer.Deserialize<Regression[]>(data);
+                var results = MessagePackSerializer.Deserialize<Regression[]>(data, MessagePack.Resolvers.ContractlessStandardResolver.Options);
                 Console.WriteLine($"Loaded {results.Length} regressions");
                 return results;
             }
-            catch
+            catch (Exception e)
             {
                 if (_options.Verbose)
                 {
-                    Console.WriteLine($"Error while parsing regressions");
+                    Console.WriteLine($"Error while parsing regressions: {e}");
                 }
 
                 return Array.Empty<Regression>();
