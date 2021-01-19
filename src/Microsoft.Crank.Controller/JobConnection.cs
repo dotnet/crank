@@ -809,7 +809,7 @@ namespace Microsoft.Crank.Controller
                     return 8;
                 }
 
-                Log.Write($"Uploading {filename} ({(new FileInfo(filename).Length / 1024):n0}KB)");
+                Log.Write($"Uploading {filename} ({(new FileInfo(uploadFilename).Length / 1024):n0}KB)");
 
                 var destinationFilename = outputFileSegments.Length > 1
                     ? outputFileSegments[1]
