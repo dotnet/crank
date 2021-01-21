@@ -467,7 +467,6 @@ namespace Microsoft.Crank.RegressionBot
             {
                 using (var command = new SqlCommand(String.Format(Queries.Latest, source.Table), connection))
                 {
-                    // Load 14 days or data, to measure 7 days of standard deviation prior to detection
                     command.Parameters.AddWithValue("@startDate", loadStartDateTimeUtc);
                     
                     await connection.OpenAsync();
@@ -615,6 +614,14 @@ namespace Microsoft.Crank.RegressionBot
                          *                 
                          *
                          */
+
+                        if (standardDeviation == 0)
+                        {
+                            // We skip measurement with stdev of zero since it could induce divisions by zero, and any change will trigger
+                            // a regression
+                            Console.WriteLine($"Ignoring measurement with stdev = 0");
+                            continue;
+                        }
                         
                         var value1 = values[i+1] - values[i];
                         var value2 = values[i+2] - values[i];
