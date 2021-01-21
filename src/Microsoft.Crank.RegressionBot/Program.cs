@@ -231,6 +231,11 @@ namespace Microsoft.Crank.RegressionBot
                 {
                     Console.WriteLine("Reporting new regressions...");
 
+                    if (_options.Verbose)
+                    {
+                        Console.WriteLine(JsonConvert.SerializeObject(newRegressions, Formatting.None));
+                    }
+
                     var skip = 0;
                     var pageSize = 10;
 
