@@ -27,4 +27,6 @@ jobs:
       serverPort: 5000
       path: /
       httpVersion: 1.1
-    arguments: '--url "{{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}" --connections {{connections}} --warmup {{warmup}} --duration {{duration}} {{headers[presetHeaders]}} --version {{httpVersion}} --cert {{certPath}} --certpwd {{certPwd}}'
+      certPath: # the path or url of the certificate used for authentication
+      certPwd: # the password of the certificate specified in certPath
+    arguments: '--url "{{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}" --connections {{connections}} --warmup {{warmup}} --duration {{duration}} {{headers[presetHeaders]}} --version {{httpVersion}} {% if certPath %} --cert {{certPath}} {% endif %} {% if certPwd %} --certpwd {{certPwd}} {% endif %}'
