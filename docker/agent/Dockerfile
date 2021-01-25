@@ -12,6 +12,8 @@ RUN dotnet publish -c Release src/Microsoft.Crank.Agent --output /app
 # Build runtime image
 FROM mcr.microsoft.com/dotnet/aspnet:5.0
 
+ARG CPUNAME=x86_64
+
 # Install dependencies
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -41,7 +43,7 @@ RUN cd /tmp \
 # Install docker client
 ENV DOCKER_VERSION 17.09.0-ce
 RUN cd /tmp \
-    && curl https://download.docker.com/linux/static/stable/x86_64/docker-$DOCKER_VERSION.tgz -o docker.tgz \
+    && curl "https://download.docker.com/linux/static/stable/${CPUNAME}/docker-${DOCKER_VERSION}.tgz" -o docker.tgz \
     && tar xvzf docker.tgz \
     && cp docker/docker /usr/bin \
     && rm -rf docker.tgz docker

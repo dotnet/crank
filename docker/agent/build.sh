@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
 
-docker build -t crank-agent -f Dockerfile ../../
+cpuname=$(uname -p)
+docker build -t crank-agent --build-arg CPUNAME=$cpuname -f Dockerfile ../../
