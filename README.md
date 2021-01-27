@@ -22,7 +22,7 @@ The benchmarking infrastructure is made of these components:
 There are also some built in jobs:
 - [wrk](src/Microsoft.Crank.Jobs.Wrk) - An http client benchmarking tool. This tool is used when benchmarking TechEmpower https://github.com/wg/wrk.
 - [wrk2](src/Microsoft.Crank.Jobs.Wrk2) - An http client benchmarking tool optimized for latency testing https://github.com/giltene/wrk2.
-- [bombardier](Microsoft.Crank.Jobs.Bombardier) - A go based http client benchmarking tool https://github.com/codesenberg/bombardier.
+- [bombardier](src/Microsoft.Crank.Jobs.Bombardier) - A go based http client benchmarking tool https://github.com/codesenberg/bombardier.
 
 ## Get Started
 
