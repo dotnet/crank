@@ -1351,6 +1351,9 @@ namespace Microsoft.Crank.Controller
 
                 var variables = MergeVariables(rootVariables, jobVariables, commandLineVariables);
 
+                // Apply templates on variables first
+                ApplyTemplates(variables, new TemplateContext { Model = variables.DeepClone() });
+
                 ApplyTemplates(job, new TemplateContext { Model = variables });
             }
 
@@ -1611,6 +1614,10 @@ namespace Microsoft.Crank.Controller
                 {
                     var mergeOptions = new JsonMergeSettings { MergeArrayHandling = MergeArrayHandling.Replace, MergeNullValueHandling = MergeNullValueHandling.Merge };
 
+                    // start from a clear document
+                    var result = new JObject();
+                    
+                    // merge each import
                     foreach (JValue import in (JArray)localconfiguration.GetValue("imports"))
                     {
                         var importFilenameOrUrl = import.ToString();
@@ -1619,9 +1626,13 @@ namespace Microsoft.Crank.Controller
 
                         if (importedConfiguration != null)
                         {
-                            localconfiguration.Merge(importedConfiguration, mergeOptions);
+                            result.Merge(importedConfiguration, mergeOptions);
                         }
                     }
+
+                    // merge local configuration last to win over imports
+                    result.Merge(localconfiguration, mergeOptions);
+                    localconfiguration = result;
                 }
 
                 localconfiguration.Remove("imports");
