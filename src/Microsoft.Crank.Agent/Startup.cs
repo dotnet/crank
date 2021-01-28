@@ -2584,7 +2584,7 @@ namespace Microsoft.Crank.Agent
 
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
-                    if (job.Hardware == Hardware.ARM64)
+                    if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
                     {
                         buildParameters += "-r win-arm64 ";
                     }
@@ -2599,7 +2599,7 @@ namespace Microsoft.Crank.Agent
                 }
                 else
                 {
-                    if (job.Hardware == Hardware.ARM64)
+                    if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
                     {
                         buildParameters += "-r linux-arm64 ";
                     }
@@ -2791,7 +2791,7 @@ namespace Microsoft.Crank.Agent
                     throw new Exception("The job is trying to use the mono runtime but was not configured as self-contained.");
                 }
 
-                await UseMonoRuntimeAsync(runtimeVersion, outputFolder, job.UseMonoRuntime, job.Hardware);
+                await UseMonoRuntimeAsync(runtimeVersion, outputFolder, job.UseMonoRuntime);
             }
 
             // Copy all output attachments
@@ -2817,7 +2817,7 @@ namespace Microsoft.Crank.Agent
             {
                 if (job.UseMonoRuntime.Equals("llvm-aot"))
                 {
-                    await AOT4Mono(sdkVersion, runtimeVersion, outputFolder, job.Hardware);
+                    await AOT4Mono(sdkVersion, runtimeVersion, outputFolder);
                 }
             }
 
@@ -4138,22 +4138,17 @@ namespace Microsoft.Crank.Agent
             dotnetTraceTask = Collect(dotnetTraceManualReset, processId, new FileInfo(job.PerfViewTraceFile), 256, job.DotNetTraceProviders, TimeSpan.MaxValue);
         }
 
-        private static async Task UseMonoRuntimeAsync(string runtimeVersion, string outputFolder, string mode, Hardware? hardware)
+        private static async Task UseMonoRuntimeAsync(string runtimeVersion, string outputFolder, string mode)
         {
             if (String.IsNullOrEmpty(mode))
             {
                 return;
             }
 
-            string pkgNameSuffix = "";
-            if (hardware == Hardware.ARM64)
-            {
-                pkgNameSuffix = "arm64";
-            }
-            else
-            {
-                pkgNameSuffix = "x64";
-            }
+            var pkgNameSuffix = RuntimeInformation.ProcessArchitecture == Architecture.Arm64
+                ? "arm64"
+                : "x64"
+                ;
 
             try
             {
@@ -4223,18 +4218,12 @@ namespace Microsoft.Crank.Agent
             }
         }
 
-        private static async Task AOT4Mono(string dotnetSdkVersion, string runtimeVersion, string outputFolder, Hardware? hardware)
+        private static async Task AOT4Mono(string dotnetSdkVersion, string runtimeVersion, string outputFolder)
         {
-            
-            string pkgNameSuffix = "";
-            if (hardware == Hardware.ARM64)
-            {
-                pkgNameSuffix = "arm64";
-            }
-            else
-            {
-                pkgNameSuffix = "x64";
-            }
+            var pkgNameSuffix = RuntimeInformation.ProcessArchitecture == Architecture.Arm64
+                ? "arm64"
+                : "x64"
+                ;
 
             try
             {
