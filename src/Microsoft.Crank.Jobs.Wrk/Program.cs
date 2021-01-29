@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
 namespace Microsoft.Crank.Wrk
@@ -11,9 +12,9 @@ namespace Microsoft.Crank.Wrk
     {
         static async Task<int> Main(string[] args)
         {
-            if (Environment.OSVersion.Platform != PlatformID.Unix)
+            if (Environment.OSVersion.Platform != PlatformID.Unix && RuntimeInformation.ProcessArchitecture != Architecture.X64)
             {
-                Console.WriteLine($"Platform not supported: {Environment.OSVersion.Platform}");
+                Console.WriteLine($"Platform not supported: {Environment.OSVersion.Platform}/{RuntimeInformation.ProcessArchitecture}");
                 return -1;
             }
 
