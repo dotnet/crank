@@ -183,6 +183,9 @@ namespace Microsoft.Crank.Models
         // Custom StartTimeout for the server job
         public TimeSpan StartTimeout { get; set; } = TimeSpan.Zero;
 
+        // Custom CollectTimeout for the server job
+        public TimeSpan CollectTimeout { get; set; } = TimeSpan.Zero;
+
         // Custom build timeout
         public TimeSpan BuildTimeout { get; set; } = TimeSpan.Zero;
 

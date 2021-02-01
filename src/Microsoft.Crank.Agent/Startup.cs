@@ -119,7 +119,7 @@ namespace Microsoft.Crank.Agent
         public static TimeSpan StartTimeout = TimeSpan.FromMinutes(3);
         public static TimeSpan DefaultBuildTimeout = TimeSpan.FromMinutes(10);
         public static TimeSpan DeletedTimeout = TimeSpan.FromHours(18);
-        public static TimeSpan PerfCollectTimeout = TimeSpan.FromMinutes(2);
+        public static TimeSpan CollectTimeout = TimeSpan.FromMinutes(5);
 
         private static string _startPerfviewArguments;
 
@@ -1128,7 +1128,7 @@ namespace Microsoft.Crank.Agent
                                     }
                                     else if (OperatingSystem == OperatingSystem.Linux)
                                     {
-                                        await StopPerfcollectAsync(perfCollectProcess);
+                                        await StopPerfcollectAsync(job, perfCollectProcess);
                                     }
 
                                     Log.WriteLine("Trace collected");
@@ -1294,7 +1294,7 @@ namespace Microsoft.Crank.Agent
                                             }
                                             else if (OperatingSystem == OperatingSystem.Linux)
                                             {
-                                                await StopPerfcollectAsync(perfCollectProcess);
+                                                await StopPerfcollectAsync(job, perfCollectProcess);
                                             }
                                         }
 
@@ -1555,7 +1555,7 @@ namespace Microsoft.Crank.Agent
             return process;
         }
 
-        private static async Task StopPerfcollectAsync(Process perfCollectProcess)
+        private static async Task StopPerfcollectAsync(Job job,Process perfCollectProcess)
         {
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
@@ -1576,7 +1576,12 @@ namespace Microsoft.Crank.Agent
             Mono.Unix.Native.Syscall.kill(processId, Mono.Unix.Native.Signum.SIGINT);
 
             // Max delay for perfcollect to stop
-            var delay = Task.Delay(PerfCollectTimeout);
+            var collectTimeout = job.CollectTimeout > TimeSpan.Zero
+                ? job.CollectTimeout
+                : CollectTimeout
+                ;
+                
+            var delay = Task.Delay(collectTimeout);
 
             while (!perfCollectProcess.HasExited && !delay.IsCompletedSuccessfully)
             {
