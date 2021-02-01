@@ -13,7 +13,7 @@ Crank is able to record any predefined set of event counters, the same way [dotn
 The following command line will run a benchmark and record the event counters exposed by the `System.Runtime` provider.
 
 ```
-crank --config /crank/samples/hello/hello.benchmarks.yml --scenario hello --profile local --application.counterProviders System.Runtime --chart
+crank --config /crank/samples/hello/hello.benchmarks.yml --scenario hello --profile local --application.options.counterProviders System.Runtime --chart
 ```
 
 ```
