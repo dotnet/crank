@@ -103,7 +103,14 @@ Options:
   --[JOB].options.outputFiles <filename>                                   Output files that will be copied in the final application folder. Accepts globing patterns and recursive marker (**). Format is 'path[;destination]'. Path can be a URL. e.g., c:\build\Microsoft.AspNetCore.Mvc.dll, c:\files\samples\picture.png;wwwroot\picture.png. If provided, the destination needs to be a folder name, relative to the root source.
   --[JOB].options.reuseSource <true|false>                                  Reuse local or remote sources across benchmarks for the same source.
   --[JOB].options.reuseBuild <true|false>                                   Reuse build files across benchmarks. Don't use with floating runtime versions.
-  
+
+  ## Timeouts
+
+  --[JOB].timeout                                                           Maximum duration in seconds of the job in seconds. Defaults to 0 (unlimited).
+  --[JOB].buildTimeout                                                      Maximum duration of the build phase. Defaults to 00:10:00 (10 minutes).
+  --[JOB].startTimeout                                                      Maximum duration of the start phase. Defaults to 00:03:00 (3 minutes).
+  --[JOB].collectTimeout                                                    Maximum duration of the collect phase. Defaults to 00:05:00 (5 minutes).
+
   ## Telemetry
 
   --[JOB].options.discardResults <true|false>                              Whether to discard all the results from this job, for instance during a warmup job.
