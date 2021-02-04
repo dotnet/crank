@@ -16,6 +16,7 @@ using Microsoft.Crank.Models;
 using Microsoft.Crank.Controller.Ignore;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Threading;
 
 namespace Microsoft.Crank.Controller
 {
@@ -49,6 +50,7 @@ namespace Microsoft.Crank.Controller
             _httpClientHandler.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
 
             _httpClient = new HttpClient(_httpClientHandler);
+            _httpClient.Timeout = Timeout.InfiniteTimeSpan;
         }
 
         public JobConnection(Job definition, Uri serverUri)
