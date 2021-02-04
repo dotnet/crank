@@ -23,8 +23,10 @@ RUN apt-get update \
         procps \
         cgroup-bin \
         curl \
-        wget
-
+        wget \
+        # dotnet performance repo microbenchmark dependencies
+        libgdiplus 
+        
 # Build and install h2load. Required as there isn't a way to distribute h2load as a single file to download
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
