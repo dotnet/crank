@@ -536,7 +536,7 @@ namespace Microsoft.Crank.Controller
                     {
                         // Ping server job to keep it alive
                         Log.Verbose($"GET {_serverJobUri}/touch...");
-                        var response = await _httpClient.GetAsync(_serverJobUri + "/touch");
+                        var response = await _httpClient.GetAsync(_serverJobUri + "/touch", new CancellationTokenSource(2000).Token);
 
                         // Detect if the job has timed out. This doesn't account for any other service
                         if (Job.Timeout > 0 && _runningUtc != null && DateTime.UtcNow - _runningUtc > TimeSpan.FromSeconds(Job.Timeout))
@@ -544,15 +544,15 @@ namespace Microsoft.Crank.Controller
                             Log.Write($"Job has timed out, stopping...");
                             await StopAsync();
                         }
+
+                        await Task.Delay(2000);
                     }
                     catch (Exception e)
                     {
                         Log.Write($"Could not ping the server, retrying ...");
                         Log.Verbose(e.ToString());
-                    }
-                    finally
-                    {
-                        await Task.Delay(2000);
+
+                        await Task.Delay(100);
                     }
                 }
             });
