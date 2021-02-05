@@ -41,7 +41,7 @@ namespace Microsoft.Crank.Controller
         private const string DefaultBenchmarkDotNetArguments = "--inProcess --cli {{benchmarks-cli}} --join --exporters briefjson markdown";
 
         // Default to arguments which should be sufficient for collecting trace of default Plaintext run
-        private const string _defaultTraceArguments = "BufferSizeMB=1024;CircularMB=1024;clrEvents=JITSymbols;kernelEvents=process+thread+ImageLoad+Profile";
+        private const string _defaultTraceArguments = "BufferSizeMB=1024;CircularMB=4096;clrEvents=JITSymbols;kernelEvents=process+thread+ImageLoad+Profile";
 
         private static ScriptConsole _scriptConsole = new ScriptConsole();
 
