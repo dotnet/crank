@@ -41,7 +41,8 @@ namespace Microsoft.Crank.Controller
         private const string DefaultBenchmarkDotNetArguments = "--inProcess --cli {{benchmarks-cli}} --join --exporters briefjson markdown";
 
         // Default to arguments which should be sufficient for collecting trace of default Plaintext run
-        private const string _defaultTraceArguments = "BufferSizeMB=1024;CircularMB=4096;clrEvents=JITSymbols;kernelEvents=process+thread+ImageLoad+Profile";
+        // c.f. https://github.com/Microsoft/perfview/blob/main/src/PerfView/CommandLineArgs.cs
+        private const string _defaultTraceArguments = "BufferSizeMB=1024;CircularMB=4096;TplEvents=None;clrEvents=JITSymbols;kernelEvents=process+thread+ImageLoad+Profile";
 
         private static ScriptConsole _scriptConsole = new ScriptConsole();
 
@@ -1384,6 +1385,12 @@ namespace Microsoft.Crank.Controller
                     {
                         engine.Execute(script);
                     }                    
+                }
+
+                // Set default trace arguments if none is specified
+                if (job.Value.Collect && String.IsNullOrEmpty(job.Value.CollectArguments))
+                {
+                    job.Value.CollectArguments = _defaultTraceArguments;
                 }
 
                 // If the job is a BenchmarkDotNet application, define default arguments so we can download the results as JSon
