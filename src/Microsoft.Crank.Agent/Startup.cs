@@ -2860,7 +2860,7 @@ namespace Microsoft.Crank.Agent
 
                 // dotnet symbol --symbols --output mySymbols  /usr/share/dotnet/shared/Microsoft.NETCore.App/2.1.0/lib*.so
 
-                await ProcessUtil.RunAsync("/root/.dotnet/tools/dotnet-symbols", $"--symbols -d --output {symbolsFolder} {Path.Combine(symbolsFolder, "lib*.so")}",
+                await ProcessUtil.RunAsync("/root/.dotnet/tools/dotnet-symbol", $"--symbols -d --output {symbolsFolder} {Path.Combine(symbolsFolder, "lib*.so")}",
                     workingDirectory: benchmarkedApp,
                     throwOnError: false,
                     log: true
