@@ -1,7 +1,7 @@
 ## Setting up an agent on Linux
 
 On Linux, it is recommended to setup the Agent using the Docker file provided in this repository.
-There instructions are valid for x86 and arm.
+There instructions are valid for x86_64 and ARM64 (aka ARMv8 or AARCH64).
 
 ### Installing Docker
 
@@ -57,7 +57,7 @@ docker logs -f --tail 100 crank-agent
 
 ### Continuous integration
 
-In order to restart and update the agent regularly, the follow cron job can be used.
+In order to restart and update the agent regularly, the following cron job can be used.
 
 - Edit the crontab file:
 
