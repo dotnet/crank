@@ -49,7 +49,8 @@ namespace Microsoft.Crank.Controller
             Log.Verbose($"GET {uri}");
 
             using var request = new HttpRequestMessage(HttpMethod.Get, uri);
-            using var response = await httpClient.SendAsync(request);
+            // ResponseHeadersRead is required for the content to be read later on
+            using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
 
             response.EnsureSuccessStatusCode();
 
@@ -62,7 +63,6 @@ namespace Microsoft.Crank.Controller
             using (var downloadStream = await response.Content.ReadAsStreamAsync())
             {
                 var lastMeasure = DateTime.UtcNow;
-                var progressDisplayed = false;
 
                 var progress = new Progress<long>(reportedLength => 
                 {
@@ -71,43 +71,31 @@ namespace Microsoft.Crank.Controller
 
                     if (progressIsComplete || updateProgress)
                     {
-                        progressDisplayed = true;
-                        Console.CursorLeft = 0;
-                        Console.Write($"{(reportedLength / 1024):n0} KB");
-
-                        if (contentLength != 0)
+                        lock (Console.Out)
                         {
-                            var progress = ((double)reportedLength / contentLength) * 100;
-                            Console.Write($" / {(contentLength / 1024):n0} KB ({progress:n0}%)");
-                        }
+                            if (contentLength != 0)
+                            {
+                                var progress = ((double)reportedLength / contentLength) * 100;
+                                Console.Write($"{(reportedLength / 1024):n0} KB / {(contentLength / 1024):n0} KB ({progress:n0}%)".PadRight(100));
+                            }
+                            else
+                            {
+                                Console.Write($"{(reportedLength / 1024):n0} KB".PadRight(100));
+                            }
 
-                        lastMeasure = DateTime.UtcNow;
-                        Console.CursorLeft = 0;
+                            lastMeasure = DateTime.UtcNow;
+                            Console.CursorLeft = 0;
+                        }
                     }
                 });
 
                 using (var fileStream = File.Create(destinationFileName))
                 {
-                    var downloadTask = downloadStream.CopyToAsync(fileStream, progress);
-
-                    while (!downloadTask.IsCompleted)
-                    {
-                        // Ping server job to keep it alive while downloading the file
-                        Log.Verbose($"GET {serverJobUri}/touch...");
-                        await httpClient.GetAsync(serverJobUri + "/touch");
-
-                        await Task.Delay(1000);
-                    }
-
-                    await downloadTask;
-
-                    if (progressDisplayed)
-                    {
-                        Console.WriteLine("");
-                    }
-
+                    await downloadStream.CopyToAsync(fileStream, progress);
                 }
             }
+
+            Console.WriteLine();
         }
 
         internal static async Task CopyToAsync(this Stream source, Stream destination, IProgress<long> progress, CancellationToken cancellationToken = default(CancellationToken), int bufferSize = 0x1000)

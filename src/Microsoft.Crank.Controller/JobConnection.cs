@@ -639,7 +639,7 @@ namespace Microsoft.Crank.Controller
                     traceDestination = traceDestination + "." + DateTime.Now.ToString("MM-dd-HH-mm-ss") + traceExtension;
                 }
 
-                Log.Write($"Collecting trace file, this can take several seconds");
+                Log.Write($"Server is collecting trace file, this can take up to 1 minute");
 
                 var uri = _serverJobUri + "/trace";
                 var response = await _httpClient.PostAsync(uri, new StringContent(""));
