@@ -8,7 +8,7 @@
 |**[Benchmarking local applications](local_application.md)** | Send local application source to the agent.
 |**[Benchmarking Docker containers](benchmarking_docker.md)** | Run Docker containers.
 |**[Running micro-benchmarks](microbenchmarks.md)** | Run BenchmarkDotNet benchmarks.
-|**[Setting up an agent on Linux](setup_linux.md)** | How to install and update the agent on a Linux machines.
+|**[Setting up an agent on Linux](setup_linux.md)** | How to install and update the agent on a Linux machine.
 
 ## Guides
 
