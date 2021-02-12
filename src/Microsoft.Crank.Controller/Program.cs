@@ -42,7 +42,7 @@ namespace Microsoft.Crank.Controller
 
         // Default to arguments which should be sufficient for collecting trace of default Plaintext run
         // c.f. https://github.com/Microsoft/perfview/blob/main/src/PerfView/CommandLineArgs.cs
-        private const string _defaultTraceArguments = "BufferSizeMB=1024;CircularMB=4096;TplEvents=None;clrEvents=JITSymbols;kernelEvents=process+thread+ImageLoad+Profile";
+        private const string _defaultTraceArguments = "BufferSizeMB=1024;CircularMB=4096;TplEvents=None";
 
         private static ScriptConsole _scriptConsole = new ScriptConsole();
 

@@ -4091,7 +4091,7 @@ namespace Microsoft.Crank.Agent
 
                 if (!String.IsNullOrEmpty(job.CollectArguments))
                 {
-                    foreach (var tuple in job.CollectArguments.Split(';'))
+                    foreach (var tuple in job.CollectArguments.Split(';', StringSplitOptions.RemoveEmptyEntries))
                     {
                         var values = tuple.Split(new char[] { '=' }, 2);
                         perfViewArguments[values[0]] = values.Length > 1 ? values[1] : "";
