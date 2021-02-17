@@ -1641,52 +1641,91 @@ namespace Microsoft.Crank.Agent
         private static async Task<(string containerId, string imageName, string workingDirectory)> DockerBuildAndRun(string path, Job job, string hostname, CancellationToken cancellationToken = default(CancellationToken))
         {
             var source = job.Source;
-            string srcDir;
+            string srcDir = path;
+
+            var reuseFolder = false;
+
+            // Is the path a previously created source folder?
+            if (!String.IsNullOrEmpty(job.Source.SourceKey))
+            {
+                // Check the source options are the same (repos, branch, ...)
+                var optionsPath = Path.Combine(path, "options.json");
+                
+                if (File.Exists(optionsPath))
+                {
+                    var content = File.ReadAllText(optionsPath);
+                    var options = JsonConvert.DeserializeObject<Source>(content);
+
+                    if (options.Project != job.Source.Project
+                    || options.Repository != job.Source.Repository
+                    || options.BranchOrCommit != job.Source.BranchOrCommit)
+                    {
+                        Log.WriteLine("[INFO] Ignoring existing source folder as it's not matching the request source settings");
+                        reuseFolder = false;
+                    }
+                    else
+                    {
+                        reuseFolder = true;
+
+                        // benchmarkedDir can be "src" or a local git clone folder
+                        srcDir = new DirectoryInfo(Directory.GetDirectories(path).FirstOrDefault(x => !x.EndsWith("buildtools"))).Name;
+                    }
+                }
+                else
+                {
+                    // First time using this folder
+                    File.WriteAllText(optionsPath, JsonConvert.SerializeObject(job.Source));
+                    reuseFolder = false;
+                }
+            }
 
             // Docker image names must be lowercase
             var imageName = source.GetNormalizedImageName();
 
-            if (source.SourceCode != null)
+            if (!reuseFolder)
             {
-                srcDir = Path.Combine(path, "src");
-                Log.WriteLine($"Extracting source code to {srcDir}");
-
-                ZipFile.ExtractToDirectory(job.Source.SourceCode.TempFilename, srcDir);
-
-                // Convert CRLF to LF on Linux
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                if (source.SourceCode != null)
                 {
-                    Log.WriteLine($"Converting text files ...");
+                    srcDir = Path.Combine(path, "src");
+                    Log.WriteLine($"Extracting source code to {srcDir}");
 
-                    foreach (var file in Directory.GetFiles(srcDir + Path.DirectorySeparatorChar, "*.*", SearchOption.AllDirectories))
+                    ZipFile.ExtractToDirectory(job.Source.SourceCode.TempFilename, srcDir);
+
+                    // Convert CRLF to LF on Linux
+                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
                     {
-                        ConvertLines(file);
+                        Log.WriteLine($"Converting text files ...");
+
+                        foreach (var file in Directory.GetFiles(srcDir + Path.DirectorySeparatorChar, "*.*", SearchOption.AllDirectories))
+                        {
+                            ConvertLines(file);
+                        }
+                    }
+
+                    File.Delete(job.Source.SourceCode.TempFilename);
+                }
+                else if (!String.IsNullOrEmpty(source.Repository))
+                {
+                    var branchAndCommit = source.BranchOrCommit.Split('#', 2);
+
+                    var dir = await Git.CloneAsync(path, source.Repository, shallow: branchAndCommit.Length == 1, branch: branchAndCommit[0]);
+
+                    srcDir = Path.Combine(path, dir);
+
+                    if (branchAndCommit.Length > 1)
+                    {
+                        await Git.CheckoutAsync(srcDir, branchAndCommit[1]);
+                    }
+
+                    if (source.InitSubmodules)
+                    {
+                        await Git.InitSubModulesAsync(srcDir);
                     }
                 }
-
-                File.Delete(job.Source.SourceCode.TempFilename);
-            }
-            else if (!String.IsNullOrEmpty(source.Repository))
-            {
-                var branchAndCommit = source.BranchOrCommit.Split('#', 2);
-
-                var dir = await Git.CloneAsync(path, source.Repository, shallow: branchAndCommit.Length == 1, branch: branchAndCommit[0]);
-
-                srcDir = Path.Combine(path, dir);
-
-                if (branchAndCommit.Length > 1)
+                else
                 {
-                    await Git.CheckoutAsync(srcDir, branchAndCommit[1]);
+                    srcDir = path;
                 }
-
-                if (source.InitSubmodules)
-                {
-                    await Git.InitSubModulesAsync(srcDir);
-                }
-            }
-            else
-            {
-                srcDir = path;
             }
 
             if (String.IsNullOrEmpty(source.DockerContextDirectory))
