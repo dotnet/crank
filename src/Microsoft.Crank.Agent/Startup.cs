@@ -2109,14 +2109,24 @@ namespace Microsoft.Crank.Agent
             {
                 try
                 {
+                    Log.WriteLine($"Removing container {containerId}");
+
                     await ProcessUtil.RunAsync("docker", $"rm --force {containerId}", throwOnError: false);
 
-                    if (job.NoClean || !String.IsNullOrEmpty(job.Source.SourceKey))
+                    if (!String.IsNullOrEmpty(job.Source.SourceKey) && job.Source.NoBuild)
                     {
+                        Log.WriteLine($"Keeping image {imageName}");
+                    }
+                    else if (job.NoClean)
+                    {
+                        Log.WriteLine($"Removing image {imageName}");
+                    
+                        // --no-prune: Do not delete untagged parents
                         await ProcessUtil.RunAsync("docker", $"rmi --force --no-prune {imageName}", throwOnError: false);
                     }
                     else
                     {                        
+                        Log.WriteLine($"Removing image {imageName} and its parents");
                         await ProcessUtil.RunAsync("docker", $"rmi --force {imageName}", throwOnError: false);
                     }
                 }
