@@ -100,6 +100,8 @@ namespace Microsoft.Crank.Wrk
                 using (var fileStream = File.Create(_wrkFilename))
                 {
                     await downloadStream.CopyToAsync(fileStream);
+                    await fileStream.FlushAsync();
+                    await downloadStream.FlushAsync();
                 }
 
                 Process.Start("chmod", "+x " + _wrkFilename);

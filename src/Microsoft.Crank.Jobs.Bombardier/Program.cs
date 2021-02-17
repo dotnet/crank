@@ -94,6 +94,8 @@ namespace Microsoft.Crank.Jobs.Bombardier
                 using (var fileStream = File.Create(bombardierFileName))
                 {
                     await downloadStream.CopyToAsync(fileStream);
+                    await fileStream.FlushAsync();
+                    await downloadStream.FlushAsync();
                 }
             }
             

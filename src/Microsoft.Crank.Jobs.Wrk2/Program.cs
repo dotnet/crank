@@ -427,6 +427,8 @@ namespace Microsoft.Crank.Jobs.Wrk2
                 using (var fileStream = File.Create(wrk2Filename))
                 {
                     await downloadStream.CopyToAsync(fileStream);
+                    await fileStream.FlushAsync();
+                    await downloadStream.FlushAsync();
                 }
             }
             else
