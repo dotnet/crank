@@ -81,9 +81,9 @@ namespace Microsoft.Crank.Controller.Ignore
                     {
                         ignoreFile.Rules.Insert(i, localRules[i]);
                     }
-
-                    currentDir = currentDir?.Parent;
                 }
+
+                currentDir = currentDir?.Parent;
             }
 
             return ignoreFile;
