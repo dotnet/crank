@@ -1724,7 +1724,7 @@ namespace Microsoft.Crank.Agent
                     await Git.InitSubModulesAsync(srcDir);
                 }
             }
-            else
+            else if (!reuseFolder)
             {
                 srcDir = path;
             }
