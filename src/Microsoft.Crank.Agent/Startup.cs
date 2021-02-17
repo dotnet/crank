@@ -1667,8 +1667,8 @@ namespace Microsoft.Crank.Agent
                     {
                         reuseFolder = true;
 
-                        // benchmarkedDir can be "src" or a local git clone folder
-                        srcDir = new DirectoryInfo(Directory.GetDirectories(path).FirstOrDefault(x => !x.EndsWith("buildtools"))).Name;
+                        var localRepositoryFolder = new DirectoryInfo(Directory.GetDirectories(path).FirstOrDefault(x => !x.EndsWith("buildtools"))).Name;
+                        srcDir = Path.Combine(path, localRepositoryFolder);
 
                         Log.WriteLine($"Reusing cloned repository in {srcDir}");
                     }
