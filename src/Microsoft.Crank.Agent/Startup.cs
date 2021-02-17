@@ -1770,60 +1770,69 @@ namespace Microsoft.Crank.Agent
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            // The DockerLoad argument contains the path of a tar file that can be loaded
-            if (String.IsNullOrEmpty(source.DockerLoad))
+            var requireBuild = !reuseFolder || !job.Source.NoBuild;
+
+            if (!requireBuild)
             {
-                string buildParameters = "";
-
-                // Apply custom build arguments sent from the driver
-                foreach (var argument in job.BuildArguments)
-                {
-                    buildParameters += $"--build-arg {argument} ";
-                }
-
-                var dockerBuildArguments = $"build --pull {buildParameters} -t {imageName} -f {source.DockerFile} {workingDirectory}";
-
-                job.BuildLog.AddLine("docker " + dockerBuildArguments);
-
-                var buildResults = await ProcessUtil.RunAsync("docker", dockerBuildArguments,
-                    workingDirectory: srcDir,
-                    cancellationToken: cancellationToken,
-                    log: true,
-                    outputDataReceived: text => job.BuildLog.AddLine(text)
-                    );
-
-                stopwatch.Stop();
-
-                job.BuildTime = stopwatch.Elapsed;
-
-                job.Measurements.Enqueue(new Measurement
-                {
-                    Name = "benchmarks/build-time",
-                    Timestamp = DateTime.UtcNow,
-                    Value = stopwatch.ElapsedMilliseconds
-                });
-
-                stopwatch.Reset();
-
-                if (buildResults.ExitCode != 0)
-                {
-                    job.Error = job.BuildLog.ToString();
-                }
+                Log.WriteLine("Skipping build step, reusing previous build");
             }
             else
-            {
-                Log.WriteLine($"Loading docker image {source.DockerLoad} from {srcDir}");
+                {
+                // The DockerLoad argument contains the path of a tar file that can be loaded
+                if (String.IsNullOrEmpty(source.DockerLoad))
+                {
+                    string buildParameters = "";
 
-                var dockerLoadArguments = $"load -i {source.DockerLoad} ";
+                    // Apply custom build arguments sent from the driver
+                    foreach (var argument in job.BuildArguments)
+                    {
+                        buildParameters += $"--build-arg {argument} ";
+                    }
 
-                job.BuildLog.AddLine("docker " + dockerLoadArguments);
+                    var dockerBuildArguments = $"build --pull {buildParameters} -t {imageName} -f {source.DockerFile} {workingDirectory}";
 
-                await ProcessUtil.RunAsync("docker", dockerLoadArguments, 
-                    workingDirectory: srcDir, 
-                    cancellationToken: cancellationToken, 
-                    log: true,
-                    outputDataReceived: text => job.BuildLog.AddLine(text)
-                );
+                    job.BuildLog.AddLine("docker " + dockerBuildArguments);
+
+                    var buildResults = await ProcessUtil.RunAsync("docker", dockerBuildArguments,
+                        workingDirectory: srcDir,
+                        cancellationToken: cancellationToken,
+                        log: true,
+                        outputDataReceived: text => job.BuildLog.AddLine(text)
+                        );
+
+                    stopwatch.Stop();
+
+                    job.BuildTime = stopwatch.Elapsed;
+
+                    job.Measurements.Enqueue(new Measurement
+                    {
+                        Name = "benchmarks/build-time",
+                        Timestamp = DateTime.UtcNow,
+                        Value = stopwatch.ElapsedMilliseconds
+                    });
+
+                    stopwatch.Reset();
+
+                    if (buildResults.ExitCode != 0)
+                    {
+                        job.Error = job.BuildLog.ToString();
+                    }
+                }
+                else
+                {
+                    Log.WriteLine($"Loading docker image {source.DockerLoad} from {srcDir}");
+
+                    var dockerLoadArguments = $"load -i {source.DockerLoad} ";
+
+                    job.BuildLog.AddLine("docker " + dockerLoadArguments);
+
+                    await ProcessUtil.RunAsync("docker", dockerLoadArguments, 
+                        workingDirectory: srcDir, 
+                        cancellationToken: cancellationToken, 
+                        log: true,
+                        outputDataReceived: text => job.BuildLog.AddLine(text)
+                    );
+                }
             }
 
             if (cancellationToken.IsCancellationRequested)
