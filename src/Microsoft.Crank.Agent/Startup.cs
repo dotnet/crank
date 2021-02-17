@@ -1682,15 +1682,16 @@ namespace Microsoft.Crank.Agent
             // Docker image names must be lowercase
             var imageName = source.GetNormalizedImageName();
 
-            if (!reuseFolder)
+            if (source.SourceCode != null)
             {
-                if (source.SourceCode != null)
+                srcDir = Path.Combine(path, "src");
+
+                if (!reuseFolder)
                 {
-                    srcDir = Path.Combine(path, "src");
                     Log.WriteLine($"Extracting source code to {srcDir}");
 
                     ZipFile.ExtractToDirectory(job.Source.SourceCode.TempFilename, srcDir);
-
+                
                     // Convert CRLF to LF on Linux
                     if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
                     {
@@ -1702,30 +1703,29 @@ namespace Microsoft.Crank.Agent
                         }
                     }
 
-                    File.Delete(job.Source.SourceCode.TempFilename);
-                }
-                else if (!String.IsNullOrEmpty(source.Repository))
+                File.Delete(job.Source.SourceCode.TempFilename);
+            }
+            else if (!String.IsNullOrEmpty(source.Repository) && !reuseFolder)
+            {
+                var branchAndCommit = source.BranchOrCommit.Split('#', 2);
+
+                var dir = await Git.CloneAsync(path, source.Repository, shallow: branchAndCommit.Length == 1, branch: branchAndCommit[0]);
+
+                srcDir = Path.Combine(path, dir);
+
+                if (branchAndCommit.Length > 1)
                 {
-                    var branchAndCommit = source.BranchOrCommit.Split('#', 2);
-
-                    var dir = await Git.CloneAsync(path, source.Repository, shallow: branchAndCommit.Length == 1, branch: branchAndCommit[0]);
-
-                    srcDir = Path.Combine(path, dir);
-
-                    if (branchAndCommit.Length > 1)
-                    {
-                        await Git.CheckoutAsync(srcDir, branchAndCommit[1]);
-                    }
-
-                    if (source.InitSubmodules)
-                    {
-                        await Git.InitSubModulesAsync(srcDir);
-                    }
+                    await Git.CheckoutAsync(srcDir, branchAndCommit[1]);
                 }
-                else
+
+                if (source.InitSubmodules)
                 {
-                    srcDir = path;
+                    await Git.InitSubModulesAsync(srcDir);
                 }
+            }
+            else
+            {
+                srcDir = path;
             }
 
             if (String.IsNullOrEmpty(source.DockerContextDirectory))
