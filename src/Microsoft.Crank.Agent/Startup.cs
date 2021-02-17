@@ -1703,7 +1703,8 @@ namespace Microsoft.Crank.Agent
                         }
                     }
 
-                File.Delete(job.Source.SourceCode.TempFilename);
+                    File.Delete(job.Source.SourceCode.TempFilename);
+                }
             }
             else if (!String.IsNullOrEmpty(source.Repository) && !reuseFolder)
             {
