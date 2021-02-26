@@ -3241,11 +3241,11 @@ namespace Microsoft.Crank.Agent
                 return;
             }
 
-            // Remove exising "framework" (singular) node
+            // Remove existing "framework" (singular) node
             runtimeOptions.Remove("framework");
 
             // Create the "frameworks" property instead
-                var frameworks = new JArray();
+            var frameworks = new JArray();
             runtimeOptions.TryAdd("frameworks", frameworks);
 
             frameworks.Add(

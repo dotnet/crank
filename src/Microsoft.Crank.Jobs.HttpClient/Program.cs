@@ -94,7 +94,7 @@ namespace Microsoft.Crank.Jobs.HttpClient
                     CertPassword = optionCertPwd.Value();
                     if (CertPath.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                     {
-                        Console.WriteLine($"Downloading cert from: {CertPath}");
+                        Console.WriteLine($"Downloading certificate: {CertPath}");
                         var httpClientHandler = new HttpClientHandler
                         {
                             ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
@@ -104,13 +104,14 @@ namespace Microsoft.Crank.Jobs.HttpClient
                         var httpClient = new System.Net.Http.HttpClient(httpClientHandler);
                         var bytes = await httpClient.GetByteArrayAsync(CertPath);
                         Certificate = new X509Certificate2(bytes, CertPassword);
-                        Console.WriteLine("Cert Thumb: " + Certificate.Thumbprint);
                     }
                     else
                     {
-                        Console.WriteLine($"Using cert from: {CertPath}");
+                        Console.WriteLine($"Reading certificate: {CertPath}");
                         Certificate = new X509Certificate2(CertPath, CertPassword);
                     }
+
+                    Console.WriteLine("Certificate Thumbprint: " + Certificate.Thumbprint);
                 }
 
                 await RunAsync();
@@ -228,32 +229,35 @@ namespace Microsoft.Crank.Jobs.HttpClient
             {
                 lock (_synLock)
                 {
-                    var httpHandler = new SocketsHttpHandler
-                    {
-                        // There should be only as many connections as Tasks concurrently, so there is no need
-                        // to limit the max connections per server 
-                        // httpHandler.MaxConnectionsPerServer = Connections;
-                        AllowAutoRedirect = false,
-                        UseProxy = false,
-                        AutomaticDecompression = System.Net.DecompressionMethods.None
-                    };
-                    // Accept any SSL certificate
-                    httpHandler.SslOptions.RemoteCertificateValidationCallback += (object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => true;
-
-                    if (Certificate != null)
-                    {
-                        Console.WriteLine($"Using Cert");
-                        httpHandler.SslOptions.ClientCertificates = new X509CertificateCollection
+                if (_httpMessageInvoker == null)
+                {
+                        var httpHandler = new SocketsHttpHandler
                         {
-                            Certificate
+                            // There should be only as many connections as Tasks concurrently, so there is no need
+                            // to limit the max connections per server 
+                            // httpHandler.MaxConnectionsPerServer = Connections;
+                            AllowAutoRedirect = false,
+                            UseProxy = false,
+                            AutomaticDecompression = System.Net.DecompressionMethods.None
                         };
-                    }
-                    else
-                    {
-                        Console.WriteLine($"No cert specified.");
-                    }
+                        // Accept any SSL certificate
+                        httpHandler.SslOptions.RemoteCertificateValidationCallback += (object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => true;
 
-                    _httpMessageInvoker = new HttpMessageInvoker(httpHandler);
+                        if (Certificate != null)
+                        {
+                            Console.WriteLine($"Using Cert");
+                            httpHandler.SslOptions.ClientCertificates = new X509CertificateCollection
+                            {
+                                Certificate
+                            };
+                        }
+                        else
+                        {
+                            Console.WriteLine($"No cert specified.");
+                        }
+
+                        _httpMessageInvoker = new HttpMessageInvoker(httpHandler);
+                    }
                 }
             }
 
