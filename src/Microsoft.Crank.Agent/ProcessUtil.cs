@@ -119,6 +119,10 @@ namespace Microsoft.Crank.Agent
                 }
                 else
                 {
+                    // Even though the Exited event has been raised, WaitForExit() must still be called to ensure the output buffers have
+                    // been flushed before saving the output in ProcessResult.
+                    process.WaitForExit();
+
                     processLifetimeTask.TrySetResult(new ProcessResult(process.ExitCode, outputBuilder.ToString(), errorBuilder.ToString()));
                 }
             };
