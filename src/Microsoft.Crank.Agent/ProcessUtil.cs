@@ -113,16 +113,16 @@ namespace Microsoft.Crank.Agent
 
             process.Exited += (_, e) =>
             {
+                // Even though the Exited event has been raised, WaitForExit() must still be called to ensure the output buffers
+                // have been flushed before the process is considered completely done.
+                process.WaitForExit();
+
                 if (throwOnError && process.ExitCode != 0)
                 {
                     processLifetimeTask.TrySetException(new InvalidOperationException($"Command {filename} {arguments} returned exit code {process.ExitCode}"));
                 }
                 else
                 {
-                    // Even though the Exited event has been raised, WaitForExit() must still be called to ensure the output buffers have
-                    // been flushed before saving the output in ProcessResult.
-                    process.WaitForExit();
-
                     processLifetimeTask.TrySetResult(new ProcessResult(process.ExitCode, outputBuilder.ToString(), errorBuilder.ToString()));
                 }
             };
