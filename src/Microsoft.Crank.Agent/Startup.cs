@@ -3814,6 +3814,11 @@ namespace Microsoft.Crank.Agent
                 process.StartInfo.Environment.Add("COMPlus_PerfMapEnabled", "1");
             }
 
+            if (!String.IsNullOrEmpty(job.UseMonoRuntime))
+            {
+                process.StartInfo.Environment.Add("MONO_THREADS_SUSPEND", "preemptive");
+            }
+
             foreach (var env in job.EnvironmentVariables)
             {
                 Log.WriteLine($"Setting ENV: {env.Key} = {env.Value}");
