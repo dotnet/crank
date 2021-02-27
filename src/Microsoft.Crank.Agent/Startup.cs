@@ -2850,6 +2850,21 @@ namespace Microsoft.Crank.Agent
                 {
                     Log.WriteLine("ERROR: Failed to download crossgen. " + e.ToString());
                 }
+
+                Log.WriteLine("Downloading symbols");
+
+                var symbolsFolder = job.SelfContained
+                    ? outputFolder
+                    : Path.Combine(dotnetDir, "shared", "Microsoft.NETCore.App", runtimeVersion)
+                    ;
+
+                // dotnet symbol --symbols --output mySymbols  /usr/share/dotnet/shared/Microsoft.NETCore.App/2.1.0/lib*.so
+
+                await ProcessUtil.RunAsync("/root/.dotnet/tools/dotnet-symbol", $"--symbols -d --output {symbolsFolder} {Path.Combine(symbolsFolder, "lib*.so")}",
+                    workingDirectory: benchmarkedApp,
+                    throwOnError: false,
+                    log: true
+                    );
             }
 
             // Download mono runtime

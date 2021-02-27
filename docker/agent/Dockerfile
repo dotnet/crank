@@ -16,6 +16,10 @@ FROM mcr.microsoft.com/dotnet/sdk:5.0.102-ca-patch-buster-slim
 
 ARG CPUNAME=x86_64
 
+# Install dotnet-symbols
+RUN dotnet tool install -g dotnet-symbol
+ENV PATH="${PATH}:/root/.dotnet/tools"
+
 # Install dependencies
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -26,7 +30,7 @@ RUN apt-get update \
         wget \
         # dotnet performance repo microbenchmark dependencies
         libgdiplus 
-        
+
 # Build and install h2load. Required as there isn't a way to distribute h2load as a single file to download
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
