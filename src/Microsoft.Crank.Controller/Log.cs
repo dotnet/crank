@@ -17,11 +17,21 @@ namespace Microsoft.Crank.Controller
             Console.WriteLine(message);
         }
 
-        public static void Write(string message, bool notime = false, bool error = false)
+        public static void WriteError(string message, bool notime = false)
         {
-            if (error)
+            Write(message, notime, ConsoleColor.Red);
+        }
+
+        public static void WriteWarning(string message, bool notime = false)
+        {
+            Write(message, notime, ConsoleColor.DarkYellow);
+        }
+
+        public static void Write(string message, bool notime = false, ConsoleColor color = ConsoleColor.White)
+        {
+            if (color != ConsoleColor.White)
             {
-                Console.ForegroundColor = ConsoleColor.Red;
+                Console.ForegroundColor = color;
             }
 
             if (!IsQuiet)

@@ -134,7 +134,7 @@ namespace Microsoft.Crank.Controller
 
                 if (Job.State == JobState.Initializing)
                 {
-                    Log.Write($"Job has been selected by the server ...");
+                    Log.Write($"'{_jobName}' has been selected by the server ...");
 
                     // Start the keep-alive loop before uploading any file as slow networks could otherwise
                     // trigger driver timeouts
@@ -282,6 +282,14 @@ namespace Microsoft.Crank.Controller
                             var shouldSearchRecursively = outputFileSegments[0].Contains("**");
                             outputFileSegments[0] = outputFileSegments[0].Replace("**\\", "").Replace("**/", "");
 
+                            var someFilesWereUploaded = false;
+
+                            // If the argument doesn't contain a folder, it can fail the next statement, so assume it's using the local folder
+                            if (Path.GetDirectoryName(outputFileSegments[0]) == String.Empty)
+                            {
+                                outputFileSegments[0] = Path.Combine(".", outputFileSegments[0]);
+                            }
+
                             foreach (var resolvedFile in Directory.GetFiles(Path.GetDirectoryName(outputFileSegments[0]), Path.GetFileName(outputFileSegments[0]), shouldSearchRecursively ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly))
                             {
                                 var resolvedFileWithDestination = resolvedFile;
@@ -297,6 +305,13 @@ namespace Microsoft.Crank.Controller
                                 {
                                     throw new Exception("Error while uploading output files");
                                 }
+                                
+                                someFilesWereUploaded = true;
+                            }
+
+                            if (!someFilesWereUploaded)
+                            {
+                                Log.WriteWarning($"The argument '{outputFileSegments[0]}' didn't match any existing file.");
                             }
                         }
                     }
@@ -306,7 +321,7 @@ namespace Microsoft.Crank.Controller
                     Log.Verbose($"{(int)response.StatusCode} {response.StatusCode}");
                     response.EnsureSuccessStatusCode();
 
-                    Log.Write($"Job is now building ... {_serverJobUri}/buildlog");
+                    Log.Write($"'{_jobName}' is now building ... {_serverJobUri}/buildlog");
 
                     break;
                 }
@@ -333,7 +348,7 @@ namespace Microsoft.Crank.Controller
                 {
                     if (previouState != JobState.Running)
                     {
-                        Log.Write($"Job is running ... {_serverJobUri}/output");
+                        Log.Write($"'{_jobName}' is running ... {_serverJobUri}/output");
                         _runningUtc = DateTime.UtcNow;
                     }
 
@@ -341,12 +356,12 @@ namespace Microsoft.Crank.Controller
                 }
                 else if (currentState == JobState.Failed)
                 {
-                    Log.Write($"Job failed on benchmark server, stopping...");
+                    Log.Write($"'{_jobName}' failed on agent, stopping...");
 
                     // Refreshing Job state to display the error
                     Job = await GetJobAsync();
 
-                    Log.Write(Job.Error, notime: true, error: true);
+                    Log.WriteError(Job.Error, notime: true);
 
                     // Returning will also send a Delete message to the server
                     return null;
@@ -358,7 +373,7 @@ namespace Microsoft.Crank.Controller
                 }
                 else if (currentState == JobState.Stopped)
                 {
-                    Log.Write($"Job finished");
+                    Log.Write($"'{_jobName}' finished");
 
                     // If there is no ReadyStateText defined, the server will never be in Running state
                     // and we'll reach the Stopped state eventually, but that's a normal behavior.
@@ -541,7 +556,7 @@ namespace Microsoft.Crank.Controller
                         // Detect if the job has timed out. This doesn't account for any other service
                         if (Job.Timeout > 0 && _runningUtc != null && DateTime.UtcNow - _runningUtc > TimeSpan.FromSeconds(Job.Timeout))
                         {
-                            Log.Write($"Job has timed out, stopping...");
+                            Log.Write($"'{_jobName}' has timed out, stopping...");
                             await StopAsync();
                         }
 

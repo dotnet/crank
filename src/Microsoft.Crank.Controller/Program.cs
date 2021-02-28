@@ -118,7 +118,7 @@ namespace Microsoft.Crank.Controller
 
                 if (_deprecatedArguments.TryGetValue(arg, out var mappedArg))
                 {
-                    Log.Write($"WARNING: '{arg}' has been deprecated, in the future please use '{mappedArg}'.");
+                    Log.WriteWarning($"WARNING: '{arg}' has been deprecated, in the future please use '{mappedArg}'.");
                     args[i] = mappedArg;
                 }
                 else if (_synonymArguments.TryGetValue(arg, out var synonymArg))
@@ -644,7 +644,7 @@ namespace Microsoft.Crank.Controller
                                     {
                                         if (!String.IsNullOrEmpty(job.Job.Error))
                                         {
-                                            Log.Write(job.Job.Error, notime: true, error: true);
+                                            Log.WriteError(job.Job.Error, notime: true);
 
                                             // It might be necessary to get the formal exit code from the remove job
                                             executionResult.ReturnCode = 1;
@@ -916,7 +916,7 @@ namespace Microsoft.Crank.Controller
             
             if (!String.IsNullOrEmpty(job.Job.Error))
             {
-                Log.Write(job.Job.Error, notime: true, error: true);
+                Log.WriteError(job.Job.Error, notime: true);
             }
 
             await job.DownloadTraceAsync();
@@ -1431,7 +1431,7 @@ namespace Microsoft.Crank.Controller
 
                 if (job.Value.CollectCounters)
                 {
-                    Log.Write($"WARNING: '{job.Key}.collectCounters' has been deprecated, in the future please use '{job.Key}.options.collectCounters'.");
+                    Log.WriteWarning($"WARNING: '{job.Key}.collectCounters' has been deprecated, in the future please use '{job.Key}.options.collectCounters'.");
                     job.Value.Options.CollectCounters = true;
                 }
 
