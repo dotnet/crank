@@ -682,11 +682,16 @@ namespace Microsoft.Crank.Controller
 
                 try
                 {
+                    StartKeepAlive();
                     await _httpClient.DownloadFileWithProgressAsync(uri, _serverJobUri, traceDestination);
                 }
                 catch (Exception e)
                 {
                     Log.Write($"The trace was not captured on the server: " + e.ToString());
+                }
+                finally
+                {
+                    StopKeepAlive();
                 }
             }
             catch (Exception e)
@@ -718,7 +723,15 @@ namespace Microsoft.Crank.Controller
 
                     Log.Write($"Creating published assets '{fetchDestination}' ...");
 
-                    await FetchAsync(fetchDestination);
+                    try
+                    {
+                        StartKeepAlive();
+                        await _httpClient.DownloadFileWithProgressAsync(_serverJobUri + "/fetch", _serverJobUri, fetchDestination);
+                    }
+                    finally
+                    {
+                        StopKeepAlive();
+                    }
                 }
                 catch (Exception e)
                 {
@@ -736,6 +749,7 @@ namespace Microsoft.Crank.Controller
 
                     try
                     {
+                        StartKeepAlive();
                         await DownloadFileAsync(file);
                     }
                     catch (Exception e)
@@ -743,6 +757,10 @@ namespace Microsoft.Crank.Controller
                         Log.Write($"Error while downloading file {file}, skipping ...");
                         Log.Verbose(e.Message);
                         continue;
+                    }
+                    finally
+                    {
+                        StopKeepAlive();
                     }
                 }
             }
@@ -886,12 +904,6 @@ namespace Microsoft.Crank.Controller
                     Directory.Delete(temporaryFolder, true);
                 }
             }
-        }
-
-        public async Task FetchAsync(string fetchDestination)
-        {
-            var uri = _serverJobUri + "/fetch";
-            await File.WriteAllBytesAsync(fetchDestination, await _httpClient.GetByteArrayAsync(uri));
         }
 
         public async Task<string> DownloadBuildLog()
