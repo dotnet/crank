@@ -229,8 +229,8 @@ namespace Microsoft.Crank.Jobs.HttpClient
             {
                 lock (_synLock)
                 {
-                if (_httpMessageInvoker == null)
-                {
+                    if (_httpMessageInvoker == null)
+                    {
                         var httpHandler = new SocketsHttpHandler
                         {
                             // There should be only as many connections as Tasks concurrently, so there is no need
