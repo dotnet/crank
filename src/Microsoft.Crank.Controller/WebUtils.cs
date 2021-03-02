@@ -29,18 +29,7 @@ namespace Microsoft.Crank.Controller
             using (var downloadStream = await httpClient.GetStreamAsync(uri))
             using (var fileStream = File.Create(destinationFileName))
             {
-                var downloadTask = downloadStream.CopyToAsync(fileStream);
-
-                while (!downloadTask.IsCompleted)
-                {
-                    // Ping server job to keep it alive while downloading the file
-                    Log.Verbose($"GET {serverJobUri}/touch...");
-                    await httpClient.GetAsync(serverJobUri + "/touch");
-
-                    await Task.Delay(1000);
-                }
-
-                await downloadTask;
+                await downloadStream.CopyToAsync(fileStream);
             }
         }
 
@@ -91,10 +80,10 @@ namespace Microsoft.Crank.Controller
 
                 using (var fileStream = File.Create(destinationFileName))
                 {
-                    await downloadStream.CopyToAsync(fileStream, progress);
+                    await downloadStream.CopyToAsync(fileStream, progress);	                    
                 }
             }
-
+        
             Console.WriteLine();
         }
 
