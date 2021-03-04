@@ -23,6 +23,7 @@ trigger:
     include:
     - master
     - release/*
+    - main
 
 pr:
   autoCancel: true
