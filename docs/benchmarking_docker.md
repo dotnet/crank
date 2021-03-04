@@ -9,13 +9,13 @@ This guide shows how to run a Docker job and benchmark it.
 
 ## Define the scenario
 
-The following content is available at https://github.com/dotnet/crank/blob/master/samples/netty/netty.benchmarks.yml
+The following content is available at https://github.com/dotnet/crank/blob/main/samples/netty/netty.benchmarks.yml
 
 It has a scenario called **netty** comprised of an _application_ job based on a Docker file and a _load_ job using **wrk** as the load generator.
 
 ```yml
 imports:
-  - https://raw.githubusercontent.com/dotnet/crank/master/src/Microsoft.Crank.Jobs.Wrk/wrk.yml
+  - https://raw.githubusercontent.com/dotnet/crank/main/src/Microsoft.Crank.Jobs.Wrk/wrk.yml
 
 variables:
   localEndpoint: http://localhost:5010

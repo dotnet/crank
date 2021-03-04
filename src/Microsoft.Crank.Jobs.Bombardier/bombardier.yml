@@ -11,7 +11,7 @@ jobs:
   bombardier:
     source:
       repository: https://github.com/dotnet/crank.git
-      branchOrCommit: master
+      branchOrCommit: main
       project: src/Microsoft.Crank.Jobs.Bombardier/Microsoft.Crank.Jobs.Bombardier.csproj
       sourceKey: bombardier
       noBuild: true

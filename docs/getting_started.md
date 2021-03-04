@@ -27,19 +27,19 @@ isn't available anywhere else yet.
 
 ## Define the scenario
 
-The following content is available at https://github.com/dotnet/crank/blob/master/samples/hello/hello.benchmarks.yml
+The following content is available at https://github.com/dotnet/crank/blob/main/samples/hello/hello.benchmarks.yml
 
 It contains the scenario definitions, describing which applications need to be deployed to run a benchmark.
 
 ```yml
 imports:
-    - https://raw.githubusercontent.com/dotnet/crank/master/src/Microsoft.Crank.Jobs.Bombardier/bombardier.yml
+    - https://raw.githubusercontent.com/dotnet/crank/main/src/Microsoft.Crank.Jobs.Bombardier/bombardier.yml
 
 jobs:
   server:
     source:
       repository: https://github.com/dotnet/crank
-      branchOrCommit: master
+      branchOrCommit: main
       project: samples/hello/hello.csproj
 
 scenarios:

@@ -16,7 +16,7 @@ In the [Getting Started](getting_started.md) tutorial, the **hello** application
   server:
     source:
       repository: https://github.com/dotnet/crank
-      branchOrCommit: master
+      branchOrCommit: main
       project: samples/hello/hello.csproj
     readyStateText: Application started.
 ```

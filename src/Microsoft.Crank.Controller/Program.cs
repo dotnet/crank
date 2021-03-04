@@ -1572,7 +1572,7 @@ namespace Microsoft.Crank.Controller
                         if (!validationResults.IsValid)
                         {
                             // Create a json debug file with the schema
-                            localconfiguration.AddFirst(new JProperty("$schema", "https://raw.githubusercontent.com/dotnet/crank/master/src/Microsoft.Crank.Controller/benchmarks.schema.json"));
+                            localconfiguration.AddFirst(new JProperty("$schema", "https://raw.githubusercontent.com/dotnet/crank/main/src/Microsoft.Crank.Controller/benchmarks.schema.json"));
 
                             var debugFilename = Path.Combine(Path.GetTempPath(), "crank-debug.json");
                             File.WriteAllText(debugFilename, localconfiguration.ToString(Formatting.Indented));

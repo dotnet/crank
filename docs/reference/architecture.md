@@ -12,13 +12,13 @@ Jobs are individual units of execution. A job can be encapsulated by a Dockerfil
 
 ```yaml
 imports:
-    - https://raw.githubusercontent.com/dotnet/crank/master/src/Microsoft.Crank.Jobs.Bombardier/bombardier.yml
+    - https://raw.githubusercontent.com/dotnet/crank/main/src/Microsoft.Crank.Jobs.Bombardier/bombardier.yml
 
 jobs:
   server:
     source:
       repository: https://github.com/dotnet/crank
-      branchOrCommit: master
+      branchOrCommit: main
       project: samples/hello/hello.csproj
 
 scenarios:

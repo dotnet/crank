@@ -14,7 +14,7 @@ jobs:
   wrk2:
     source:
       repository: https://github.com/dotnet/crank.git
-      branchOrCommit: master
+      branchOrCommit: main
       project: src/Microsoft.Crank.Jobs.Wrk2/Microsoft.Crank.Jobs.Wrk2.csproj
     isConsoleApp: true
     waitForExit: true

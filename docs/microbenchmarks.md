@@ -46,7 +46,7 @@ WarmupCount=3
 
 ## Define the scenario
 
-The following example is available at https://github.com/dotnet/crank/blob/master/samples/micro/micro.benchmarks.yml
+The following example is available at https://github.com/dotnet/crank/blob/main/samples/micro/micro.benchmarks.yml
 
 ```yml
   benchmarks:
@@ -96,7 +96,7 @@ See [this example](https://benchmarkdotnet.org/articles/samples/IntroExportJson.
 
 ## Running dotnet/performance benchmarks
 
-The https://github.com/dotnet/performance repository contains several micro-benchmarks based on BenchmarkDotNet. The file [dotnet.benchmark.yml](https://github.com/dotnet/crank/blob/master/samples/micro/dotnet.benchmarks.yml) contains an example scenario that can be used directly.
+The https://github.com/dotnet/performance repository contains several micro-benchmarks based on BenchmarkDotNet. The file [dotnet.benchmark.yml](https://github.com/dotnet/crank/blob/main/samples/micro/dotnet.benchmarks.yml) contains an example scenario that can be used directly.
 
 For instance to run the sockets micro-benchmarks, use this command:
 
