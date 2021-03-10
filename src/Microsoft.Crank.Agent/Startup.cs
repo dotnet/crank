@@ -2568,6 +2568,68 @@ namespace Microsoft.Crank.Agent
                 });
             }
 
+            if (!job.Metadata.Any(x => x.Name == "AspNetCoreVersion"))
+            {
+                try
+                {
+                    var aspNetCoreVersionFileName = Path.Combine(dotnetDir, "shared", "Microsoft.AspNetCore.App", aspNetCoreVersion, ".version");
+                    var aspnetCoreCommitHash = await ParseLatestVersionFile(aspNetCoreVersionFileName);
+
+                    job.Metadata.Enqueue(new MeasurementMetadata
+                    {
+                        Source = "Host Process",
+                        Name = "AspNetCoreVersion",
+                        Aggregate = Operation.Last,
+                        Reduce = Operation.Last,
+                        Format = "",
+                        LongDescription = "ASP.NET Core Version",
+                        ShortDescription = "ASP.NET Core Version"
+                    });
+
+                    job.Measurements.Enqueue(new Measurement
+                    {
+                        Name = "AspNetCoreVersion",
+                        Timestamp = DateTime.UtcNow,
+                        Value = $"{aspNetCoreVersion}+{aspnetCoreCommitHash}"
+                    });
+                }
+                catch (Exception e)
+                {
+                    Log.WriteLine("[ERROR] Could not record AspNetCoreVersion:" + e.ToString());
+                }
+            }
+
+            if (!job.Metadata.Any(x => x.Name == "NetCoreAppVersion"))
+            {
+                try
+                {
+                    var netCoreAppVersionFileName = Path.Combine(dotnetDir, "shared", "Microsoft.NETCore.App", runtimeVersion, ".version");
+                    var netCoreAppCommitHash = await ParseLatestVersionFile(netCoreAppVersionFileName);
+
+                    job.Metadata.Enqueue(new MeasurementMetadata
+                    {
+                        Source = "Host Process",
+                        Name = "NetCoreAppVersion",
+                        Aggregate = Operation.Last,
+                        Reduce = Operation.Last,
+                        Format = "",
+                        LongDescription = ".NET Runtime Version",
+                        ShortDescription = ".NET Runtime Version"
+                    });
+
+                    job.Measurements.Enqueue(new Measurement
+                    {
+                        Name = "NetCoreAppVersion",
+                        Timestamp = DateTime.UtcNow,
+                        Value = $"{runtimeVersion}+{netCoreAppCommitHash}"
+                    });
+                }
+                catch (Exception e)
+                {
+                    Log.WriteLine("[ERROR] Could not record NetCoreAppVersion:" + e.ToString());
+                }
+            }
+
             // Build and Restore
             var dotnetExecutable = GetDotNetExecutable(dotnetDir);
 
@@ -3507,16 +3569,18 @@ namespace Microsoft.Crank.Agent
         /// <summary>
         /// Parses files that contain two lines: a sha and a version
         /// </summary>
-        private static async Task<string> ParseLatestVersionFile(string url)
+        private static async Task<string> ParseLatestVersionFile(string urlOrFilename)
         {
-            var content = await DownloadContentAsync(url);
+            var content = urlOrFilename.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+                ? await DownloadContentAsync(urlOrFilename)
+                : await File.ReadAllTextAsync(urlOrFilename)
+                ;
 
             string latestSdk;
             using (var sr = new StringReader(content))
             {
                 sr.ReadLine();
                 latestSdk = sr.ReadLine();
-
             }
 
             return latestSdk;
