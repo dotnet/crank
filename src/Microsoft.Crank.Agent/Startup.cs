@@ -2573,7 +2573,7 @@ namespace Microsoft.Crank.Agent
                 try
                 {
                     var aspNetCoreVersionFileName = Path.Combine(dotnetDir, "shared", "Microsoft.AspNetCore.App", aspNetCoreVersion, ".version");
-                    var aspnetCoreCommitHash = await ParseLatestVersionFile(aspNetCoreVersionFileName);
+                    (_, var aspnetCoreCommitHash) = await ParseLatestVersionFile(aspNetCoreVersionFileName);
 
                     job.Metadata.Enqueue(new MeasurementMetadata
                     {
@@ -2604,7 +2604,7 @@ namespace Microsoft.Crank.Agent
                 try
                 {
                     var netCoreAppVersionFileName = Path.Combine(dotnetDir, "shared", "Microsoft.NETCore.App", runtimeVersion, ".version");
-                    var netCoreAppCommitHash = await ParseLatestVersionFile(netCoreAppVersionFileName);
+                    (_, var netCoreAppCommitHash) = await ParseLatestVersionFile(netCoreAppVersionFileName);
 
                     job.Metadata.Enqueue(new MeasurementMetadata
                     {
@@ -3353,7 +3353,7 @@ namespace Microsoft.Crank.Agent
             }
             else if (String.Equals(sdkVersion, "Edge", StringComparison.OrdinalIgnoreCase))
             {
-                sdkVersion = await ParseLatestVersionFile(_latestSdkVersionUrl);
+                (sdkVersion, _) = await ParseLatestVersionFile(_latestSdkVersionUrl);
                 Log.WriteLine($"SDK: {sdkVersion} (Edge)");
             }
             else
@@ -3569,21 +3569,20 @@ namespace Microsoft.Crank.Agent
         /// <summary>
         /// Parses files that contain two lines: a sha and a version
         /// </summary>
-        private static async Task<string> ParseLatestVersionFile(string urlOrFilename)
+        private static async Task<(string version, string hash)> ParseLatestVersionFile(string urlOrFilename)
         {
             var content = urlOrFilename.StartsWith("http", StringComparison.OrdinalIgnoreCase)
                 ? await DownloadContentAsync(urlOrFilename)
                 : await File.ReadAllTextAsync(urlOrFilename)
                 ;
 
-            string latestSdk;
             using (var sr = new StringReader(content))
             {
-                sr.ReadLine();
-                latestSdk = sr.ReadLine();
-            }
+                var hash = sr.ReadLine();
+                var version = sr.ReadLine();
 
-            return latestSdk;
+                return (version, hash);
+            }
         }
 
         private static async Task<bool> DownloadFileAsync(string url, string outputPath, int maxRetries, int timeout = 5, bool throwOnError = true)
