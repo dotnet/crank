@@ -136,6 +136,8 @@ namespace Microsoft.Crank.IntegrationTests
 
             Assert.Contains("Requests/sec", result.StandardOutput);
             Assert.Contains(".NET Core SDK Version", result.StandardOutput);
+            Assert.Contains(".NET Runtime Version", result.StandardOutput);
+            Assert.Contains("ASP.NET Core Version", result.StandardOutput);
         }
 
         [Fact]
