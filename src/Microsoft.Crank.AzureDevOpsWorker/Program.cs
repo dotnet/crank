@@ -56,7 +56,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             {
                 AutoCompleteMessages = false,
                 MaxConcurrentCalls = 1, // Process one message at a time
-                MaxAutoLockRenewalDuration = TimeSpan.FromHours(1) // Maintaing the lock for as much as a job should run 
+                MaxAutoLockRenewalDuration = TimeSpan.FromHours(1) // Maintaining the lock for as much as a job should run 
             });
 
             // Whenever a message is available on the queue

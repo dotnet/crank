@@ -73,7 +73,11 @@ namespace Microsoft.Crank.Controller
                             }
 
                             lastMeasure = DateTime.UtcNow;
-                            Console.CursorLeft = 0;
+                            
+                            if (Environment.UserInteractive && !Console.IsOutputRedirected && Console.In != StreamReader.Null)
+                            {
+                                Console.CursorLeft = 0;
+                            }
                         }
                     }
                 });
