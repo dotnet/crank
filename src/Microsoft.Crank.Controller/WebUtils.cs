@@ -78,6 +78,10 @@ namespace Microsoft.Crank.Controller
                             {
                                 Console.CursorLeft = 0;
                             }
+                            else
+                            {
+                                Console.WriteLine();
+                            }
                         }
                     }
                 });
