@@ -8,16 +8,14 @@ using System.Text.Json.Serialization;
 
 namespace Microsoft.Crank.AzureDevOpsWorker
 {
-    public class TimeSpanConverter : JsonConverter<TimeSpan>
+    public sealed class TimeSpanConverter : JsonConverter<TimeSpan>
     {
-        public override TimeSpan Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            return TimeSpan.Parse(reader.GetString());
-        }
+        public override TimeSpan Read(
+            ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            TimeSpan.Parse(reader.GetString() ?? "0");
 
-        public override void Write(Utf8JsonWriter writer, TimeSpan value, JsonSerializerOptions options)
-        {
+        public override void Write(
+            Utf8JsonWriter writer, TimeSpan value, JsonSerializerOptions options) =>
             writer.WriteStringValue(value.ToString());
-        }
     }
 }

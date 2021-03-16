@@ -9,6 +9,8 @@
     <IsPackable>true</IsPackable>
     <OutputType>Exe</OutputType>
     <Authors>Microsoft</Authors>
+    <Nullable>enable</Nullable>
+    <LangVersion>9.0</LangVersion>
     <PackageId>Microsoft.Crank.AzureDevOpsWorker</PackageId>
   </PropertyGroup>
 

@@ -14,11 +14,13 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 {
     public class Program
     {
-        private static TimeSpan TaskLogFeedDelay = TimeSpan.FromSeconds(2);
+        private static readonly TimeSpan TaskLogFeedDelay = TimeSpan.FromSeconds(2);
+        private static ServiceBusClient? s_client = null!;
+        private static ServiceBusProcessor? s_processer = null!;
 
-        public static int Main(string[] args)
+        public static Task<int> Main(string[] args)
         {
-            var app = new CommandLineApplication();
+            using var app = new CommandLineApplication();
 
             app.HelpOption("-h|--help");
             var connectionStringOption = app.Option("-c|--connection-string <string>", "The Azure Service Bus connection string. Can be an environment variable name.", CommandOptionType.SingleValue).IsRequired();
@@ -26,33 +28,25 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
             app.OnExecuteAsync(async cancellationToken =>
             {
+                // Substitute with ENV value if it exists
                 var connectionString = connectionStringOption.Value();
+                _ = connectionString!.TryGetEnvironmentVariableValue(out connectionString);
 
                 // Substitute with ENV value if it exists
-                if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(connectionString)))
-                {
-                    connectionString = Environment.GetEnvironmentVariable(connectionString);
-                }
-
                 var queue = queueOption.Value();
+                _ = queue!.TryGetEnvironmentVariableValue(out queue);
+                
 
-                // Substitute with ENV value if it exists
-                if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(queue)))
-                {
-                    queue = Environment.GetEnvironmentVariable(queue);
-                }
-
-                await ProcessAzureQueue(connectionString, queue);
+                await ProcessAzureQueueAsync(connectionString, queue);
             });
 
-            return app.Execute(args);
+            return app.ExecuteAsync(args);
         }
 
-        private static async Task ProcessAzureQueue(string connectionString, string queue)
+        private static async Task ProcessAzureQueueAsync(string connectionString, string queue)
         {
-            var client = new ServiceBusClient(connectionString);
-
-            var processor = client.CreateProcessor(queue, new ServiceBusProcessorOptions
+            s_client = new ServiceBusClient(connectionString);
+            s_processer = s_client.CreateProcessor(queue, new ServiceBusProcessorOptions
             {
                 AutoCompleteMessages = false,
                 MaxConcurrentCalls = 1, // Process one message at a time
@@ -60,11 +54,10 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             });
 
             // Whenever a message is available on the queue
-            processor.ProcessMessageAsync += MessageHandler;
+            s_processer.ProcessMessageAsync += MessageHandler;
+            s_processer.ProcessErrorAsync += ErrorHandler;
 
-            processor.ProcessErrorAsync += ErrorHandler;
-
-            await processor.StartProcessingAsync();
+            await s_processer.StartProcessingAsync();
 
             Console.WriteLine("Press ENTER to exit...");
             Console.ReadLine();
@@ -76,9 +69,8 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
             var message = args.Message;
 
-            JobPayload jobPayload;
-            DevopsMessage devopsMessage = null;
-            Job driverJob = null;
+            DevopsMessage devopsMessage = null!;
+            Job driverJob = null!;
 
             try
             {
@@ -87,7 +79,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
                 // The Body contains the parameters for the application to run
                 // We can't use message.Body.FromObjectAsJson since the raw json returned by AzDo is not valid
-                jobPayload = JobPayload.Deserialize(message.Body.ToArray());
+                var jobPayload = JobPayload.Deserialize(message.Body.ToArray());
 
                 // The only way to detect if a Task still needs to be executed is to download all the details of all tasks (there is no API to retrieve the status of a single task.
 
@@ -103,8 +95,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 }
 
                 var record = records.Value.FirstOrDefault(x => x.Id == devopsMessage.TaskInstanceId);
-
-                if (record != null && record.State == "completed")
+                if (record is { State: "completed" })
                 {
                     Console.WriteLine($"{LogNow} Job is completed ({record.Result}), skipping...");
 
@@ -121,9 +112,10 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                     Console.WriteLine($"{LogNow} Invoking crank with arguments: {arguments}");
 
                     // The DriverJob manages the application's lifetime and standard output
-                    driverJob = new Job("crank", arguments);
-
-                    driverJob.OnStandardOutput = log => Console.WriteLine(log);
+                    driverJob = new Job("crank", arguments)
+                    {
+                        OnStandardOutput = log => Console.WriteLine(log)
+                    };
 
                     driverJob.Start();
 
@@ -149,7 +141,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                                 Console.ResetColor();
 
                                 driverJob.Stop();
-                            }                                
+                            }
                         }
 
                         // Check if task is still active (not canceled)
@@ -157,7 +149,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                         records = await devopsMessage.GetRecordsAsync();
                         record = records.Value.FirstOrDefault(x => x.Id == devopsMessage.TaskInstanceId);
 
-                        if (record != null && record?.State == "completed")
+                        if (record is { State: "completed" })
                         {
                             Console.WriteLine($"{LogNow} Job is completed ({record.Result}), interrupting...");
 
@@ -171,7 +163,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                     await devopsMessage.SendTaskCompletedEventAsync(succeeded: driverJob.WasSuccessful);
 
                     // Create a task log entry
-                    var taskLogObjectString = await devopsMessage?.CreateTaskLogAsync();
+                    var taskLogObjectString = await devopsMessage.CreateTaskLogAsync();
 
                     if (String.IsNullOrEmpty(taskLogObjectString))
                     {
@@ -182,13 +174,16 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                     else
                     {
                         var taskLogObject = JsonSerializer.Deserialize<Dictionary<string, object>>(taskLogObjectString);
+                        var taskLogId = taskLogObject?["id"].ToString();
 
-                        var taskLogId = taskLogObject["id"].ToString();
+                        if (devopsMessage is { } && taskLogId is not null)
+                        {
+                            await devopsMessage.AppendToTaskLogAsync(
+                                taskLogId, driverJob.OutputBuilder?.ToString() ?? "No output message.");
 
-                        await devopsMessage?.AppendToTaskLogAsync(taskLogId, driverJob.OutputBuilder.ToString());
-
-                        // Attach task log to the timeline record
-                        await devopsMessage?.UpdateTaskTimelineRecordAsync(taskLogObjectString);
+                            // Attach task log to the timeline record
+                            await devopsMessage.UpdateTaskTimelineRecordAsync(taskLogObjectString);
+                        }
                     }
 
                     // Mark the message as completed
@@ -197,7 +192,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                     driverJob.Stop();
                     
                     Console.WriteLine($"{LogNow} Job completed");
-                }                
+                }
             }
             catch (Exception e)
             {
@@ -207,11 +202,12 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
                 try
                 {
-                    await devopsMessage?.SendTaskCompletedEventAsync(succeeded: false);
+                    if (devopsMessage is { })
+                        await devopsMessage.SendTaskCompletedEventAsync(succeeded: false);
                 }
-                catch (Exception f)
+                catch (Exception ex)
                 {
-                    Console.WriteLine($"{LogNow} Failed to complete the task: {f}");
+                    Console.WriteLine($"{LogNow} Failed to complete the task: {ex}");
                 }
 
                 try
@@ -219,9 +215,9 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                     // TODO: Should the message still be copmleted instead of abandonned?
                     await args.AbandonMessageAsync(message);
                 }
-                catch (Exception f)
+                catch (Exception ex)
                 {
-                    Console.WriteLine($"{LogNow} Failed to abandon the message: {f}");
+                    Console.WriteLine($"{LogNow} Failed to abandon the message: {ex}");
                 }
             }
             finally
@@ -230,9 +226,9 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 {
                     driverJob?.Dispose();
                 }
-                catch (Exception e)
+                catch (Exception ex)
                 {
-                    Console.WriteLine($"{LogNow} Failed to dispose the job : {e}");
+                    Console.WriteLine($"{LogNow} Failed to dispose the job : {ex}");
                 }
             }
         }
@@ -244,6 +240,6 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             return Task.CompletedTask;
         }
 
-        private static string LogNow => $"[{DateTime.Now.ToString("hh:mm:ss.fff")}]";
+        private static string LogNow => $"[{DateTime.Now:hh:mm:ss.fff}]";
     }
 }

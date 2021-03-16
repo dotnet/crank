@@ -13,42 +13,45 @@ using System.Threading;
 
 namespace Microsoft.Crank.AzureDevOpsWorker
 {
-    public class Job : IDisposable
+    public sealed class Job : IDisposable
     {
         [DllImport("libc", SetLastError = true, EntryPoint = "kill")]
         private static extern int sys_kill(int pid, int sig);
 
-        private Process _process;
+        private Process? _process;
 
-        private ConcurrentQueue<string> _standardOutput = new ConcurrentQueue<string>();
+        private ConcurrentQueue<string>? _standardOutput = new();
 
-        private ConcurrentQueue<string> _standardError = new ConcurrentQueue<string>();
+        private ConcurrentQueue<string>? _standardError = new();
 
-        public StringBuilder OutputBuilder { get; private set; } = new StringBuilder();
-        
-        public StringBuilder ErrorBuilder { get; private set; } = new StringBuilder();
+        public StringBuilder? OutputBuilder { get; private set; } = new();
 
-        public Action<string> OnStandardOutput { get; set; }
+        public StringBuilder? ErrorBuilder { get; private set; } = new();
 
-        public Action<string> OnStandardError { get; set; }
+        public Action<string>? OnStandardOutput { get; set; }
+
+        public Action<string>? OnStandardError { get; set; }
 
         public DateTime StartTimeUtc { get; private set; }
 
-        public Job (string applicationPath, string arguments, string workingDirectory = null)
-        {
+#pragma warning disable CS8618
+        // Non-nullable field must contain a non-null value when exiting constructor.
+        // _process.OnStandardOutput and _process.OnStandardError events are not assigned.
+        // But these events are registered later in Job.Start()
+        public Job(string applicationPath, string arguments, string? workingDirectory = null) =>
+#pragma warning restore CS8618
             _process = new Process()
             {
                 StartInfo =
                 {
                     FileName = applicationPath,
                     Arguments = arguments,
-                    WorkingDirectory = workingDirectory ?? Path.GetDirectoryName(applicationPath),
+                    WorkingDirectory = workingDirectory ?? Path.GetDirectoryName(applicationPath)!,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
-                },
+                }
             };
-        }
 
         public void Start()
         {
@@ -62,9 +65,9 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 // e.Data is null to signal end of stream
                 if (e.Data != null)
                 {
-                    _standardOutput.Enqueue(e.Data);
+                    _standardOutput?.Enqueue(e.Data);
                     OnStandardOutput?.Invoke(e.Data);
-                    OutputBuilder.AppendLine(e.Data);
+                    OutputBuilder?.AppendLine(e.Data);
                 }
             };
 
@@ -73,16 +76,15 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 // e.Data is null to signal end of stream
                 if (e.Data != null)
                 {
-                    _standardError.Enqueue(e.Data);
+                    _standardError?.Enqueue(e.Data);
                     OnStandardError?.Invoke(e.Data);
-                    ErrorBuilder.AppendLine(e.Data);
+                    ErrorBuilder?.AppendLine(e.Data);
                 }
             };
 
             StartTimeUtc = DateTime.UtcNow;
 
             _process.Start();
-
             _process.BeginOutputReadLine();
             _process.BeginErrorReadLine();
         }
@@ -102,43 +104,25 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                         Thread.Sleep(2000);
                     }
 
-                    if (!_process.HasExited)
+                    TryActionThenSleep(_process, p => p.Close());
+                    TryActionThenSleep(_process, p => p.CloseMainWindow());
+                    TryActionThenSleep(_process, p => p.Kill());
+
+                    static void TryActionThenSleep(
+                        Process process, Action<Process> action, int millisecondsTimeout = 2_000)
                     {
-                        try
+                        if (!process.HasExited)
                         {
-                            _process.Close();
-                            Thread.Sleep(2000);
-                        }
-                        catch
-                        {
+                            try
+                            {
+                                action(process);
+                                Thread.Sleep(millisecondsTimeout);
+                            }
+                            catch
+                            {
+                            }
                         }
                     }
-
-                    if (!_process.HasExited)
-                    {
-                        try
-                        {
-                            _process.CloseMainWindow();
-                            Thread.Sleep(2000);
-                        }
-                        catch
-                        {
-                        }
-                    }
-
-                    if (!_process.HasExited)
-                    {
-                        try
-                        {
-                            _process.Kill();
-                            Thread.Sleep(2000);
-                        }
-                        catch
-                        {
-                        }
-                    }
-
-                    _process.Dispose();
                 }
             }
             catch (InvalidOperationException)
@@ -150,29 +134,27 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             }
             finally
             {
+                _process?.Dispose();
                 _process = null;
             }
         }
 
-        public IEnumerable<string> FlushStandardOutput()
+        public IEnumerable<string> FlushStandardOutput() => Flush(_standardOutput);
+
+        public IEnumerable<string> FlushStandardError() => Flush(_standardError);
+
+        private static IEnumerable<string> Flush(ConcurrentQueue<string>? queue)
         {
-            while (_standardOutput.TryDequeue(out var result))
+            while (queue is { }
+                && queue.TryDequeue(out var result))
             {
                 yield return result;
             }
         }
 
-        public IEnumerable<string> FlushStandardError()
-        {
-            while (_standardOutput.TryDequeue(out var result))
-            {
-                yield return result;
-            }
-        }
+        public bool WasSuccessful => _process is { ExitCode: 0 };
 
-        public bool WasSuccessful => _process != null && _process.ExitCode == 0;
-
-        public bool IsRunning => _process != null && !_process.HasExited;
+        public bool IsRunning => _process is not { HasExited: true };
 
         public void Dispose()
         {
