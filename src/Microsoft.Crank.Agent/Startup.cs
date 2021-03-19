@@ -4060,8 +4060,16 @@ namespace Microsoft.Crank.Agent
             eventPipeSession = null;
 
             var retries = 0;
+            var retryDelays = new [] { 50, 100, 500, 1000 };
+            var maxAttempts = 10;
+
             while (retries <= 10)
             {
+                var retryDelay = retries < retryDelays.Length
+                    ? retryDelays[retries]
+                    : retryDelays.Last()
+                    ;
+
                 try
                 {
                     Log.WriteLine("Starting event pipe session");
@@ -4071,25 +4079,25 @@ namespace Microsoft.Crank.Agent
                 catch (ServerNotAvailableException)
                 {
                     Log.WriteLine("IPC endpoint not available, retrying...");
-                    await Task.Delay(100);
+                    await Task.Delay(retryDelay);
                 }
                 catch (EndOfStreamException)
                 {
                     Log.WriteLine($"[ERROR] Application stopped before an event pipe session could be created ({job.Service})");
-                    await Task.Delay(100);
+                    await Task.Delay(retryDelay);
                 }
                 catch (Exception e)
                 {
                     Log.WriteLine("[ERROR] DiagnosticsClient.StartEventPipeSession() -> " + e.ToString());
-                    await Task.Delay(100);
+                    await Task.Delay(retryDelay);
                 }
 
                 retries++;
             }
 
-            if (retries >= 10)
+            if (retries >= maxAttempts)
             {
-                Log.WriteLine("[ERROR] Failed to create event pipe client after 10 attempts");
+                Log.WriteLine($"[WARNING] Failed to create event pipe client after {maxAttempts} attempts. Counters will be ignored.");
                 return;
             }
 
