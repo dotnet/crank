@@ -251,6 +251,61 @@ namespace Microsoft.Crank.IntegrationTests
             cancel.Cancel();
 
             Assert.Contains("Lock Contention", result.StandardOutput);
-        }        
+        }
+        
+        [Fact]
+        public async Task Iterations()
+        {
+            var agentReadyTcs = new TaskCompletionSource<bool>();
+            var stopAgentCts = new CancellationTokenSource();
+
+            // Start the agent
+            var agent = ProcessUtil.RunAsync(
+                "dotnet", 
+                "exec crank-agent.dll", 
+                workingDirectory: _crankAgentDirectory,
+                captureOutput: true,
+                throwOnError: false,
+                timeout: TimeSpan.FromMinutes(5),
+                cancellationToken: stopAgentCts.Token,
+                outputDataReceived: t => 
+                { 
+                    _output.WriteLine($"[AGT] {t}");
+
+                    if (t.Contains("Agent ready"))
+                    {
+                        agentReadyTcs.SetResult(true);
+                    }
+                } 
+            );
+            
+            // Wait either for the message of the agent to stop
+            await Task.WhenAny(agentReadyTcs.Task, agent);
+
+            _output.WriteLine($"Starting controller");
+
+            var result = await ProcessUtil.RunAsync(
+                "dotnet", 
+                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --exclude 1 --exclude-order load:bombardier/rps/mean --iterations 3", 
+                workingDirectory: _crankTestsDirectory,
+                captureOutput: true,
+                timeout: TimeSpan.FromMinutes(5),
+                throwOnError: false,
+                outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); } 
+            );
+
+            Assert.Equal(0, result.ExitCode);
+                
+            stopAgentCts.Cancel();
+
+            var cancel = new CancellationTokenSource();
+
+            // Give 5 seconds to the agent to stop
+            await Task.WhenAny(agent, Task.Delay(TimeSpan.FromSeconds(5), cancel.Token));
+
+            cancel.Cancel();
+
+            Assert.Contains("Iteration 1 of 1", result.StandardOutput);
+        }     
     }
 }
