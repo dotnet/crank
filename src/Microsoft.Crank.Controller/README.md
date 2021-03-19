@@ -31,6 +31,8 @@ Options:
   --repeat <job>                                                 The job to repeat using the '--duration' or '--iterations' argument.
   --span <HH:mm:ss>                                              The duration while the job is repeated.
   --auto-flush                                                   Runs a single long-running job and flushes measurements automatically.
+  -x|--exclude                                                   Excludes the specified number of high and low results, e.g., 1.
+  -xo|--exclude-order                                            The result to use to detect the high and low results, e.g., 'load:wrk/rps/mean'", CommandOptionType.SingleValue);
 
   --chart                                                        Renders a chart for multi-value results.
   --chart-type [bar (default) | hex]                             Type of chart to render. Values are 'bar' (default) or 'hex'
