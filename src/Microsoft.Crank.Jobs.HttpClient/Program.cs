@@ -137,6 +137,10 @@ namespace Microsoft.Crank.Jobs.HttpClient
                             Console.WriteLine($"Warming up for {WarmupTimeSeconds}s...");
                             await Task.Delay(TimeSpan.FromSeconds(WarmupTimeSeconds));
                         }
+                        else
+                        {
+                            Console.WriteLine($"Warmup skipped");
+                        }
 
                         Console.WriteLine($"Running for {ExecutionTimeSeconds}s...");
 
@@ -167,6 +171,13 @@ namespace Microsoft.Crank.Jobs.HttpClient
 
                        stopTime = DateTime.UtcNow;
                    });
+            }
+
+            if (ExecutionTimeSeconds <= 0)
+            {
+                Console.WriteLine($"Benchmark skipped");
+
+                return;
             }
 
             _running = true;
