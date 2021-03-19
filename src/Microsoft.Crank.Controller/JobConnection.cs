@@ -564,7 +564,7 @@ namespace Microsoft.Crank.Controller
                     }
                     catch (Exception e)
                     {
-                        Log.Write($"Could not ping the server, retrying ...");
+                        Log.Write($"Could not ping the agent on '{_serverUri.Host}:{_serverUri.Port}', retrying ...");
                         Log.Verbose(e.ToString());
 
                         await Task.Delay(100);
