@@ -484,7 +484,7 @@ results: # creates results from measurements
 
 - name: kestrel-counter/total-connections
   measurement: kestrel-counter/total-connections
-  description: Max Connections
+  description: Total connections
   format: n0
   aggregate: max
   reduce: max
