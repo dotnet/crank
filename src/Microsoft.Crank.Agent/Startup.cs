@@ -3504,7 +3504,7 @@ namespace Microsoft.Crank.Agent
                 case "netcoreapp5.0":
                 case "net5.0":
 
-                    await DownloadFileAsync(String.Format(_aspNetCoreDependenciesUrl, "master/5.0/Versions.props"), aspNetCoreDependenciesPath, maxRetries: 5, timeout: 10);
+                    await DownloadFileAsync(String.Format(_aspNetCoreDependenciesUrl, "main/5.0/Versions.props"), aspNetCoreDependenciesPath, maxRetries: 5, timeout: 10);
                     latestRuntimeVersion = XDocument.Load(aspNetCoreDependenciesPath).Root
                         .Elements("PropertyGroup")
                         .Select(x => x.Element("MicrosoftNETCoreAppRuntimewinx64PackageVersion"))
@@ -3516,7 +3516,7 @@ namespace Microsoft.Crank.Agent
 
                 case "net6.0":
 
-                    await DownloadFileAsync(String.Format(_aspNetCoreDependenciesUrl, "master/eng/Versions.props"), aspNetCoreDependenciesPath, maxRetries: 5, timeout: 10);
+                    await DownloadFileAsync(String.Format(_aspNetCoreDependenciesUrl, "main/eng/Versions.props"), aspNetCoreDependenciesPath, maxRetries: 5, timeout: 10);
                     latestRuntimeVersion = XDocument.Load(aspNetCoreDependenciesPath).Root
                         .Elements("PropertyGroup")
                         .Select(x => x.Element("MicrosoftNETCoreAppRuntimewinx64PackageVersion"))
@@ -4757,7 +4757,7 @@ namespace Microsoft.Crank.Agent
 
         /// <param name="providers">
         /// A profile name, or a list of comma separated EventPipe providers to be enabled.
-        /// c.f. https://github.com/dotnet/diagnostics/blob/master/documentation/dotnet-trace-instructions.md
+        /// c.f. https://github.com/dotnet/diagnostics/blob/main/documentation/dotnet-trace-instructions.md
         /// </param>
         private static async Task<int> Collect(ManualResetEvent shouldExit, int processId, FileInfo output, int buffersize, string providers, TimeSpan duration)
         {
