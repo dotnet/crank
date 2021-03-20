@@ -507,28 +507,48 @@ namespace Microsoft.Crank.Controller
         /// </summary>
         public async Task<JobState> GetStateAsync()
         {
-            Log.Verbose($"GET {_serverJobUri}/state...");
-            var response = await _httpClient.GetAsync(_serverJobUri + "/state");
-            var responseContent = await response.Content.ReadAsStringAsync();
+            var delays = new[] { 100, 500, 1000 };
 
-            Log.Verbose($"{(int)response.StatusCode} {response.StatusCode} {responseContent}");
+            for (var i = 0; i < delays.Length; i++)
+            {
+                HttpResponseMessage response;
+                string responseContent;
 
-            if (response.StatusCode == HttpStatusCode.NotFound || String.IsNullOrEmpty(responseContent))
-            {
-                return JobState.Failed;
-            }
-            else
-            {
                 try
                 {
-                    return Enum.Parse<JobState>(responseContent);
+                    Log.Verbose($"GET {_serverJobUri}/state...");
+                    response = await _httpClient.GetAsync(_serverJobUri + "/state");
+                    responseContent = await response.Content.ReadAsStringAsync();
                 }
                 catch
                 {
-                    Log.Write($"ERROR while reading state on {_serverJobUri}");
+                    Log.Verbose($"Retrying ({i+1})");
+                    await Task.Delay(delays[i]);
+                    continue;
+                }
+
+                Log.Verbose($"{(int)response.StatusCode} {response.StatusCode} {responseContent}");
+
+                if (response.StatusCode == HttpStatusCode.NotFound || String.IsNullOrEmpty(responseContent))
+                {
                     return JobState.Failed;
                 }
+                else
+                {
+                    try
+                    {
+                        return Enum.Parse<JobState>(responseContent);
+                    }
+                    catch
+                    {
+                        Log.Write($"ERROR while reading state on {_serverJobUri}");
+                        return JobState.Failed;
+                    }
+                }
             }
+
+            Log.Write($"ERROR while getting state on {_serverJobUri}");
+            return JobState.Failed;
         }
 
         /// <summary>
