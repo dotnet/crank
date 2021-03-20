@@ -115,12 +115,13 @@ namespace Microsoft.Crank.Agent
         public static OperatingSystem OperatingSystem { get; }
         public static Hardware Hardware { get; private set; }
         public static string HardwareVersion { get; private set; }
-        public static Dictionary<Database, string> ConnectionStrings = new Dictionary<Database, string>();
         public static TimeSpan DriverTimeout = TimeSpan.FromSeconds(10);
         public static TimeSpan StartTimeout = TimeSpan.FromMinutes(3);
         public static TimeSpan DefaultBuildTimeout = TimeSpan.FromMinutes(10);
         public static TimeSpan DeletedTimeout = TimeSpan.FromHours(18);
         public static TimeSpan CollectTimeout = TimeSpan.FromMinutes(5);
+        public static CancellationTokenSource _processJobsCts;
+        public static Task _processJobsTask;
 
         private static string _startPerfviewArguments;
 
@@ -206,14 +207,6 @@ namespace Microsoft.Crank.Agent
                 CommandOptionType.SingleValue);
             var noCleanupOption = app.Option("--no-cleanup",
                 "Don't kill processes or delete temp directories.", CommandOptionType.NoValue);
-            var postgresqlConnectionStringOption = app.Option("--postgresql",
-                "The connection string for PostgreSql.", CommandOptionType.SingleValue);
-            var mysqlConnectionStringOption = app.Option("--mysql",
-                "The connection string for MySql.", CommandOptionType.SingleValue);
-            var mssqlConnectionStringOption = app.Option("--mssql",
-                "The connection string for SqlServer.", CommandOptionType.SingleValue);
-            var mongoDbConnectionStringOption = app.Option("--mongodb",
-                "The connection string for MongoDb.", CommandOptionType.SingleValue);
             var buildPathOption = app.Option("--build-path", "The path where applications are built.", CommandOptionType.SingleValue);
             var buildTimeoutOption = app.Option("--build-timeout", "Maximum duration of build task in minutes. Default 10 minutes.",
                 CommandOptionType.SingleValue);
@@ -225,22 +218,6 @@ namespace Microsoft.Crank.Agent
                     _cleanup = false;
                 }
 
-                if (postgresqlConnectionStringOption.HasValue())
-                {
-                    ConnectionStrings[Database.PostgreSql] = postgresqlConnectionStringOption.Value();
-                }
-                if (mysqlConnectionStringOption.HasValue())
-                {
-                    ConnectionStrings[Database.MySql] = mysqlConnectionStringOption.Value();
-                }
-                if (mssqlConnectionStringOption.HasValue())
-                {
-                    ConnectionStrings[Database.SqlServer] = mssqlConnectionStringOption.Value();
-                }
-                if (mongoDbConnectionStringOption.HasValue())
-                {
-                    ConnectionStrings[Database.MongoDb] = mongoDbConnectionStringOption.Value();
-                }
                 if (hardwareVersionOption.HasValue() && !string.IsNullOrWhiteSpace(hardwareVersionOption.Value()))
                 {
                     HardwareVersion = hardwareVersionOption.Value();
@@ -296,6 +273,7 @@ namespace Microsoft.Crank.Agent
             return app.Execute(args);
         }
 
+
         private static async Task<int> Run(string url, string hostname, string dockerHostname)
         {
             var host = new WebHostBuilder()
@@ -312,17 +290,17 @@ namespace Microsoft.Crank.Agent
 
             var hostTask = host.RunAsync();
 
-            var processJobsCts = new CancellationTokenSource();
-            var processJobsTask = ProcessJobs(hostname, dockerHostname, processJobsCts.Token);
+            _processJobsCts = new CancellationTokenSource();
+            _processJobsTask = ProcessJobs(hostname, dockerHostname, _processJobsCts.Token);
 
-            var completedTask = await Task.WhenAny(hostTask, processJobsTask);
+            var completedTask = await Task.WhenAny(hostTask, _processJobsTask);
 
             // Propagate exception (and exit process) if either task faulted
             await completedTask;
 
             // Host exited normally, so cancel job processor
-            processJobsCts.Cancel();
-            await processJobsTask;
+            _processJobsCts.Cancel();
+            await _processJobsTask;
 
             return 0;
         }
@@ -479,7 +457,15 @@ namespace Microsoft.Crank.Agent
                             var context = group[job];
 
                             Log.WriteLine($"Processing job '{job.Service}' ({job.Id}) in state {job.State}");
-                            
+                            var startProcessing = DateTime.UtcNow;
+
+                            if (cancellationToken.IsCancellationRequested)
+                            {
+                                // Agent is trying to stop, delete current jobs
+                                Log.WriteLine($"[CRIT] Agent is stopping, deleting job '{job.Service}:{job.Id}'");
+                                job.State = JobState.Deleting;
+                            }
+
                             // Restore context for the current job
                             var process = context.Process;
 
@@ -1433,7 +1419,14 @@ namespace Microsoft.Crank.Agent
                             context.DockerImage = dockerImage;
                             context.DockerContainerId = dockerContainerId;
 
-                            await Task.Delay(1000);
+                            var minDelay = TimeSpan.FromSeconds(1);
+
+                            // Wait at least {minDelay} before processing the next job
+                            var processTime = DateTime.UtcNow - startProcessing;
+                            if (processTime < minDelay)
+                            {
+                                await Task.Delay(minDelay - processTime);
+                            }
                         }
                     }
                 }
@@ -3847,19 +3840,6 @@ namespace Microsoft.Crank.Agent
             // Force Kestrel server urls
             process.StartInfo.Environment.Add("ASPNETCORE_URLS", serverUrl);
 
-            if (job.Database != Database.None)
-            {
-                if (ConnectionStrings.ContainsKey(job.Database))
-                {
-                    process.StartInfo.Environment.Add("Database", job.Database.ToString());
-                    process.StartInfo.Environment.Add("ConnectionString", ConnectionStrings[job.Database]);
-                }
-                else
-                {
-                    Log.WriteLine($"Could not find connection string for {job.Database}");
-                }
-            }
-
             if (job.Collect && OperatingSystem == OperatingSystem.Linux)
             {
                 // c.f. https://github.com/dotnet/coreclr/blob/master/Documentation/project-docs/linux-performance-tracing.md#collecting-a-trace
@@ -4961,6 +4941,15 @@ namespace Microsoft.Crank.Agent
         {
             try
             {
+                Log.WriteLine("Cancelling remaining jobs");
+
+                if (!_processJobsCts.IsCancellationRequested)
+                {
+                    _processJobsCts.Cancel();
+
+                    Task.WaitAny(_processJobsTask, Task.Delay(TimeSpan.FromSeconds(30)));
+                }
+
                 Log.WriteLine("Cleaning up temporary folder...");
 
                 // build servers will hold locks on dotnet.exe otherwise
