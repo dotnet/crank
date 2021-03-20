@@ -4,76 +4,25 @@
 
 using System;
 using System.IO;
-using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Crank.Agent;
 using Xunit;
 using Xunit.Abstractions;
-using Microsoft.Crank.Agent;
 
 namespace Microsoft.Crank.IntegrationTests
 {
-    public class CommonTests : IAsyncLifetime
+    public class CommonTests : IClassFixture<AgentFixture>
     {
         private readonly ITestOutputHelper _output;
         private string _crankDirectory;
-        private string _crankAgentDirectory;
         private string _crankTestsDirectory;
-        private CancellationTokenSource _stopAgentCts;
-        private Task<ProcessResult> _agent;
 
-        public CommonTests(ITestOutputHelper output)
+        public CommonTests(ITestOutputHelper output, AgentFixture fixture)
         {
             _output = output;
             _crankDirectory = Path.GetDirectoryName(typeof(CommonTests).Assembly.Location).Replace("Microsoft.Crank.IntegrationTests", "Microsoft.Crank.Controller");
-            _crankAgentDirectory = Path.GetDirectoryName(typeof(CommonTests).Assembly.Location).Replace("Microsoft.Crank.IntegrationTests", "Microsoft.Crank.Agent");
             _crankTestsDirectory = Path.GetDirectoryName(typeof(CommonTests).Assembly.Location);
             _output.WriteLine($"Running tests in {_crankDirectory}");
-        }
-
-        public async Task InitializeAsync()
-        {
-            var agentReadyTcs = new TaskCompletionSource<bool>();
-            _stopAgentCts = new CancellationTokenSource();
-
-            // Start the agent
-            _agent = ProcessUtil.RunAsync(
-                "dotnet", 
-                "exec crank-agent.dll", 
-                workingDirectory: _crankAgentDirectory,
-                captureOutput: true,
-                throwOnError: false,
-                timeout: TimeSpan.FromMinutes(5),
-                cancellationToken: _stopAgentCts.Token,
-                outputDataReceived: t => 
-                { 
-                    _output.WriteLine($"[AGT] {t}");
-
-                    if (t.Contains("Agent ready"))
-                    {
-                        agentReadyTcs.SetResult(true);
-                    }
-                } 
-            );
-            
-            // Wait either for the message of the agent to stop
-            await Task.WhenAny(agentReadyTcs.Task, _agent);
-
-            if (!agentReadyTcs.Task.IsCompleted)
-            {
-                Assert.True(false, "Agent could not start");
-            }
-        }
-
-        public async Task DisposeAsync()
-        {
-            _stopAgentCts.Cancel();
-
-            var cancel = new CancellationTokenSource();
-
-            // Give 10 seconds to the agent to stop
-            await Task.WhenAny(_agent, Task.Delay(TimeSpan.FromSeconds(10), cancel.Token));
-
-            cancel.Cancel();
         }
 
         [Fact]
