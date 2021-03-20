@@ -10,6 +10,7 @@
     <AssemblyName>crank-agent</AssemblyName>
     <ToolCommandName>crank-agent</ToolCommandName>
     <PackageId>Microsoft.Crank.Agent</PackageId>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>

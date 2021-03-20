@@ -60,7 +60,6 @@ namespace Microsoft.Crank.Models
         public string SdkVersion { get; set; } = "";
         public string UseMonoRuntime { get; set; } = "";
         public bool NoGlobalJson { get; set; }
-        public Database Database { get; set; } = Database.None;
 
         // Delay from the process started to the console receiving "Application started"
         public TimeSpan StartupMainMethod { get; set; }

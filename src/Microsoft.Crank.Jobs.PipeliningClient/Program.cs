@@ -157,8 +157,8 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
             // If multiple samples are provided, take the max RPS, then sum the result from all clients
             BenchmarksEventSource.Register("pipelineclient/connections", Operations.Max, Operations.Sum, "Connections", "Number of active connections", "n0");
             BenchmarksEventSource.Register("pipelineclient/badresponses", Operations.Max, Operations.Sum, "Bad responses", "Non-2xx or 3xx responses", "n0");
-            BenchmarksEventSource.Register("pipelineclient/latency/mean", Operations.Max, Operations.Sum, "Mean latency (us)", "Mean latency (us)", "n0");
-            BenchmarksEventSource.Register("pipelineclient/latency/max", Operations.Max, Operations.Sum, "Max latency (us)", "Max latency (us)", "n0");
+            BenchmarksEventSource.Register("pipelineclient/latency/mean", Operations.Max, Operations.Avg, "Mean latency (us)", "Mean latency (us)", "n0");
+            BenchmarksEventSource.Register("pipelineclient/latency/max", Operations.Max, Operations.Max, "Max latency (us)", "Max latency (us)", "n0");
             BenchmarksEventSource.Register("pipelineclient/requests", Operations.Max, Operations.Sum, "Requests", "Total number of requests", "n0");
             BenchmarksEventSource.Register("pipelineclient/rps/mean", Operations.Max, Operations.Sum, "Requests/sec", "Requests per second", "n0");
             BenchmarksEventSource.Register("pipelineclient/throughput", Operations.Max, Operations.Sum, "Read throughput (MB/s)", "Read throughput (MB/s)", "n2");

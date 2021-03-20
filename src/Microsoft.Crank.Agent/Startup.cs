@@ -115,22 +115,15 @@ namespace Microsoft.Crank.Agent
         public static OperatingSystem OperatingSystem { get; }
         public static Hardware Hardware { get; private set; }
         public static string HardwareVersion { get; private set; }
-        public static Dictionary<Database, string> ConnectionStrings = new Dictionary<Database, string>();
         public static TimeSpan DriverTimeout = TimeSpan.FromSeconds(10);
         public static TimeSpan StartTimeout = TimeSpan.FromMinutes(3);
         public static TimeSpan DefaultBuildTimeout = TimeSpan.FromMinutes(10);
         public static TimeSpan DeletedTimeout = TimeSpan.FromHours(18);
         public static TimeSpan CollectTimeout = TimeSpan.FromMinutes(5);
+        public static CancellationTokenSource _processJobsCts;
+        public static Task _processJobsTask;
 
         private static string _startPerfviewArguments;
-
-        private static ulong eventPipeSessionId = 0;
-        private static Task eventPipeTask = null;
-        private static bool eventPipeTerminated = false;
-
-        private static EventPipeSession eventPipeSession = null;
-        private static Task countersTask = null;
-        private static TaskCompletionSource<bool> countersCompletionSource = null;
 
         static Startup()
         {
@@ -214,14 +207,6 @@ namespace Microsoft.Crank.Agent
                 CommandOptionType.SingleValue);
             var noCleanupOption = app.Option("--no-cleanup",
                 "Don't kill processes or delete temp directories.", CommandOptionType.NoValue);
-            var postgresqlConnectionStringOption = app.Option("--postgresql",
-                "The connection string for PostgreSql.", CommandOptionType.SingleValue);
-            var mysqlConnectionStringOption = app.Option("--mysql",
-                "The connection string for MySql.", CommandOptionType.SingleValue);
-            var mssqlConnectionStringOption = app.Option("--mssql",
-                "The connection string for SqlServer.", CommandOptionType.SingleValue);
-            var mongoDbConnectionStringOption = app.Option("--mongodb",
-                "The connection string for MongoDb.", CommandOptionType.SingleValue);
             var buildPathOption = app.Option("--build-path", "The path where applications are built.", CommandOptionType.SingleValue);
             var buildTimeoutOption = app.Option("--build-timeout", "Maximum duration of build task in minutes. Default 10 minutes.",
                 CommandOptionType.SingleValue);
@@ -233,22 +218,6 @@ namespace Microsoft.Crank.Agent
                     _cleanup = false;
                 }
 
-                if (postgresqlConnectionStringOption.HasValue())
-                {
-                    ConnectionStrings[Database.PostgreSql] = postgresqlConnectionStringOption.Value();
-                }
-                if (mysqlConnectionStringOption.HasValue())
-                {
-                    ConnectionStrings[Database.MySql] = mysqlConnectionStringOption.Value();
-                }
-                if (mssqlConnectionStringOption.HasValue())
-                {
-                    ConnectionStrings[Database.SqlServer] = mssqlConnectionStringOption.Value();
-                }
-                if (mongoDbConnectionStringOption.HasValue())
-                {
-                    ConnectionStrings[Database.MongoDb] = mongoDbConnectionStringOption.Value();
-                }
                 if (hardwareVersionOption.HasValue() && !string.IsNullOrWhiteSpace(hardwareVersionOption.Value()))
                 {
                     HardwareVersion = hardwareVersionOption.Value();
@@ -304,6 +273,7 @@ namespace Microsoft.Crank.Agent
             return app.Execute(args);
         }
 
+
         private static async Task<int> Run(string url, string hostname, string dockerHostname)
         {
             var host = new WebHostBuilder()
@@ -320,17 +290,17 @@ namespace Microsoft.Crank.Agent
 
             var hostTask = host.RunAsync();
 
-            var processJobsCts = new CancellationTokenSource();
-            var processJobsTask = ProcessJobs(hostname, dockerHostname, processJobsCts.Token);
+            _processJobsCts = new CancellationTokenSource();
+            _processJobsTask = ProcessJobs(hostname, dockerHostname, _processJobsCts.Token);
 
-            var completedTask = await Task.WhenAny(hostTask, processJobsTask);
+            var completedTask = await Task.WhenAny(hostTask, _processJobsTask);
 
             // Propagate exception (and exit process) if either task faulted
             await completedTask;
 
             // Host exited normally, so cancel job processor
-            processJobsCts.Cancel();
-            await processJobsTask;
+            _processJobsCts.Cancel();
+            await _processJobsTask;
 
             return 0;
         }
@@ -487,6 +457,15 @@ namespace Microsoft.Crank.Agent
                             var context = group[job];
 
                             Log.WriteLine($"Processing job '{job.Service}' ({job.Id}) in state {job.State}");
+                            var startProcessing = DateTime.UtcNow;
+
+                            if (cancellationToken.IsCancellationRequested)
+                            {
+                                // Agent is trying to stop, delete current jobs
+                                Log.WriteLine($"[CRIT] Agent is stopping, deleting job '{job.Service}:{job.Id}'");
+                                job.State = JobState.Deleting;
+                            }
+
                             // Restore context for the current job
                             var process = context.Process;
 
@@ -497,14 +476,6 @@ namespace Microsoft.Crank.Agent
                             var tempDir = context.TempDir;
                             var dockerImage = context.DockerImage;
                             var dockerContainerId = context.DockerContainerId;
-
-                            eventPipeSessionId = context.EventPipeSessionId;
-                            eventPipeTask = context.EventPipeTask;
-                            eventPipeTerminated = context.EventPipeTerminated;
-
-                            eventPipeSession = context.EventPipeSession;
-                            countersTask = context.CountersTask;
-                            countersCompletionSource = context.CountersCompletionSource;
 
                             if (job.State == JobState.New)
                             {
@@ -519,7 +490,7 @@ namespace Microsoft.Crank.Agent
                                 {
                                     // The job needs to be deleted
                                     Log.WriteLine($"Driver didn't communicate for {DriverTimeout}. Halting job '{job.Service}' ({job.Id}).");
-                                    Log.WriteLine($"{job.State} -> Deleting");
+                                    Log.WriteLine($"{job.State} -> Deleting ({job.Service}:{job.Id})");
                                     job.State = JobState.Deleting;
                                 }
                                 else
@@ -558,7 +529,7 @@ namespace Microsoft.Crank.Agent
                                     }
 
                                     startMonitorTime = DateTime.UtcNow;
-                                    Log.WriteLine($"{job.State} -> Initializing");
+                                    Log.WriteLine($"{job.State} -> Initializing ({job.Service}:{job.Id})");
                                     job.State = JobState.Initializing;
                                 }
 
@@ -673,7 +644,7 @@ namespace Microsoft.Crank.Agent
                                 if (now - job.LastDriverCommunicationUtc > DriverTimeout)
                                 {
                                     Log.WriteLine($"Driver didn't communicate for {DriverTimeout}. Halting job.");
-                                    Log.WriteLine($"{job.State} -> Deleting");
+                                    Log.WriteLine($"{job.State} -> Deleting ({job.Service}:{job.Id})");
                                     job.State = JobState.Deleting;
                                 }
                             }
@@ -695,7 +666,7 @@ namespace Microsoft.Crank.Agent
                                     }
 
                                     Log.WriteLine($"Starting job '{job.Service}' ({job.Id})");
-                                    Log.WriteLine($"{job.State} -> Starting");
+                                    Log.WriteLine($"{job.State} -> Starting ({job.Service}:{job.Id})");
                                     job.State = JobState.Starting;
 
                                     startMonitorTime = DateTime.UtcNow;
@@ -732,7 +703,7 @@ namespace Microsoft.Crank.Agent
 
                                             if (job.State != JobState.Failed && benchmarksDir != null)
                                             {
-                                                process = await StartProcess(hostname, Path.Combine(tempDir, benchmarksDir), job, _dotnethome);
+                                                process = await StartProcess(hostname, Path.Combine(tempDir, benchmarksDir), job, _dotnethome, context);
 
                                                 Log.WriteLine($"Process started: {job.ProcessId}");
 
@@ -750,7 +721,7 @@ namespace Microsoft.Crank.Agent
                                         {
                                             Log.WriteLine($"Driver didn't communicate for {DriverTimeout}. Halting build.");
 
-                                            Log.WriteLine($"{job.State} -> Failed");
+                                            Log.WriteLine($"{job.State} -> Failed ({job.Service}:{job.Id})");
                                             job.State = JobState.Failed;
 
                                             cts.Cancel();
@@ -768,7 +739,7 @@ namespace Microsoft.Crank.Agent
                                             Log.WriteLine($"Build is taking too long. Halting build.");
                                             job.Error = "Build is taking too long. Halting build.";
 
-                                            Log.WriteLine($"{job.State} -> Failed");
+                                            Log.WriteLine($"{job.State} -> Failed ({job.Service}:{job.Id})");
                                             job.State = JobState.Failed;
 
                                             cts.Cancel();
@@ -780,7 +751,7 @@ namespace Microsoft.Crank.Agent
                                             Log.WriteLine($"An unexpected error occurred while building the job. {buildAndRunTask.Exception}");
                                             job.Error = $"An unexpected error occurred while building the job: {buildAndRunTask.Exception.Message}";
 
-                                            Log.WriteLine($"{job.State} -> Failed");
+                                            Log.WriteLine($"{job.State} -> Failed ({job.Service}:{job.Id})");
                                             job.State = JobState.Failed;
 
                                             cts.Cancel();
@@ -811,7 +782,7 @@ namespace Microsoft.Crank.Agent
                                             {
                                                 if (context.Disposed || context.Timer == null)
                                                 {
-                                                    Log.WriteLine($"[Warning!!!] Heartbeat still active while context is disposed ({job.Service})");
+                                                    Log.WriteLine($"[Warning!!!] Heartbeat still active while context is disposed ({job.Service}:{job.Id})");
                                                     return;
                                                 }
 
@@ -828,12 +799,12 @@ namespace Microsoft.Crank.Agent
                                                         if (job.State == JobState.Running)
                                                         {
                                                             Log.WriteLine($"[Heartbeat] Driver didn't communicate for {DriverTimeout}. Halting job '{job.Service}' ({job.Id}).");
-                                                            Log.WriteLine($"{job.State} -> Stopping");
+                                                            Log.WriteLine($"{job.State} -> Stopping ({job.Service}:{job.Id})");
                                                             job.State = JobState.Stopping;
                                                         }
                                                         else
                                                         {
-                                                            Log.WriteLine($"Heartbeat is active ({job.Service}), job is '{job.State}' and driver is AWOL. Job deletion must have failed.");
+                                                            Log.WriteLine($"Heartbeat is active ({job.Service}:{job.Id}), job is '{job.State}' and driver is AWOL. Job deletion must have failed.");
                                                         }
                                                     }
 
@@ -848,7 +819,7 @@ namespace Microsoft.Crank.Agent
                                                         if (String.Equals(inspectResult.StandardOutput.Trim(), "false"))
                                                         {
                                                             Log.WriteLine($"The Docker container has stopped");
-                                                            Log.WriteLine($"{job.State} -> Stopping");
+                                                            Log.WriteLine($"{job.State} -> Stopping ({job.Service}:{job.Id})");
                                                             job.State = JobState.Stopping;
                                                         }
                                                         else if (job.State == JobState.Running)
@@ -953,13 +924,13 @@ namespace Microsoft.Crank.Agent
 
                                                                 if (job.State != JobState.Deleting)
                                                                 {
-                                                                    Log.WriteLine($"{job.State} -> Failed");
+                                                                    Log.WriteLine($"{job.State} -> Failed ({job.Service}:{job.Id})");
                                                                     job.State = JobState.Failed;
                                                                 }
                                                             }
                                                             else
                                                             {
-                                                                Log.WriteLine($"Process has exited ({process.ExitCode})");
+                                                                Log.WriteLine($"Process has exited with exit code {process.ExitCode} ({job.Service}:{job.Id})");
 
                                                                 // Don't revert a Deleting state by mistake
                                                                 if (job.State != JobState.Deleting
@@ -969,7 +940,7 @@ namespace Microsoft.Crank.Agent
                                                                     && job.State != JobState.Deleted
                                                                     )
                                                                 {
-                                                                    Log.WriteLine($"{job.State} -> Stopped");
+                                                                    Log.WriteLine($"{job.State} -> Stopped ({job.Service}:{job.Id})");
                                                                     job.State = JobState.Stopped;
                                                                 }
                                                             }
@@ -1089,7 +1060,7 @@ namespace Microsoft.Crank.Agent
 
                                     if (job.State != JobState.Failed)
                                     {
-                                        Log.WriteLine($"{job.State} -> Failed");
+                                        Log.WriteLine($"{job.State} -> Failed ({job.Service}:{job.Id})");
                                         job.State = JobState.Failed;
                                     }
                                 }
@@ -1108,7 +1079,7 @@ namespace Microsoft.Crank.Agent
                                 {
                                     // The job needs to be deleted
                                     Log.WriteLine($"Driver didn't communicate for {DriverTimeout}. Halting job.");
-                                    Log.WriteLine($"{job.State} -> Deleting");
+                                    Log.WriteLine($"{job.State} -> Deleting ({job.Service}:{job.Id})");
                                     job.State = JobState.Deleting;
                                 }
                             }
@@ -1133,7 +1104,7 @@ namespace Microsoft.Crank.Agent
                                     }
 
                                     Log.WriteLine("Trace collected");
-                                    Log.WriteLine($"{job.State} ->  TraceCollected");
+                                    Log.WriteLine($"{job.State} -> TraceCollected ({job.Service}:{job.Id})");
                                     job.State = JobState.TraceCollected;
                                 }
 
@@ -1162,7 +1133,7 @@ namespace Microsoft.Crank.Agent
                                         Log.WriteLine("Trace collection aborted, dotnet-trace was not started");
                                     }
 
-                                    Log.WriteLine($"{job.State} ->  TraceCollected");
+                                    Log.WriteLine($"{job.State} -> TraceCollected ({job.Service}:{job.Id})");
                                     job.State = JobState.TraceCollected;
                                 }
                             }
@@ -1184,7 +1155,7 @@ namespace Microsoft.Crank.Agent
                                 {
                                     // The job needs to be deleted
                                     Log.WriteLine($"Driver didn't communicate for {DriverTimeout}. Halting job.");
-                                    Log.WriteLine($"{job.State} -> Deleting");
+                                    Log.WriteLine($"{job.State} -> Deleting ({job.Service}:{job.Id})");
                                     job.State = JobState.Deleting;
                                 }
 
@@ -1196,7 +1167,7 @@ namespace Microsoft.Crank.Agent
                                 {
                                     // The job needs to be deleted
                                     Log.WriteLine($"Driver didn't communicate for {DriverTimeout}. Halting job.");
-                                    Log.WriteLine($"{job.State} -> Deleting");
+                                    Log.WriteLine($"{job.State} -> Deleting ({job.Service}:{job.Id})");
                                     job.State = JobState.Deleting;
                                 }
                             }
@@ -1209,13 +1180,13 @@ namespace Microsoft.Crank.Agent
                                 
                                 try
                                 {
-                                    if (countersTask != null && countersCompletionSource != null)
+                                    if (context.CountersTask != null && context.CountersCompletionSource != null)
                                     {
-                                        countersCompletionSource.SetResult(true);
+                                        context.CountersCompletionSource.SetResult(true);
 
-                                        Task.WaitAny(new Task[] { countersTask }, 5000);
+                                        Task.WaitAny(new Task[] { context.CountersTask }, 5000);
 
-                                        if (!countersTask.IsCompleted)
+                                        if (!context.CountersTask.IsCompleted)
                                         {
                                             Log.WriteLine($"[ERROR] Counters could not be stopped in time for job '{job.Service}' ({job.Id})");
                                         }
@@ -1233,8 +1204,8 @@ namespace Microsoft.Crank.Agent
                                 }
                                 finally
                                 {
-                                    countersTask = null;
-                                    countersCompletionSource = null;
+                                    context.CountersTask = null;
+                                    context.CountersCompletionSource = null;
                                 }
                             }
 
@@ -1246,18 +1217,18 @@ namespace Microsoft.Crank.Agent
                                     return;
                                 }
 
-                                Log.Write($"Stopping heartbeat ({job.Service})");
+                                Log.WriteLine($"Stopping heartbeat ({job.Service}:{job.Id})");
                                     
                                 Monitor.Enter(_synLock);
 
                                 try
                                 {
                                     context.Timer?.Dispose();
-                                    Log.WriteLine("... Success!", false);
+                                    Log.WriteLine($"Heartbeat stopped for ({job.Service}:{job.Id})");
                                 }
                                 catch (Exception e)
                                 {
-                                    Log.WriteLine("... Error!", false);
+                                    Log.WriteLine($"[ERROR] Heartbeat failed to stop for ({job.Service}:{job.Id})");
                                     Log.WriteLine(e.ToString());
                                 }
                                 finally
@@ -1432,7 +1403,7 @@ namespace Microsoft.Crank.Agent
 
                                 tempDir = null;
 
-                                Log.WriteLine($"{job.State} -> Deleted");
+                                Log.WriteLine($"{job.State} -> Deleted ({job.Service}:{job.Id})");
 
                                 job.State = JobState.Deleted;
                             }
@@ -1448,22 +1419,21 @@ namespace Microsoft.Crank.Agent
                             context.DockerImage = dockerImage;
                             context.DockerContainerId = dockerContainerId;
 
-                            context.EventPipeSessionId = eventPipeSessionId;
-                            context.EventPipeTask = eventPipeTask;
-                            context.EventPipeTerminated = eventPipeTerminated;
+                            var minDelay = TimeSpan.FromSeconds(1);
 
-                            context.EventPipeSession = eventPipeSession;
-                            context.CountersTask = countersTask;
-                            context.CountersCompletionSource = countersCompletionSource;
-
-                            await Task.Delay(1000);
+                            // Wait at least {minDelay} before processing the next job
+                            var processTime = DateTime.UtcNow - startProcessing;
+                            if (processTime < minDelay)
+                            {
+                                await Task.Delay(minDelay - processTime);
+                            }
                         }
                     }
                 }
             }
             catch (Exception e)
             {
-                Log.WriteLine($"Unnexpected error: {e.ToString()}");
+                Log.WriteLine($"Unexpected error: {e.ToString()}");
             }
         }
 
@@ -2553,8 +2523,8 @@ namespace Microsoft.Crank.Agent
                 {
                     Source = "Host Process",
                     Name = "netSdkVersion",
-                    Aggregate = Operation.Last,
-                    Reduce = Operation.Last,
+                    Aggregate = Operation.First, // Use first as iterations won't repeat it in next runs
+                    Reduce = Operation.First,
                     Format = "",
                     LongDescription = ".NET Core SDK Version",
                     ShortDescription = ".NET Core SDK Version"
@@ -2579,8 +2549,8 @@ namespace Microsoft.Crank.Agent
                     {
                         Source = "Host Process",
                         Name = "AspNetCoreVersion",
-                        Aggregate = Operation.Last,
-                        Reduce = Operation.Last,
+                        Aggregate = Operation.First, // Use first as iterations won't repeat it in next runs
+                        Reduce = Operation.First,
                         Format = "",
                         LongDescription = "ASP.NET Core Version",
                         ShortDescription = "ASP.NET Core Version"
@@ -2590,7 +2560,7 @@ namespace Microsoft.Crank.Agent
                     {
                         Name = "AspNetCoreVersion",
                         Timestamp = DateTime.UtcNow,
-                        Value = $"{aspNetCoreVersion}+{aspnetCoreCommitHash}"
+                        Value = $"{aspNetCoreVersion}+{aspnetCoreCommitHash.Substring(0, 7)}"
                     });
                 }
                 catch (Exception e)
@@ -2610,8 +2580,8 @@ namespace Microsoft.Crank.Agent
                     {
                         Source = "Host Process",
                         Name = "NetCoreAppVersion",
-                        Aggregate = Operation.Last,
-                        Reduce = Operation.Last,
+                        Aggregate = Operation.First, // Use first as iterations won't repeat it in next runs
+                        Reduce = Operation.First,
                         Format = "",
                         LongDescription = ".NET Runtime Version",
                         ShortDescription = ".NET Runtime Version"
@@ -2621,7 +2591,7 @@ namespace Microsoft.Crank.Agent
                     {
                         Name = "NetCoreAppVersion",
                         Timestamp = DateTime.UtcNow,
-                        Value = $"{runtimeVersion}+{netCoreAppCommitHash}"
+                        Value = $"{runtimeVersion}+{netCoreAppCommitHash.Substring(0, 7)}"
                     });
                 }
                 catch (Exception e)
@@ -3712,7 +3682,7 @@ namespace Microsoft.Crank.Agent
                 : Path.Combine(dotnetHome, "dotnet");
         }
 
-        private static async Task<Process> StartProcess(string hostname, string benchmarksRepo, Job job, string dotnetHome)
+        private static async Task<Process> StartProcess(string hostname, string benchmarksRepo, Job job, string dotnetHome, JobContext context)
         {
             var workingDirectory = !String.IsNullOrEmpty(job.Source.Project)
                 ? Path.Combine(benchmarksRepo, Path.GetDirectoryName(FormatPathSeparators(job.Source.Project)))
@@ -3870,19 +3840,6 @@ namespace Microsoft.Crank.Agent
             // Force Kestrel server urls
             process.StartInfo.Environment.Add("ASPNETCORE_URLS", serverUrl);
 
-            if (job.Database != Database.None)
-            {
-                if (ConnectionStrings.ContainsKey(job.Database))
-                {
-                    process.StartInfo.Environment.Add("Database", job.Database.ToString());
-                    process.StartInfo.Environment.Add("ConnectionString", ConnectionStrings[job.Database]);
-                }
-                else
-                {
-                    Log.WriteLine($"Could not find connection string for {job.Database}");
-                }
-            }
-
             if (job.Collect && OperatingSystem == OperatingSystem.Linux)
             {
                 // c.f. https://github.com/dotnet/coreclr/blob/master/Documentation/project-docs/linux-performance-tracing.md#collecting-a-trace
@@ -3973,7 +3930,7 @@ namespace Microsoft.Crank.Agent
             }
 
             // Don't wait for the counters to be ready as it could get stuck and block the agent
-            var _ = StartCountersAsync(job);
+            var _ = StartCountersAsync(job, context);
 
             if (job.MemoryLimitInBytes > 0)
             {
@@ -4029,7 +3986,7 @@ namespace Microsoft.Crank.Agent
             return $"benchmarks-{Process.GetCurrentProcess().Id}-{job.Id}";
         }
 
-        private static async Task StartCountersAsync(Job job)
+        private static async Task StartCountersAsync(Job job, JobContext context)
         {
             if (job.ProcessId == 0)
             {
@@ -4057,7 +4014,7 @@ namespace Microsoft.Crank.Agent
                     eventLevel: EventLevel.Verbose)
             );
 
-            eventPipeSession = null;
+            context.EventPipeSession = null;
 
             var retries = 0;
             var retryDelays = new [] { 50, 100, 500, 1000 };
@@ -4073,7 +4030,7 @@ namespace Microsoft.Crank.Agent
                 try
                 {
                     Log.WriteLine("Starting event pipe session");
-                    eventPipeSession = client.StartEventPipeSession(providerList);
+                    context.EventPipeSession = client.StartEventPipeSession(providerList);
                     break;
                 }
                 catch (ServerNotAvailableException)
@@ -4083,7 +4040,7 @@ namespace Microsoft.Crank.Agent
                 }
                 catch (EndOfStreamException)
                 {
-                    Log.WriteLine($"[ERROR] Application stopped before an event pipe session could be created ({job.Service})");
+                    Log.WriteLine($"[ERROR] Application stopped before an event pipe session could be created ({job.Service}:{job.Id})");
                     await Task.Delay(retryDelay);
                 }
                 catch (Exception e)
@@ -4101,14 +4058,14 @@ namespace Microsoft.Crank.Agent
                 return;
             }
 
-            countersCompletionSource = new TaskCompletionSource<bool>();
+            context.CountersCompletionSource = new TaskCompletionSource<bool>();
 
             Log.WriteLine("Event pipe session started");
 
             // Run asynchronously so it doesn't block the agent
             var streamTask = Task.Run(() =>
             {
-                var source = new EventPipeEventSource(eventPipeSession.EventStream);
+                var source = new EventPipeEventSource(context.EventPipeSession.EventStream);
 
                 Log.WriteLine("Event pipe source created");
 
@@ -4192,9 +4149,9 @@ namespace Microsoft.Crank.Agent
 
                 try
                 {
-                    Log.WriteLine($"Processing event pipe source ({job.Service})...");
+                    Log.WriteLine($"Processing event pipe source ({job.Service}:{job.Id})...");
                     source.Process();
-                    Log.WriteLine($"Event pipe source stopped ({job.Service})");
+                    Log.WriteLine($"Event pipe source stopped ({job.Service}:{job.Id})");
                 }
                 catch (Exception e)
                 {
@@ -4202,6 +4159,7 @@ namespace Microsoft.Crank.Agent
                     {
                         // Expected if the process has exited by itself
                         // and the event pipe is till trying to read from it
+                        Log.WriteLine($"[WARNING] Event pipe reading an exited process");
                     }
                     else
                     {
@@ -4212,24 +4170,36 @@ namespace Microsoft.Crank.Agent
 
             var stopTask = Task.Run(async () =>
             {
-                await Task.WhenAny(streamTask, countersCompletionSource.Task);
+                Log.WriteLine($"Waiting for event pipe session to stop ({job.Service}:{job.Id})...");
 
-                Log.WriteLine($"Stopping event pipe session ({job.Service})...");
+                await Task.WhenAny(streamTask, context.CountersCompletionSource.Task);
+
+                Log.WriteLine($"Stopping event pipe session ({job.Service}:{job.Id})...");
+                
+                if (streamTask.IsCompleted)
+                {
+                    Log.WriteLine($"Reason: event pipe source has ended");
+                }
+
+                if (context.CountersCompletionSource.Task.IsCompleted)
+                {
+                    Log.WriteLine($"Reason: counters are being stopped");
+                } 
 
                 // It also interrupts the source.Process() blocking operation
-                eventPipeSession.Stop();
-                Log.WriteLine($"Event pipe session stopped ({job.Service})");
+                context.EventPipeSession.Stop();
+                Log.WriteLine($"Event pipe session stopped ({job.Service}:{job.Id})");
             });
 
-            countersTask = Task.WhenAll(streamTask, stopTask);
+            context.CountersTask = Task.WhenAll(streamTask, stopTask);
             
-            await countersTask;
+            await context.CountersTask;
 
             // The event pipe session needs to be disposed after the source is interrupted
-            eventPipeSession.Dispose();
-            eventPipeSession = null;
+            context.EventPipeSession.Dispose();
+            context.EventPipeSession = null;
 
-            Log.WriteLine($"Event pipes terminated ({job.Service})");
+            Log.WriteLine($"Event pipes terminated ({job.Service}:{job.Id})");
         }
 
         private static void StartCollection(string workingDirectory, Job job)
@@ -4504,7 +4474,7 @@ namespace Microsoft.Crank.Agent
             job.Url = ComputeServerUrl(hostname, job);
 
             // Mark the job as running to allow the Client to start the test
-            Log.WriteLine($"{job.State} -> Running");
+            Log.WriteLine($"{job.State} -> Running ({job.Service}:{job.Id})");
             job.State = JobState.Running;
 
             return true;
@@ -4971,6 +4941,15 @@ namespace Microsoft.Crank.Agent
         {
             try
             {
+                Log.WriteLine("Cancelling remaining jobs");
+
+                if (!_processJobsCts.IsCancellationRequested)
+                {
+                    _processJobsCts.Cancel();
+
+                    Task.WaitAny(_processJobsTask, Task.Delay(TimeSpan.FromSeconds(30)));
+                }
+
                 Log.WriteLine("Cleaning up temporary folder...");
 
                 // build servers will hold locks on dotnet.exe otherwise

@@ -67,7 +67,6 @@ namespace Microsoft.Crank.Controller
             _renderChartOption,
             _chartTypeOption,
             _chartScaleOption,
-            _displayIterationsOption,
             _iterationsOption,
             _verboseOption,
             _quietOption,
@@ -81,16 +80,10 @@ namespace Microsoft.Crank.Controller
 
         private static Dictionary<string, string> _deprecatedArguments = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            { "--projectfile", "--project-file" },
-            { "--outputfile", "--output-file" },
-            { "--clientName", "--client-name" }
         };
 
         private static Dictionary<string, string> _synonymArguments = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            { "--aspnet", "--aspnetcoreversion" },
-            { "--runtime", "--runtimeversion" },
-            { "--clientThreads", "--client-threads" },
         };
 
         static Program()
@@ -167,7 +160,6 @@ namespace Microsoft.Crank.Controller
             _iterationsOption = app.Option("-i|--iterations", "The number of iterations.", CommandOptionType.SingleValue);
             _verboseOption = app.Option("-v|--verbose", "Verbose output", CommandOptionType.NoValue);
             _quietOption = app.Option("--quiet", "Quiet output, only the results are displayed", CommandOptionType.NoValue);
-            _displayIterationsOption = app.Option("-di|--display-iterations", "Displays intermediate iterations results.", CommandOptionType.NoValue);
             _excludeOption = app.Option("-x|--exclude", "Excludes the specified number of high and low results, e.g., 1", CommandOptionType.SingleValue);
             _excludeOrderOption = app.Option("-xo|--exclude-order", "The result to use to detect the high and low results, e.g., 'load:wrk/rps/mean'", CommandOptionType.SingleValue);
             
@@ -1906,7 +1898,7 @@ namespace Microsoft.Crank.Controller
 
                 // Calculate results from configuration and job metadata
 
-                var resultDefinitions = jobConnections[0].Job.Metadata.Select(x => 
+                var resultDefinitions = jobConnections.SelectMany(j => j.Job.Metadata.Select(x => 
                     new Result { 
                         Measurement = x .Name, 
                         Name = x.Name,
@@ -1915,7 +1907,7 @@ namespace Microsoft.Crank.Controller
                         Aggregate = x.Aggregate.ToString().ToLowerInvariant(),
                         Reduce = x.Reduce.ToString().ToLowerInvariant()
                         }
-                    ).GroupBy(x => x.Name).ToDictionary(x => x.Key, x => x.Last());
+                    )).GroupBy(x => x.Name).ToDictionary(x => x.Key, x => x.Last());
                 
                 // Update any result definition with the ones in the configuration
                 foreach (var result in configuration.Results)
@@ -2020,8 +2012,23 @@ namespace Microsoft.Crank.Controller
             }
         }
 
+        /// <summary>
+        /// Given a list of all the JobConnection for a named job (load for instance) aggregates all the measures of the same measurement for a job,
+        /// then reduces these values across jobs.
+        /// </summary>
         private static Dictionary<string, object> AggregateAndReduceResults(IEnumerable<JobConnection> jobs, Engine engine, List<Result> resultDefinitions)
         {
+            // resulDefinitions contains the list of all rules to apply to any measurement, e.g.:
+            //   {
+            //     "Measurement": "runtime-counter/time-in-gc",
+            //     "Name": "runtime-counter/time-in-gc",
+            //     "Description": "Max Time in GC (%)",
+            //     "Format": "n2",
+            //     "Aggregate": "max",
+            //     "Reduce": "max",
+            //     "Excluded": false
+            //   }
+
             if (jobs == null || !jobs.Any())
             {
                 return new Dictionary<string, object>();

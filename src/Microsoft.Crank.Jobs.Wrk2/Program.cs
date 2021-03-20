@@ -137,8 +137,8 @@ namespace Microsoft.Crank.Jobs.Wrk2
 
             BenchmarksEventSource.Register("wrk2/rps/mean", Operations.Max, Operations.Sum, "Requests/sec", "Requests per second", "n0");
             BenchmarksEventSource.Register("wrk2/requests", Operations.Max, Operations.Sum, "Requests", "Total number of requests", "n0");
-            BenchmarksEventSource.Register("wrk2/latency/mean", Operations.Max, Operations.Sum, "Mean latency (ms)", "Mean latency (ms)", "n2");
-            BenchmarksEventSource.Register("wrk2/latency/max", Operations.Max, Operations.Sum, "Max latency (ms)", "Max latency (ms)", "n2");
+            BenchmarksEventSource.Register("wrk2/latency/mean", Operations.Max, Operations.Avg, "Mean latency (ms)", "Mean latency (ms)", "n2");
+            BenchmarksEventSource.Register("wrk2/latency/max", Operations.Max, Operations.Max, "Max latency (ms)", "Max latency (ms)", "n2");
             BenchmarksEventSource.Register("wrk2/errors/badresponses", Operations.Max, Operations.Sum, "Bad responses", "Non-2xx or 3xx responses", "n0");
             BenchmarksEventSource.Register("wrk2/errors/socketerrors", Operations.Max, Operations.Sum, "Socket errors", "Socket errors", "n0");
 
@@ -168,14 +168,14 @@ namespace Microsoft.Crank.Jobs.Wrk2
 
             if (parseLatency)
             {
-                BenchmarksEventSource.Register("wrk2/latency/50", Operations.Max, Operations.Avg, "Latency 50th (ms)", "Latency 50th (ms)", "n2");
-                BenchmarksEventSource.Register("wrk2/latency/75", Operations.Max, Operations.Avg, "Latency 75th (ms)", "Latency 50th (ms)", "n2");
-                BenchmarksEventSource.Register("wrk2/latency/90", Operations.Max, Operations.Avg, "Latency 90th (ms)", "Latency 50th (ms)", "n2");
-                BenchmarksEventSource.Register("wrk2/latency/99", Operations.Max, Operations.Avg, "Latency 99th (ms)", "Latency 50th (ms)", "n2");
-                BenchmarksEventSource.Register("wrk2/latency/99.9", Operations.Max, Operations.Avg, "Latency 99.9th (ms)", "Latency 50th (ms)", "n2");
-                BenchmarksEventSource.Register("wrk2/latency/99.99", Operations.Max, Operations.Avg, "Latency 99.99th (ms)", "Latency 50th (ms)", "n2");
-                BenchmarksEventSource.Register("wrk2/latency/99.999", Operations.Max, Operations.Avg, "Latency 99.999th (ms)", "Latency 50th (ms)", "n2");
-                BenchmarksEventSource.Register("wrk2/latency/100", Operations.Max, Operations.Avg, "Latency 100th (ms)", "Latency 50th (ms)", "n2");
+                BenchmarksEventSource.Register("wrk2/latency/50", Operations.Max, Operations.Max, "Latency 50th (ms)", "Latency 50th (ms)", "n2");
+                BenchmarksEventSource.Register("wrk2/latency/75", Operations.Max, Operations.Max, "Latency 75th (ms)", "Latency 50th (ms)", "n2");
+                BenchmarksEventSource.Register("wrk2/latency/90", Operations.Max, Operations.Max, "Latency 90th (ms)", "Latency 50th (ms)", "n2");
+                BenchmarksEventSource.Register("wrk2/latency/99", Operations.Max, Operations.Max, "Latency 99th (ms)", "Latency 50th (ms)", "n2");
+                BenchmarksEventSource.Register("wrk2/latency/99.9", Operations.Max, Operations.Max, "Latency 99.9th (ms)", "Latency 50th (ms)", "n2");
+                BenchmarksEventSource.Register("wrk2/latency/99.99", Operations.Max, Operations.Max, "Latency 99.99th (ms)", "Latency 50th (ms)", "n2");
+                BenchmarksEventSource.Register("wrk2/latency/99.999", Operations.Max, Operations.Max, "Latency 99.999th (ms)", "Latency 50th (ms)", "n2");
+                BenchmarksEventSource.Register("wrk2/latency/100", Operations.Max, Operations.Max, "Latency 100th (ms)", "Latency 50th (ms)", "n2");
                 BenchmarksEventSource.Register("wrk2/latency/distribution", Operations.All, Operations.All, "Latency distribution", "Latency distribution", "json");
 
                 BenchmarksEventSource.Measure("wrk2/latency/50", ReadLatency(Regex.Match(output, String.Format(LatencyPattern, "50\\.000%"))));
