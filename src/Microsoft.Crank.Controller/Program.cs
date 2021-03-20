@@ -71,7 +71,9 @@ namespace Microsoft.Crank.Controller
             _iterationsOption,
             _verboseOption,
             _quietOption,
-            _scriptOption
+            _scriptOption,
+            _excludeOption,
+            _excludeOrderOption
             ;
 
         // The dynamic arguments that will alter the configurations
@@ -166,6 +168,8 @@ namespace Microsoft.Crank.Controller
             _verboseOption = app.Option("-v|--verbose", "Verbose output", CommandOptionType.NoValue);
             _quietOption = app.Option("--quiet", "Quiet output, only the results are displayed", CommandOptionType.NoValue);
             _displayIterationsOption = app.Option("-di|--display-iterations", "Displays intermediate iterations results.", CommandOptionType.NoValue);
+            _excludeOption = app.Option("-x|--exclude", "Excludes the specified number of high and low results, e.g., 1", CommandOptionType.SingleValue);
+            _excludeOrderOption = app.Option("-xo|--exclude-order", "The result to use to detect the high and low results, e.g., 'load:wrk/rps/mean'", CommandOptionType.SingleValue);
             
             app.Command("compare", compareCmd =>
             {
@@ -206,7 +210,8 @@ namespace Microsoft.Crank.Controller
 
                 var session = _sessionOption.Value();
                 var iterations = 1;
-                var exclude = 0;
+                var exclude = ExcludeOptions.Empty;
+
                 var span = TimeSpan.Zero;
 
                 if (string.IsNullOrEmpty(session))
@@ -229,6 +234,50 @@ namespace Microsoft.Crank.Controller
                         Console.WriteLine($"Invalid value for iterations arguments. A positive integer was expected.");
                         return -1;
                     }
+                }
+
+                var excludeOptions = 
+                    Convert.ToInt32(_excludeOption.HasValue()) 
+                    + Convert.ToInt32(_excludeOrderOption.HasValue())
+                    ;
+
+                if (excludeOptions > 0 && excludeOptions != 2)
+                {
+                    Console.WriteLine("All exclude options need to be set: --exclude, --exclude-order.");
+                    return -1;
+                }
+
+                if (_excludeOption.HasValue())
+                {
+                    if (!_iterationsOption.HasValue())
+                    {
+                        Console.WriteLine("The option --exclude can only be used with --iterations.");
+                        return -1;
+                    }
+
+                    if (!Int32.TryParse(_excludeOption.Value(), out var excludeValue) || excludeValue < 1)
+                    {
+                        Console.WriteLine($"Invalid value for --exclude option. A positive integer was expected.");
+                        return -1;
+                    }
+
+                    if (iterations <= excludeValue * 2)
+                    {
+                        Console.WriteLine($"Invalid value for --exclude option. Remaining benchmarks number is negative.");
+                        return -1;
+                    }
+
+                    var excludeOrder = _excludeOrderOption.Value().Split(':', 2, StringSplitOptions.RemoveEmptyEntries);
+
+                    if (excludeOrder.Length != 2)
+                    {
+                        Console.WriteLine("The option -xo|--exclude-order format is <job>:<result>, e.g., 'load:wrk/rps/mean'");
+                        return -1;
+                    }
+
+                    exclude.Value = excludeValue;
+                    exclude.Job = excludeOrder[0];
+                    exclude.Result = excludeOrder[1];
                 }
 
                 if (_spanOption.HasValue() && !TimeSpan.TryParse(_spanOption.Value(), out span))
@@ -464,7 +513,7 @@ namespace Microsoft.Crank.Controller
             string[] dependencies,
             string session,
             int iterations,
-            int exclude,
+            ExcludeOptions exclude,
             IEnumerable<string> scripts
             )
         {
@@ -776,6 +825,35 @@ namespace Microsoft.Crank.Controller
                 // If last iteration, create average and display results
                 if (iterations > 1 && i == iterations)
                 {
+                    // Exclude highs and lows
+
+                    if (exclude.Value > 0)
+                    {
+                        if (executionResults.Any(x => 
+                            !x.JobResults.Jobs.ContainsKey(exclude.Job) 
+                            || !x.JobResults.Jobs[exclude.Job].Results.ContainsKey(exclude.Result) ))
+                        {
+                            Log.WriteWarning($"A benchmark didn't contain the expected job '{exclude.Job}', the exclusion will be ignored.");
+                        }
+                        else if (executionResults.Any(x => !x.JobResults.Jobs[exclude.Job].Results.ContainsKey(exclude.Result) ))
+                        {
+                            Log.WriteWarning($"A benchmark didn't contain the expected result ('{exclude.Result}'), the exclusion will be ignored.");
+                        } 
+                        else 
+                        {
+                            var orderedResults = executionResults.OrderBy(x => x.JobResults.Jobs[exclude.Job].Results[exclude.Result]);
+                            var includedResults = executionResults.Skip(exclude.Value).SkipLast(exclude.Value);
+                            var excludedresults = executionResults.Except(includedResults);
+
+                            Console.WriteLine($"Excluded values: {string.Join(", ", excludedresults.Select(x => x.JobResults.Jobs[exclude.Job].Results[exclude.Result]))}");
+                            Console.WriteLine($"Remaining values: {string.Join(", ", includedResults.Select(x => x.JobResults.Jobs[exclude.Job].Results[exclude.Result]))}");
+
+                            executionResults = includedResults.ToList();
+                        }                    
+                    }
+
+                    // Compute averages
+
                     executionResult = ComputeAverages(executionResults);
                     executionResults.Clear();
                     executionResults.Add(executionResult);

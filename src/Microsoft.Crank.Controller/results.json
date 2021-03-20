@@ -1,0 +1,918 @@
+{
+  "returnCode": 0,
+  "jobResults": {
+    "jobs": {
+      "application": {
+        "results": {
+          "benchmarks/working-set": 158.0,
+          "benchmarks/cpu": 78.0,
+          "benchmarks/cpu/raw": 937.0
+        },
+        "metadata": [
+          {
+            "name": "benchmarks/cpu",
+            "description": "CPU Usage (%)",
+            "format": "n0"
+          },
+          {
+            "name": "benchmarks/cpu/raw",
+            "description": "Cores usage (%)",
+            "format": "n0"
+          },
+          {
+            "name": "benchmarks/working-set",
+            "description": "Working Set (MB)",
+            "format": "n0"
+          },
+          {
+            "name": "benchmarks/build-time",
+            "description": "Build Time (ms)",
+            "format": "n0"
+          },
+          {
+            "name": "benchmarks/start-time",
+            "description": "Start Time (ms)",
+            "format": "n0"
+          },
+          {
+            "name": "benchmarks/published-size",
+            "description": "Published Size (KB)",
+            "format": "n0"
+          },
+          {
+            "name": "benchmarks/swap",
+            "description": "Swap (MB)",
+            "format": "n0"
+          },
+          {
+            "name": "netSdkVersion",
+            "description": ".NET Core SDK Version",
+            "format": ""
+          },
+          {
+            "name": "AspNetCoreVersion",
+            "description": "ASP.NET Core Version",
+            "format": ""
+          },
+          {
+            "name": "NetCoreAppVersion",
+            "description": ".NET Runtime Version",
+            "format": ""
+          },
+          {
+            "name": "runtime-counter/cpu-usage",
+            "description": "Max CPU Usage (%)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/working-set",
+            "description": "Max Working Set (MB)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/gc-heap-size",
+            "description": "Max GC Heap Size (MB)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/gen-0-gc-count",
+            "description": "Max Number of Gen 0 GCs / sec",
+            "format": "n2"
+          },
+          {
+            "name": "runtime-counter/gen-1-gc-count",
+            "description": "Max Number of Gen 1 GCs / sec",
+            "format": "n2"
+          },
+          {
+            "name": "runtime-counter/gen-2-gc-count",
+            "description": "Max Number of Gen 2 GCs / sec",
+            "format": "n2"
+          },
+          {
+            "name": "runtime-counter/time-in-gc",
+            "description": "Max Time in GC (%)",
+            "format": "n2"
+          },
+          {
+            "name": "runtime-counter/gen-0-size",
+            "description": "Max Gen 0 Size (B)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/gen-1-size",
+            "description": "Max Gen 1 Size (B)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/gen-2-size",
+            "description": "Max Gen 2 Size (B)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/loh-size",
+            "description": "Max LOH Size (B)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/poh-size",
+            "description": "Max POH Size (B)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/alloc-rate",
+            "description": "Max Allocation Rate (B/sec)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/gc-fragmentation",
+            "description": "Max GC Heap Fragmentation",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/assembly-count",
+            "description": "# of Assemblies Loaded",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/exception-count",
+            "description": "Max Exceptions (#/s)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/monitor-lock-contention-count",
+            "description": "Max Lock Contention (#/s)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/threadpool-thread-count",
+            "description": "Max ThreadPool Threads Count",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/threadpool-queue-length",
+            "description": "Max ThreadPool Queue Length",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/threadpool-completed-items-count",
+            "description": "Max ThreadPool Items (#/s)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/active-timer-count",
+            "description": "Max Active Timers",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/il-bytes-jitted",
+            "description": "IL Jitted (B)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/methods-jitted-count",
+            "description": "Methods Jitted",
+            "format": "n0"
+          },
+          {
+            "name": "kestrel-counter/connections-per-second",
+            "description": "Max Connections per second",
+            "format": null
+          },
+          {
+            "name": "kestrel-counter/total-connections",
+            "description": "Total connections",
+            "format": "n0"
+          },
+          {
+            "name": "kestrel-counter/tls-handshakes-per-second",
+            "description": "Max TLS Handshakes per second",
+            "format": "n0"
+          },
+          {
+            "name": "kestrel-counter/total-tls-handshakes",
+            "description": "Total TLS Handshakes",
+            "format": "n0"
+          },
+          {
+            "name": "kestrel-counter/current-tls-handshakes",
+            "description": "Max Active TLS Handshakes",
+            "format": "n0"
+          },
+          {
+            "name": "kestrel-counter/failed-tls-handshakes",
+            "description": "Total Dailed TLS Handshakes",
+            "format": "n0"
+          },
+          {
+            "name": "kestrel-counter/current-connections",
+            "description": "Max Active Connections",
+            "format": "n0"
+          },
+          {
+            "name": "kestrel-counter/connection-queue-length",
+            "description": "Max Connection Queue Length",
+            "format": "n0"
+          },
+          {
+            "name": "kestrel-counter/request-queue-length",
+            "description": "Max Request Queue Length",
+            "format": "n0"
+          },
+          {
+            "name": "kestrel-counter/current-upgraded-requests",
+            "description": "Max Active Upgraded Requests (WebSockets)",
+            "format": "n0"
+          },
+          {
+            "name": "aspnet-counter/requests-per-second",
+            "description": "Max Requests per second",
+            "format": "n0"
+          },
+          {
+            "name": "aspnet-counter/total-requests",
+            "description": "Total Requests",
+            "format": "n0"
+          },
+          {
+            "name": "aspnet-counter/current-requests",
+            "description": "Max Active Requests",
+            "format": "n0"
+          },
+          {
+            "name": "aspnet-counter/failed-requests",
+            "description": "Failed Requests",
+            "format": "n0"
+          },
+          {
+            "name": "system-net-http-counter/requests-started",
+            "description": "Total Requests Started",
+            "format": "n0"
+          },
+          {
+            "name": "system-net-http-counter/requests-started-rate",
+            "description": "Max Requests Started per second",
+            "format": "n0"
+          },
+          {
+            "name": "system-net-http-counter/requests-aborted",
+            "description": "Total Requests Aborted",
+            "format": "n0"
+          },
+          {
+            "name": "system-net-http-counter/requests-aborted-rate",
+            "description": "Max Requests Aborted per second",
+            "format": "n0"
+          },
+          {
+            "name": "system-net-http-counter/current-requests",
+            "description": "Max Active Requests",
+            "format": "n0"
+          },
+          {
+            "name": "signalr-counter/connections-started",
+            "description": "Total Connections Started",
+            "format": "n0"
+          },
+          {
+            "name": "signalr-counter/connections-stopped",
+            "description": "Total Connections Stopped",
+            "format": "n0"
+          },
+          {
+            "name": "signalr-counter/connections-timed-out",
+            "description": "Total Connections Timed Out",
+            "format": "n0"
+          },
+          {
+            "name": "signalr-counter/current-connections",
+            "description": "Max Active Connections",
+            "format": "n0"
+          },
+          {
+            "name": "signalr-counter/connections-duration",
+            "description": "Max Average Connection Duration per second (ms)",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-server-counter/total-calls",
+            "description": "Total Calls",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-server-counter/current-calls",
+            "description": "Max Active Calls",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-server-counter/calls-failed",
+            "description": "Total Calls Failed",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-server-counter/calls-deadline-exceeded",
+            "description": "Total Calls Deadline Exceeded",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-server-counter/messages-sent",
+            "description": "Total Messages Sent",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-server-counter/messages-received",
+            "description": "Total Messages Received",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-server-counter/calls-unimplemented",
+            "description": "Total Calls Unimplemented",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-client-counter/total-calls",
+            "description": "Total Calls",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-client-counter/current-calls",
+            "description": "Max Active Calls",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-client-counter/calls-failed",
+            "description": "Total Calls Failed",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-client-counter/calls-deadline-exceeded",
+            "description": "Total Calls Deadline Exceeded",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-client-counter/messages-sent",
+            "description": "Total Messages Sent",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-client-counter/messages-received",
+            "description": "Total Messages Received",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/bytes-written-per-second",
+            "description": "Total Bytes Written",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/bytes-read-per-second",
+            "description": "Total Bytes Read",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/commands-per-second",
+            "description": "Max Command Rate",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/total-commands",
+            "description": "Total Commands",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/current-commands",
+            "description": "Max Active Commands per second",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/failed-commands",
+            "description": "Total Failed Commands",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/prepared-commands-ratio",
+            "description": "Max Prepared Commands Ratio",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/connection-pools",
+            "description": "Max Connection Pools",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/idle-connections",
+            "description": "Max Idle Connections",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/busy-connections",
+            "description": "Max Busy Connections",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/multiplexing-average-commands-per-batch",
+            "description": "Max Average commands per multiplexing batch per second",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/multiplexing-average-waits-per-batch",
+            "description": "Max Average waits per multiplexing batch per second",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/multiplexing-average-write-time-per-batch",
+            "description": "Max Average write time per multiplexing batch (us) per second",
+            "format": "n0"
+          }
+        ],
+        "measurements": [],
+        "environment": {}
+      },
+      "load": {
+        "results": {
+          "benchmarks/start-time": 0.0,
+          "benchmarks/working-set": 7.0,
+          "benchmarks/cpu": 77.0,
+          "benchmarks/cpu/raw": 919.0,
+          "http/firstrequest": 58.0,
+          "wrk/latency/mean": 1.16,
+          "wrk/rps/mean": 399427.81,
+          "wrk/throughput": 57.9,
+          "wrk/latency/max": 128.49,
+          "wrk/requests": 2036813.0,
+          "wrk/errors/badresponses": 0.0,
+          "wrk/errors/socketerrors": 0.0,
+          "wrk/latency/50": 0.63,
+          "wrk/latency/75": 0.713,
+          "wrk/latency/90": 0.8,
+          "wrk/latency/99": 15.93
+        },
+        "metadata": [
+          {
+            "name": "benchmarks/cpu",
+            "description": "CPU Usage (%)",
+            "format": "n0"
+          },
+          {
+            "name": "benchmarks/cpu/raw",
+            "description": "Cores usage (%)",
+            "format": "n0"
+          },
+          {
+            "name": "benchmarks/working-set",
+            "description": "Working Set (MB)",
+            "format": "n0"
+          },
+          {
+            "name": "benchmarks/build-time",
+            "description": "Build Time (ms)",
+            "format": "n0"
+          },
+          {
+            "name": "benchmarks/start-time",
+            "description": "Start Time (ms)",
+            "format": "n0"
+          },
+          {
+            "name": "benchmarks/published-size",
+            "description": "Published Size (KB)",
+            "format": "n0"
+          },
+          {
+            "name": "benchmarks/swap",
+            "description": "Swap (MB)",
+            "format": "n0"
+          },
+          {
+            "name": "http/firstrequest",
+            "description": "First Request (ms)",
+            "format": "n0"
+          },
+          {
+            "name": "wrk/rps/mean",
+            "description": "Requests/sec",
+            "format": "n0"
+          },
+          {
+            "name": "wrk/requests",
+            "description": "Requests",
+            "format": "n0"
+          },
+          {
+            "name": "wrk/latency/mean",
+            "description": "Mean latency (ms)",
+            "format": "n2"
+          },
+          {
+            "name": "wrk/latency/max",
+            "description": "Max latency (ms)",
+            "format": "n2"
+          },
+          {
+            "name": "wrk/errors/badresponses",
+            "description": "Bad responses",
+            "format": "n0"
+          },
+          {
+            "name": "wrk/errors/socketerrors",
+            "description": "Socket errors",
+            "format": "n0"
+          },
+          {
+            "name": "wrk/throughput",
+            "description": "Read throughput (MB/s)",
+            "format": "n2"
+          },
+          {
+            "name": "wrk/latency/50",
+            "description": "Latency 50th (ms)",
+            "format": "n2"
+          },
+          {
+            "name": "wrk/latency/75",
+            "description": "Latency 75th (ms)",
+            "format": "n2"
+          },
+          {
+            "name": "wrk/latency/90",
+            "description": "Latency 90th (ms)",
+            "format": "n2"
+          },
+          {
+            "name": "wrk/latency/99",
+            "description": "Latency 99th (ms)",
+            "format": "n2"
+          },
+          {
+            "name": "runtime-counter/cpu-usage",
+            "description": "Max CPU Usage (%)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/working-set",
+            "description": "Max Working Set (MB)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/gc-heap-size",
+            "description": "Max GC Heap Size (MB)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/gen-0-gc-count",
+            "description": "Max Number of Gen 0 GCs / sec",
+            "format": "n2"
+          },
+          {
+            "name": "runtime-counter/gen-1-gc-count",
+            "description": "Max Number of Gen 1 GCs / sec",
+            "format": "n2"
+          },
+          {
+            "name": "runtime-counter/gen-2-gc-count",
+            "description": "Max Number of Gen 2 GCs / sec",
+            "format": "n2"
+          },
+          {
+            "name": "runtime-counter/time-in-gc",
+            "description": "Max Time in GC (%)",
+            "format": "n2"
+          },
+          {
+            "name": "runtime-counter/gen-0-size",
+            "description": "Max Gen 0 Size (B)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/gen-1-size",
+            "description": "Max Gen 1 Size (B)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/gen-2-size",
+            "description": "Max Gen 2 Size (B)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/loh-size",
+            "description": "Max LOH Size (B)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/poh-size",
+            "description": "Max POH Size (B)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/alloc-rate",
+            "description": "Max Allocation Rate (B/sec)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/gc-fragmentation",
+            "description": "Max GC Heap Fragmentation",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/assembly-count",
+            "description": "# of Assemblies Loaded",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/exception-count",
+            "description": "Max Exceptions (#/s)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/monitor-lock-contention-count",
+            "description": "Max Lock Contention (#/s)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/threadpool-thread-count",
+            "description": "Max ThreadPool Threads Count",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/threadpool-queue-length",
+            "description": "Max ThreadPool Queue Length",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/threadpool-completed-items-count",
+            "description": "Max ThreadPool Items (#/s)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/active-timer-count",
+            "description": "Max Active Timers",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/il-bytes-jitted",
+            "description": "IL Jitted (B)",
+            "format": "n0"
+          },
+          {
+            "name": "runtime-counter/methods-jitted-count",
+            "description": "Methods Jitted",
+            "format": "n0"
+          },
+          {
+            "name": "kestrel-counter/connections-per-second",
+            "description": "Max Connections per second",
+            "format": null
+          },
+          {
+            "name": "kestrel-counter/total-connections",
+            "description": "Total connections",
+            "format": "n0"
+          },
+          {
+            "name": "kestrel-counter/tls-handshakes-per-second",
+            "description": "Max TLS Handshakes per second",
+            "format": "n0"
+          },
+          {
+            "name": "kestrel-counter/total-tls-handshakes",
+            "description": "Total TLS Handshakes",
+            "format": "n0"
+          },
+          {
+            "name": "kestrel-counter/current-tls-handshakes",
+            "description": "Max Active TLS Handshakes",
+            "format": "n0"
+          },
+          {
+            "name": "kestrel-counter/failed-tls-handshakes",
+            "description": "Total Dailed TLS Handshakes",
+            "format": "n0"
+          },
+          {
+            "name": "kestrel-counter/current-connections",
+            "description": "Max Active Connections",
+            "format": "n0"
+          },
+          {
+            "name": "kestrel-counter/connection-queue-length",
+            "description": "Max Connection Queue Length",
+            "format": "n0"
+          },
+          {
+            "name": "kestrel-counter/request-queue-length",
+            "description": "Max Request Queue Length",
+            "format": "n0"
+          },
+          {
+            "name": "kestrel-counter/current-upgraded-requests",
+            "description": "Max Active Upgraded Requests (WebSockets)",
+            "format": "n0"
+          },
+          {
+            "name": "aspnet-counter/requests-per-second",
+            "description": "Max Requests per second",
+            "format": "n0"
+          },
+          {
+            "name": "aspnet-counter/total-requests",
+            "description": "Total Requests",
+            "format": "n0"
+          },
+          {
+            "name": "aspnet-counter/current-requests",
+            "description": "Max Active Requests",
+            "format": "n0"
+          },
+          {
+            "name": "aspnet-counter/failed-requests",
+            "description": "Failed Requests",
+            "format": "n0"
+          },
+          {
+            "name": "system-net-http-counter/requests-started",
+            "description": "Total Requests Started",
+            "format": "n0"
+          },
+          {
+            "name": "system-net-http-counter/requests-started-rate",
+            "description": "Max Requests Started per second",
+            "format": "n0"
+          },
+          {
+            "name": "system-net-http-counter/requests-aborted",
+            "description": "Total Requests Aborted",
+            "format": "n0"
+          },
+          {
+            "name": "system-net-http-counter/requests-aborted-rate",
+            "description": "Max Requests Aborted per second",
+            "format": "n0"
+          },
+          {
+            "name": "system-net-http-counter/current-requests",
+            "description": "Max Active Requests",
+            "format": "n0"
+          },
+          {
+            "name": "signalr-counter/connections-started",
+            "description": "Total Connections Started",
+            "format": "n0"
+          },
+          {
+            "name": "signalr-counter/connections-stopped",
+            "description": "Total Connections Stopped",
+            "format": "n0"
+          },
+          {
+            "name": "signalr-counter/connections-timed-out",
+            "description": "Total Connections Timed Out",
+            "format": "n0"
+          },
+          {
+            "name": "signalr-counter/current-connections",
+            "description": "Max Active Connections",
+            "format": "n0"
+          },
+          {
+            "name": "signalr-counter/connections-duration",
+            "description": "Max Average Connection Duration per second (ms)",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-server-counter/total-calls",
+            "description": "Total Calls",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-server-counter/current-calls",
+            "description": "Max Active Calls",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-server-counter/calls-failed",
+            "description": "Total Calls Failed",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-server-counter/calls-deadline-exceeded",
+            "description": "Total Calls Deadline Exceeded",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-server-counter/messages-sent",
+            "description": "Total Messages Sent",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-server-counter/messages-received",
+            "description": "Total Messages Received",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-server-counter/calls-unimplemented",
+            "description": "Total Calls Unimplemented",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-client-counter/total-calls",
+            "description": "Total Calls",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-client-counter/current-calls",
+            "description": "Max Active Calls",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-client-counter/calls-failed",
+            "description": "Total Calls Failed",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-client-counter/calls-deadline-exceeded",
+            "description": "Total Calls Deadline Exceeded",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-client-counter/messages-sent",
+            "description": "Total Messages Sent",
+            "format": "n0"
+          },
+          {
+            "name": "grpc-client-counter/messages-received",
+            "description": "Total Messages Received",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/bytes-written-per-second",
+            "description": "Total Bytes Written",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/bytes-read-per-second",
+            "description": "Total Bytes Read",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/commands-per-second",
+            "description": "Max Command Rate",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/total-commands",
+            "description": "Total Commands",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/current-commands",
+            "description": "Max Active Commands per second",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/failed-commands",
+            "description": "Total Failed Commands",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/prepared-commands-ratio",
+            "description": "Max Prepared Commands Ratio",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/connection-pools",
+            "description": "Max Connection Pools",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/idle-connections",
+            "description": "Max Idle Connections",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/busy-connections",
+            "description": "Max Busy Connections",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/multiplexing-average-commands-per-batch",
+            "description": "Max Average commands per multiplexing batch per second",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/multiplexing-average-waits-per-batch",
+            "description": "Max Average waits per multiplexing batch per second",
+            "format": "n0"
+          },
+          {
+            "name": "npgsql-counter/multiplexing-average-write-time-per-batch",
+            "description": "Max Average write time per multiplexing batch (us) per second",
+            "format": "n0"
+          }
+        ],
+        "measurements": [],
+        "environment": {}
+      }
+    },
+    "properties": {}
+  }
+}
