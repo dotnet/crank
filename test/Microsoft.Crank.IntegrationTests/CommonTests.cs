@@ -9,23 +9,22 @@ using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
 using Microsoft.Crank.Agent;
-using System.Dynamic;
 
 namespace Microsoft.Crank.IntegrationTests
 {
-    public class HelloTests
+    public class CommonTests
     {
         private readonly ITestOutputHelper _output;
         private string _crankDirectory;
         private string _crankAgentDirectory;
         private string _crankTestsDirectory;
 
-        public HelloTests(ITestOutputHelper output)
+        public CommonTests(ITestOutputHelper output)
         {
             _output = output;
-            _crankDirectory = Path.GetDirectoryName(typeof(HelloTests).Assembly.Location).Replace("Microsoft.Crank.IntegrationTests", "Microsoft.Crank.Controller");
-            _crankAgentDirectory = Path.GetDirectoryName(typeof(HelloTests).Assembly.Location).Replace("Microsoft.Crank.IntegrationTests", "Microsoft.Crank.Agent");
-            _crankTestsDirectory = Path.GetDirectoryName(typeof(HelloTests).Assembly.Location);
+            _crankDirectory = Path.GetDirectoryName(typeof(CommonTests).Assembly.Location).Replace("Microsoft.Crank.IntegrationTests", "Microsoft.Crank.Controller");
+            _crankAgentDirectory = Path.GetDirectoryName(typeof(CommonTests).Assembly.Location).Replace("Microsoft.Crank.IntegrationTests", "Microsoft.Crank.Agent");
+            _crankTestsDirectory = Path.GetDirectoryName(typeof(CommonTests).Assembly.Location);
             _output.WriteLine($"Running tests in {_crankDirectory}");
         }
 
@@ -309,6 +308,69 @@ namespace Microsoft.Crank.IntegrationTests
             Assert.Contains("Iteration 2 of 3", result.StandardOutput);
             Assert.Contains("Iteration 3 of 3", result.StandardOutput);
             Assert.Contains("Excluded values:", result.StandardOutput);
-        }     
+        }
+        
+        [Fact]
+        public async Task MultiClients()
+        {
+            var agentReadyTcs = new TaskCompletionSource<bool>();
+            var stopAgentCts = new CancellationTokenSource();
+
+            // Start the agent
+            var agent = ProcessUtil.RunAsync(
+                "dotnet", 
+                "exec crank-agent.dll", 
+                workingDirectory: _crankAgentDirectory,
+                captureOutput: true,
+                throwOnError: false,
+                timeout: TimeSpan.FromMinutes(5),
+                cancellationToken: stopAgentCts.Token,
+                outputDataReceived: t => 
+                { 
+                    _output.WriteLine($"[AGT] {t}");
+
+                    if (t.Contains("Agent ready"))
+                    {
+                        agentReadyTcs.SetResult(true);
+                    }
+                } 
+            );
+            
+            // Wait either for the message of the agent to stop
+            await Task.WhenAny(agentReadyTcs.Task, agent);
+
+            _output.WriteLine($"Starting controller");
+
+            var result = await ProcessUtil.RunAsync(
+                "dotnet", 
+                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/multiclient.benchmarks.yml --scenario hello --profile local --exclude 1 --exclude-order load:bombardier/rps/mean --iterations 3", 
+                workingDirectory: _crankTestsDirectory,
+                captureOutput: true,
+                timeout: TimeSpan.FromMinutes(5),
+                throwOnError: false,
+                outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); } 
+            );
+
+            Assert.Equal(0, result.ExitCode);
+                
+            stopAgentCts.Cancel();
+
+            var cancel = new CancellationTokenSource();
+
+            // Give 5 seconds to the agent to stop
+            await Task.WhenAny(agent, Task.Delay(TimeSpan.FromSeconds(5), cancel.Token));
+
+            cancel.Cancel();
+
+            // Two load jobs are started
+            var firstLoad = result.StandardOutput.IndexOf("'load' is now building");
+            var secondLoad = result.StandardOutput.IndexOf("'load' is now building", firstLoad + 1);
+
+            Assert.NotEqual(-1, firstLoad);
+            Assert.NotEqual(-1, secondLoad);          
+
+            // The results are computed
+            Assert.Contains("Requests/sec", result.StandardOutput);
+        }
     }
 }
