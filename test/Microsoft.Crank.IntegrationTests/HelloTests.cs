@@ -305,7 +305,11 @@ namespace Microsoft.Crank.IntegrationTests
 
             cancel.Cancel();
 
-            Assert.Contains("Iteration 1 of 1", result.StandardOutput);
+
+            Assert.Contains("Iteration 1 of 3", result.StandardOutput);
+            Assert.Contains("Iteration 2 of 3", result.StandardOutput);
+            Assert.Contains("Iteration 3 of 3", result.StandardOutput);
+            Assert.Contains("Excluded values:", result.StandardOutput);
         }     
     }
 }
