@@ -1,5 +1,5 @@
 # FROM mcr.microsoft.com/dotnet/sdk:5.0 as build-env
-FROM mcr.microsoft.com/dotnet/sdk:5.0.102-ca-patch-buster-slim as build-env
+FROM mcr.microsoft.com/dotnet/sdk:5.0.201 as build-env
 
 COPY . .
 
@@ -12,7 +12,8 @@ RUN dotnet publish -c Release src/Microsoft.Crank.Agent --output /app
 
 # Build runtime image
 # FROM mcr.microsoft.com/dotnet/aspnet:5.0
-FROM mcr.microsoft.com/dotnet/sdk:5.0.102-ca-patch-buster-slim
+# Use SDK image as it is required for the dotnet tools
+FROM mcr.microsoft.com/dotnet/sdk:5.0.201
 
 ARG CPUNAME=x86_64
 
