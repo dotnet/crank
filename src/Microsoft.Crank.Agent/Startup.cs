@@ -577,6 +577,20 @@ namespace Microsoft.Crank.Agent
                                         });
                                     }
 
+                                    if (!job.Metadata.Any(x => x.Name == "benchmarks/private-memory"))
+                                    {
+                                        job.Metadata.Enqueue(new MeasurementMetadata
+                                        {
+                                            Source = "Host Process",
+                                            Name = "benchmarks/private-memory",
+                                            Aggregate = Operation.Max,
+                                            Reduce = Operation.Max,
+                                            Format = "n0",
+                                            LongDescription = "Amount of private memory used by the process (MB)",
+                                            ShortDescription = "Private Memory (MB)"
+                                        });
+                                    }
+
                                     if (!job.Metadata.Any(x => x.Name == "benchmarks/build-time"))
                                     {
                                         job.Metadata.Enqueue(new MeasurementMetadata
@@ -998,6 +1012,13 @@ namespace Microsoft.Crank.Agent
                                                                         Name = "benchmarks/working-set",
                                                                         Timestamp = now,
                                                                         Value = Math.Ceiling((double)trackProcess.WorkingSet64 / 1024 / 1024) // < 1MB still needs to appear as 1MB
+                                                                    });
+
+                                                                    job.Measurements.Enqueue(new Measurement
+                                                                    {
+                                                                        Name = "benchmarks/private-memory",
+                                                                        Timestamp = now,
+                                                                        Value = Math.Ceiling((double)trackProcess.PrivateMemorySize64 / 1024 / 1024) // < 1MB still needs to appear as 1MB
                                                                     });
 
                                                                     job.Measurements.Enqueue(new Measurement
