@@ -2523,8 +2523,8 @@ namespace Microsoft.Crank.Agent
                 {
                     Source = "Host Process",
                     Name = "netSdkVersion",
-                    Aggregate = Operation.Last,
-                    Reduce = Operation.Last,
+                    Aggregate = Operation.First, // Use first as iterations won't repeat it in next runs
+                    Reduce = Operation.First,
                     Format = "",
                     LongDescription = ".NET Core SDK Version",
                     ShortDescription = ".NET Core SDK Version"
@@ -2549,8 +2549,8 @@ namespace Microsoft.Crank.Agent
                     {
                         Source = "Host Process",
                         Name = "AspNetCoreVersion",
-                        Aggregate = Operation.Last,
-                        Reduce = Operation.Last,
+                        Aggregate = Operation.First, // Use first as iterations won't repeat it in next runs
+                        Reduce = Operation.First,
                         Format = "",
                         LongDescription = "ASP.NET Core Version",
                         ShortDescription = "ASP.NET Core Version"
@@ -2580,8 +2580,8 @@ namespace Microsoft.Crank.Agent
                     {
                         Source = "Host Process",
                         Name = "NetCoreAppVersion",
-                        Aggregate = Operation.Last,
-                        Reduce = Operation.Last,
+                        Aggregate = Operation.First, // Use first as iterations won't repeat it in next runs
+                        Reduce = Operation.First,
                         Format = "",
                         LongDescription = ".NET Runtime Version",
                         ShortDescription = ".NET Runtime Version"
