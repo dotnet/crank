@@ -11,15 +11,18 @@ using Xunit.Abstractions;
 
 namespace Microsoft.Crank.IntegrationTests
 {
-    public class CommonTests : IClassFixture<AgentFixture>
+    public class CommonTests : IClassFixture<AgentFixture>, IDisposable
     {
         private readonly ITestOutputHelper _output;
+        private readonly AgentFixture _agent;
         private string _crankDirectory;
         private string _crankTestsDirectory;
 
         public CommonTests(ITestOutputHelper output, AgentFixture fixture)
         {
+            fixture.Output.Clear();
             _output = output;
+            _agent = fixture;
             _crankDirectory = Path.GetDirectoryName(typeof(CommonTests).Assembly.Location).Replace("Microsoft.Crank.IntegrationTests", "Microsoft.Crank.Controller");
             _crankTestsDirectory = Path.GetDirectoryName(typeof(CommonTests).Assembly.Location);
             _output.WriteLine($"Running tests in {_crankDirectory}");
@@ -155,6 +158,11 @@ namespace Microsoft.Crank.IntegrationTests
 
             // The results are computed
             Assert.Contains("Requests/sec", result.StandardOutput);
+        }
+
+        public void Dispose()
+        {
+            _output.WriteLine(_agent.Output.ToString());
         }
     }
 }

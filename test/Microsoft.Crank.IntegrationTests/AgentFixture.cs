@@ -4,6 +4,7 @@
 
 using System;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Crank.Agent;
@@ -13,6 +14,7 @@ namespace Microsoft.Crank.IntegrationTests
 {
     public class AgentFixture : IAsyncLifetime
     {
+        private StringBuilder _output = new StringBuilder();
         private string _crankAgentDirectory;
         private CancellationTokenSource _stopAgentCts;
         private Task<ProcessResult> _agent;
@@ -40,7 +42,7 @@ namespace Microsoft.Crank.IntegrationTests
                 cancellationToken: _stopAgentCts.Token,
                 outputDataReceived: t => 
                 { 
-                    //_output?.WriteLine($"[AGT] {t}");
+                    _output.AppendLine($"[AGT] {t}");
 
                     if (t.Contains("Agent ready"))
                     {
@@ -69,5 +71,7 @@ namespace Microsoft.Crank.IntegrationTests
 
             cancel.Cancel();
         }
+
+        public StringBuilder Output => _output;
     }
 }
