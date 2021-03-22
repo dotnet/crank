@@ -14,7 +14,7 @@ jobs:
     variables:
       connections: 256
       warmup: 3
-      duration: 5
+      duration: 3
       requests: 0
       rate: 0
       transport: fasthttp # | http1 | http2
