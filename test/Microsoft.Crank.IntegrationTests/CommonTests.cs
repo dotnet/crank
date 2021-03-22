@@ -108,7 +108,7 @@ namespace Microsoft.Crank.IntegrationTests
             Assert.Contains("Lock Contention", result.StandardOutput);
         }
         
-        [Fact]
+        [Fact(Skip="Verifying stability")]
         public async Task Iterations()
         {
             _output.WriteLine($"[TEST] Starting controller");
