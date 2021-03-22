@@ -20,12 +20,13 @@ namespace Microsoft.Crank.IntegrationTests
 
         public CommonTests(ITestOutputHelper output, AgentFixture fixture)
         {
-            fixture.Output.Clear();
+            _output.WriteLine("[TEST] Starting test with agent");
+            
             _output = output;
             _agent = fixture;
             _crankDirectory = Path.GetDirectoryName(typeof(CommonTests).Assembly.Location).Replace("Microsoft.Crank.IntegrationTests", "Microsoft.Crank.Controller");
             _crankTestsDirectory = Path.GetDirectoryName(typeof(CommonTests).Assembly.Location);
-            _output.WriteLine($"Running tests in {_crankDirectory}");
+            _output.WriteLine($"[TEST] Running tests in {_crankDirectory}");
         }
 
         [Fact]
@@ -46,7 +47,7 @@ namespace Microsoft.Crank.IntegrationTests
         [Fact]
         public async Task BenchmarkHello()
         {
-            _output.WriteLine($"Starting controller");
+            _output.WriteLine($"[TEST] Starting controller");
 
             var result = await ProcessUtil.RunAsync(
                 "dotnet", 
@@ -69,7 +70,7 @@ namespace Microsoft.Crank.IntegrationTests
         [Fact]
         public async Task ExecutesScripts()
         {
-            _output.WriteLine($"Starting controller");
+            _output.WriteLine($"[TEST] Starting controller");
 
             var result = await ProcessUtil.RunAsync(
                 "dotnet", 
@@ -92,7 +93,7 @@ namespace Microsoft.Crank.IntegrationTests
         [Fact]
         public async Task DotnetCounters()
         {
-            _output.WriteLine($"Starting controller");
+            _output.WriteLine($"[TEST] Starting controller");
 
             var result = await ProcessUtil.RunAsync(
                 "dotnet", 
@@ -112,7 +113,7 @@ namespace Microsoft.Crank.IntegrationTests
         [Fact]
         public async Task Iterations()
         {
-            _output.WriteLine($"Starting controller");
+            _output.WriteLine($"[TEST] Starting controller");
 
             var result = await ProcessUtil.RunAsync(
                 "dotnet", 
@@ -135,7 +136,7 @@ namespace Microsoft.Crank.IntegrationTests
         [Fact]
         public async Task MultiClients()
         {
-            _output.WriteLine($"Starting controller");
+            _output.WriteLine($"[TEST] Starting controller");
 
             var result = await ProcessUtil.RunAsync(
                 "dotnet", 
@@ -162,7 +163,7 @@ namespace Microsoft.Crank.IntegrationTests
 
         public void Dispose()
         {
-            _output.WriteLine(_agent.Output.ToString());
+            _output.WriteLine(_agent.FlushOutput());
         }
     }
 }

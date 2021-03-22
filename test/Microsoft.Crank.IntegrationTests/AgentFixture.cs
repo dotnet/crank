@@ -72,6 +72,11 @@ namespace Microsoft.Crank.IntegrationTests
             cancel.Cancel();
         }
 
-        public StringBuilder Output => _output;
+        public string FlushOutput()
+        {
+            var localOutput = _output;
+            _output = new StringBuilder();
+            return localOutput.ToString();
+        }
     }
 }
