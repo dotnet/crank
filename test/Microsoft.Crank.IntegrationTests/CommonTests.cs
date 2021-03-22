@@ -20,8 +20,6 @@ namespace Microsoft.Crank.IntegrationTests
 
         public CommonTests(ITestOutputHelper output, AgentFixture fixture)
         {
-            _output.WriteLine("[TEST] Starting test with agent");
-            
             _output = output;
             _agent = fixture;
             _crankDirectory = Path.GetDirectoryName(typeof(CommonTests).Assembly.Location).Replace("Microsoft.Crank.IntegrationTests", "Microsoft.Crank.Controller");

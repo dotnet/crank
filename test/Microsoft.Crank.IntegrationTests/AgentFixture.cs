@@ -26,6 +26,8 @@ namespace Microsoft.Crank.IntegrationTests
 
         public async Task InitializeAsync()
         {
+            _output.AppendLine($"[AGT] Starting agent");
+
             var agentReadyTcs = new TaskCompletionSource<bool>();
             _stopAgentCts = new CancellationTokenSource();
 
@@ -58,10 +60,14 @@ namespace Microsoft.Crank.IntegrationTests
             {
                 Assert.True(false, "Agent could not start");
             }
+
+            _output.AppendLine($"[AGT] Started agent");
         }
 
         public async Task DisposeAsync()
         {
+            _output.AppendLine($"[AGT] Releasing agent");
+
             _stopAgentCts.Cancel();
 
             var cancel = new CancellationTokenSource();
@@ -70,6 +76,8 @@ namespace Microsoft.Crank.IntegrationTests
             await Task.WhenAny(_agent, Task.Delay(TimeSpan.FromSeconds(10), cancel.Token));
 
             cancel.Cancel();
+
+            _output.AppendLine($"[AGT] Released agent");
         }
 
         public string FlushOutput()
