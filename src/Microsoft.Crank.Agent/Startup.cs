@@ -434,7 +434,8 @@ namespace Microsoft.Crank.Agent
                     while (runId != null)
                     {
                         // Update group to include new ones
-                        foreach (var job in _jobs.GetAll().Where(x => x.RunId == runId))
+                        // Iterations add jobs to an active, group. We then need to ignore Deleted jobs (previous iterations)
+                        foreach (var job in _jobs.GetAll().Where(x => x.RunId == runId && x.State != JobState.Deleted))
                         {
                             if (!group.ContainsKey(job))
                             {
@@ -633,14 +634,14 @@ namespace Microsoft.Crank.Agent
                                         });
                                     }
 
-                                    if (!job.Metadata.Any(x => x.Name == "benchmarks/swap"))
+                                    if (!job.Metadata.Any(x => x.Name == "benchmarks/memory/swap"))
                                     {
                                         job.Metadata.Enqueue(new MeasurementMetadata
                                         {
                                             Source = "Host Process",
-                                            Name = "benchmarks/swap",
+                                            Name = "benchmarks/memory/swap",
                                             Aggregate = Operation.Delta,
-                                            Reduce = Operation.Max,
+                                            Reduce = Operation.Avg,
                                             Format = "n0",
                                             LongDescription = "Amount of swapped memory (MB)",
                                             ShortDescription = "Swap (MB)"
@@ -913,7 +914,7 @@ namespace Microsoft.Crank.Agent
                                                                     {
                                                                         job.Measurements.Enqueue(new Measurement
                                                                         {
-                                                                            Name = "benchmarks/swap",
+                                                                            Name = "benchmarks/memory/swap",
                                                                             Timestamp = now,
                                                                             Value = GetSwapBytesAsync().GetAwaiter().GetResult() / 1024 / 1024
                                                                         });
@@ -1041,7 +1042,7 @@ namespace Microsoft.Crank.Agent
                                                                         {
                                                                             job.Measurements.Enqueue(new Measurement
                                                                             {
-                                                                                Name = "benchmarks/swap",
+                                                                                Name = "benchmarks/memory/swap",
                                                                                 Timestamp = now,
                                                                                 Value = GetSwapBytesAsync().GetAwaiter().GetResult() / 1024 / 1024
                                                                             });
@@ -4883,7 +4884,7 @@ namespace Microsoft.Crank.Agent
             }
         }
 
-        public static Task EnsureDotnetInstallExistsAsync()
+        public static async Task EnsureDotnetInstallExistsAsync()
         {
             Log.WriteLine($"Checking requirements...");
 
@@ -4929,7 +4930,7 @@ namespace Microsoft.Crank.Agent
                 if (!File.Exists(_perfviewPath))
                 {
                     Log.WriteLine($"Downloading PerfView to '{_perfviewPath}'");
-                    DownloadFileAsync(_perfviewUrl, _perfviewPath, maxRetries: 5, timeout: 60).GetAwaiter().GetResult();
+                    await DownloadFileAsync(_perfviewUrl, _perfviewPath, maxRetries: 5, timeout: 60);
                 }
             }
 
@@ -4952,10 +4953,8 @@ namespace Microsoft.Crank.Agent
             if (!File.Exists(dotnetInstallFilename))
             {
                 Log.WriteLine($"Downloading dotnet-install to '{dotnetInstallFilename}'");
-                return DownloadFileAsync(_dotnetInstallUrl, dotnetInstallFilename, maxRetries: 5, timeout: 60);
+                await DownloadFileAsync(_dotnetInstallUrl, dotnetInstallFilename, maxRetries: 5, timeout: 60);
             }
-
-            return Task.CompletedTask;
         }
 
         private void OnShutdown()
