@@ -434,7 +434,8 @@ namespace Microsoft.Crank.Agent
                     while (runId != null)
                     {
                         // Update group to include new ones
-                        foreach (var job in _jobs.GetAll().Where(x => x.RunId == runId))
+                        // Iterations add jobs to an active, group. We then need to ignore Deleted jobs (previous iterations)
+                        foreach (var job in _jobs.GetAll().Where(x => x.RunId == runId && j.State != JobState.Deleted))
                         {
                             if (!group.ContainsKey(job))
                             {
