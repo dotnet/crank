@@ -70,8 +70,8 @@ RUN apt-get update \
 
 RUN cp /usr/bin/perf_4.19 /usr/bin/perf
 
-# Downloading perfcollect - This branch contains SIGINT fixes
-ADD https://raw.githubusercontent.com/sebastienros/perfview/sebros/sigint/src/perfcollect/perfcollect /usr/bin/perfcollect
+# Downloading perfcollect
+ADD https://raw.githubusercontent.com/microsoft/perfview/main/src/perfcollect/perfcollect
 
 RUN chmod +x /usr/bin/perfcollect
 
