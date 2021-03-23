@@ -51,7 +51,7 @@ namespace Microsoft.Crank.Controller
             _scenarioOption,
             _jobOption,
             _profileOption,
-            _outputOption,
+            _jsonOption,
             _compareOption,
             _variableOption,
             _sqlConnectionStringOption,
@@ -80,6 +80,7 @@ namespace Microsoft.Crank.Controller
 
         private static Dictionary<string, string> _deprecatedArguments = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
+            { "--output", "--json" }, { "-o", "-j" } // todo: remove in subsequent version prefix
         };
 
         private static Dictionary<string, string> _synonymArguments = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -139,7 +140,7 @@ namespace Microsoft.Crank.Controller
             _jobOption = app.Option("-j|--job", "Name of job to define", CommandOptionType.MultipleValue);
             _profileOption = app.Option("--profile", "Profile name", CommandOptionType.MultipleValue);
             _scriptOption = app.Option("--script", "Execute a named script available in the configuration files. Can be used multiple times.", CommandOptionType.MultipleValue);
-            _outputOption = app.Option("-o|--output", "Output filename", CommandOptionType.SingleValue);
+            _jsonOption = app.Option("-j|--json", "Saves the results as json in the specified file.", CommandOptionType.SingleValue);
             _compareOption = app.Option("--compare", "An optional filename to compare the results to. Can be used multiple times.", CommandOptionType.MultipleValue);
             _variableOption = app.Option("--variable", "Variable", CommandOptionType.MultipleValue);
             _sqlConnectionStringOption = app.Option("--sql",
@@ -472,9 +473,9 @@ namespace Microsoft.Crank.Controller
 
                     if (_scenarioOption.HasValue())
                     {
-                        if (_outputOption.HasValue())
+                        if (_jsonOption.HasValue())
                         {
-                            jobName = Path.GetFileNameWithoutExtension(_outputOption.Value());
+                            jobName = Path.GetFileNameWithoutExtension(_jsonOption.Value());
                         }
                     }
 
@@ -863,9 +864,9 @@ namespace Microsoft.Crank.Controller
 
                 CleanMeasurements(jobResults);
 
-                if (_outputOption.HasValue())
+                if (_jsonOption.HasValue())
                 {
-                    var filename = _outputOption.Value();
+                    var filename = _jsonOption.Value();
                     
                     var directory = Path.GetDirectoryName(filename);
                     if (!String.IsNullOrEmpty(directory) && !Directory.Exists(directory))
@@ -1005,10 +1006,10 @@ namespace Microsoft.Crank.Controller
 
             // Save results as a single file
 
-            if (_outputOption.HasValue())
+            if (_jsonOption.HasValue())
             {
-                var filename = _outputOption.Value();
-                
+                var filename = _jsonOption.Value();
+
                 var directory = Path.GetDirectoryName(filename);
                 if (!String.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                 {
@@ -1178,15 +1179,16 @@ namespace Microsoft.Crank.Controller
 
                     CleanMeasurements(jobResults);
 
-                    if (_outputOption.HasValue())
+                    if (_jsonOption.HasValue())
                     {
-                        var filename = _outputOption.Value();
+                        var filename = _jsonOption.Value();
+
                         var index = 1;
 
                         do
                         {
-                            var filenameWithoutExtension = Path.GetFileNameWithoutExtension(_outputOption.Value());
-                            filename = filenameWithoutExtension + "-" + index++ + Path.GetExtension(_outputOption.Value());
+                            var filenameWithoutExtension = Path.GetFileNameWithoutExtension(filename);
+                            filename = filenameWithoutExtension + "-" + index++ + Path.GetExtension(filename);
                         } while (File.Exists(filename));
 
                         await File.WriteAllTextAsync(filename, JsonConvert.SerializeObject(jobResults, Formatting.Indented, new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() }));
