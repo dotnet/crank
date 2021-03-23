@@ -71,7 +71,7 @@ RUN apt-get update \
 RUN cp /usr/bin/perf_4.19 /usr/bin/perf
 
 # Downloading perfcollect
-ADD https://raw.githubusercontent.com/microsoft/perfview/main/src/perfcollect/perfcollect
+ADD https://raw.githubusercontent.com/microsoft/perfview/main/src/perfcollect/perfcollect /usr/bin/perfcollect
 
 RUN chmod +x /usr/bin/perfcollect
 
