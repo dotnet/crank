@@ -4,9 +4,15 @@
     "jobs": {
       "application": {
         "results": {
-          "benchmarks/working-set": 158.0,
-          "benchmarks/cpu": 78.0,
-          "benchmarks/cpu/raw": 937.0
+          "netSdkVersion": "6.0.100-preview.3.21173.6",
+          "aspNetCoreVersion": "6.0.0-preview.3.21172.8+fb3092b",
+          "netCoreAppVersion": "6.0.0-preview.3.21169.6+76954b4",
+          "benchmarks/build-time": 3128.0,
+          "benchmarks/published-size": 84838.0,
+          "benchmarks/start-time": 220.0,
+          "benchmarks/working-set": 85.0,
+          "benchmarks/cpu": 95.0,
+          "benchmarks/cpu/raw": 1145.0
         },
         "metadata": [
           {
@@ -425,27 +431,201 @@
             "format": "n0"
           }
         ],
-        "measurements": [],
-        "environment": {}
+        "measurements": [
+          [
+            {
+              "timestamp": "2021-03-23T22:09:53.3118276Z",
+              "name": "netSdkVersion",
+              "value": "6.0.100-preview.3.21173.6"
+            },
+            {
+              "timestamp": "2021-03-23T22:09:53.3120613Z",
+              "name": "AspNetCoreVersion",
+              "value": "6.0.0-preview.3.21172.8+fb3092b"
+            },
+            {
+              "timestamp": "2021-03-23T22:09:53.3122672Z",
+              "name": "NetCoreAppVersion",
+              "value": "6.0.0-preview.3.21169.6+76954b4"
+            },
+            {
+              "timestamp": "2021-03-23T22:09:56.4404924Z",
+              "name": "benchmarks/build-time",
+              "value": 3128
+            },
+            {
+              "timestamp": "2021-03-23T22:09:56.4443528Z",
+              "name": "benchmarks/published-size",
+              "value": 84838
+            },
+            {
+              "timestamp": "2021-03-23T22:09:56.665426Z",
+              "name": "benchmarks/start-time",
+              "value": 220
+            },
+            {
+              "timestamp": "2021-03-23T22:09:58.5767256Z",
+              "name": "benchmarks/working-set",
+              "value": 47.0
+            },
+            {
+              "timestamp": "2021-03-23T22:09:58.5767256Z",
+              "name": "benchmarks/cpu",
+              "value": 0.0
+            },
+            {
+              "timestamp": "2021-03-23T22:09:58.5767256Z",
+              "name": "benchmarks/cpu/raw",
+              "value": 1.0
+            },
+            {
+              "timestamp": "2021-03-23T22:09:59.5760214Z",
+              "name": "benchmarks/working-set",
+              "value": 75.0
+            },
+            {
+              "timestamp": "2021-03-23T22:09:59.5760214Z",
+              "name": "benchmarks/cpu",
+              "value": 41.0
+            },
+            {
+              "timestamp": "2021-03-23T22:09:59.5760214Z",
+              "name": "benchmarks/cpu/raw",
+              "value": 497.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:00.5772767Z",
+              "name": "benchmarks/working-set",
+              "value": 80.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:00.5772767Z",
+              "name": "benchmarks/cpu",
+              "value": 95.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:00.5772767Z",
+              "name": "benchmarks/cpu/raw",
+              "value": 1142.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:01.5820574Z",
+              "name": "benchmarks/working-set",
+              "value": 81.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:01.5820574Z",
+              "name": "benchmarks/cpu",
+              "value": 95.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:01.5820574Z",
+              "name": "benchmarks/cpu/raw",
+              "value": 1144.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:02.5834624Z",
+              "name": "benchmarks/working-set",
+              "value": 81.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:02.5834624Z",
+              "name": "benchmarks/cpu",
+              "value": 95.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:02.5834624Z",
+              "name": "benchmarks/cpu/raw",
+              "value": 1138.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:03.5879213Z",
+              "name": "benchmarks/working-set",
+              "value": 81.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:03.5879213Z",
+              "name": "benchmarks/cpu",
+              "value": 95.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:03.5879213Z",
+              "name": "benchmarks/cpu/raw",
+              "value": 1145.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:04.5885718Z",
+              "name": "benchmarks/working-set",
+              "value": 85.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:04.5885718Z",
+              "name": "benchmarks/cpu",
+              "value": 78.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:04.5885718Z",
+              "name": "benchmarks/cpu/raw",
+              "value": 936.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:05.5899882Z",
+              "name": "benchmarks/working-set",
+              "value": 85.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:05.5899882Z",
+              "name": "benchmarks/cpu",
+              "value": 0.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:05.5899882Z",
+              "name": "benchmarks/cpu/raw",
+              "value": 3.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:06.5934522Z",
+              "name": "benchmarks/working-set",
+              "value": 85.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:06.5934522Z",
+              "name": "benchmarks/cpu",
+              "value": 0.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:06.5934522Z",
+              "name": "benchmarks/cpu/raw",
+              "value": 0.0
+            }
+          ]
+        ],
+        "environment": {
+          "hw": "Unknown",
+          "env": "Unspecified",
+          "os": "Linux",
+          "arch": "X64",
+          "proc": 12
+        }
       },
       "load": {
         "results": {
           "benchmarks/start-time": 0.0,
-          "benchmarks/working-set": 7.0,
-          "benchmarks/cpu": 77.0,
-          "benchmarks/cpu/raw": 919.0,
-          "http/firstrequest": 58.0,
-          "wrk/latency/mean": 1.16,
-          "wrk/rps/mean": 399427.81,
-          "wrk/throughput": 57.9,
-          "wrk/latency/max": 128.49,
-          "wrk/requests": 2036813.0,
+          "benchmarks/working-set": 17.0,
+          "benchmarks/cpu": 90.0,
+          "benchmarks/cpu/raw": 1085.0,
+          "http/firstrequest": 85.0,
+          "wrk/latency/mean": 5.77,
+          "wrk/rps/mean": 5819375.33,
+          "wrk/throughput": 699.27,
+          "wrk/latency/max": 229.01,
+          "wrk/requests": 29673472.0,
           "wrk/errors/badresponses": 0.0,
           "wrk/errors/socketerrors": 0.0,
-          "wrk/latency/50": 0.63,
-          "wrk/latency/75": 0.713,
-          "wrk/latency/90": 0.8,
-          "wrk/latency/99": 15.93
+          "wrk/latency/50": 1.86,
+          "wrk/latency/75": 5.84,
+          "wrk/latency/90": 15.17,
+          "wrk/latency/99": 53.96
         },
         "metadata": [
           {
@@ -909,8 +1089,142 @@
             "format": "n0"
           }
         ],
-        "measurements": [],
-        "environment": {}
+        "measurements": [
+          [
+            {
+              "timestamp": "2021-03-23T22:09:58.9276032Z",
+              "name": "benchmarks/start-time",
+              "value": 0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:00.925923Z",
+              "name": "benchmarks/working-set",
+              "value": 17.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:00.925923Z",
+              "name": "benchmarks/cpu",
+              "value": 90.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:00.925923Z",
+              "name": "benchmarks/cpu/raw",
+              "value": 1077.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:01.9264475Z",
+              "name": "benchmarks/working-set",
+              "value": 17.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:01.9264475Z",
+              "name": "benchmarks/cpu",
+              "value": 84.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:01.9264475Z",
+              "name": "benchmarks/cpu/raw",
+              "value": 1005.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:02.926501Z",
+              "name": "benchmarks/working-set",
+              "value": 17.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:02.926501Z",
+              "name": "benchmarks/cpu",
+              "value": 89.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:02.926501Z",
+              "name": "benchmarks/cpu/raw",
+              "value": 1074.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:03.9265637Z",
+              "name": "benchmarks/working-set",
+              "value": 17.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:03.9265637Z",
+              "name": "benchmarks/cpu",
+              "value": 90.0
+            },
+            {
+              "timestamp": "2021-03-23T22:10:03.9265637Z",
+              "name": "benchmarks/cpu/raw",
+              "value": 1085.0
+            },
+            {
+              "timestamp": "2021-03-23T15:09:59.1270471-07:00",
+              "name": "http/firstrequest",
+              "value": 85
+            },
+            {
+              "timestamp": "2021-03-23T15:10:04.3906978-07:00",
+              "name": "wrk/latency/mean",
+              "value": 5.77
+            },
+            {
+              "timestamp": "2021-03-23T15:10:04.3909117-07:00",
+              "name": "wrk/rps/mean",
+              "value": 5819375.33
+            },
+            {
+              "timestamp": "2021-03-23T15:10:04.3913559-07:00",
+              "name": "wrk/throughput",
+              "value": 699.27
+            },
+            {
+              "timestamp": "2021-03-23T15:10:04.3920555-07:00",
+              "name": "wrk/latency/max",
+              "value": 229.01
+            },
+            {
+              "timestamp": "2021-03-23T15:10:04.3960433-07:00",
+              "name": "wrk/requests",
+              "value": 29673472
+            },
+            {
+              "timestamp": "2021-03-23T15:10:04.3963424-07:00",
+              "name": "wrk/errors/badresponses",
+              "value": 0
+            },
+            {
+              "timestamp": "2021-03-23T15:10:04.39669-07:00",
+              "name": "wrk/errors/socketerrors",
+              "value": 0
+            },
+            {
+              "timestamp": "2021-03-23T15:10:04.3970891-07:00",
+              "name": "wrk/latency/50",
+              "value": 1.86
+            },
+            {
+              "timestamp": "2021-03-23T15:10:04.3971921-07:00",
+              "name": "wrk/latency/75",
+              "value": 5.84
+            },
+            {
+              "timestamp": "2021-03-23T15:10:04.3992112-07:00",
+              "name": "wrk/latency/90",
+              "value": 15.17
+            },
+            {
+              "timestamp": "2021-03-23T15:10:04.4003782-07:00",
+              "name": "wrk/latency/99",
+              "value": 53.96
+            }
+          ]
+        ],
+        "environment": {
+          "hw": "Unknown",
+          "env": "Unspecified",
+          "os": "Linux",
+          "arch": "X64",
+          "proc": 12
+        }
       }
     },
     "properties": {}

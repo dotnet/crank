@@ -770,11 +770,11 @@ namespace Microsoft.Crank.Controller
                     try
                     {
                         StartKeepAlive();
-                        await DownloadFileAsync(file);
+                        await DownloadFileAsync(file, Job.Options.DownloadFilesOutput);
                     }
                     catch (Exception e)
                     {
-                        Log.Write($"Error while downloading file {file}, skipping ...");
+                        Log.WriteError($"Error while downloading file {file}, skipping ...");
                         Log.Verbose(e.Message);
                         continue;
                     }
@@ -980,19 +980,49 @@ namespace Microsoft.Crank.Controller
             return await _httpClient.GetStringAsync(uri);
         }
 
-        public async Task DownloadFileAsync(string file)
+        public async Task DownloadFileAsync(string file, string output)
         {
-            var uri = _serverJobUri + "/download?path=" + HttpUtility.UrlEncode(file);
-            Log.Verbose("GET " + uri);
-
-            var filename = file;
-            var counter = 1;
-            while (File.Exists(filename))
+            // Is it a globing pattern or a single file?
+            // Don't process a filename without * with ListFilesAsync as is could match multiple files
+            if (file.Contains('*'))
             {
-                filename = Path.GetFileNameWithoutExtension(file) + counter++ + Path.GetExtension(file);
-            }
+                var files = await ListFilesAsync(file);
 
-            await _httpClient.DownloadFileAsync(uri, _serverJobUri, filename);
+                foreach (var f in files)
+                {
+                    var uri = _serverJobUri + "/download?path=" + HttpUtility.UrlEncode(f);
+                    Log.Verbose("GET " + uri);
+
+                    var filename = Path.Combine(output ?? "", Path.GetDirectoryName(file), f);
+                    filename = Path.GetFullPath(filename);
+
+                    if (!Directory.Exists(Path.GetDirectoryName(filename)))
+                    {
+                        Directory.CreateDirectory(Path.GetDirectoryName(filename));
+                    }
+
+                    Log.Write($"Downloading '{filename}'");
+
+                    await _httpClient.DownloadFileAsync(uri, _serverJobUri, filename);
+                }
+            }
+            else
+            {
+                var uri = _serverJobUri + "/download?path=" + HttpUtility.UrlEncode(file);
+                Log.Verbose("GET " + uri);
+
+                var filename = Path.Combine(output ?? "", file);
+                filename = Path.GetFullPath(filename);
+
+                if (!Directory.Exists(Path.GetDirectoryName(filename)))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(filename));
+                }
+
+                Log.Write($"Downloading '{filename}'");
+
+                await _httpClient.DownloadFileAsync(uri, _serverJobUri, filename);
+            }
         }
 
         public async Task<IEnumerable<string>> ListFilesAsync(string pattern)

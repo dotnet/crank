@@ -207,6 +207,7 @@ namespace Microsoft.Crank.Models
         public bool Fetch { get; set; }
         public string FetchOutput { get; set; }
         public List<string> DownloadFiles { get; set; } = new List<string>();
+        public string DownloadFilesOutput { get; set; }
         public string TraceOutput { get; set; }
         public bool DisplayBuild { get; set; }
         public string RequiredOperatingSystem { get; set; }

@@ -22,7 +22,7 @@ Options:
   
   --sql                                                          Connection string or environment variable name of the SQL Server Database to store results in.
   --table                                                        Table or environment variable name of the SQL Database to store results in.
-  --output <filename>                                            An optional filename to store the output document.
+  --json <filename>                                              Store the results as json ins the specified file.
   --no-metadata                                                  Don't record metadata in the stored document.
   --no-measurements                                              Don't record measurements in the stored document.
 
@@ -98,38 +98,24 @@ Options:
   --[JOB].options.fetchOutput <filename>                                   The name of the fetched archive. Can be a file prefix (app will add *.DATE*.zip) , or a specific name (end in *.zip) and no DATE* will be added e.g., c:\publishedapps\myApp
   --[JOB].options.displayOutput <true|false>                               Whether to download and display the standard output of the benchmark.
   --[JOB].options.displayBuild <true|false>                                Whether to download and display the standard output of the build step (works for .NET and Docker).
+  --[JOB].options.dowloadFiles <filename|pattern>                          The name of the file(s) to download.
+  --[JOB].options.dowloadFilesOutput <path>                                A path where the files will be downladed.
 
   ## Files
+
   --[JOB].options.buildFiles <filename>                                    Build files that will be copied before the application is built. Accepts globing patterns and recursive marker (**). Format is 'path[;destination]'. Path can be a URL. e.g., c:\images\mydockerimage.tar, c:\code\Program.cs. If provided, the destination needs to be a folder name, relative to the root source.
   --[JOB].options.outputFiles <filename>                                   Output files that will be copied in the final application folder. Accepts globing patterns and recursive marker (**). Format is 'path[;destination]'. Path can be a URL. e.g., c:\build\Microsoft.AspNetCore.Mvc.dll, c:\files\samples\picture.png;wwwroot\picture.png. If provided, the destination needs to be a folder name, relative to the root source.
-  --[JOB].options.reuseSource <true|false>                                  Reuse local or remote sources across benchmarks for the same source.
-  --[JOB].options.reuseBuild <true|false>                                   Reuse build files across benchmarks. Don't use with floating runtime versions.
+  --[JOB].options.reuseSource <true|false>                                 Reuse local or remote sources across benchmarks for the same source.
+  --[JOB].options.reuseBuild <true|false>                                  Reuse build files across benchmarks. Don't use with floating runtime versions.
 
   ## Timeouts
 
-  --[JOB].timeout                                                           Maximum duration in seconds of the job in seconds. Defaults to 0 (unlimited).
-  --[JOB].buildTimeout                                                      Maximum duration of the build phase. Defaults to 00:10:00 (10 minutes).
-  --[JOB].startTimeout                                                      Maximum duration of the start phase. Defaults to 00:03:00 (3 minutes).
-  --[JOB].collectTimeout                                                    Maximum duration of the collect phase. Defaults to 00:05:00 (5 minutes).
+  --[JOB].timeout                                                          Maximum duration in seconds of the job in seconds. Defaults to 0 (unlimited).
+  --[JOB].buildTimeout                                                     Maximum duration of the build phase. Defaults to 00:10:00 (10 minutes).
+  --[JOB].startTimeout                                                     Maximum duration of the start phase. Defaults to 00:03:00 (3 minutes).
+  --[JOB].collectTimeout                                                   Maximum duration of the collect phase. Defaults to 00:05:00 (5 minutes).
 
-  ## Telemetry
+  ## Measurements
 
   --[JOB].options.discardResults <true|false>                              Whether to discard all the results from this job, for instance during a warmup job.
 
-  # Example
-
-  dotnet run --
-    --config ..\..\..\benchmarks.compose.json 
-    --scenario plaintext 
-
-    --application.endpoints http://asp-perf-lin:5001
-    --application.sdkversion 5.0.100-alpha1-015721 
-    --application.dotnetTrace true 
-    --application.options.collectCounters true
-
-    --load.endpoints http://asp-perf-win:5001 
-    --load.source.localFolder ..\..\..\..\PipeliningClient\ 
-    --load.source.project PipeliningClient.csproj 
-    --load.variables.warmup 0 
-    --load.variables.duration 5  
-    --variables preset-headers=none 
