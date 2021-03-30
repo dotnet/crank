@@ -1246,11 +1246,11 @@ namespace Microsoft.Crank.Agent
                                     return;
                                 }
 
-                                Log.WriteLine($"Collecting dump ({job.Service}:{job.Id})");
-
                                 // Collect dump
                                 if (job.DumpProcess)
                                 {
+                                    Log.WriteLine($"Collecting dump ({job.Service}:{job.Id})");
+
                                     job.DumpFile = Path.Combine(job.BasePath, "benchmarks.dmp");
 
                                     var dumper = new Dumper();
@@ -1438,7 +1438,7 @@ namespace Microsoft.Crank.Agent
 
                                 if (_cleanup && !job.NoClean && String.IsNullOrEmpty(job.Source.SourceKey) && tempDir != null)
                                 {
-                                    TryDeleteDir(tempDir, false);
+                                    await TryDeleteDirAsync(tempDir, false);
                                 }
 
                                 tempDir = null;
@@ -3662,7 +3662,7 @@ namespace Microsoft.Crank.Agent
             }
         }
 
-        private static void TryDeleteDir(string path, bool rethrow = true)
+        private static async Task TryDeleteDirAsync(string path, bool rethrow = true)
         {
             if (String.IsNullOrEmpty(path) || !Directory.Exists(path))
             {
@@ -3671,12 +3671,11 @@ namespace Microsoft.Crank.Agent
 
             Log.WriteLine($"Deleting directory '{path}'");
 
-            // Delete occasionally fails with the following exception:
-            //
-            // System.UnauthorizedAccessException: Access to the path 'Benchmarks.dll' is denied.
-            //
-            // If delete fails, retry once every second up to 10 times.
-            for (var i = 0; i < 10; i++)
+            var retryDelays = new[] { 50, 100, 500, 1000 };
+
+            var success = false;
+
+            foreach (var delay in retryDelays)
             {
                 try
                 {
@@ -3686,32 +3685,25 @@ namespace Microsoft.Crank.Agent
                         info.Attributes = FileAttributes.Normal;
                     }
                     dir.Delete(recursive: true);
-                    Log.WriteLine("SUCCESS");
+                    success = true;
                     break;
                 }
                 catch (DirectoryNotFoundException)
                 {
-                    Log.WriteLine("Nothing to do");
+                    Log.WriteLine("Directory not found");
                     break;
                 }
                 catch
                 {
                     Log.WriteLine("Error, retrying ...");
 
-                    if (i < 9)
-                    {
-                        Thread.Sleep(TimeSpan.FromSeconds(1));
-                    }
-                    else
-                    {
-                        Log.WriteLine("All retries failed");
-
-                        if (rethrow)
-                        {
-                            throw;
-                        }
-                    }
+                    await Task.Delay(delay);
                 }
+            }
+
+            if (!success)
+            {
+                Log.WriteLine($"[ERROR] Failed to delete directory '{path}'");
             }
         }
 
@@ -5006,7 +4998,7 @@ namespace Microsoft.Crank.Agent
 
                 if (_cleanup && Directory.Exists(_rootTempDir))
                 {
-                    TryDeleteDir(_rootTempDir, false);
+                    TryDeleteDirAsync(_rootTempDir, false).GetAwaiter().GetResult();
                 }
             }
             finally
