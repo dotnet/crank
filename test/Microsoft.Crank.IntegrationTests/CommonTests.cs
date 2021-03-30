@@ -4,7 +4,6 @@
 
 using System;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.Crank.Agent;
 using Xunit;
@@ -73,7 +72,7 @@ namespace Microsoft.Crank.IntegrationTests
 
             var result = await ProcessUtil.RunAsync(
                 "dotnet", 
-                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --config ./assets/scripts.benchmarks.yml --script add_current_time --output results.json", 
+                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --config ./assets/scripts.benchmarks.yml --script add_current_time --json results.json", 
                 workingDirectory: _crankTestsDirectory,
                 captureOutput: true,
                 timeout: TimeSpan.FromMinutes(5),
