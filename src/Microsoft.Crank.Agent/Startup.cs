@@ -1251,7 +1251,7 @@ namespace Microsoft.Crank.Agent
                                 {
                                     Log.WriteLine($"Collecting dump ({job.Service}:{job.Id})");
 
-                                    job.DumpFile = Path.Combine(job.BasePath, "benchmarks.dmp");
+                                    job.DumpFile = Path.GetTempFileName();
 
                                     var dumper = new Dumper();
                                     dumper.Collect(job.ProcessId, job.DumpFile, job.DumpType);
@@ -1438,6 +1438,13 @@ namespace Microsoft.Crank.Agent
 
                                 if (_cleanup && !job.NoClean && String.IsNullOrEmpty(job.Source.SourceKey) && tempDir != null)
                                 {
+                                    // Delete traces
+
+                                    TryDeleteFile(job.DumpFile);
+                                    TryDeleteFile(job.PerfViewTraceFile);
+
+                                    // Delete application folder
+
                                     await TryDeleteDirAsync(tempDir, false);
                                 }
 
@@ -3662,6 +3669,25 @@ namespace Microsoft.Crank.Agent
             }
         }
 
+        private static bool TryDeleteFile(string path)
+        {
+            try
+            {
+                if (!String.IsNullOrEmpty(path) && File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+
+                return true;
+            }
+            catch
+            {
+                Log.WriteLine($"[ERROR] Could not delete file '{path}'");
+            }
+
+            return false;
+        }
+
         private static async Task TryDeleteDirAsync(string path, bool rethrow = true)
         {
             if (String.IsNullOrEmpty(path) || !Directory.Exists(path))
@@ -4238,7 +4264,7 @@ namespace Microsoft.Crank.Agent
         {
             if (OperatingSystem == OperatingSystem.Windows)
             {
-                job.PerfViewTraceFile = Path.Combine(job.BasePath, "benchmarks.etl.zip");
+                job.PerfViewTraceFile = Path.GetTempFileName();
                 var perfViewArguments = new Dictionary<string, string>();
 
                 if (!String.IsNullOrEmpty(job.CollectArguments))
