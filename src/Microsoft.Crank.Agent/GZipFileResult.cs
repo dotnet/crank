@@ -21,35 +21,24 @@ public class GZipFileResult : ActionResult
     public override async Task ExecuteResultAsync(ActionContext context)
     {
         context.HttpContext.Response.Headers.Add(HeaderNames.Vary, HeaderNames.ContentEncoding);
-        var stream = File.OpenRead(FileName);
+        await using var stream = File.OpenRead(FileName);
         
         context.HttpContext.Response.Headers["FileLength"] = new FileInfo(FileName).Length.ToString(CultureInfo.InvariantCulture);
         
-        try
+        if (context.HttpContext.Request.Headers.TryGetValue(HeaderNames.AcceptEncoding, out var acceptEncoding)
+            && acceptEncoding.ToString().Contains("gzip"))
         {
-            if (context.HttpContext.Request.Headers.TryGetValue(HeaderNames.AcceptEncoding, out var acceptEncoding)
-                && acceptEncoding.ToString().Contains("gzip"))
-            {
-                var gzipStream = new GZipStream(context.HttpContext.Response.Body, CompressionLevel.Fastest);
+            await using var gzipStream = new GZipStream(context.HttpContext.Response.Body, CompressionLevel.Fastest);
 
-                try
-                {
-                    context.HttpContext.Response.Headers[HeaderNames.ContentEncoding] = "gzip";
-                    await stream.CopyToAsync(gzipStream);
-                }
-                finally
-                {
-                    await gzipStream.DisposeAsync();
-                }
-            }
-            else
-            {
-                await stream.CopyToAsync(context.HttpContext.Response.Body);
-            }
+            context.HttpContext.Response.Headers[HeaderNames.ContentEncoding] = "gzip";
+            await stream.CopyToAsync(gzipStream);
+            await stream.FlushAsync();
+            await gzipStream.FlushAsync();
         }
-        finally
+        else
         {
-            await stream.DisposeAsync();
+            await stream.CopyToAsync(context.HttpContext.Response.Body);
+            await stream.FlushAsync();
         }
     }
 }
