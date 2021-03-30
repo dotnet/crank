@@ -38,6 +38,7 @@ namespace Microsoft.Crank.Controller
         private bool _keepAlive;
         private DateTime? _runningUtc;
         private string _jobName;
+        private bool _traceCollected;
 
         private int _outputCursor;
         private int _buildCursor;
@@ -674,35 +675,14 @@ namespace Microsoft.Crank.Controller
                     traceDestination = traceDestination + "." + DateTime.Now.ToString("MM-dd-HH-mm-ss") + traceExtension;
                 }
 
-                Log.Write($"Server is collecting trace file, this can take up to 1 minute");
-
-                var uri = _serverJobUri + "/trace";
-                var response = await _httpClient.PostAsync(uri, new StringContent(""));
-                response.EnsureSuccessStatusCode();
-
-                while (true)
-                {
-                    var state = await GetStateAsync();
-
-                    if (state == JobState.TraceCollecting)
-                    {
-                        Console.Write(".");
-                    }
-                    else
-                    {
-                        break;
-                    }
-
-                    await Task.Delay(1000);
-                }
-
-                Console.WriteLine();
+                await CollectTracesAsync();
 
                 Log.Write($"Downloading trace file {traceDestination} ...");
 
                 try
                 {
                     StartKeepAlive();
+                    var uri = _serverJobUri + "/trace";
                     await _httpClient.DownloadFileWithProgressAsync(uri, _serverJobUri, traceDestination);
                 }
                 catch (Exception e)
@@ -713,10 +693,100 @@ namespace Microsoft.Crank.Controller
                 {
                     StopKeepAlive();
                 }
+
+
+                _traceCollected = true;
             }
             catch (Exception e)
             {
-                Log.Write($"Error while fetching trace for '{Job.Service}'");
+                Log.WriteWarning($"Error while fetching trace for '{Job.Service}'");
+                Log.Verbose(e.Message);
+            }
+        }
+
+        private async Task CollectTracesAsync()
+        {
+            if (_traceCollected)
+            {
+                return;
+            }
+
+            Log.Write($"Server is collecting trace file, this can take up to 1 minute");
+
+            var uri = _serverJobUri + "/trace";
+            var response = await _httpClient.PostAsync(uri, new StringContent(""));
+            response.EnsureSuccessStatusCode();
+
+            while (true)
+            {
+                var state = await GetStateAsync();
+
+                if (state == JobState.TraceCollecting)
+                {
+                    Console.Write(".");
+                }
+                else
+                {
+                    break;
+                }
+
+                await Task.Delay(1000);
+            }
+
+            Console.WriteLine();
+
+            _traceCollected = true;
+        }
+
+        public async Task DownloadDumpAsync()
+        {
+            if (!Job.DumpProcess)
+            {
+                return;
+            }
+
+            // We can only download the dump for a job that has been stopped
+            if (await GetStateAsync() != JobState.Stopped)
+            {
+                return;
+            }
+
+            try
+            {
+                var dumpExtension = ".dmp";
+
+                var dumpDestination = Job.Options.DumpOutput;
+
+                if (String.IsNullOrWhiteSpace(dumpDestination))
+                {
+                    dumpDestination = Job.Service;
+                }
+
+                if (!dumpDestination.EndsWith(dumpExtension, StringComparison.OrdinalIgnoreCase))
+                {
+                    dumpDestination = dumpDestination + "." + DateTime.Now.ToString("MM-dd-HH-mm-ss") + dumpExtension;
+                }
+
+                Log.Write($"Downloading dump file {dumpDestination} ...");
+
+                try
+                {
+                    StartKeepAlive();
+                    var uri = _serverJobUri + "/dump";
+                    await _httpClient.DownloadFileWithProgressAsync(uri, _serverJobUri, dumpDestination);
+                }
+                catch (Exception e)
+                {
+                    Log.Write($"The dump was not captured on the server: " + e.ToString());
+                }
+                finally
+                {
+                    StopKeepAlive();
+                }
+            }
+            catch (Exception e)
+            {
+                Log.WriteWarning($"Error while fetching dump for '{Job.Service}'");
                 Log.Verbose(e.Message);
             }
         }
