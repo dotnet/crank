@@ -4,6 +4,7 @@
 
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.Crank.Agent;
 using Xunit;
@@ -108,7 +109,7 @@ namespace Microsoft.Crank.IntegrationTests
             Assert.Contains("Lock Contention", result.StandardOutput);
         }
 
-        [Fact]
+        [SkipOnMacOs]
         public async Task CollectDump()
         {
             _output.WriteLine($"[TEST] Starting controller");
