@@ -254,6 +254,11 @@ namespace Microsoft.Crank.Agent.Controllers
         [HttpPost("{id}/trace")]
         public IActionResult TracePost(int id)
         {
+            // This will trigger
+            // - dump file collection
+            // - native trace collection
+            // - managed trace collection
+
             try
             {
                 var job = _jobs.Find(id);
@@ -402,9 +407,34 @@ namespace Microsoft.Crank.Agent.Controllers
                     return NotFound();
                 }
 
-                return new GZipFileResult(job.PerfViewTraceFile);                    
+                return new GZipFileResult(job.PerfViewTraceFile);
             }
             catch(Exception e)
+            {
+                Log("Error: " + e);
+                return NotFound();
+            }
+        }
+
+        [HttpGet("{id}/dump")]
+        public IActionResult Dump(int id)
+        {
+            Log($"Downloading dump for job {id}");
+
+            try
+            {
+                var job = _jobs.Find(id);
+                Log($"Sending {job.DumpFile}");
+
+                if (!System.IO.File.Exists(job.DumpFile))
+                {
+                    Log("Dump file doesn't exist");
+                    return NotFound();
+                }
+
+                return new GZipFileResult(job.DumpFile);
+            }
+            catch (Exception e)
             {
                 Log("Error: " + e);
                 return NotFound();

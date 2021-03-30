@@ -94,6 +94,11 @@ namespace Microsoft.Crank.Models
         public bool DotNetTrace { get; set; }
         public string DotNetTraceProviders { get; set; }
 
+        // Dump
+        public bool DumpProcess { get; set; }
+        public DumpTypeOption DumpType { get; set; } = DumpTypeOption.Mini;
+        public string DumpFile { get; set; }
+
         // Perfview/Perfcollect
         public bool Collect { get; set; }
         public string CollectArguments { get; set; }
@@ -228,5 +233,10 @@ namespace Microsoft.Crank.Models
         // Don't clone if already cloned.
         // Can be used with floating versions.
         public bool ReuseSource { get; set; }
+
+        // Full, Heap, Mini
+        public string DumpType { get; set; }
+        public string DumpOutput { get; set; }
+
     }
 }

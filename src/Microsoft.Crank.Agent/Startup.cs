@@ -1158,6 +1158,13 @@ namespace Microsoft.Crank.Agent
                                     Log.WriteLine($"{job.State} -> TraceCollected ({job.Service}:{job.Id})");
                                     job.State = JobState.TraceCollected;
                                 }
+
+                                // We set the TraceCollected job state after the actual traces when a Dump is collected
+                                if (job.DumpProcess && job.State == JobState.TraceCollecting)
+                                {
+                                    Log.WriteLine($"{job.State} -> TraceCollected ({job.Service}:{job.Id})");
+                                    job.State = JobState.TraceCollected;
+                                }
                             }
                             else if (job.State == JobState.Starting)
                             {
@@ -1237,6 +1244,17 @@ namespace Microsoft.Crank.Agent
                                 if (context.Timer == null)
                                 {
                                     return;
+                                }
+
+                                Log.WriteLine($"Collecting dump ({job.Service}:{job.Id})");
+
+                                // Collect dump
+                                if (job.DumpProcess)
+                                {
+                                    job.DumpFile = Path.Combine(job.BasePath, "benchmarks.dmp");
+
+                                    var dumper = new Dumper();
+                                    dumper.Collect(job.ProcessId, job.DumpFile, job.DumpType);
                                 }
 
                                 Log.WriteLine($"Stopping heartbeat ({job.Service}:{job.Id})");

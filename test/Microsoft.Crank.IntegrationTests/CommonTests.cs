@@ -4,6 +4,7 @@
 
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.Crank.Agent;
 using Xunit;
@@ -107,7 +108,28 @@ namespace Microsoft.Crank.IntegrationTests
 
             Assert.Contains("Lock Contention", result.StandardOutput);
         }
-        
+
+        [SkipOnMacOs]
+        public async Task CollectDump()
+        {
+            _output.WriteLine($"[TEST] Starting controller");
+
+            var result = await ProcessUtil.RunAsync(
+                "dotnet",
+                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --application.options.dumpType mini",
+                workingDirectory: _crankTestsDirectory,
+                captureOutput: true,
+                timeout: TimeSpan.FromMinutes(5),
+                throwOnError: false,
+                outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); }
+            );
+
+            Assert.Equal(0, result.ExitCode);
+
+            Assert.Contains("Downloading dump file", result.StandardOutput);
+            Assert.Contains("(100%)", result.StandardOutput);
+        }
+
         [Fact]
         public async Task Iterations()
         {

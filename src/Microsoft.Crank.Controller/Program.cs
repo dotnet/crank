@@ -693,6 +693,8 @@ namespace Microsoft.Crank.Controller
                                         }
                                     }
 
+                                    await Task.WhenAll(jobs.Select(job => job.DownloadDumpAsync()));
+
                                     await Task.WhenAll(jobs.Select(job => job.DownloadTraceAsync()));
 
                                     await Task.WhenAll(jobs.Select(job => job.DownloadAssetsAsync(jobName)));
@@ -761,6 +763,8 @@ namespace Microsoft.Crank.Controller
                         // Unless the jobs can't be stopped
                         if (!SpanShouldKeepJobRunning(jobName))
                         {
+                            await Task.WhenAll(jobs.Select(job => job.DownloadDumpAsync()));
+
                             await Task.WhenAll(jobs.Select(job => job.DownloadTraceAsync()));
 
                             await Task.WhenAll(jobs.Select(job => job.DownloadAssetsAsync(jobName)));
@@ -990,6 +994,8 @@ namespace Microsoft.Crank.Controller
                 Log.WriteError(job.Job.Error, notime: true);
             }
 
+            await job.DownloadDumpAsync();
+
             await job.DownloadTraceAsync();
 
             await job.DownloadAssetsAsync(jobName);
@@ -1215,8 +1221,10 @@ namespace Microsoft.Crank.Controller
 
             await job.TryUpdateJobAsync();
 
-            await job.DownloadTraceAsync();
+            await job.DownloadDumpAsync();
 
+            await job.DownloadTraceAsync();
+            
             await job.DownloadAssetsAsync(jobName);
 
             await job.DeleteAsync();
@@ -1511,6 +1519,19 @@ namespace Microsoft.Crank.Controller
                 if (job.Value.Options.CollectCounters == true && !job.Value.Options.CounterProviders.Any())
                 {
                     job.Value.Options.CounterProviders.Add("System.Runtime");
+                }
+
+                // 
+                if (!String.IsNullOrEmpty(job.Value.Options.DumpType))
+                {
+                    if (!Enum.TryParse<DumpTypeOption>(job.Value.Options.DumpType, ignoreCase: true, out var dumpType))
+                    {
+                        dumpType = DumpTypeOption.Mini;
+                        Log.WriteWarning($"WARNING: Invalid value for 'DumpType'. Using 'Mini'.");
+                    }
+
+                    job.Value.DumpProcess = true;
+                    job.Value.DumpType = dumpType;
                 }
 
                 // Copy the dotnet counters from the list of providers
