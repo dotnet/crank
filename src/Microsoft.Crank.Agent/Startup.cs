@@ -63,6 +63,7 @@ namespace Microsoft.Crank.Agent
 
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
+
         private static readonly string _dotnetInstallShUrl = "https://dot.net/v1/dotnet-install.sh";
         private static readonly string _dotnetInstallPs1Url = "https://dot.net/v1/dotnet-install.ps1";
         private static readonly string _aspNetCoreDependenciesUrl = "https://raw.githubusercontent.com/aspnet/AspNetCore/{0}";
@@ -148,7 +149,7 @@ namespace Microsoft.Crank.Agent
             // Configuring the http client to trust the self-signed certificate
             _httpClientHandler = new HttpClientHandler();
             _httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-            _httpClientHandler.AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate;
+            _httpClientHandler.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
 
             _httpClient = new HttpClient(_httpClientHandler);
         }
@@ -3229,7 +3230,7 @@ namespace Microsoft.Crank.Agent
                 // aspnet runtime service releases are not published on feeds
                 if (versionPrefix == "6.0")
                 {
-                    aspNetCoreVersion = await GetFlatContainerVersion(_aspnet6FlatContainerUrl, versionPrefix);
+                    aspNetCoreVersion = await GetFlatContainerVersion(_aspnet6FlatContainerUrl, versionPrefix, checkPackageExists: true);
                     Log.WriteLine($"ASP.NET: {aspNetCoreVersion} (Latest - From 6.0 feed)");
                 }
                 else if (versionPrefix == "5.0")
@@ -3403,7 +3404,7 @@ namespace Microsoft.Crank.Agent
                 {
                     try
                     {
-                        runtimeVersion = await GetFlatContainerVersion(runtimeApiUrl + "/microsoft.netcore.app.runtime.win-x64/index.json", targetFramework.Substring(targetFramework.Length - 3));
+                        runtimeVersion = await GetFlatContainerVersion(runtimeApiUrl + "/microsoft.netcore.app.runtime.win-x64/index.json", targetFramework.Substring(targetFramework.Length - 3), checkPackageExists: true);
 
                         if (!String.IsNullOrEmpty(runtimeVersion))
                         {
@@ -4723,7 +4724,7 @@ namespace Microsoft.Crank.Agent
             return null;
         }
 
-        private static async Task<string> GetFlatContainerVersion(string packageIndexUrl, string versionPrefix)
+        private static async Task<string> GetFlatContainerVersion(string packageIndexUrl, string versionPrefix, bool checkPackageExists = false)
         {
             Log.WriteLine($"Downloading flatcontainer ...");
             var root = JObject.Parse(await DownloadContentAsync(packageIndexUrl));
@@ -4740,9 +4741,42 @@ namespace Microsoft.Crank.Agent
             // Extract the highest version
             var latest = matchingVersions
                 .OrderByDescending(v => v, VersionComparer.Default)
-                .FirstOrDefault();
+                ;
+            
+            if (checkPackageExists)
+            {
+                return latest.FirstOrDefault()?.OriginalVersion;
+            }
 
-            return latest?.OriginalVersion;
+            foreach (var nugetVersion in latest)
+            {
+                var version = nugetVersion.OriginalVersion;
+
+                // packageIndexUrl -> https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/[packageName]/index.json
+                // actual package url -> https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/[packageName]/[version]/[packageName].[version].nupkg
+
+                var segments = packageIndexUrl.Split('/');
+                var packageName = segments[^2];
+                var packageUrlSegments = segments.SkipLast(1).Append(packageName).Append(version).Append($"{packageName}.{version}.nupkg");
+                var packageUrl = String.Join('/', segments);
+
+                var httpMessage = new HttpRequestMessage(HttpMethod.Get, packageUrl);
+                httpMessage.Headers.IfModifiedSince = DateTime.Now;
+
+                var response = await _httpClient.SendAsync(httpMessage);
+
+                // If the file exists, it will return a 304, otherwise a 404
+                if (response.StatusCode == HttpStatusCode.NotModified)
+                {
+                    return version;
+                }
+                else
+                {
+                    Log.WriteLine($"Package not available: {packageUrl}");
+                }
+            }
+
+            return null;
         }
 
         // Compares just the repository name
