@@ -4748,7 +4748,7 @@ namespace Microsoft.Crank.Agent
                 return latest.FirstOrDefault()?.OriginalVersion;
             }
 
-            foreach (var nugetVersion in latest)
+            foreach (var nugetVersion in latest.Take(3))
             {
                 var version = nugetVersion.OriginalVersion;
 
