@@ -4285,8 +4285,11 @@ namespace Microsoft.Crank.Agent
                     _startPerfviewArguments += $" /{customArg.Key}{value}";
                 }
 
-                RunPerfview($"start /AcceptEula /NoGui {_startPerfviewArguments} \"{Path.Combine(job.BasePath, "benchmarks.trace")}\"", workingDirectory);
+                RunPerfview($"start /AcceptEula /NoGui {_startPerfviewArguments} \"{job.PerfViewTraceFile}\"", workingDirectory);
                 Log.WriteLine($"Starting PerfView {_startPerfviewArguments}");
+                
+                // PerfView adds ".etl.zip" to the requested filename
+                job.PerfViewTraceFile = job.PerfViewTraceFile + ".etl.zip";
             }
             else
             {
