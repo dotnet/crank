@@ -4746,7 +4746,7 @@ namespace Microsoft.Crank.Agent
                 .OrderByDescending(v => v, VersionComparer.Default)
                 ;
             
-            if (checkPackageExists)
+            if (!checkPackageExists)
             {
                 return latest.FirstOrDefault()?.OriginalVersion;
             }
