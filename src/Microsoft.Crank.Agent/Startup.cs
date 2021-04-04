@@ -4745,7 +4745,7 @@ namespace Microsoft.Crank.Agent
             var latest = matchingVersions
                 .OrderByDescending(v => v, VersionComparer.Default)
                 ;
-            
+
             if (!checkPackageExists)
             {
                 return latest.FirstOrDefault()?.OriginalVersion;
@@ -4756,11 +4756,12 @@ namespace Microsoft.Crank.Agent
                 var version = nugetVersion.OriginalVersion;
 
                 // packageIndexUrl -> https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/[packageName]/index.json
+                // e.g., https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json
                 // actual package url -> https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/[packageName]/[version]/[packageName].[version].nupkg
 
                 var segments = packageIndexUrl.Split('/');
                 var packageName = segments[^2];
-                var packageUrlSegments = segments.SkipLast(1).Append(packageName).Append(version).Append($"{packageName}.{version}.nupkg");
+                var packageUrlSegments = segments.SkipLast(1).Append(version).Append($"{packageName}.{version}.nupkg");
                 var packageUrl = String.Join('/', packageUrlSegments);
 
                 var httpMessage = new HttpRequestMessage(HttpMethod.Get, packageUrl);
