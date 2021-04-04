@@ -4761,7 +4761,7 @@ namespace Microsoft.Crank.Agent
                 var segments = packageIndexUrl.Split('/');
                 var packageName = segments[^2];
                 var packageUrlSegments = segments.SkipLast(1).Append(packageName).Append(version).Append($"{packageName}.{version}.nupkg");
-                var packageUrl = String.Join('/', segments);
+                var packageUrl = String.Join('/', packageUrlSegments);
 
                 var httpMessage = new HttpRequestMessage(HttpMethod.Get, packageUrl);
                 httpMessage.Headers.IfModifiedSince = DateTime.Now;
@@ -4779,7 +4779,8 @@ namespace Microsoft.Crank.Agent
                 }
             }
 
-            return null;
+            // If not seems available fallback to the latest one, just to return a result
+            return latest.FirstOrDefault()?.OriginalVersion;
         }
 
         // Compares just the repository name
