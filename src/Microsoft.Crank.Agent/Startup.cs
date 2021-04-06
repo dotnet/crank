@@ -4742,9 +4742,7 @@ namespace Microsoft.Crank.Agent
                 ;
 
             // Extract the highest version
-            var latest = matchingVersions
-                .OrderByDescending(v => v, VersionComparer.Default)
-                ;
+            var latest = matchingVersions.OrderByDescending(v => v, VersionComparer.Default);
 
             if (!checkPackageExists)
             {
@@ -4772,11 +4770,12 @@ namespace Microsoft.Crank.Agent
                 // If the file exists, it will return a 304, otherwise a 404
                 if (response.StatusCode == HttpStatusCode.NotModified)
                 {
+                    Log.WriteLine($"Found package: {packageUrl}"); 
                     return version;
                 }
                 else
                 {
-                    Log.WriteLine($"Package not available: {packageUrl}");
+                    Log.WriteLine($"Package not available: {packageUrl}, status code: {response.StatusCode}");
                 }
             }
 
