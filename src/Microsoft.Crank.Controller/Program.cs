@@ -2032,6 +2032,23 @@ namespace Microsoft.Crank.Controller
                 {
                     jobResult.Measurements.Clear();
                 }
+
+                // Duplicate multi key values (if the key contains ';') then it means the key is currently migrated 
+                // and it wants both keys to have the result for backward compatibility
+                foreach (var result in jobResult.Results.ToArray())
+                {
+                    if (result.Key.Contains(";"))
+                    {
+                        var keys = result.Key.Split(';', StringSplitOptions.RemoveEmptyEntries);
+                        
+                        foreach (var key in keys)
+                        {
+                            jobResult.Results[key] = result.Value;
+                        }
+
+                        jobResult.Results.Remove(result.Key);
+                    }
+                }
             }
         }
 
