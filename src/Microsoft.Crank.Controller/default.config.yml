@@ -17,6 +17,10 @@ counters:
     measurement: runtime-counter/gc-heap-size
     description: Total heap size reported by the GC (MB)
 
+  - name: gc-committed
+    measurement: runtime-counter/gc-committed
+    description: Size of committed memory by the GC (MB)
+
   - name: gen-0-gc-count
     measurement: runtime-counter/gen-0-gc-count
     description: Number of Gen 0 GCs / sec
@@ -332,6 +336,13 @@ results: # creates results from measurements
 - name: runtime-counter/gc-heap-size
   measurement: runtime-counter/gc-heap-size
   description: Max GC Heap Size (MB)
+  format: n0
+  aggregate: max
+  reduce: max
+
+- name: runtime-counter/gc-committed
+  measurement: runtime-counter/gc-committed
+  description: Size of committed memory by the GC (MB)
   format: n0
   aggregate: max
   reduce: max
