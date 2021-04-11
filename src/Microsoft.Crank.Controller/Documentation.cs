@@ -101,7 +101,7 @@ internal class Documentation
 
   ## Timeouts
 
-  --[JOB].timeout                                               Maximum duration in seconds of the job in seconds. Defaults to 0 (unlimited).
+  --[JOB].timeout                                               Maximum duration of the job in seconds. Defaults to 0 (unlimited).
   --[JOB].buildTimeout                                          Maximum duration of the build phase. Defaults to 00:10:00 (10 minutes).
   --[JOB].startTimeout                                          Maximum duration of the start phase. Defaults to 00:03:00 (3 minutes).
   --[JOB].collectTimeout                                        Maximum duration of the collect phase. Defaults to 00:05:00 (5 minutes).
