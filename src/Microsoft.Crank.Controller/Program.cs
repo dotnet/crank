@@ -127,8 +127,9 @@ namespace Microsoft.Crank.Controller
             var app = new CommandLineApplication()
             {
                 Name = "Crank",
-                FullName = "ASP.NET Benchmarks Controller",
-                Description = "Crank orchestrates benchmark jobs on Crank agents.",
+                FullName = "Crank Benchmarks Controller",
+                ExtendedHelpText = Documentation.Content,
+                Description = "The Crank controller orchestrates benchmark jobs on Crank agents.",
                 ResponseFileHandling = ResponseFileHandling.ParseArgsAsSpaceSeparated,
                 OptionsComparison = StringComparison.OrdinalIgnoreCase,
             };
