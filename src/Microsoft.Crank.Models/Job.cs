@@ -124,6 +124,7 @@ namespace Microsoft.Crank.Models
         public int ProcessId { get; set; }
         public int ChildProcessId { get; set; }
         public Dictionary<string, string> EnvironmentVariables { get; set; } = new Dictionary<string, string>();
+        public Dictionary<string, string> PackageReferences { get; set; } = new Dictionary<string, string>();
         public List<string> BuildArguments { get; set; } = new List<string>();
         public bool NoClean { get; set; }
         public string Framework { get; set; }
