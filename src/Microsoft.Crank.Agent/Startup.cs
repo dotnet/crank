@@ -146,7 +146,6 @@ namespace Microsoft.Crank.Agent
             "Microsoft.Extensions.FileProviders.Composite",
             "Microsoft.Extensions.FileProviders.Physical",
             "Microsoft.Extensions.FileSystemGlobbing",
-            "Microsoft.Extensions.HostFactoryResolver.Sources",
             "Microsoft.Extensions.Hosting.Abstractions",
             "Microsoft.Extensions.Hosting",
             "Microsoft.Extensions.Http",
