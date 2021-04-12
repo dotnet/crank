@@ -126,6 +126,54 @@ namespace Microsoft.Crank.Agent
 
         private static string _startPerfviewArguments;
 
+        private static string[] ExtensionsPackages = new []
+        {
+            "Microsoft.EntityFrameworkCore",
+            "Microsoft.EntityFrameworkCore.InMemory",
+            "Microsoft.EntityFrameworkCore.Relational",
+            "Microsoft.EntityFrameworkCore.Sqlite",
+            "Microsoft.EntityFrameworkCore.SqlServer",
+            "Microsoft.EntityFrameworkCore.Tools",
+            "Microsoft.EntityFrameworkCore.Design",
+            "Microsoft.Extensions.Caching.Abstractions",
+            "Microsoft.Extensions.Caching.Memory",
+            "Microsoft.Extensions.Configuration.Abstractions",
+            "Microsoft.Extensions.Configuration.Binder",
+            "Microsoft.Extensions.Configuration.CommandLine",
+            "Microsoft.Extensions.Configuration.EnvironmentVariables",
+            "Microsoft.Extensions.Configuration.FileExtensions",
+            "Microsoft.Extensions.Configuration.Ini",
+            "Microsoft.Extensions.Configuration.Json",
+            "Microsoft.Extensions.Configuration.UserSecrets",
+            "Microsoft.Extensions.Configuration.Xml",
+            "Microsoft.Extensions.Configuration",
+            "Microsoft.Extensions.DependencyInjection.Abstractions",
+            "Microsoft.Extensions.DependencyInjection",
+            "Microsoft.Extensions.FileProviders.Abstractions",
+            "Microsoft.Extensions.FileProviders.Composite",
+            "Microsoft.Extensions.FileProviders.Physical",
+            "Microsoft.Extensions.FileSystemGlobbing",
+            "Microsoft.Extensions.HostFactoryResolver.Sources",
+            "Microsoft.Extensions.Hosting.Abstractions",
+            "Microsoft.Extensions.Hosting",
+            "Microsoft.Extensions.Http",
+            "Microsoft.Extensions.Logging.Abstractions",
+            "Microsoft.Extensions.Logging.Configuration",
+            "Microsoft.Extensions.Logging.Console",
+            "Microsoft.Extensions.Logging.Debug",
+            "Microsoft.Extensions.Logging.EventSource",
+            "Microsoft.Extensions.Logging.EventLog",
+            "Microsoft.Extensions.Logging.TraceSource",
+            "Microsoft.Extensions.Logging",
+            "Microsoft.Extensions.Options.ConfigurationExtensions",
+            "Microsoft.Extensions.Options.DataAnnotations",
+            "Microsoft.Extensions.Options",
+            "Microsoft.Extensions.Primitives",
+            "Microsoft.Extensions.DependencyModel",
+
+            "System.IO.Pipelines",
+        };
+
         static Startup()
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
@@ -3139,6 +3187,23 @@ namespace Microsoft.Crank.Agent
                                     )
                             )
                         );
+                    }
+
+                    // Pin Extensions packages to the ones of the same runtime version
+                    if (targetFramework == "net6.0")
+                    {                    
+                        var extensionsItemGroup = new XElement("ItemGroup");
+                        project.Root.Add(extensionsItemGroup);
+
+                        foreach (var package in ExtensionsPackages)
+                        {
+                            extensionsItemGroup.Add(
+                                new XElement("PackageReference",
+                                    new XAttribute("Include", package),
+                                    new XAttribute("Version", "$(MicrosoftNETCoreAppPackageVersion)")
+                                    )
+                            );
+                        }
                     }
 
                     using (var projectFileStream = File.CreateText(projectFileName))
