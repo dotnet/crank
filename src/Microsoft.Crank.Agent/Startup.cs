@@ -128,13 +128,6 @@ namespace Microsoft.Crank.Agent
 
         private static string[] ExtensionsPackages = new []
         {
-            "Microsoft.EntityFrameworkCore",
-            "Microsoft.EntityFrameworkCore.InMemory",
-            "Microsoft.EntityFrameworkCore.Relational",
-            "Microsoft.EntityFrameworkCore.Sqlite",
-            "Microsoft.EntityFrameworkCore.SqlServer",
-            "Microsoft.EntityFrameworkCore.Tools",
-            "Microsoft.EntityFrameworkCore.Design",
             "Microsoft.Extensions.Caching.Abstractions",
             "Microsoft.Extensions.Caching.Memory",
             "Microsoft.Extensions.Configuration.Abstractions",
