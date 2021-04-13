@@ -325,7 +325,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
                 return;
             }
 
-            var cts = new CancellationTokenSource(5000);
+            var cts = new CancellationTokenSource(30000);
             var httpMessage = new HttpRequestMessage(HttpMethod.Get, url);
 
             var stopwatch = new Stopwatch();

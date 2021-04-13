@@ -381,7 +381,7 @@ namespace Microsoft.Crank.Jobs.Wrk2
             httpClientHandler.MaxConnectionsPerServer = 1;
             using(var httpClient = new HttpClient(httpClientHandler))
             {
-                var cts = new CancellationTokenSource(5000);
+                var cts = new CancellationTokenSource(30000);
                 var httpMessage = new HttpRequestMessage(HttpMethod.Get, url);
 
                 var stopwatch = new Stopwatch();
