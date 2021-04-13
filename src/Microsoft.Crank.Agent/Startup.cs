@@ -3141,6 +3141,20 @@ namespace Microsoft.Crank.Agent
                         );
                     }
 
+                    // Pin Extensions packages to the ones of the same runtime version
+                    var extensionsItemGroup = new XElement("ItemGroup");
+                    project.Root.Add(extensionsItemGroup);
+
+                    foreach (var packageEntry in job.PackageReferences)
+                    {
+                        extensionsItemGroup.Add(
+                            new XElement("PackageReference",
+                                new XAttribute("Include", packageEntry.Key),
+                                new XAttribute("Version", packageEntry.Value)
+                                )
+                        );
+                    }
+
                     using (var projectFileStream = File.CreateText(projectFileName))
                     {
                         await project.SaveAsync(projectFileStream, SaveOptions.None, new CancellationTokenSource(3000).Token);
