@@ -72,7 +72,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
         private static async Task MessageHandler(ProcessMessageEventArgs args)
         {
-            Console.WriteLine("Processing message '{0}'", args.Message.ToString());
+            Console.WriteLine($"{LogNow} Processing message '{0}'", args.Message.ToString());
 
             var message = args.Message;
 
@@ -90,17 +90,15 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 jobPayload = JobPayload.Deserialize(message.Body.ToArray());
 
                 await devopsMessage.SendTaskStartedEventAsync();
-                
+
                 var arguments = String.Join(' ', jobPayload.Args);
 
-                Console.WriteLine("Invoking crank with arguments: " + arguments);
+                Console.WriteLine($"{LogNow} Invoking crank with arguments: " + arguments);
 
                 // The DriverJob manages the application's lifetime and standard output
                 driverJob = new Job("crank", arguments);
 
                 driverJob.OnStandardOutput = log => Console.WriteLine(log);
-
-                Console.WriteLine("Processing...");
 
                 driverJob.Start();
 
@@ -109,7 +107,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 {
                     if ((DateTime.UtcNow - driverJob.StartTimeUtc) > jobPayload.Timeout)
                     {
-                        throw new Exception("Job timed out. The timeout can be increased in the queued message.");
+                        throw new Exception($"{LogNow} Job timed out ({jobPayload.Timeout}). The timeout can be increased in the queued message.");
                     }
 
                     var logs = driverJob.FlushStandardOutput().ToArray();
@@ -122,7 +120,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                         if (!success)
                         {
                             Console.ForegroundColor = ConsoleColor.DarkYellow;
-                            Console.WriteLine("SendTaskLogFeedsAsync failed. If the task was canceled, this jobs should be ignored stopped.");
+                            Console.WriteLine($"{LogNow} SendTaskLogFeedsAsync failed. If the task was canceled, this jobs should be stopped.");
                             Console.ResetColor();
                         }
                     }
@@ -139,7 +137,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 if (String.IsNullOrEmpty(taskLogObjectString))
                 {
                     Console.ForegroundColor = ConsoleColor.DarkYellow;
-                    Console.WriteLine("CreateTaskLogAsync failed. The job is probably canceled.");
+                    Console.WriteLine($"{LogNow} CreateTaskLogAsync failed. The job is probably canceled.");
                     Console.ResetColor();
                 }
                 else
@@ -159,11 +157,11 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
                 driverJob.Stop();
 
-                Console.WriteLine("Job completed");
+                Console.WriteLine($"{LogNow} Job completed");
             }
             catch (Exception e)
             {
-                Console.WriteLine("Job failed: " + e.ToString());
+                Console.WriteLine($"{LogNow} Job failed: " + e.ToString());
 
                 Console.WriteLine("Stopping the task and releasing the message...");
 
@@ -173,7 +171,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 }
                 catch (Exception f)
                 {
-                    Console.WriteLine("Failed to complete the task: " + f.ToString());
+                    Console.WriteLine($"{LogNow} Failed to complete the task: " + f.ToString());
                 }
 
                 try
@@ -183,20 +181,22 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 }
                 catch (Exception f)
                 {
-                    Console.WriteLine("Failed to abandon the message: " + f.ToString());
+                    Console.WriteLine($"{LogNow} Failed to abandon the message: " + f.ToString());
                 }
             }
             finally
             {
                 driverJob?.Dispose();
-            }            
+            }
         }
 
         private static Task ErrorHandler(ProcessErrorEventArgs args)
         {
-            Console.WriteLine("Process error: " + args.Exception.ToString());
+            Console.WriteLine($"{LogNow} Process error: " + args.Exception.ToString());
 
             return Task.CompletedTask;
         }
+
+        private static string LogNow => $"[{DateTime.Now.ToString("hh:mm:ss.fff")}]";
     }
 }

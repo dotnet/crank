@@ -29,6 +29,9 @@ namespace Microsoft.Crank.Models
         /// </summary>
         public string RunId { get; set; } = Guid.NewGuid().ToString("n");
 
+        public string CrankArguments { get; set; }
+        public string Origin { get; set; }
+
         [JsonConverter(typeof(StringEnumConverter))]
         public Hardware? Hardware { get; set; }
 
