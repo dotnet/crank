@@ -385,7 +385,7 @@ namespace Microsoft.Crank.Controller
 
                     service.RunId = groupId;
                     service.Origin = Environment.MachineName;
-                    service.Arguments = String.Join(", ", args);
+                    service.CrankArguments = String.Join(", ", args);
 
                     if (String.IsNullOrEmpty(service.Source.Project) &&
                         String.IsNullOrEmpty(service.Source.DockerFile) &&
