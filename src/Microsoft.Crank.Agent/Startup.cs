@@ -2790,6 +2790,7 @@ namespace Microsoft.Crank.Agent
                 // This might be set already, and the SDK will then use it for some targets files
                 // https://github.com/dotnet/sdk/blob/e2faebad758a7d38b5965cda755a17e9e9881599/src/Cli/Microsoft.DotNet.Cli.Utils/MSBuildForwardingAppWithoutLogging.cs#L75
                 env["MSBuildSDKsPath"] = Path.Combine(Path.GetDirectoryName(dotnetExecutable), $"sdk/{sdkVersion}/Sdks");
+                env["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
 
                 Log.WriteLine($"Working directory: {benchmarkedApp}");
                 Log.WriteLine($"Command line: {dotnetExecutable} {arguments}");
