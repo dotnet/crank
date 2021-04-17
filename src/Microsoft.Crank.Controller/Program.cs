@@ -176,6 +176,9 @@ namespace Microsoft.Crank.Controller
                 });
             });
 
+            // Store arguments before the dynamic ones are removed
+            var commandLineArguments = String.Join(' ', args.Where(x => !String.IsNullOrWhiteSpace(x)));
+
             // Extract dynamic arguments
             for (var i = 0; i < args.Length; i++)
             {
@@ -385,7 +388,7 @@ namespace Microsoft.Crank.Controller
 
                     service.RunId = groupId;
                     service.Origin = Environment.MachineName;
-                    service.CrankArguments = String.Join(", ", args);
+                    service.CrankArguments = commandLineArguments;
 
                     if (String.IsNullOrEmpty(service.Source.Project) &&
                         String.IsNullOrEmpty(service.Source.DockerFile) &&
