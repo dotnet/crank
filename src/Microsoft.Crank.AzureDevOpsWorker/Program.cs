@@ -72,7 +72,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
         private static async Task MessageHandler(ProcessMessageEventArgs args)
         {
-            Console.WriteLine($"{LogNow} Processing message '{0}'", args.Message.ToString());
+            Console.WriteLine($"{LogNow} Processing message '{args.Message}'");
 
             var message = args.Message;
 
@@ -106,7 +106,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
                     var arguments = String.Join(' ', jobPayload.Args);
 
-                    Console.WriteLine($"{LogNow} Invoking crank with arguments: " + arguments);
+                    Console.WriteLine($"{LogNow} Invoking crank with arguments: {arguments}");
 
                     // The DriverJob manages the application's lifetime and standard output
                     driverJob = new Job("crank", arguments);
@@ -188,7 +188,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             }
             catch (Exception e)
             {
-                Console.WriteLine($"{LogNow} Job failed: " + e.ToString());
+                Console.WriteLine($"{LogNow} Job failed: {e}");
 
                 Console.WriteLine("Stopping the task and releasing the message...");
 
@@ -198,7 +198,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 }
                 catch (Exception f)
                 {
-                    Console.WriteLine($"{LogNow} Failed to complete the task: " + f.ToString());
+                    Console.WriteLine($"{LogNow} Failed to complete the task: {f}");
                 }
 
                 try
@@ -208,7 +208,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 }
                 catch (Exception f)
                 {
-                    Console.WriteLine($"{LogNow} Failed to abandon the message: " + f.ToString());
+                    Console.WriteLine($"{LogNow} Failed to abandon the message: {f}");
                 }
             }
             finally
@@ -219,7 +219,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
         private static Task ErrorHandler(ProcessErrorEventArgs args)
         {
-            Console.WriteLine($"{LogNow} Process error: " + args.Exception.ToString());
+            Console.WriteLine($"{LogNow} Process error: {args.Exception}");
 
             return Task.CompletedTask;
         }
