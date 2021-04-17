@@ -1438,7 +1438,7 @@ namespace Microsoft.Crank.Controller
                 // Apply templates on variables first
                 ApplyTemplates(variables, new TemplateContext { Model = variables.DeepClone() });
 
-                ApplyTemplates(job, new TemplateContext { Model = variables });
+                ApplyTemplates(job, new TemplateContext { Model = variables }.SetValue("job", job));
             }
 
             var result = configuration.ToObject<Configuration>();
@@ -1562,6 +1562,7 @@ namespace Microsoft.Crank.Controller
 
             return result;
         }
+
         private static void ApplyTemplates(JToken node, TemplateContext templateContext)
         {
             foreach (var token in node.Children())
