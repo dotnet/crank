@@ -213,7 +213,14 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             }
             finally
             {
-                driverJob?.Dispose();
+                try
+                {
+                    driverJob?.Dispose();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"{LogNow} Failed to dispose the job : {e}");
+                }
             }
         }
 
