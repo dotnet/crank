@@ -26,6 +26,9 @@ namespace Microsoft.Crank.AzureDevOpsWorker
         public string TaskInstanceId { get; set; }
         public string AuthToken { get; set; }
 
+        public Records Records { get; set; }
+        private DateTime _lastRecordsRefresh = DateTime.UtcNow;
+
         public DevopsMessage(ServiceBusReceivedMessage message)
         {
             PlanUrl = (string)message.ApplicationProperties["PlanUrl"];
@@ -206,10 +209,48 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             }
         }
 
-        
+        public async Task<Records> GetRecordsAsync()
+        {
+            // NOTE: There is no API that allows to retrieve a single task details. Only the whole list.
+            // So we cache the results to prevent rate limitting.
+
+            var getRecordsUrl = $"{PlanUrl}/{ProjectId}/_apis/distributedtask/hubs/{HubName}/plans/{PlanId}/timelines/{TimelineId}/records?api-version=4.1";
+            
+            try
+            {
+                if (DateTime.UtcNow - _lastRecordsRefresh > TimeSpan.FromSeconds(60))
+                {
+                    _lastRecordsRefresh = DateTime.UtcNow;
+                    return Records;
+                }
+
+                var result = await GetDataAsync(getRecordsUrl);
+
+                if (result.IsSuccessStatusCode)
+                {
+                    Records = JsonSerializer.Deserialize<Records>(await result.Content.ReadAsStringAsync());
+                }
+
+                return Records;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"GetRecordsAsync failed: {getRecordsUrl}");
+                Console.WriteLine(e.ToString());
+                return null;
+            }
+        }
+
         private async Task<HttpResponseMessage> PostDataAsync(string url, HttpContent content)
         {
             var response = await _httpClient.PostAsync(new Uri(url), content);
+
+            return response;
+        }
+
+        private async Task<HttpResponseMessage> GetDataAsync(string url)
+        {
+            var response = await _httpClient.GetAsync(new Uri(url));
 
             return response;
         }
