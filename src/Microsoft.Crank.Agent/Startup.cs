@@ -2730,33 +2730,7 @@ namespace Microsoft.Crank.Agent
             if (job.SelfContained)
             {
                 buildParameters += $"--self-contained ";
-
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                {
-                    if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
-                    {
-                        buildParameters += "-r win-arm64 ";
-                    }
-                    else
-                    {
-                        buildParameters += "-r win-x64 ";
-                    }
-                }
-                else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                {
-                    buildParameters += "-r osx-x64 ";
-                }
-                else
-                {
-                    if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
-                    {
-                        buildParameters += "-r linux-arm64 ";
-                    }
-                    else
-                    {
-                        buildParameters += "-r linux-x64 ";
-                    }
-                }
+                buildParameters += $"-r {GetPlatformMoniker()} ";
             }
 
             // Copy build files before building/publishing
@@ -3007,6 +2981,38 @@ namespace Microsoft.Crank.Agent
             }
         }
 
+        private static string GetPlatformMoniker()
+        {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
+                {
+                    return "win-arm64";
+                }
+                else
+                {
+                    return "win-x64";
+                }
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                return "osx-x64";
+            }
+            else
+            {
+                if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
+                {
+                    return "linux-arm64";
+                }
+                else
+                {
+                    return "linux-x64";
+                }
+            }
+
+            throw new PlatformNotSupportedException();
+        }
+
         private static string GetAssemblyName(Job job, string projectFileName)
         {
             if (File.Exists(projectFileName))
@@ -3245,7 +3251,7 @@ namespace Microsoft.Crank.Agent
                 // aspnet runtime service releases are not published on feeds
                 if (versionPrefix == "6.0")
                 {
-                    aspNetCoreVersion = await GetFlatContainerVersion(_aspnet6FlatContainerUrl, versionPrefix, checkPackageExists: true);
+                    aspNetCoreVersion = await GetFlatContainerVersion(_aspnet6FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
                     Log.WriteLine($"ASP.NET: {aspNetCoreVersion} (Latest - From 6.0 feed)");
                 }
                 else if (versionPrefix == "5.0")
@@ -3415,11 +3421,13 @@ namespace Microsoft.Crank.Agent
             {
                 // Older versions are still published on old feed. Including service releases
 
+                var versionPrefix = targetFramework.Substring(targetFramework.Length - 3);
+
                 foreach (var runtimeApiUrl in _runtimeFeedUrls)
                 {
                     try
                     {
-                        runtimeVersion = await GetFlatContainerVersion(runtimeApiUrl + "/microsoft.netcore.app.runtime.win-x64/index.json", targetFramework.Substring(targetFramework.Length - 3), checkPackageExists: true);
+                        runtimeVersion = await GetFlatContainerVersion(runtimeApiUrl + "/microsoft.netcore.app.runtime.win-x64/index.json", versionPrefix, checkDotnetInstallUrl: true);
 
                         if (!String.IsNullOrEmpty(runtimeVersion))
                         {
@@ -4742,9 +4750,8 @@ namespace Microsoft.Crank.Agent
             return null;
         }
 
-        private static async Task<string> GetFlatContainerVersion(string packageIndexUrl, string versionPrefix, bool checkPackageExists = false)
+        private static async Task<string> GetFlatContainerVersion(string packageIndexUrl, string versionPrefix, bool checkDotnetInstallUrl = false)
         {
-            Log.WriteLine($"Downloading flatcontainer ...");
             var root = JObject.Parse(await DownloadContentAsync(packageIndexUrl));
 
             var matchingVersions = root["versions"]
@@ -4759,7 +4766,7 @@ namespace Microsoft.Crank.Agent
             // Extract the highest version
             var latest = matchingVersions.OrderByDescending(v => v, VersionComparer.Default);
 
-            if (!checkPackageExists)
+            if (!checkDotnetInstallUrl)
             {
                 return latest.FirstOrDefault()?.OriginalVersion;
             }
@@ -4772,12 +4779,22 @@ namespace Microsoft.Crank.Agent
                 // e.g., https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json
                 // actual package url -> https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/[packageName]/[version]/[packageName].[version].nupkg
 
-                var segments = packageIndexUrl.Split('/');
-                var packageName = segments[^2];
-                var packageUrlSegments = segments.SkipLast(1).Append(version).Append($"{packageName}.{version}.nupkg");
-                var packageUrl = String.Join('/', packageUrlSegments);
+                // https://dotnetcli.blob.core.windows.net/dotnet
+                // https://dotnetcli.blob.core.windows.net/dotnet/Runtime/main/latest.version
+                // aspnetcore: https://dotnetcli.azureedge.net/dotnet/aspnetcore/Runtime/6.0.0-preview.5.21220.5/aspnetcore-runtime-6.0.0-preview.5.21220.5-win-x64.zip
+                // dotnet: https://dotnetcli.azureedge.net/dotnet/Runtime/6.0.0-preview.5.21220.8/dotnet-runtime-6.0.0-preview.5.21220.8-win-x64.zip
 
-                var httpMessage = new HttpRequestMessage(HttpMethod.Get, packageUrl);
+
+                var urlPattern = packageIndexUrl.Contains("Microsoft.AspNetCore.App.Runtime", StringComparison.OrdinalIgnoreCase) 
+                    ? "https://dotnetcli.azureedge.net/dotnet/aspnetcore/Runtime/{0}/aspnetcore-runtime-{0}-{1}.zip"
+                    : "https://dotnetcli.azureedge.net/dotnet/Runtime/{0}/dotnet-runtime-{0}-{1}.zip"
+                    ;
+
+                var download_link = String.Format(urlPattern, version, GetPlatformMoniker());
+
+                Log.WriteLine($"Checking package: {download_link}");
+
+                var httpMessage = new HttpRequestMessage(HttpMethod.Get, download_link);
                 httpMessage.Headers.IfModifiedSince = DateTime.Now;
 
                 var response = await _httpClient.SendAsync(httpMessage);
@@ -4785,12 +4802,11 @@ namespace Microsoft.Crank.Agent
                 // If the file exists, it will return a 304, otherwise a 404
                 if (response.StatusCode == HttpStatusCode.NotModified)
                 {
-                    Log.WriteLine($"Found package: {packageUrl}"); 
                     return version;
                 }
                 else
                 {
-                    Log.WriteLine($"Package not available: {packageUrl}, status code: {response.StatusCode}");
+                    Log.WriteLine($"Package not available: {download_link}, status code: {response.StatusCode}");
                 }
             }
 
