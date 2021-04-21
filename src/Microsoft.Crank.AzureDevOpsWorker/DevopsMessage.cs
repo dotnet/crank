@@ -231,5 +231,16 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
             return response;
         }
+
+        private async Task<HttpResponseMessage> PatchDataAsync(string url, string requestBody)
+        {
+            var buffer = Encoding.UTF8.GetBytes(requestBody);
+            var byteContent = new ByteArrayContent(buffer);
+            byteContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+            var response = await _httpClient.PatchAsync(new Uri(url), byteContent);
+
+            return response;
+        }
     }
 }
