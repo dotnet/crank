@@ -1333,25 +1333,53 @@ namespace Microsoft.Crank.Agent
 
                                     if (OperatingSystem == OperatingSystem.Linux)
                                     {
-                                        Log.WriteLine($"Invoking SIGINT ...");
+                                        Log.WriteLine($"Invoking SIGTERM ...");
 
-                                        Mono.Unix.Native.Syscall.kill(process.Id, Mono.Unix.Native.Signum.SIGINT);
+                                        Mono.Unix.Native.Syscall.kill(process.Id, Mono.Unix.Native.Signum.SIGTERM);
 
-                                        // Tentatively invoke SIGINT
                                         var waitForShutdownDelay = Task.Delay(TimeSpan.FromSeconds(5));
                                         while (!process.HasExited && !waitForShutdownDelay.IsCompletedSuccessfully)
                                         {
                                             await Task.Delay(200);
                                         }
+
+                                        if (!process.HasExited)
+                                        {
+                                            Log.WriteLine($"Invoking SIGINT ...");
+
+                                            Mono.Unix.Native.Syscall.kill(process.Id, Mono.Unix.Native.Signum.SIGINT);
+
+                                            waitForShutdownDelay = Task.Delay(TimeSpan.FromSeconds(5));
+                                            while (!process.HasExited && !waitForShutdownDelay.IsCompletedSuccessfully)
+                                            {
+                                                await Task.Delay(200);
+                                            }
+                                        }
+                                    }
+
+                                    if (OperatingSystem == OperatingSystem.Windows)
+                                    {
+                                        if (!process.HasExited)
+                                        {
+                                            Log.WriteLine($"Sending CTRL+C ...");
+
+                                            // Disable CTRL handling for the Agent, or the CTRL+C would stop it too
+                                            SetConsoleCtrlHandler(null, true);
+                                            GenerateConsoleCtrlEvent(CtrlTypes.CTRL_C_EVENT, (uint) process.Id);
+
+                                            var waitForShutdownDelay = Task.Delay(TimeSpan.FromSeconds(5));
+                                            while (!process.HasExited && !waitForShutdownDelay.IsCompletedSuccessfully)
+                                            {
+                                                await Task.Delay(200);
+                                            }
+
+                                            // Enable CTRL handling for the Agent
+                                            SetConsoleCtrlHandler(null, false);
+                                        }
                                     }
 
                                     if (!process.HasExited)
                                     {
-                                        if (OperatingSystem == OperatingSystem.Linux)
-                                        {
-                                            Log.WriteLine($"SIGINT was not handled, checking /shutdown endpoint ...");
-                                        }
-
                                         try
                                         {
                                             // Tentatively invoke the shutdown endpoint on the client application
@@ -4859,6 +4887,23 @@ namespace Microsoft.Crank.Agent
 
         [DllImport("kernel32.dll")]
         static extern ErrorModes SetErrorMode(ErrorModes uMode);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool GenerateConsoleCtrlEvent(CtrlTypes dwCtrlEvent, uint dwProcessGroupId);
+
+        [DllImport("Kernel32", SetLastError = true)]
+        private static extern bool SetConsoleCtrlHandler(HandlerRoutine handler, bool add);
+
+        private delegate bool HandlerRoutine(CtrlTypes CtrlType);
+
+        enum CtrlTypes
+        {
+            CTRL_C_EVENT = 0,
+            CTRL_BREAK_EVENT,
+            CTRL_CLOSE_EVENT,
+            CTRL_LOGOFF_EVENT = 5,
+            CTRL_SHUTDOWN_EVENT
+        }
 
         /// <param name="providers">
         /// A profile name, or a list of comma separated EventPipe providers to be enabled.
