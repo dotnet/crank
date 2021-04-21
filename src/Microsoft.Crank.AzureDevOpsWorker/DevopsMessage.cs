@@ -28,8 +28,9 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
         public Records Records { get; set; }
         private DateTime _lastRecordsRefresh = DateTime.UtcNow;
+        private static readonly JsonSerializerOptions _serializationOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
-        public DevopsMessage(ServiceBusReceivedMessage message)
+    public DevopsMessage(ServiceBusReceivedMessage message)
         {
             PlanUrl = (string)message.ApplicationProperties["PlanUrl"];
             ProjectId = (string)message.ApplicationProperties["ProjectId"];
@@ -228,7 +229,9 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
                 if (result.IsSuccessStatusCode)
                 {
-                    Records = JsonSerializer.Deserialize<Records>(await result.Content.ReadAsStringAsync());
+                    var content = await result.Content.ReadAsStringAsync();
+
+                    Records = JsonSerializer.Deserialize<Records>(content, _serializationOptions);
                 }
 
                 return Records;
