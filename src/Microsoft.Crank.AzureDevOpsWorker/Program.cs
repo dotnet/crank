@@ -104,9 +104,12 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
                 var record = records.Value.FirstOrDefault(x => x.Id == devopsMessage.TaskInstanceId);
 
-                if (record != null || record.State == "completed")
+                if (record != null && record.State == "completed")
                 {
                     Console.WriteLine($"{LogNow} Job is completed ({record.Result}), skipping...");
+
+                    // Mark the message as completed
+                    await args.CompleteMessageAsync(message);
                 }
                 else 
                 {
@@ -154,7 +157,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                         records = await devopsMessage.GetRecordsAsync();
                         record = records.Value.FirstOrDefault(x => x.Id == devopsMessage.TaskInstanceId);
 
-                        if (record != null || record?.State == "completed")
+                        if (record != null && record?.State == "completed")
                         {
                             Console.WriteLine($"{LogNow} Job is completed ({record.Result}), interrupting...");
 
