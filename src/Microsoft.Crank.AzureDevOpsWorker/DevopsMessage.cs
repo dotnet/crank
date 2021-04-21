@@ -228,7 +228,11 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
                 if (result.IsSuccessStatusCode)
                 {
-                    Records = JsonSerializer.Deserialize<Records>(await result.Content.ReadAsStringAsync());
+                    var content = await result.Content.ReadAsStringAsync();
+
+                    Console.WriteLine(content.Substring(1000));
+
+                    Records = JsonSerializer.Deserialize<Records>(content);
                 }
 
                 return Records;
