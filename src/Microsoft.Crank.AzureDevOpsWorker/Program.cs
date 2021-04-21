@@ -107,7 +107,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                     // Inform AzDo that the job is started
                     await devopsMessage.SendTaskStartedEventAsync();
 
-                    var arguments = String.Join(' ', jobPayload.Args);
+                    var arguments = string.Join(' ', jobPayload.Args);
 
                     Console.WriteLine($"{LogNow} Invoking crank with arguments: {arguments}");
 
@@ -132,7 +132,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                         // Send any page of logs to the AzDo task log feed
                         if (logs.Any())
                         {
-                            var success = await devopsMessage.SendTaskLogFeedsAsync(String.Join("\r\n", logs));
+                            var success = await devopsMessage.SendTaskLogFeedsAsync(string.Join(Environment.NewLine, logs));
 
                             if (!success)
                             {
@@ -147,7 +147,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                         // Check if task is still active (not canceled)
 
                         records = await devopsMessage.GetRecordsAsync();
-                        record = records.Value.FirstOrDefault(x => x.Id == devopsMessage.TaskInstanceId);
+                        record = records?.Value.FirstOrDefault(x => x.Id == devopsMessage.TaskInstanceId);
 
                         if (record is { State: "completed" })
                         {
@@ -165,7 +165,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                     // Create a task log entry
                     var taskLogObjectString = await devopsMessage.CreateTaskLogAsync();
 
-                    if (String.IsNullOrEmpty(taskLogObjectString))
+                    if (string.IsNullOrEmpty(taskLogObjectString))
                     {
                         Console.ForegroundColor = ConsoleColor.DarkYellow;
                         Console.WriteLine($"{LogNow} CreateTaskLogAsync failed. The job is probably canceled.");

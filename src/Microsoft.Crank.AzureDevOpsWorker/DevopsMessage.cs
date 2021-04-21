@@ -13,7 +13,7 @@ using Azure.Messaging.ServiceBus;
 
 namespace Microsoft.Crank.AzureDevOpsWorker
 {
-    public sealed class DevopsMessage : IDisposable
+    public sealed class DevopsMessage
     {
         private static readonly HttpClient _httpClient = new();
 
@@ -181,7 +181,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             }
         }
 
-        public async Task<Records> GetRecordsAsync()
+        public async Task<Records?> GetRecordsAsync()
         {
             // NOTE: There is no API that allows to retrieve a single task details. Only the whole list.
             // So we cache the results to prevent rate limitting.
@@ -218,12 +218,8 @@ namespace Microsoft.Crank.AzureDevOpsWorker
         private Task<HttpResponseMessage> PostDataAsync(string url, HttpContent content) =>
             _httpClient.PostAsync(new Uri(url), content);
 
-        private async Task<HttpResponseMessage> GetDataAsync(string url)
-        {
-            var response = await _httpClient.GetAsync(new Uri(url));
-
-            return response;
-        }
+        private Task<HttpResponseMessage> GetDataAsync(string url) =>
+            _httpClient.GetAsync(new Uri(url));
 
         private async Task<HttpResponseMessage> PostDataAsync(string url, string requestBody)
         {
@@ -231,11 +227,9 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             using var byteContent = new ByteArrayContent(buffer);
             byteContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
 
-            var response = await _httpClient.PostAsync(new Uri(url), byteContent);
+            var response = await PostDataAsync(url, byteContent);
 
             return response;
         }
-
-        public void Dispose() => _httpClient?.Dispose();
     }
 }
