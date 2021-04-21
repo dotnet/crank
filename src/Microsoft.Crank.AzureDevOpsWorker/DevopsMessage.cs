@@ -26,8 +26,8 @@ namespace Microsoft.Crank.AzureDevOpsWorker
         public string TaskInstanceName { get; set; }
         public string TaskInstanceId { get; set; }
         public string AuthToken { get; set; }
+        public Records? Records { get; set; }
 
-        public Records Records { get; set; }
         private DateTime _lastRecordsRefresh = DateTime.UtcNow;
         private static readonly JsonSerializerOptions _serializationOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
@@ -44,8 +44,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             AuthToken = (string)message.ApplicationProperties["AuthToken"];
 
             _httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Basic",
-                    Convert.ToBase64String(Encoding.ASCII.GetBytes($":{AuthToken}")));
+                new("Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes($":{AuthToken}")));
         }
 
         public Task<bool> SendTaskStartedEventAsync()
