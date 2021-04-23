@@ -4140,7 +4140,7 @@ namespace Microsoft.Crank.Agent
                 try
                 {
                     Log.WriteLine("Starting event pipe session");
-                    context.EventPipeSession = client.StartEventPipeSession(providerList);
+                    context.EventPipeSession = client.StartEventPipeSession(providerList, requestRundown: false);
                     break;
                 }
                 catch (ServerNotAvailableException)
@@ -5004,6 +5004,7 @@ namespace Microsoft.Crank.Agent
                 await Task.Delay(100);
             }
 
+            traceSession.Stop();
             traceSession.Dispose();
 
             Log.WriteLine($"Tracing finalized");
