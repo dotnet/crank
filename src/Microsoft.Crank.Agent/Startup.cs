@@ -4140,7 +4140,7 @@ namespace Microsoft.Crank.Agent
                 try
                 {
                     Log.WriteLine("Starting event pipe session");
-                    context.EventPipeSession = client.StartEventPipeSession(providerList);
+                    context.EventPipeSession = client.StartEventPipeSession(providerList, requestRundown: false);
                     break;
                 }
                 catch (ServerNotAvailableException)
