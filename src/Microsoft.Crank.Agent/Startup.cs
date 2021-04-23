@@ -5004,6 +5004,7 @@ namespace Microsoft.Crank.Agent
                 await Task.Delay(100);
             }
 
+            traceSession.Stop();
             traceSession.Dispose();
 
             Log.WriteLine($"Tracing finalized");
