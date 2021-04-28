@@ -43,9 +43,12 @@ namespace Microsoft.Crank.Agent
 
         public static async Task<string> CommitHashAsync(string path, CancellationToken cancellationToken = default)
         {
-            var result = await RunGitCommandAsync(path, "rev-parse HEAD", CheckoutTimeout, cancellationToken: cancellationToken);
-            
-            return result.StandardOutput.Trim();
+            var result = await RunGitCommandAsync(path, "rev-parse HEAD", CheckoutTimeout, throwOnError: false, cancellationToken: cancellationToken);
+
+            return result.ExitCode == 0
+                ? result.StandardOutput.Trim()
+                : null
+                ;
         }
 
         public static Task InitSubModulesAsync(string path, CancellationToken cancellationToken = default)
