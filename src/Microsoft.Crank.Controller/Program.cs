@@ -60,6 +60,7 @@ namespace Microsoft.Crank.Controller
             _descriptionOption,
             _propertyOption,
             _excludeMetadataOption,
+            _excludeDependenciesOption,
             _excludeMeasurementsOption,
             _autoflushOption,
             _repeatOption,
@@ -153,6 +154,7 @@ namespace Microsoft.Crank.Controller
             _propertyOption = app.Option("-p|--property", "Some custom key/value that will be added to the results, .e.g. --property arch=arm --property os=linux", CommandOptionType.MultipleValue);
             _excludeMeasurementsOption = app.Option("--no-measurements", "Remove all measurements from the stored results. For instance, all samples of a measure won't be stored, only the final value.", CommandOptionType.SingleOrNoValue);
             _excludeMetadataOption = app.Option("--no-metadata", "Remove all metadata from the stored results. The metadata is only necessary for being to generate friendly outputs.", CommandOptionType.SingleOrNoValue);
+            _excludeDependenciesOption = app.Option("--no-dependencies", "Remove all dependencies from the stored results.", CommandOptionType.SingleOrNoValue);
             _autoflushOption = app.Option("--auto-flush", "Runs a single long-running job and flushes measurements automatically.", CommandOptionType.NoValue);
             _repeatOption = app.Option("--repeat", "The job to repeat using the '--span' or '--iterations' argument.", CommandOptionType.SingleValue);
             _spanOption = app.Option("--span", "The duration while the job is repeated.", CommandOptionType.SingleValue);
@@ -1926,6 +1928,9 @@ namespace Microsoft.Crank.Controller
                 var jobResult = jobResults.Jobs[jobName] = new JobResult();
                 var jobConnections = jobsByDependency[jobName];
 
+                // Extract dependencies from the first job
+                jobResult.Dependencies = jobConnections.First().Job.Dependencies.ToArray();
+
                 // Calculate results from configuration and job metadata
 
                 var resultDefinitions = jobConnections.SelectMany(j => j.Job.Metadata.Select(x => 
@@ -2032,6 +2037,12 @@ namespace Microsoft.Crank.Controller
                 if (_excludeMetadataOption.HasValue())
                 {
                     jobResult.Metadata = Array.Empty<ResultMetadata>();
+                }
+
+                // Exclude dependencies
+                if (_excludeDependenciesOption.HasValue())
+                {
+                    jobResult.Dependencies = Array.Empty<Dependency>();
                 }
 
                 // Exclude measurements
@@ -2491,7 +2502,7 @@ namespace Microsoft.Crank.Controller
                 var metadata = job.Value.Metadata;
 
                 // When computing averages, we lose all measurements
-                var jobResult = new JobResult { Metadata = metadata };
+                var jobResult = new JobResult { Metadata = metadata, Dependencies = job.Value.Dependencies };
                 
                 jobResults.Jobs[jobName] = jobResult;
 
