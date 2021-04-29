@@ -37,6 +37,7 @@ using NuGet.Versioning;
 using System.Net;
 using System.Reflection.PortableExecutable;
 using System.Reflection.Metadata;
+using System.Security.Cryptography;
 
 namespace Microsoft.Crank.Agent
 {
@@ -2645,7 +2646,7 @@ namespace Microsoft.Crank.Agent
                         Value = $"{aspNetCoreVersion}+{aspnetCoreCommitHash.Substring(0, 7)}"
                     });
 
-                    knownDependencies.Add(new Dependency { AssemblyNames = new[] { "Microsoft.AspNetCore.App" }, CommitHash = aspnetCoreCommitHash, RepositoryUrl = "https://github.com/dotnet/aspnetcore", Version = aspNetCoreVersion });
+                    knownDependencies.Add(new Dependency { Names = new[] { "Microsoft.AspNetCore.App" }, CommitHash = aspnetCoreCommitHash, RepositoryUrl = "https://github.com/dotnet/aspnetcore", Version = aspNetCoreVersion });
                 }
                 catch (Exception e)
                 {
@@ -2678,7 +2679,7 @@ namespace Microsoft.Crank.Agent
                         Value = $"{runtimeVersion}+{netCoreAppCommitHash.Substring(0, 7)}"
                     });
 
-                    knownDependencies.Add(new Dependency { AssemblyNames = new[] { "Microsoft.NETCore.App" }, CommitHash = netCoreAppCommitHash, RepositoryUrl = "https://github.com/dotnet/runtime", Version = runtimeVersion });
+                    knownDependencies.Add(new Dependency { Names = new[] { "Microsoft.NETCore.App" }, CommitHash = netCoreAppCommitHash, RepositoryUrl = "https://github.com/dotnet/runtime", Version = runtimeVersion });
                 }
                 catch (Exception e)
                 {
@@ -2998,11 +2999,29 @@ namespace Microsoft.Crank.Agent
                 }
             }
 
-            job.Dependencies = GetDependencies(job, outputFolder, aspNetCoreVersion, runtimeVersion, commitHash);
+            if (job.CollectDependencies)
+            {
+                job.Dependencies = GetDependencies(job, outputFolder, aspNetCoreVersion, runtimeVersion, commitHash);
 
-            job.Dependencies.AddRange(knownDependencies);
+                job.Dependencies.AddRange(knownDependencies);
+
+                CreateDependenciesHash();
+            }
 
             return benchmarkedDir;
+
+            void CreateDependenciesHash()
+            {
+                using (var md5 = MD5.Create())
+                {
+                    foreach (var dependency in job.Dependencies)
+                    {
+                        var names = String.Concat(dependency.Names);
+                        byte[] bytes = md5.ComputeHash(Encoding.UTF8.GetBytes(names));
+                        dependency.Id = Convert.ToBase64String(bytes);
+                    }
+                }
+            }
 
             long DirSize(DirectoryInfo d)
             {
@@ -3453,7 +3472,7 @@ namespace Microsoft.Crank.Agent
                             }
                         }
 
-                        dependency.AssemblyNames = new[] { Path.GetFileName(assemblyFilename) };
+                        dependency.Names = new[] { Path.GetFileName(assemblyFilename) };
 
                         dependencies.Add(dependency);
                     }
@@ -3487,7 +3506,7 @@ namespace Microsoft.Crank.Agent
             foreach (var g in groups)
             {
                 var merged = g.First();
-                merged.AssemblyNames = g.Select(x => x.AssemblyNames.First()).Distinct().ToArray();
+                merged.Names = g.Select(x => x.Names.First()).Distinct().OrderBy(x => x).ToArray();
 
                 dependencies.Add(merged);
             }
@@ -3496,7 +3515,7 @@ namespace Microsoft.Crank.Agent
 
             bool IsProjectAssembly(Dependency d)
             {
-                return d.AssemblyNames.Any(x => Path.GetFileNameWithoutExtension(x) == Path.GetFileNameWithoutExtension(job.Source.Project ?? ""));
+                return d.Names.Any(x => Path.GetFileNameWithoutExtension(x) == Path.GetFileNameWithoutExtension(job.Source.Project ?? ""));
             }
 
             bool IsAspNetCoreDependency(Dependency d)
