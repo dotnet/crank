@@ -35,6 +35,9 @@ using Repository;
 using OperatingSystem = Microsoft.Crank.Models.OperatingSystem;
 using NuGet.Versioning;
 using System.Net;
+using System.Reflection.PortableExecutable;
+using System.Reflection.Metadata;
+using System.Security.Cryptography;
 
 namespace Microsoft.Crank.Agent
 {
@@ -2304,6 +2307,8 @@ namespace Microsoft.Crank.Agent
 
             Log.WriteLine($"Benchmarked Application in {benchmarkedApp}");
 
+            var commitHash = await Git.CommitHashAsync(benchmarkedApp, cancellationToken);
+
             // Skip installing dotnet or building project if not necessary
             var requireDotnetBuild =
                 !String.IsNullOrEmpty(job.Source.Project) ||
@@ -2614,6 +2619,8 @@ namespace Microsoft.Crank.Agent
                 });
             }
 
+            var knownDependencies = new List<Dependency>();
+
             if (!job.Metadata.Any(x => x.Name == "AspNetCoreVersion"))
             {
                 try
@@ -2638,6 +2645,8 @@ namespace Microsoft.Crank.Agent
                         Timestamp = DateTime.UtcNow,
                         Value = $"{aspNetCoreVersion}+{aspnetCoreCommitHash.Substring(0, 7)}"
                     });
+
+                    knownDependencies.Add(new Dependency { Names = new[] { "Microsoft.AspNetCore.App" }, CommitHash = aspnetCoreCommitHash, RepositoryUrl = "https://github.com/dotnet/aspnetcore", Version = aspNetCoreVersion });
                 }
                 catch (Exception e)
                 {
@@ -2669,6 +2678,8 @@ namespace Microsoft.Crank.Agent
                         Timestamp = DateTime.UtcNow,
                         Value = $"{runtimeVersion}+{netCoreAppCommitHash.Substring(0, 7)}"
                     });
+
+                    knownDependencies.Add(new Dependency { Names = new[] { "Microsoft.NETCore.App" }, CommitHash = netCoreAppCommitHash, RepositoryUrl = "https://github.com/dotnet/runtime", Version = runtimeVersion });
                 }
                 catch (Exception e)
                 {
@@ -2988,7 +2999,29 @@ namespace Microsoft.Crank.Agent
                 }
             }
 
+            if (job.CollectDependencies)
+            {
+                job.Dependencies = GetDependencies(job, outputFolder, aspNetCoreVersion, runtimeVersion, commitHash);
+
+                job.Dependencies.AddRange(knownDependencies);
+
+                CreateDependenciesHash();
+            }
+
             return benchmarkedDir;
+
+            void CreateDependenciesHash()
+            {
+                using (var md5 = MD5.Create())
+                {
+                    foreach (var dependency in job.Dependencies)
+                    {
+                        var names = String.Concat(dependency.Names);
+                        byte[] bytes = md5.ComputeHash(Encoding.UTF8.GetBytes(names));
+                        dependency.Id = Convert.ToBase64String(bytes);
+                    }
+                }
+            }
 
             long DirSize(DirectoryInfo d)
             {
@@ -3359,6 +3392,143 @@ namespace Microsoft.Crank.Agent
             }
 
             return sdkVersion;
+        }
+
+        private static List<Dependency> GetDependencies(Job job, string publishFolder, string aspnetcoreversion, string runtimeversion, string projectHash)
+        {
+            var folder = new DirectoryInfo(publishFolder);
+            var assemblyFilenames = folder.GetFiles("*.dll").Select(x => x.FullName).ToArray();
+
+            var dependencies = new List<Dependency>();
+
+            // 1- Gather all version information from any assembly
+            // 2- Remove assemblies with same versions as ASP.NET and .NET Core runtime (repository + hash)
+            // 3- Update project's dependency
+            // 3- Group by Repository url + CommitHash and remove duplicates. Common name prefix is kept.
+
+            foreach (var assemblyFilename in assemblyFilenames)
+            {
+                try
+                {
+                    using var assembly = Mono.Cecil.AssemblyDefinition.ReadAssembly(assemblyFilename);
+
+                    if (assembly != null)
+                    {
+                        // Extract version and commit hash
+
+                        var dependency = new Dependency();
+
+                        var informationalVersionAttribute = assembly.CustomAttributes.Where(x => x.AttributeType.Name == nameof(AssemblyInformationalVersionAttribute)).FirstOrDefault();
+
+                        if (informationalVersionAttribute != null)
+                        {
+                            var argumentValule = informationalVersionAttribute.ConstructorArguments[0].Value.ToString();
+                            var versions = argumentValule.Split('+', 2, StringSplitOptions.RemoveEmptyEntries);
+
+                            dependency.Version = versions[0];
+
+                            if (versions.Length > 1)
+                            {
+                                dependency.CommitHash = versions[1];
+                            }
+                        }
+
+                        // Use AssemblyFileVersion alternatively
+
+                        if (String.IsNullOrEmpty(dependency.Version))
+                        {
+                            var fileVersionAttribute = assembly.CustomAttributes.Where(x => x.AttributeType.Name == nameof(AssemblyFileVersionAttribute)).FirstOrDefault();
+
+                            if (fileVersionAttribute != null)
+                            {
+                                dependency.Version = fileVersionAttribute.ConstructorArguments[0].Value.ToString();
+                            }
+                        }
+
+                        // Extract Repository Url
+
+                        var respositoryUrlAttribute = assembly.CustomAttributes.Where(x =>
+                            x.AttributeType.Name == nameof(AssemblyMetadataAttribute) &&
+                            x.ConstructorArguments[0].Value.ToString() == "RepositoryUrl")
+                            .FirstOrDefault();
+
+                        if (respositoryUrlAttribute != null)
+                        {
+                            dependency.RepositoryUrl = respositoryUrlAttribute?.ConstructorArguments[1].Value.ToString();
+                        }
+
+                        // Extract CommitHash Url
+
+                        if (String.IsNullOrEmpty(dependency.CommitHash))
+                        {
+                            var commitHashAttribute = assembly.CustomAttributes.Where(x =>
+                                x.AttributeType.Name == nameof(AssemblyMetadataAttribute) &&
+                                x.ConstructorArguments[0].Value.ToString() == "CommitHash")
+                                .FirstOrDefault();
+
+                            if (commitHashAttribute != null)
+                            {
+                                dependency.CommitHash = commitHashAttribute?.ConstructorArguments[1].Value.ToString();
+                            }
+                        }
+
+                        dependency.Names = new[] { Path.GetFileName(assemblyFilename) };
+
+                        dependencies.Add(dependency);
+                    }
+                }
+                catch
+                {
+                    // Ignore assemblies that fail to load version information
+                    // Log.WriteLine($"Could not extract version information from '{Path.GetFileName(assemblyFilename)}': {e.Message}");
+                }
+            }
+
+            // Remove project, ASP.NET and .NET Core runtime assemblies
+
+            dependencies = dependencies.Where(x => !IsAspNetCoreDependency(x) && !IsNetCoreDependency(x)).ToList();
+
+            // Update project dependency
+
+            var projectDependency = dependencies.FirstOrDefault(IsProjectAssembly);
+
+            if (projectDependency != null && String.IsNullOrEmpty(projectDependency.CommitHash))
+            {
+                projectDependency.CommitHash = projectHash;
+            }
+
+            // Group by repository/hash/hash, then reduce names
+
+            var groups = dependencies.GroupBy(x => (x.RepositoryUrl ?? "", x.Version ?? "", x.CommitHash ?? "")).ToArray();
+
+            dependencies.Clear();
+
+            foreach (var g in groups)
+            {
+                var merged = g.First();
+                merged.Names = g.Select(x => x.Names.First()).Distinct().OrderBy(x => x).ToArray();
+
+                dependencies.Add(merged);
+            }
+
+            return dependencies;
+
+            bool IsProjectAssembly(Dependency d)
+            {
+                return d.Names.Any(x => Path.GetFileNameWithoutExtension(x) == Path.GetFileNameWithoutExtension(job.Source.Project ?? ""));
+            }
+
+            bool IsAspNetCoreDependency(Dependency d)
+            {
+                return String.Equals(d.RepositoryUrl, "https://github.com/dotnet/aspnetcore", StringComparison.OrdinalIgnoreCase)
+                    && String.Equals(d.Version, aspnetcoreversion, StringComparison.OrdinalIgnoreCase);
+            }
+
+            bool IsNetCoreDependency(Dependency d)
+            {
+                return String.Equals(d.RepositoryUrl, "https://github.com/dotnet/runtime", StringComparison.OrdinalIgnoreCase)
+                    && String.Equals(d.Version, runtimeversion, StringComparison.OrdinalIgnoreCase);
+            }
         }
 
         private static void PatchRuntimeConfig(Job job, string publishFolder, string aspnetcoreversion, string runtimeversion)

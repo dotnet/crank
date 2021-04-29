@@ -204,6 +204,9 @@ namespace Microsoft.Crank.Models
         /// Script that is executed once the templates have been processed.
         public List<string> OnConfigure { get; set; } = new List<string>();
 
+        public List<Dependency> Dependencies { get; set; } = new List<Dependency>();
+
+        public bool CollectDependencies { get; set; }
     }
 
     /// <summary>

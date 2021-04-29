@@ -1926,6 +1926,9 @@ namespace Microsoft.Crank.Controller
                 var jobResult = jobResults.Jobs[jobName] = new JobResult();
                 var jobConnections = jobsByDependency[jobName];
 
+                // Extract dependencies from the first job
+                jobResult.Dependencies = jobConnections.First().Job.Dependencies.ToArray();
+
                 // Calculate results from configuration and job metadata
 
                 var resultDefinitions = jobConnections.SelectMany(j => j.Job.Metadata.Select(x => 
@@ -2491,7 +2494,7 @@ namespace Microsoft.Crank.Controller
                 var metadata = job.Value.Metadata;
 
                 // When computing averages, we lose all measurements
-                var jobResult = new JobResult { Metadata = metadata };
+                var jobResult = new JobResult { Metadata = metadata, Dependencies = job.Value.Dependencies };
                 
                 jobResults.Jobs[jobName] = jobResult;
 

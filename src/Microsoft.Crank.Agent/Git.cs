@@ -41,6 +41,16 @@ namespace Microsoft.Crank.Agent
             return RunGitCommandAsync(path, $"checkout {branchOrCommit}", CheckoutTimeout, retries: 5, cancellationToken: cancellationToken);
         }
 
+        public static async Task<string> CommitHashAsync(string path, CancellationToken cancellationToken = default)
+        {
+            var result = await RunGitCommandAsync(path, "rev-parse HEAD", CheckoutTimeout, throwOnError: false, cancellationToken: cancellationToken);
+
+            return result.ExitCode == 0
+                ? result.StandardOutput.Trim()
+                : null
+                ;
+        }
+
         public static Task InitSubModulesAsync(string path, CancellationToken cancellationToken = default)
         {
             return RunGitCommandAsync(path, $"submodule update --init", SubModuleTimeout, retries: 5, cancellationToken: cancellationToken);
@@ -50,5 +60,6 @@ namespace Microsoft.Crank.Agent
         {
             return ProcessUtil.RetryOnExceptionAsync(retries, () => ProcessUtil.RunAsync("git", command, timeout, workingDirectory: path, throwOnError: throwOnError, captureOutput: true, captureError: true, cancellationToken: cancellationToken));
         }
+
     }
 }

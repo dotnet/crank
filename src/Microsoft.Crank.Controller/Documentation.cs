@@ -67,6 +67,7 @@ internal class Documentation
   --[JOB].options.dumpType <full|heap|mini>                     The type of dump to collect.
   --[JOB].options.dumpOutput <filename>                         The name of the dump file. Can be a file prefix (app will add *.DATE*.zip) , or a specific name and no DATE* will 
                                                                 be added e.g., c:\dumps\mydump
+  --[JOB].collectDependencies <true|false>                      Whether to include the list of project dependencies in the results.
 
   ## Environment
 
