@@ -85,7 +85,7 @@ namespace Microsoft.Crank.RegressionBot.Models
                     var currentDependency = currentDependenciesById[id];
 
                     // Is there a change ?
-                    if (currentDependency.Version != previousDependency.Version)
+                    if (currentDependency.Version != previousDependency.Version || currentDependency.CommitHash != previousDependency.CommitHash)
                     {
                         var change = new DependencyChange
                         {
