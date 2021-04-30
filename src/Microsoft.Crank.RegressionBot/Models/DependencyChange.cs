@@ -31,7 +31,7 @@ namespace Microsoft.Crank.RegressionBot.Models
         /// <summary>
         /// e.g., "https://github.com/dotnet/runtime"
         /// </summary>
-        public string Repository { get; set; }
+        public string RepositoryUrl { get; set; }
 
         /// <summary>
         /// e.g., "6.0.0-preview.5.21228.5"

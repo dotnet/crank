@@ -39,6 +39,9 @@ namespace Microsoft.Crank.RegressionBot
         static BotOptions _options;
         static Credentials _credentials;
         static IReadOnlyList<Issue> _recentIssues;
+
+        static TemplateOptions _templateOptions;
+        static FluidParser _fluidParser = new FluidParser();
         
         static Program()
         {
@@ -49,13 +52,14 @@ namespace Microsoft.Crank.RegressionBot
 
             _httpClient = new HttpClient(_httpClientHandler);
 
-            TemplateContext.GlobalMemberAccessStrategy.Register<BenchmarksResult>();
-            TemplateContext.GlobalMemberAccessStrategy.Register<DependencyChange>();
-            TemplateContext.GlobalMemberAccessStrategy.Register<Report>();
-            TemplateContext.GlobalMemberAccessStrategy.Register<Regression>();
-            TemplateContext.GlobalMemberAccessStrategy.Register<JObject, object>((obj, name) => obj[name]);
-            FluidValue.SetTypeMapping<JObject>(o => new ObjectValue(o));
-            FluidValue.SetTypeMapping<JValue>(o => FluidValue.Create(o.Value));
+            _templateOptions.MemberAccessStrategy = UnsafeMemberAccessStrategy.Instance;
+
+            // When a property of a JObject value is accessed, try to look into its properties
+            _templateOptions.MemberAccessStrategy.Register<JObject, object>((source, name) => source[name]);
+
+            // Convert JToken to FluidValue
+            _templateOptions.ValueConverters.Add(x => x is JObject o ? new ObjectValue(o) : null);
+            _templateOptions.ValueConverters.Add(x => x is JValue v ? v.Value : null);
         }
 
         static async Task<int> Main(string[] args)
@@ -267,7 +271,7 @@ namespace Microsoft.Crank.RegressionBot
                 Regressions = regressions.OrderBy(x => x.CurrentResult.Scenario).ThenBy(x => x.CurrentResult.DateTimeUtc).ToList()
             };
 
-            if (!FluidTemplate.TryParse(template, out var fluidTemplate, out var errors))
+            if (!_fluidParser.TryParse(template, out var fluidTemplate, out var errors))
             {   
                 Console.WriteLine("Error parsing the template:");
                 foreach (var error in errors)
@@ -278,7 +282,7 @@ namespace Microsoft.Crank.RegressionBot
                 return "";
             }
 
-            var context = new TemplateContext { Model = report };
+            var context = new TemplateContext(report, _templateOptions);
 
             var body = await fluidTemplate.RenderAsync(context);
 

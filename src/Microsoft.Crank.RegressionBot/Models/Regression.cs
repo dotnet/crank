@@ -49,8 +49,8 @@ namespace Microsoft.Crank.RegressionBot.Models
         {
             // If we are using results with no dependencies (old results, or dependencies not gathered) we generate the ones for dotnet
 
-            var previous = JsonSerializer.Deserialize<JobResults>(PreviousResult.Document);
-            var current = JsonSerializer.Deserialize<JobResults>(CurrentResult.Document);
+            var previous = JsonSerializer.Deserialize<JobResults>(PreviousResult.Document, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var current = JsonSerializer.Deserialize<JobResults>(CurrentResult.Document, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
             foreach (var jobName in previous.Jobs.Keys)
             {
@@ -91,6 +91,8 @@ namespace Microsoft.Crank.RegressionBot.Models
                         {
                             Id = id,
                             Job = jobName,
+                            Names = previousDependency.Names,
+                            RepositoryUrl = previousDependency.RepositoryUrl,
                             PreviousVersion = previousDependency.Version,
                             PreviousCommitHash = previousDependency.CommitHash,
                             CurrentVersion = currentDependency.Version,
@@ -111,6 +113,8 @@ namespace Microsoft.Crank.RegressionBot.Models
                     {
                         Id = id,
                         Job = jobName,
+                        Names = currentDependency.Names,
+                        RepositoryUrl = currentDependency.RepositoryUrl,
                         PreviousVersion = "",
                         PreviousCommitHash = "",
                         CurrentVersion = currentDependency.Version,
@@ -130,6 +134,8 @@ namespace Microsoft.Crank.RegressionBot.Models
                     {
                         Id = id,
                         Job = jobName,
+                        Names = previousDependency.Names,
+                        RepositoryUrl = previousDependency.RepositoryUrl,
                         PreviousVersion = previousDependency.Version,
                         PreviousCommitHash = previousDependency.CommitHash,
                         CurrentVersion = "",

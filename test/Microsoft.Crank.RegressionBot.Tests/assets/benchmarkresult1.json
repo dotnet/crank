@@ -1,49 +1,250 @@
 {
     "jobs": {
-        "application": {
-            "results": {
-                "benchmarks/cpu": 99.0,
-                "benchmarks/cpu/raw": 2779.0802639847147,
-                "benchmarks/working-set": 410.0,
-                "benchmarks/build-time": 4622.0,
-                "benchmarks/start-time": 221.0,
-                "benchmarks/published-size": 113407.0,
-                "runtime-counter/cpu-usage": 99.0,
-                "runtime-counter/working-set": 429.0,
-                "runtime-counter/gc-heap-size": 314.0,
-                "runtime-counter/gen-0-gc-count": 1.0,
-                "runtime-counter/gen-1-gc-count": 1.0,
-                "runtime-counter/gen-2-gc-count": 1.0,
-                "runtime-counter/time-in-gc": 0.0,
-                "runtime-counter/gen-0-size": 672.0,
-                "runtime-counter/gen-1-size": 4231672.0,
-                "runtime-counter/gen-2-size": 4345296.0,
-                "runtime-counter/loh-size": 2015296.0,
-                "runtime-counter/poh-size": 2622592.0,
-                "runtime-counter/alloc-rate": 166727944.0,
-                "runtime-counter/gc-fragmentation": 0.01914076556499712,
-                "runtime-counter/assembly-count": 97.0,
-                "runtime-counter/exception-count": 856.0,
-                "runtime-counter/threadpool-thread-count": 48.0,
-                "runtime-counter/monitor-lock-contention-count": 59.0,
-                "runtime-counter/threadpool-queue-length": 136.0,
-                "runtime-counter/threadpool-completed-items-count": 1079831.0,
-                "runtime-counter/active-timer-count": 0.0,
-                "runtime-counter/il-bytes-jitted": 203686.0,
-                "runtime-counter/methods-jitted-count": 2441.0,
-                "aspNetCoreVersion": "5.0.0-rtm.20512.8+944c964339195823f6aa66fee02de8ab16b6790a",
-                "netCoreAppVersion": "5.0.0-rtm.20509.6+cca8c883475d4821c9af1f7093e7af6146f1b4a3"
-            },
-            "metadata": [],
-            "measurements": [],
-            "environment": {
-                "hw": "Physical",
-                "env": "Unspecified",
-                "os": "Linux",
-                "arch": "X64",
-                "proc": 28
-            }
+      "application": {
+        "results": {
+          "benchmarks/cpu": 99.0,
+          "benchmarks/cpu/raw": 2779.0802639847147,
+          "benchmarks/working-set": 410.0,
+          "benchmarks/build-time": 4622.0,
+          "benchmarks/start-time": 221.0,
+          "benchmarks/published-size": 113407.0,
+          "runtime-counter/cpu-usage": 99.0,
+          "runtime-counter/working-set": 429.0,
+          "runtime-counter/gc-heap-size": 314.0,
+          "runtime-counter/gen-0-gc-count": 1.0,
+          "runtime-counter/gen-1-gc-count": 1.0,
+          "runtime-counter/gen-2-gc-count": 1.0,
+          "runtime-counter/time-in-gc": 0.0,
+          "runtime-counter/gen-0-size": 672.0,
+          "runtime-counter/gen-1-size": 4231672.0,
+          "runtime-counter/gen-2-size": 4345296.0,
+          "runtime-counter/loh-size": 2015296.0,
+          "runtime-counter/poh-size": 2622592.0,
+          "runtime-counter/alloc-rate": 166727944.0,
+          "runtime-counter/gc-fragmentation": 0.01914076556499712,
+          "runtime-counter/assembly-count": 97.0,
+          "runtime-counter/exception-count": 856.0,
+          "runtime-counter/threadpool-thread-count": 48.0,
+          "runtime-counter/monitor-lock-contention-count": 59.0,
+          "runtime-counter/threadpool-queue-length": 136.0,
+          "runtime-counter/threadpool-completed-items-count": 1079831.0,
+          "runtime-counter/active-timer-count": 0.0,
+          "runtime-counter/il-bytes-jitted": 203686.0,
+          "runtime-counter/methods-jitted-count": 2441.0,
+          "aspNetCoreVersion": "5.0.0-rtm.20512.8+944c964339195823f6aa66fee02de8ab16b6790a",
+          "netCoreAppVersion": "5.0.0-rtm.20509.6+cca8c883475d4821c9af1f7093e7af6146f1b4a3"
         },
+        "dependencies": [
+          {
+            "id": "pqA8WJFOPNYRXwZcIXiG/Q==",
+            "names": [
+              "Microsoft.Extensions.Caching.Abstractions.dll",
+              "Microsoft.Extensions.Caching.Memory.dll",
+              "Microsoft.Extensions.Configuration.Abstractions.dll",
+              "Microsoft.Extensions.Configuration.Binder.dll",
+              "Microsoft.Extensions.Configuration.CommandLine.dll",
+              "Microsoft.Extensions.Configuration.dll",
+              "Microsoft.Extensions.Configuration.EnvironmentVariables.dll",
+              "Microsoft.Extensions.Configuration.FileExtensions.dll",
+              "Microsoft.Extensions.Configuration.Ini.dll",
+              "Microsoft.Extensions.Configuration.Json.dll",
+              "Microsoft.Extensions.Configuration.UserSecrets.dll",
+              "Microsoft.Extensions.Configuration.Xml.dll",
+              "Microsoft.Extensions.DependencyInjection.Abstractions.dll",
+              "Microsoft.Extensions.DependencyInjection.dll",
+              "Microsoft.Extensions.FileProviders.Abstractions.dll",
+              "Microsoft.Extensions.FileProviders.Composite.dll",
+              "Microsoft.Extensions.FileProviders.Physical.dll",
+              "Microsoft.Extensions.FileSystemGlobbing.dll",
+              "Microsoft.Extensions.Hosting.Abstractions.dll",
+              "Microsoft.Extensions.Hosting.dll",
+              "Microsoft.Extensions.Http.dll",
+              "Microsoft.Extensions.Logging.Abstractions.dll",
+              "Microsoft.Extensions.Logging.Configuration.dll",
+              "Microsoft.Extensions.Logging.Console.dll",
+              "Microsoft.Extensions.Logging.Debug.dll",
+              "Microsoft.Extensions.Logging.dll",
+              "Microsoft.Extensions.Logging.EventLog.dll",
+              "Microsoft.Extensions.Logging.EventSource.dll",
+              "Microsoft.Extensions.Logging.TraceSource.dll",
+              "Microsoft.Extensions.Options.ConfigurationExtensions.dll",
+              "Microsoft.Extensions.Options.DataAnnotations.dll",
+              "Microsoft.Extensions.Options.dll",
+              "Microsoft.Extensions.Primitives.dll",
+              "System.Diagnostics.EventLog.dll",
+              "System.IO.Pipelines.dll",
+              "System.Security.Cryptography.Pkcs.dll",
+              "System.Security.Cryptography.Xml.dll"
+            ],
+            "repositoryUrl": "https://github.com/dotnet/runtime",
+            "version": "6.0.0-preview.5.21229.1",
+            "commitHash": "6a5bc5315a6416de33655e127b5fbc5cb97a16a7"
+          },
+          {
+            "id": "sY+rbP87ZfjbG2/yS9Tqrg==",
+            "names": [
+              "Microsoft.Identity.Client.dll"
+            ],
+            "repositoryUrl": null,
+            "version": "4.21.1",
+            "commitHash": "2dddc6b857f0b3833169f2e5890dc2058eabcbed"
+          },
+          {
+            "id": "SVApWB12CVkwtRdZ3x918A==",
+            "names": [
+              "Microsoft.Data.Sqlite.dll",
+              "Microsoft.EntityFrameworkCore.Abstractions.dll",
+              "Microsoft.EntityFrameworkCore.dll",
+              "Microsoft.EntityFrameworkCore.Relational.dll",
+              "Microsoft.EntityFrameworkCore.Sqlite.dll",
+              "Microsoft.EntityFrameworkCore.SqlServer.dll"
+            ],
+            "repositoryUrl": "https://github.com/dotnet/efcore",
+            "version": "6.0.0-preview.3.21201.2",
+            "commitHash": "a8d74d6ca43430dd5194b49ef79448b7dfe1d134"
+          },
+          {
+            "id": "zjlKW/phfGHYMncH1QK60g==",
+            "names": [
+              "Microsoft.IdentityModel.JsonWebTokens.dll",
+              "Microsoft.IdentityModel.Logging.dll",
+              "Microsoft.IdentityModel.Protocols.dll",
+              "Microsoft.IdentityModel.Protocols.OpenIdConnect.dll",
+              "Microsoft.IdentityModel.Tokens.dll",
+              "System.IdentityModel.Tokens.Jwt.dll"
+            ],
+            "repositoryUrl": null,
+            "version": "6.8.0.11012235604.824068adaeb7b158df2b36d8787f689646e715e0",
+            "commitHash": null
+          },
+          {
+            "id": "HZfsSIi5BGseoopKPLc5XQ==",
+            "names": [
+              "Microsoft.Win32.SystemEvents.dll",
+              "System.Configuration.ConfigurationManager.dll",
+              "System.Drawing.Common.dll",
+              "System.Runtime.Caching.dll",
+              "System.Security.Cryptography.ProtectedData.dll",
+              "System.Security.Permissions.dll",
+              "System.Windows.Extensions.dll"
+            ],
+            "repositoryUrl": null,
+            "version": "3.1.0",
+            "commitHash": "0f7f38c4fd323b26da10cce95f857f77f0f09b48"
+          },
+          {
+            "id": "alMr/qbov7VPWzj6AZZaow==",
+            "names": [
+              "SQLitePCLRaw.batteries_v2.dll",
+              "SQLitePCLRaw.core.dll",
+              "SQLitePCLRaw.nativelibrary.dll",
+              "SQLitePCLRaw.provider.dynamic_cdecl.dll"
+            ],
+            "repositoryUrl": "https://github.com/ericsink/SQLitePCL.raw",
+            "version": "2.0.5-pre20210119130047",
+            "commitHash": null
+          },
+          {
+            "id": "12zNcc7ZMloxgJU61I4Kdg==",
+            "names": [
+              "Newtonsoft.Json.Bson.dll"
+            ],
+            "repositoryUrl": null,
+            "version": "1.0.2",
+            "commitHash": "a1db92678e7e72eb733f37079f3a93bfb6215338"
+          },
+          {
+            "id": "wgDk7tYcpc6uFOazh9poqA==",
+            "names": [
+              "Npgsql.EntityFrameworkCore.PostgreSQL.dll"
+            ],
+            "repositoryUrl": "https://github.com/npgsql/efcore.pg",
+            "version": "6.0.0-preview3",
+            "commitHash": "66453b5090335621f9e7e42dea11afa4398ccabd"
+          },
+          {
+            "id": "1lR9zkunYR8XsH3+Zg2E7g==",
+            "names": [
+              "Microsoft.Extensions.DependencyModel.dll"
+            ],
+            "repositoryUrl": "https://github.com/dotnet/runtime",
+            "version": "6.0.0-preview.3.21201.4",
+            "commitHash": "236cb21e3c1992c8cee6935ce67e2125ac4687e8"
+          },
+          {
+            "id": "ewsL+2v4Qf38sp6Huqo5CA==",
+            "names": [
+              "Dapper.dll"
+            ],
+            "repositoryUrl": null,
+            "version": "2.0.30",
+            "commitHash": "247e498f0e"
+          },
+          {
+            "id": "jKZEbuQEryehn2ag2/vI6g==",
+            "names": [
+              "Microsoft.Data.SqlClient.dll"
+            ],
+            "repositoryUrl": null,
+            "version": "2.1.2",
+            "commitHash": "2a61e8301e9d21ada2338a9279cf27653e781757"
+          },
+          {
+            "id": "op+1CLtFneU2Ayk/HY//ig==",
+            "names": [
+              "Newtonsoft.Json.dll"
+            ],
+            "repositoryUrl": null,
+            "version": "12.0.2",
+            "commitHash": "4ab34b0461fb595805d092a46a58f35f66c84d6a"
+          },
+          {
+            "id": "PoFmaUAdYQVF1xdrrJJpbw==",
+            "names": [
+              "Benchmarks.dll"
+            ],
+            "repositoryUrl": "https://github.com/aspnet/Benchmarks",
+            "version": "1.0.0",
+            "commitHash": "9dd32084f9a1f90905f3e6c6aaa692b562878679"
+          },
+          {
+            "id": "s3L5UzdMkuUbd+Q946IKNg==",
+            "names": [
+              "System.Runtime.CompilerServices.Unsafe.dll"
+            ],
+            "repositoryUrl": null,
+            "version": "6.0.0-preview.5.21229.9",
+            "commitHash": null
+          },
+          {
+            "id": "+kL3IPaqvdVHIVR8mUBvrw==",
+            "names": [
+              "Microsoft.AspNetCore.App"
+            ],
+            "repositoryUrl": "https://github.com/dotnet/aspnetcore",
+            "version": "6.0.0-preview.5.21229.9",
+            "commitHash": "547de595414d6ebb9ddeaa4a231815449c9f3c60"
+          },
+          {
+            "id": "VQgr9CxNHDwaUGAf9ff0Tw==",
+            "names": [
+              "Microsoft.NETCore.App"
+            ],
+            "repositoryUrl": "https://github.com/dotnet/runtime",
+            "version": "6.0.0-preview.5.21229.9",
+            "commitHash": "49aec59e52d2f0bc8e2acd297023aa8464aee00c"
+          }
+        ],
+        "metadata": [],
+        "measurements": [],
+        "environment": {
+          "hw": "Physical",
+          "env": "Unspecified",
+          "os": "Linux",
+          "arch": "X64",
+          "proc": 28
+        }
+      },
         "load": {
             "results": {
                 "benchmarks/cpu": 60.0,
