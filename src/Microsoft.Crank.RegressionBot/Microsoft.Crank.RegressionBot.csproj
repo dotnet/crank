@@ -18,13 +18,17 @@
     <PackageReference Include="YamlDotNet" Version="8.1.2" />
     <PackageReference Include="Manatee.Json" Version="13.0.2" />
     <PackageReference Include="System.Linq.Async" Version="4.1.1" />
-    <PackageReference Include="Fluid.Core" Version="1.0.0-beta-9693" />
+    <PackageReference Include="Fluid.Core" Version="2.0.7" />
     <PackageReference Include="MessagePack" Version="2.2.85" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="regressionbot.schema.json" CopyToOutputDirectory="PreserveNewest" />
     <Compile Remove="regressionbot.schema.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Crank.Models\Microsoft.Crank.Models.csproj" />
   </ItemGroup>
 
 </Project>

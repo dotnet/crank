@@ -16,6 +16,7 @@ namespace Microsoft.Crank.RegressionBot.Tests
         static TemplateTests()
         {
             TemplateContext.GlobalMemberAccessStrategy.Register<BenchmarksResult>();
+            TemplateContext.GlobalMemberAccessStrategy.Register<DependencyChange>();
             TemplateContext.GlobalMemberAccessStrategy.Register<Report>();
             TemplateContext.GlobalMemberAccessStrategy.Register<Regression>();
             TemplateContext.GlobalMemberAccessStrategy.Register<JObject, object>((obj, name) => obj[name]);
@@ -67,11 +68,15 @@ namespace Microsoft.Crank.RegressionBot.Tests
                 Regressions = regressions
             };
 
+
+            // Create the Changes data
+            regressions[0].ComputeChanges();
+
             var template = File.ReadAllText("assets/template.fluid");
 
             var parseIsSuccessful = FluidTemplate.TryParse(template, out var fluidTemplate, out var errors);
 
-            Assert.True(parseIsSuccessful);
+            Assert.True(parseIsSuccessful, String.Join("\n", errors));
 
             var context = new TemplateContext { Model = report };
 

@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Microsoft.Crank.Models;
 using Newtonsoft.Json;
 
 namespace Microsoft.Crank.Controller
