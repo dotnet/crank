@@ -34,13 +34,11 @@ namespace Microsoft.Crank.RegressionBot
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
 
-        static readonly TimeSpan RecentIssuesTimeSpan = TimeSpan.FromDays(8);
-
         static BotOptions _options;
         static Credentials _credentials;
         static IReadOnlyList<Issue> _recentIssues;
 
-        static TemplateOptions _templateOptions;
+        static TemplateOptions _templateOptions = new TemplateOptions();
         static FluidParser _fluidParser = new FluidParser();
         
         static Program()
@@ -775,7 +773,7 @@ namespace Microsoft.Crank.RegressionBot
         }
 
         /// <summary>
-        /// Returns the issues from the past <see cref="RecentIssuesTimeSpan"/>
+        /// Returns the issues from the past
         /// </summary>
         private static async Task<IReadOnlyList<Issue>> GetRecentIssues(Source source)
         {

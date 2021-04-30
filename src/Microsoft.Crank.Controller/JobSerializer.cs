@@ -5,6 +5,7 @@
 using System;
 using System.Data.SqlClient;
 using System.Threading.Tasks;
+using Microsoft.Crank.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 
