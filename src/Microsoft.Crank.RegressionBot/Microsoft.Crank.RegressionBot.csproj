@@ -27,4 +27,8 @@
     <Compile Remove="regressionbot.schema.json" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Crank.Models\Microsoft.Crank.Models.csproj" />
+  </ItemGroup>
+
 </Project>

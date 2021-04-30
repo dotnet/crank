@@ -4,9 +4,8 @@
 
 using System;
 using System.Collections.Generic;
-using Microsoft.Crank.Models;
 
-namespace Microsoft.Crank.Controller
+namespace Microsoft.Crank.Models
 {
     public class JobResults
     {

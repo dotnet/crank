@@ -50,6 +50,7 @@ namespace Microsoft.Crank.RegressionBot
             _httpClient = new HttpClient(_httpClientHandler);
 
             TemplateContext.GlobalMemberAccessStrategy.Register<BenchmarksResult>();
+            TemplateContext.GlobalMemberAccessStrategy.Register<DependencyChange>();
             TemplateContext.GlobalMemberAccessStrategy.Register<Report>();
             TemplateContext.GlobalMemberAccessStrategy.Register<Regression>();
             TemplateContext.GlobalMemberAccessStrategy.Register<JObject, object>((obj, name) => obj[name]);
@@ -759,6 +760,8 @@ namespace Microsoft.Crank.RegressionBot
                                     break;
                                 }
                             }
+
+                            regression.ComputeChanges();
 
                             yield return regression;
                         }
