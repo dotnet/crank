@@ -12,6 +12,7 @@ namespace Microsoft.Crank.Jobs.HttpClient
         public long TotalRequests => Status1xx + Status2xx + Status3xx + Status4xx + Status5xx;
         public double LatencyMeanMs { get; set; }
         public double LatencyMaxMs { get; set; }
+        public long ThroughputBps { get; set; }
         public long DurationMs => (long)(Stopped - Started).TotalMilliseconds;
         public long BadResponses => Status1xx + Status4xx + Status5xx;
         public DateTime Started { get; set; }

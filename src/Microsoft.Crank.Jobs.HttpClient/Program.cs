@@ -225,23 +225,27 @@ namespace Microsoft.Crank.Jobs.HttpClient
                 SocketErrors = workerTasks.Select(x => x.Result.SocketErrors).Sum(),
                 Stopped = stopTime.ToLocalTime(),
                 Started = startTime.ToLocalTime(),
-                Connections = Connections,
-
+                ThroughputBps = workerTasks.Select(x => x.Result.ThroughputBps).Sum(),
                 LatencyMaxMs = Math.Round(workerTasks.Select(x => x.Result.LatencyMaxMs).Max(), 3),
                 LatencyMeanMs = Math.Round((stopTime - startTime).TotalMilliseconds / workerTasks.Select(x => x.Result.TotalRequests).Sum(), 3),
+                Connections = Connections,
             };
 
             var totalTps = (int)((result.Status1xx + result.Status2xx + result.Status3xx + result.Status4xx + result.Status5xx ) / (stopTime - startTime).TotalSeconds);
 
             if (Format == "text")
             {
-                Console.WriteLine($"Average RPS:     {totalTps:N0}");
-                Console.WriteLine($"1xx:             {result.Status1xx:N0}");
-                Console.WriteLine($"2xx:             {result.Status2xx:N0}");
-                Console.WriteLine($"3xx:             {result.Status3xx:N0}");
-                Console.WriteLine($"4xx:             {result.Status4xx:N0}");
-                Console.WriteLine($"5xx:             {result.Status5xx:N0}");
-                Console.WriteLine($"Socket Errors:   {result.SocketErrors:N0}");
+                Console.WriteLine($"Average RPS:       {totalTps:N0}");
+                Console.WriteLine($"1xx:               {result.Status1xx:N0}");
+                Console.WriteLine($"2xx:               {result.Status2xx:N0}");
+                Console.WriteLine($"3xx:               {result.Status3xx:N0}");
+                Console.WriteLine($"4xx:               {result.Status4xx:N0}");
+                Console.WriteLine($"5xx:               {result.Status5xx:N0}");
+                Console.WriteLine($"Socket Errors:     {result.SocketErrors:N0}");
+                Console.WriteLine($"Total requests:    {result.TotalRequests:N0}");
+                Console.WriteLine($"Latency mean (ms): {result.LatencyMeanMs:N3}");
+                Console.WriteLine($"Latency max (ms):  {result.LatencyMaxMs:N3}");
+                Console.WriteLine($"Throughput (MB/s): {(double)result.ThroughputBps / 1024 / 1024:N3}");
             }
             else if (Format == "json")
             {
@@ -249,24 +253,22 @@ namespace Microsoft.Crank.Jobs.HttpClient
             }
 
             // If multiple samples are provided, take the max RPS, then sum the result from all clients
-            BenchmarksEventSource.Register("httpclient/connections", Operations.Max, Operations.Sum, "Connections", "Number of active connections", "n0");
-            BenchmarksEventSource.Register("httpclient/badresponses", Operations.Max, Operations.Sum, "Bad responses", "Non-2xx or 3xx responses", "n0");
-            BenchmarksEventSource.Register("httpclient/latency/mean", Operations.Max, Operations.Avg, "Mean latency (us)", "Mean latency (us)", "n0");
-            BenchmarksEventSource.Register("httpclient/latency/max", Operations.Max, Operations.Max, "Max latency (us)", "Max latency (us)", "n0");
-            BenchmarksEventSource.Register("httpclient/requests", Operations.Max, Operations.Sum, "Requests", "Total number of requests", "n0");
-            BenchmarksEventSource.Register("httpclient/rps/mean", Operations.Max, Operations.Sum, "Requests/sec", "Requests per second", "n0");
-            BenchmarksEventSource.Register("httpclient/throughput", Operations.Max, Operations.Sum, "Read throughput (MB/s)", "Read throughput (MB/s)", "n2");
-            BenchmarksEventSource.Register("httpclient/errors", Operations.Sum, Operations.Sum, "Socket Errors", "Socket Errors", "n0");
+            BenchmarksEventSource.Register("httpclient/badresponses;http/requests/badresponses", Operations.Max, Operations.Sum, "Bad responses", "Non-2xx or 3xx responses", "n0");
+            BenchmarksEventSource.Register("httpclient/latency/mean;http/latency/mean", Operations.Max, Operations.Avg, "Mean latency (us)", "Mean latency (us)", "n0");
+            BenchmarksEventSource.Register("httpclient/latency/max;http/latency/max", Operations.Max, Operations.Max, "Max latency (us)", "Max latency (us)", "n0");
+            BenchmarksEventSource.Register("httpclient/requests;http/requests", Operations.Max, Operations.Sum, "Requests", "Total number of requests", "n0");
+            BenchmarksEventSource.Register("httpclient/rps/mean;http/rps/mean", Operations.Max, Operations.Sum, "Requests/sec", "Requests per second", "n0");
+            BenchmarksEventSource.Register("httpclient/throughput;http/throughput", Operations.Max, Operations.Sum, "Read throughput (MB/s)", "Read throughput (MB/s)", "n2");
+            BenchmarksEventSource.Register("httpclient/errors;http/requests/errors", Operations.Sum, Operations.Sum, "Socket Errors", "Socket Errors", "n0");
 
-            BenchmarksEventSource.Measure("httpclient/rps/mean", totalTps);
-            BenchmarksEventSource.Measure("httpclient/connections", Connections);
-            BenchmarksEventSource.Measure("httpclient/requests", result.Status1xx + result.Status2xx + result.Status3xx + result.Status4xx + result.Status5xx + result.SocketErrors);
-            BenchmarksEventSource.Measure("httpclient/badresponses", result.Status1xx + result.Status4xx + result.Status5xx);
-            BenchmarksEventSource.Measure("httpclient/errors", result.SocketErrors);
+            BenchmarksEventSource.Measure("httpclient/rps/mean;http/rps/mean", totalTps);
+            BenchmarksEventSource.Measure("httpclient/requests;http/requests", result.Status1xx + result.Status2xx + result.Status3xx + result.Status4xx + result.Status5xx + result.SocketErrors);
+            BenchmarksEventSource.Measure("httpclient/badresponses;http/requests/badresponses", result.Status1xx + result.Status4xx + result.Status5xx);
+            BenchmarksEventSource.Measure("httpclient/errors;http/requests/errors", result.SocketErrors);
 
-            BenchmarksEventSource.Measure("httpclient/latency/mean", 0);
-            BenchmarksEventSource.Measure("httpclient/latency/max", 0);
-            BenchmarksEventSource.Measure("httpclient/throughput", 0);
+            BenchmarksEventSource.Measure("httpclient/latency/mean;http/latency/mean", result.LatencyMeanMs);
+            BenchmarksEventSource.Measure("httpclient/latency/max;http/latency/max", result.LatencyMaxMs);
+            BenchmarksEventSource.Measure("httpclient/throughput", (double)result.ThroughputBps / 1024 / 1024);
         }
 
         private static HttpMessageInvoker CreateHttpMessageInvoker()
@@ -335,7 +337,9 @@ namespace Microsoft.Crank.Jobs.HttpClient
             // Counters local to this worker
             var counters = new int[5];
             var socketErrors = 0;
-            var maxLatency = 0d;
+            var maxLatency = 0D;
+            var transferred = 0L;
+            var measuringStart = 0L;
             var sw = new Stopwatch();
             sw.Start();
 
@@ -346,11 +350,17 @@ namespace Microsoft.Crank.Jobs.HttpClient
                     var start = sw.ElapsedTicks;
                     using var responseMessage = await httpMessageInvoker.SendAsync(requestMessage, CancellationToken.None);
                     
-                    var latency = sw.ElapsedTicks - start;
-                    maxLatency = Math.Max(maxLatency, latency);
-
                     if (_measuring)
                     {
+                        if (measuringStart == 0)
+                        {
+                            measuringStart = sw.ElapsedTicks;
+                        }
+
+                        transferred += responseMessage.Content.Headers.ContentLength ?? 0;
+                        var latency = sw.ElapsedTicks - start;
+                        maxLatency = Math.Max(maxLatency, latency);
+
                         var status = (int)responseMessage.StatusCode;
 
                         if (status < 100 && status >= 600)
@@ -370,6 +380,8 @@ namespace Microsoft.Crank.Jobs.HttpClient
                 }
             }
 
+            var throughput = transferred / ((sw.ElapsedTicks - measuringStart) / Stopwatch.Frequency);
+
             return new WorkerResult
             {
                 Status1xx = counters[0],
@@ -379,6 +391,7 @@ namespace Microsoft.Crank.Jobs.HttpClient
                 Status5xx = counters[4],
                 SocketErrors = socketErrors,
                 LatencyMaxMs = maxLatency / Stopwatch.Frequency * 1000,
+                ThroughputBps = throughput
             };
         }
     }

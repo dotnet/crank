@@ -239,52 +239,68 @@ namespace Microsoft.Crank.Wrk
                     output = stringBuilder.ToString();
                 }
 
-                BenchmarksEventSource.Register("wrk/rps/mean", Operations.Max, Operations.Sum, "Requests/sec", "Requests per second", "n0");
-                BenchmarksEventSource.Register("wrk/requests", Operations.Max, Operations.Sum, "Requests", "Total number of requests", "n0");
-                BenchmarksEventSource.Register("wrk/latency/mean", Operations.Max, Operations.Avg, "Mean latency (ms)", "Mean latency (ms)", "n2");
-                BenchmarksEventSource.Register("wrk/latency/max", Operations.Max, Operations.Max, "Max latency (ms)", "Max latency (ms)", "n2");
-                BenchmarksEventSource.Register("wrk/errors/badresponses", Operations.Max, Operations.Sum, "Bad responses", "Non-2xx or 3xx responses", "n0");
-                BenchmarksEventSource.Register("wrk/errors/socketerrors", Operations.Max, Operations.Sum, "Socket errors", "Socket errors", "n0");
-                BenchmarksEventSource.Register("wrk/throughput", Operations.Max, Operations.Sum, "Read throughput (MB/s)", "Read throughput (MB/s)", "n2");
+                BenchmarksEventSource.Register("wrk/rps/mean;http/rps/mean", Operations.Max, Operations.Sum, "Requests/sec", "Requests per second", "n0");
+                BenchmarksEventSource.Register("wrk/requests;http/requests", Operations.Max, Operations.Sum, "Requests", "Total number of requests", "n0");
+                BenchmarksEventSource.Register("wrk/latency/mean;http/latency/mean", Operations.Max, Operations.Avg, "Mean latency (ms)", "Mean latency (ms)", "n2");
+                BenchmarksEventSource.Register("wrk/latency/max;http/latency/max", Operations.Max, Operations.Max, "Max latency (ms)", "Max latency (ms)", "n2");
+                BenchmarksEventSource.Register("wrk/errors/badresponses;http/requests/badresponses", Operations.Max, Operations.Sum, "Bad responses", "Non-2xx or 3xx responses", "n0");
+                BenchmarksEventSource.Register("wrk/errors/socketerrors;http/requests/errors", Operations.Max, Operations.Sum, "Socket errors", "Socket errors", "n0");
+                BenchmarksEventSource.Register("wrk/throughput;http/throughput", Operations.Max, Operations.Sum, "Read throughput (MB/s)", "Read throughput (MB/s)", "n2");
 
+                /* Sample output
+                > wrk -d 15s -c 1024 http://10.0.0.102:5000/plaintext --latency -t 32 
+                    Running 15s test @ http://10.0.0.102:5000/plaintext
+                    32 threads and 1024 connections
+                    Thread Stats   Avg      Stdev     Max   +/- Stdev
+                        Latency     0.93ms    1.55ms  63.85ms   97.35%
+                        Req/Sec   364.39k    34.02k    1.08M    89.87%
+                    Latency Distribution
+                        50%  717.00us
+                        75%    1.05ms
+                        90%    1.47ms
+                        99%    6.80ms
+                    174818486 requests in 15.10s, 20.51GB read
+                    Requests/sec: 11577304.21
+                    Transfer/sec:      1.36GB
+                */
                 const string LatencyPattern = @"\s+{0}\s+([\d\.]+)(\w+)";
 
                 var latencyMatch = Regex.Match(output, String.Format(LatencyPattern, "Latency"));
-                BenchmarksEventSource.Measure("wrk/latency/mean", ReadLatency(latencyMatch));
+                BenchmarksEventSource.Measure("wrk/latency/mean;http/latency/mean", ReadLatency(latencyMatch));
 
                 var rpsMatch = Regex.Match(output, @"Requests/sec:\s*([\d\.]*)");
                 if (rpsMatch.Success && rpsMatch.Groups.Count == 2)
                 {
-                    BenchmarksEventSource.Measure("wrk/rps/mean", double.Parse(rpsMatch.Groups[1].Value));
+                    BenchmarksEventSource.Measure("wrk/rps/mean;http/rps/mean", double.Parse(rpsMatch.Groups[1].Value));
                 }
 
                 var throughputMatch = Regex.Match(output, @"Transfer/sec:\s+([\d\.]+)(\w+)");
-                BenchmarksEventSource.Measure("wrk/throughput", ReadThroughput(throughputMatch));
+                BenchmarksEventSource.Measure("wrk/throughput;http/throughput", ReadThroughput(throughputMatch));
 
                 // Max latency is 3rd number after "Latency "
                 var maxLatencyMatch = Regex.Match(output, @"\s+Latency\s+[\d\.]+\w+\s+[\d\.]+\w+\s+([\d\.]+)(\w+)");
-                BenchmarksEventSource.Measure("wrk/latency/max", ReadLatency(maxLatencyMatch));
+                BenchmarksEventSource.Measure("wrk/latency/max;http/latency/max", ReadLatency(maxLatencyMatch));
 
                 var requestsCountMatch = Regex.Match(output, @"([\d\.]*) requests in ([\d\.]*)(\w*)");
-                BenchmarksEventSource.Measure("wrk/requests", ReadRequests(requestsCountMatch));
+                BenchmarksEventSource.Measure("wrk/requests;http/requests", ReadRequests(requestsCountMatch));
 
                 var badResponsesMatch = Regex.Match(output, @"Non-2xx or 3xx responses: ([\d\.]*)");
-                BenchmarksEventSource.Measure("wrk/errors/badresponses", ReadBadReponses(badResponsesMatch));
+                BenchmarksEventSource.Measure("wrk/errors/badresponses;http/requests/badresponses", ReadBadResponses(badResponsesMatch));
 
                 var socketErrorsMatch = Regex.Match(output, @"Socket errors: connect ([\d\.]*), read ([\d\.]*), write ([\d\.]*), timeout ([\d\.]*)");
-                BenchmarksEventSource.Measure("wrk/errors/socketerrors", CountSocketErrors(socketErrorsMatch));
+                BenchmarksEventSource.Measure("wrk/errors/socketerrors;http/requests/errors", CountSocketErrors(socketErrorsMatch));
 
                 if (parseLatency)
                 {
-                    BenchmarksEventSource.Register("wrk/latency/50", Operations.Max, Operations.Max, "Latency 50th (ms)", "Latency 50th (ms)", "n2");
-                    BenchmarksEventSource.Register("wrk/latency/75", Operations.Max, Operations.Max, "Latency 75th (ms)", "Latency 50th (ms)", "n2");
-                    BenchmarksEventSource.Register("wrk/latency/90", Operations.Max, Operations.Max, "Latency 90th (ms)", "Latency 50th (ms)", "n2");
-                    BenchmarksEventSource.Register("wrk/latency/99", Operations.Max, Operations.Max, "Latency 99th (ms)", "Latency 50th (ms)", "n2");
+                    BenchmarksEventSource.Register("wrk/latency/50;http/latency/50", Operations.Max, Operations.Max, "Latency 50th (ms)", "Latency 50th (ms)", "n2");
+                    BenchmarksEventSource.Register("wrk/latency/75;http/latency/75", Operations.Max, Operations.Max, "Latency 75th (ms)", "Latency 50th (ms)", "n2");
+                    BenchmarksEventSource.Register("wrk/latency/90;http/latency/90", Operations.Max, Operations.Max, "Latency 90th (ms)", "Latency 50th (ms)", "n2");
+                    BenchmarksEventSource.Register("wrk/latency/99;http/latency/99", Operations.Max, Operations.Max, "Latency 99th (ms)", "Latency 50th (ms)", "n2");
 
-                    BenchmarksEventSource.Measure("wrk/latency/50", ReadLatency(Regex.Match(output, string.Format(LatencyPattern, "50%"))));
-                    BenchmarksEventSource.Measure("wrk/latency/75", ReadLatency(Regex.Match(output, string.Format(LatencyPattern, "75%"))));
-                    BenchmarksEventSource.Measure("wrk/latency/90", ReadLatency(Regex.Match(output, string.Format(LatencyPattern, "90%"))));
-                    BenchmarksEventSource.Measure("wrk/latency/99", ReadLatency(Regex.Match(output, string.Format(LatencyPattern, "99%"))));
+                    BenchmarksEventSource.Measure("wrk/latency/50;http/latency/50", ReadLatency(Regex.Match(output, string.Format(LatencyPattern, "50%"))));
+                    BenchmarksEventSource.Measure("wrk/latency/75;http/latency/75", ReadLatency(Regex.Match(output, string.Format(LatencyPattern, "75%"))));
+                    BenchmarksEventSource.Measure("wrk/latency/90;http/latency/90", ReadLatency(Regex.Match(output, string.Format(LatencyPattern, "90%"))));
+                    BenchmarksEventSource.Measure("wrk/latency/99;http/latency/99", ReadLatency(Regex.Match(output, string.Format(LatencyPattern, "99%"))));
                 }
             }
             else
@@ -314,7 +330,7 @@ namespace Microsoft.Crank.Wrk
             }
         }
 
-        private static int ReadBadReponses(Match badResponsesMatch)
+        private static int ReadBadResponses(Match badResponsesMatch)
         {
             if (!badResponsesMatch.Success)
             {
