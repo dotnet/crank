@@ -69,10 +69,15 @@ namespace Microsoft.Crank.RegressionBot.Models
                     CreateDotNetDependencies(previousJob);
                 }
 
+                // Do we need to create dependencies for aspnet and dotnet core? 
+                if (currentJob.Dependencies.Length == 0)
+                {
+                    CreateDotNetDependencies(currentJob);
+                }
+
                 // Group all dependencies by id for easy matching
                 var previousDependenciesById = previousJob.Dependencies.GroupBy(x => x.Id).ToDictionary(x => x.Key, x => x.FirstOrDefault());
                 var currentDependenciesById = currentJob.Dependencies.GroupBy(x => x.Id).ToDictionary(x => x.Key, x => x.FirstOrDefault());
-
 
                 foreach (var id in currentDependenciesById.Keys)
                 {
