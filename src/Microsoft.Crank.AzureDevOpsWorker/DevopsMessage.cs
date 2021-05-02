@@ -14,6 +14,14 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 {
     public class DevopsMessage
     {
+        public enum ResultTypes
+        {
+            Succeeded,
+            SucceededWithIssues,
+            Skipped,
+            Failed
+        }
+
         private static readonly HttpClient _httpClient = new HttpClient();
 
         public string PlanUrl { get; set; }
@@ -30,7 +38,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
         private DateTime _lastRecordsRefresh = DateTime.UtcNow;
         private static readonly JsonSerializerOptions _serializationOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
-    public DevopsMessage(ServiceBusReceivedMessage message)
+        public DevopsMessage(ServiceBusReceivedMessage message)
         {
             PlanUrl = (string)message.ApplicationProperties["PlanUrl"];
             ProjectId = (string)message.ApplicationProperties["ProjectId"];
@@ -72,7 +80,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             }
         }
         
-        public async Task<bool> SendTaskCompletedEventAsync(bool succeeded)
+        public async Task<bool> SendTaskCompletedEventAsync(ResultTypes resultType)
         {
             var taskCompletedEventUrl = $"{PlanUrl}/{ProjectId}/_apis/distributedtask/hubs/{HubName}/plans/{PlanId}/events?api-version=2.0-preview.1";
 
@@ -81,7 +89,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 name = "TaskCompleted",
                 taskId = TaskInstanceId,
                 jobId = JobId,
-                result = succeeded ? "succeeded" : "failed",
+                result = resultType.ToString().ToLowerInvariant()
             };
             
             var requestBody = JsonSerializer.Serialize(body);

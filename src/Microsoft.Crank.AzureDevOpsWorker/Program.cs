@@ -8,6 +8,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Azure.Messaging.ServiceBus;
+using Jint;
 using McMaster.Extensions.CommandLineUtils;
 
 namespace Microsoft.Crank.AzureDevOpsWorker
@@ -15,6 +16,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
     public class Program
     {
         private static TimeSpan TaskLogFeedDelay = TimeSpan.FromSeconds(2);
+        private static Engine Engine = new Engine();
 
         public static int Main(string[] args)
         {
@@ -113,6 +115,29 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 }
                 else 
                 {
+                    if (!String.IsNullOrWhiteSpace(jobPayload.Condition))
+                    {
+                        try
+                        {
+                            var condition = Engine.Execute(jobPayload.Condition).GetCompletionValue().AsBoolean();
+
+                            if (!condition)
+                            {
+                                await devopsMessage?.SendTaskCompletedEventAsync(DevopsMessage.ResultTypes.Skipped);
+
+                                Console.WriteLine($"{LogNow} Job skipped based on condition [{jobPayload.Condition}]");
+
+                                // Mark the message as completed
+                                await args.CompleteMessageAsync(message);
+                                return;
+                            }
+                        }
+                        catch
+                        {
+                            Console.WriteLine($"{LogNow} Could not evaluate codition [{jobPayload.Condition}], ignoring ...");
+                        }
+                    }
+
                     // Inform AzDo that the job is started
                     await devopsMessage.SendTaskStartedEventAsync();
 
@@ -168,7 +193,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                     }
 
                     // Mark the task as completed
-                    await devopsMessage.SendTaskCompletedEventAsync(succeeded: driverJob.WasSuccessful);
+                    await devopsMessage.SendTaskCompletedEventAsync(driverJob.WasSuccessful ? DevopsMessage.ResultTypes.Succeeded : DevopsMessage.ResultTypes.Failed);
 
                     // Create a task log entry
                     var taskLogObjectString = await devopsMessage?.CreateTaskLogAsync();
@@ -207,7 +232,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
                 try
                 {
-                    await devopsMessage?.SendTaskCompletedEventAsync(succeeded: false);
+                    await devopsMessage?.SendTaskCompletedEventAsync(DevopsMessage.ResultTypes.Failed);
                 }
                 catch (Exception f)
                 {

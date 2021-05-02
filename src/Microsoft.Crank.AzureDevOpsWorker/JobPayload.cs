@@ -4,6 +4,7 @@
 
 using System;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Microsoft.Crank.AzureDevOpsWorker
@@ -12,6 +13,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
     public class JobPayload
     {
         private static TimeSpan DefaultJobTimeout = TimeSpan.FromMinutes(10);
+        private static JsonSerializerOptions _serializationOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
         [JsonConverter(typeof(TimeSpanConverter))]
         public TimeSpan Timeout { get; set; } = DefaultJobTimeout;
@@ -20,6 +22,9 @@ namespace Microsoft.Crank.AzureDevOpsWorker
         public string[] Args { get; set; }
 
         public string RawPayload { get; set; }
+
+        // A JavaScript condition that must evaluate to true. "job" 
+        public string Condition { get; set; }
 
         public static JobPayload Deserialize(byte[] data)
         {
@@ -31,7 +36,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 // an invalid JSON char at the end of the message
                 str = str.Substring(str.IndexOf("{"));
                 str = str.Substring(0, str.LastIndexOf("}") + 1);
-                var result = System.Text.Json.JsonSerializer.Deserialize<JobPayload>(str, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                var result = JsonSerializer.Deserialize<JobPayload>(str, _serializationOptions);
 
                 result.RawPayload = str;
 
