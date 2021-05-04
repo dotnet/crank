@@ -70,7 +70,14 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             try
             {
                 var result = await PostDataAsync(taskStartedEventUrl, requestBody);
-                return result.IsSuccessStatusCode;
+
+                if (!result.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"SendTaskStartedEventAsync failed: {result.StatusCode} - {result.Content}");
+                    return false;
+                }
+
+                return true;
             }
             catch (Exception e)
             {
@@ -97,7 +104,14 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             try
             {
                 var result = await PostDataAsync(taskCompletedEventUrl, requestBody);
-                return result.IsSuccessStatusCode;
+
+                if (!result.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"SendTaskCompletedEventAsync failed: {result.StatusCode} - {result.Content}");
+                    return false;
+                }
+
+                return true;
             }
             catch (Exception e)
             {
@@ -122,7 +136,14 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             try
             {
                 var result = await PostDataAsync(taskLogFeedsUrl, requestBody);
-                return result.IsSuccessStatusCode;
+                
+                if (!result.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"SendTaskLogFeedsAsync failed: {result.StatusCode} - {result.Content}");
+                    return false;
+                }
+
+                return true;
             }
             catch (Exception e)
             {
@@ -177,7 +198,13 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             try
             {
                 var result = await PostDataAsync(appendLogContentUrl, byteContent);
-                return result.IsSuccessStatusCode;
+                if (!result.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"AppendToTaskLogAsync failed: {result.StatusCode} - {result.Content}");
+                    return false;
+                }
+
+                return true;
             }
             catch (Exception e)
             {
@@ -208,7 +235,13 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             try
             {
                 var result = await PatchDataAsync(updateTimelineUrl, requestBody);
-                return result.IsSuccessStatusCode;
+                if (!result.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"AppendToTaskLUpdateTaskTimelineRecordAsyncogAsync failed: {result.StatusCode} - {result.Content}");
+                    return false;
+                }
+
+                return true;
             }
             catch (Exception e)
             {
