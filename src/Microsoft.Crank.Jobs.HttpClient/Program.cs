@@ -227,7 +227,7 @@ namespace Microsoft.Crank.Jobs.HttpClient
                 Started = startTime.ToLocalTime(),
                 ThroughputBps = workerTasks.Select(x => x.Result.ThroughputBps).Sum(),
                 LatencyMaxMs = Math.Round(workerTasks.Select(x => x.Result.LatencyMaxMs).Max(), 3),
-                LatencyMeanMs = Math.Round((stopTime - startTime).TotalMilliseconds / workerTasks.Select(x => x.Result.TotalRequests).Sum(), 3),
+                LatencyMeanMs = workerTasks.Select(x => x.Result.TotalRequests).Sum() == 0 ? 0 : Math.Round((stopTime - startTime).TotalMilliseconds / workerTasks.Select(x => x.Result.TotalRequests).Sum(), 3),
                 Connections = Connections,
             };
 
