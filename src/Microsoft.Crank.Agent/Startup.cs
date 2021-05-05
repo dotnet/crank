@@ -605,7 +605,7 @@ namespace Microsoft.Crank.Agent
                                             Aggregate = Operation.Max,
                                             Reduce = Operation.Max,
                                             Format = "n0",
-                                            LongDescription = "How long it took to build the application",
+                                            LongDescription = "How long it took to build the application (ms)",
                                             ShortDescription = "Build Time (ms)"
                                         });
                                     }
@@ -619,7 +619,7 @@ namespace Microsoft.Crank.Agent
                                             Aggregate = Operation.Max,
                                             Reduce = Operation.Max,
                                             Format = "n0",
-                                            LongDescription = "How long it took to start the application",
+                                            LongDescription = "How long it took to start the application (ms)",
                                             ShortDescription = "Start Time (ms)"
                                         });
                                     }
@@ -633,7 +633,7 @@ namespace Microsoft.Crank.Agent
                                             Aggregate = Operation.Max,
                                             Reduce = Operation.Max,
                                             Format = "n0",
-                                            LongDescription = "The size of the published application",
+                                            LongDescription = "The size of the published application (KB)",
                                             ShortDescription = "Published Size (KB)"
                                         });
                                     }
