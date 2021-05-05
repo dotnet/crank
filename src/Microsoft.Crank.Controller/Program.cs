@@ -872,7 +872,10 @@ namespace Microsoft.Crank.Controller
 
                 // Save results
 
-                CleanMeasurements(jobResults);
+                if (i == iterations)
+                {
+                    CleanMeasurements(jobResults);
+                }
 
                 if (_jsonOption.HasValue())
                 {
