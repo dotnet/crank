@@ -832,9 +832,7 @@ namespace Microsoft.Crank.Controller
 
                     if (exclude.Value > 0)
                     {
-                        if (executionResults.Any(x => 
-                            !x.JobResults.Jobs.ContainsKey(exclude.Job) 
-                            || !x.JobResults.Jobs[exclude.Job].Results.ContainsKey(exclude.Result) ))
+                        if (executionResults.Any(x => !x.JobResults.Jobs.ContainsKey(exclude.Job)))
                         {
                             Log.WriteWarning($"A benchmark didn't contain the expected job '{exclude.Job}', the exclusion will be ignored.");
                         }
