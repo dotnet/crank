@@ -218,15 +218,15 @@ namespace Microsoft.Crank.Jobs.Bombardier
 
                 var document = JObject.Parse(output);
 
-                BenchmarksEventSource.Register("bombardier/requests", Operations.Max, Operations.Sum, "Requests", "Total number of requests", "n0");
-                BenchmarksEventSource.Register("bombardier/badresponses", Operations.Max, Operations.Sum, "Bad responses", "Non-2xx or 3xx responses", "n0");
+                BenchmarksEventSource.Register("bombardier/requests;http/requests", Operations.Max, Operations.Sum, "Requests", "Total number of requests", "n0");
+                BenchmarksEventSource.Register("bombardier/badresponses;http/requests/badresponses", Operations.Max, Operations.Sum, "Bad responses", "Non-2xx or 3xx responses", "n0");
 
-                BenchmarksEventSource.Register("bombardier/latency/mean", Operations.Max, Operations.Avg, "Mean latency (us)", "Mean latency (us)", "n0");
-                BenchmarksEventSource.Register("bombardier/latency/max", Operations.Max, Operations.Max, "Max latency (us)", "Max latency (us)", "n0");
+                BenchmarksEventSource.Register("bombardier/latency/mean;http/latency/mean", Operations.Max, Operations.Avg, "Mean latency (us)", "Mean latency (us)", "n0");
+                BenchmarksEventSource.Register("bombardier/latency/max;http/latency/max", Operations.Max, Operations.Max, "Max latency (us)", "Max latency (us)", "n0");
 
-                BenchmarksEventSource.Register("bombardier/rps/mean", Operations.Max, Operations.Sum, "Requests/sec", "Requests per second", "n0");
-                BenchmarksEventSource.Register("bombardier/rps/max", Operations.Max, Operations.Sum, "Requests/sec (max)", "Max requests per second", "n0");
-                BenchmarksEventSource.Register("bombardier/throughput", Operations.Max, Operations.Sum, "Read throughput (MB/s)", "Read throughput (MB/s)", "n2");
+                BenchmarksEventSource.Register("bombardier/rps/mean;http/rps/mean", Operations.Max, Operations.Sum, "Requests/sec", "Requests per second", "n0");
+                BenchmarksEventSource.Register("bombardier/rps/max;http/rps/max", Operations.Max, Operations.Sum, "Requests/sec (max)", "Max requests per second", "n0");
+                BenchmarksEventSource.Register("bombardier/throughput;http/throughput", Operations.Max, Operations.Sum, "Read throughput (MB/s)", "Read throughput (MB/s)", "n2");
 
                 BenchmarksEventSource.Register("bombardier/raw", Operations.All, Operations.All, "Raw results", "Raw results", "json");
 
@@ -241,14 +241,14 @@ namespace Microsoft.Crank.Jobs.Bombardier
 
                 var success = document["result"]["req2xx"].Value<long>() + document["result"]["req3xx"].Value<long>();
 
-                BenchmarksEventSource.Measure("bombardier/requests", total);
-                BenchmarksEventSource.Measure("bombardier/badresponses", total - success);
+                BenchmarksEventSource.Measure("bombardier/requests;http/requests", total);
+                BenchmarksEventSource.Measure("bombardier/badresponses;http/requests/badresponses", total - success);
 
-                BenchmarksEventSource.Measure("bombardier/latency/mean", document["result"]["latency"]["mean"].Value<double>());
-                BenchmarksEventSource.Measure("bombardier/latency/max", document["result"]["latency"]["max"].Value<double>());
+                BenchmarksEventSource.Measure("bombardier/latency/mean;http/latency/mean", document["result"]["latency"]["mean"].Value<double>());
+                BenchmarksEventSource.Measure("bombardier/latency/max;http/latency/max", document["result"]["latency"]["max"].Value<double>());
 
-                BenchmarksEventSource.Measure("bombardier/rps/max", document["result"]["rps"]["max"].Value<double>());
-                BenchmarksEventSource.Measure("bombardier/rps/mean", document["result"]["rps"]["mean"].Value<double>());
+                BenchmarksEventSource.Measure("bombardier/rps/max;http/rps/max", document["result"]["rps"]["max"].Value<double>());
+                BenchmarksEventSource.Measure("bombardier/rps/mean;http/rps/mean", document["result"]["rps"]["mean"].Value<double>());
 
                 BenchmarksEventSource.Measure("bombardier/raw", output);
 

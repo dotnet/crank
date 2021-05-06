@@ -136,7 +136,7 @@ namespace Microsoft.Crank.IntegrationTests
 
             var result = await ProcessUtil.RunAsync(
                 "dotnet", 
-                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --exclude 1 --exclude-order load:bombardier/rps/mean --iterations 3", 
+                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --exclude 1 --exclude-order load:bombardier/rps/mean;http/rps/mean --iterations 3", 
                 workingDirectory: _crankTestsDirectory,
                 captureOutput: true,
                 timeout: TimeSpan.FromMinutes(5),

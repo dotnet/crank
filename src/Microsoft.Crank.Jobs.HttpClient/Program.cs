@@ -268,7 +268,7 @@ namespace Microsoft.Crank.Jobs.HttpClient
 
             BenchmarksEventSource.Measure("httpclient/latency/mean;http/latency/mean", result.LatencyMeanMs);
             BenchmarksEventSource.Measure("httpclient/latency/max;http/latency/max", result.LatencyMaxMs);
-            BenchmarksEventSource.Measure("httpclient/throughput", (double)result.ThroughputBps / 1024 / 1024);
+            BenchmarksEventSource.Measure("httpclient/throughput;http/throughput", (double)result.ThroughputBps / 1024 / 1024);
         }
 
         private static HttpMessageInvoker CreateHttpMessageInvoker()
