@@ -10,7 +10,7 @@ namespace Microsoft.Crank.EventSources
 {
     public sealed class BenchmarksEventSource : EventSource
     {
-        public static readonly BenchmarksEventSource Log = new BenchmarksEventSource();
+        private static readonly BenchmarksEventSource Log = new BenchmarksEventSource();
 
         internal BenchmarksEventSource()
             : this("Benchmarks")
