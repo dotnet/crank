@@ -3495,6 +3495,14 @@ namespace Microsoft.Crank.Agent
             if (projectDependency != null && String.IsNullOrEmpty(projectDependency.CommitHash))
             {
                 projectDependency.CommitHash = projectHash;
+                projectDependency.RepositoryUrl = job.Source.Repository;
+
+                // Remove trailing .git from repository url
+                if (projectDependency.RepositoryUrl.EndsWith(".git", StringComparison.OrdinalIgnoreCase) 
+                    && projectDependency.RepositoryUrl.Contains("github.com", StringComparison.OrdinalIgnoreCase))
+                {
+                    projectDependency.RepositoryUrl = projectDependency.RepositoryUrl[0..^4];
+                }
             }
 
             // Group by repository/hash/hash, then reduce names
