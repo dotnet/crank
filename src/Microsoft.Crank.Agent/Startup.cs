@@ -3492,16 +3492,23 @@ namespace Microsoft.Crank.Agent
 
             var projectDependency = dependencies.FirstOrDefault(IsProjectAssembly);
 
-            if (projectDependency != null && String.IsNullOrEmpty(projectDependency.CommitHash))
+            if (projectDependency != null)
             {
-                projectDependency.CommitHash = projectHash;
-                projectDependency.RepositoryUrl = job.Source.Repository;
-
-                // Remove trailing .git from repository url
-                if (projectDependency.RepositoryUrl.EndsWith(".git", StringComparison.OrdinalIgnoreCase) 
-                    && projectDependency.RepositoryUrl.Contains("github.com", StringComparison.OrdinalIgnoreCase))
+                if (String.IsNullOrEmpty(projectDependency.CommitHash))
                 {
-                    projectDependency.RepositoryUrl = projectDependency.RepositoryUrl[0..^4];
+                    projectDependency.CommitHash = projectHash;
+                }
+
+                if (!String.IsNullOrEmpty(job.Source.Repository))
+                {
+                    projectDependency.RepositoryUrl = job.Source.Repository;
+
+                    // Remove trailing .git from repository url
+                    if (projectDependency.RepositoryUrl.EndsWith(".git", StringComparison.OrdinalIgnoreCase)
+                        && projectDependency.RepositoryUrl.Contains("github.com", StringComparison.OrdinalIgnoreCase))
+                    {
+                        projectDependency.RepositoryUrl = projectDependency.RepositoryUrl[0..^4];
+                    }
                 }
             }
 
