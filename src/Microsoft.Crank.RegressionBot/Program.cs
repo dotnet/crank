@@ -255,7 +255,7 @@ namespace Microsoft.Crank.RegressionBot
 
                             if (!page.Any()) break;
 
-                            await CreateRegressionIssue(page, template);
+                            await CreateRegressionIssue(page, s.Regressions.Title, template);
                             skip += pageSize;
                         }
                     }
