@@ -67,6 +67,7 @@ namespace Microsoft.Crank.Agent
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
 
+        // Sources of dotnet-install scripts are in https://github.com/dotnet/install-scripts/
         private static readonly string _dotnetInstallShUrl = "https://dot.net/v1/dotnet-install.sh";
         private static readonly string _dotnetInstallPs1Url = "https://dot.net/v1/dotnet-install.ps1";
         private static readonly string _aspNetCoreDependenciesUrl = "https://raw.githubusercontent.com/aspnet/AspNetCore/{0}";
@@ -3057,7 +3058,14 @@ namespace Microsoft.Crank.Agent
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
-                return "osx-x64";
+                if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
+                {
+                    return "osx-arm64";
+                }
+                else
+                {
+                    return "osx-x64";
+                }
             }
             else
             {
@@ -4999,11 +5007,16 @@ namespace Microsoft.Crank.Agent
 
 
                 var urlPattern = packageIndexUrl.Contains("Microsoft.AspNetCore.App.Runtime", StringComparison.OrdinalIgnoreCase) 
-                    ? "https://dotnetcli.azureedge.net/dotnet/aspnetcore/Runtime/{0}/aspnetcore-runtime-{0}-{1}.zip"
-                    : "https://dotnetcli.azureedge.net/dotnet/Runtime/{0}/dotnet-runtime-{0}-{1}.zip"
+                    ? "https://dotnetcli.azureedge.net/dotnet/aspnetcore/Runtime/{0}/aspnetcore-runtime-{0}-{1}.{2}"
+                    : "https://dotnetcli.azureedge.net/dotnet/Runtime/{0}/dotnet-runtime-{0}-{1}.{2}"
                     ;
 
-                var download_link = String.Format(urlPattern, version, GetPlatformMoniker());
+                var extension = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                    ? "zip"
+                    : "tar.gz"
+                    ;
+
+                var download_link = String.Format(urlPattern, version, GetPlatformMoniker(), extension);
 
                 Log.WriteLine($"Checking package: {download_link}");
 
