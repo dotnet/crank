@@ -208,7 +208,7 @@ namespace Microsoft.Crank.RegressionBot
                 }
 
                 var template = templates[s.Regressions.Template];
-                
+
                 var regressions = await FindRegression(s).ToListAsync();
 
                 if (!regressions.Any())
@@ -217,7 +217,7 @@ namespace Microsoft.Crank.RegressionBot
                 }
 
                 Console.WriteLine($"Found {regressions.Count()} regressions");
-                
+
                 Console.WriteLine("Updating existing issues...");
 
                 // The result of updating issues is the list of regressions that are not yet reported
@@ -226,31 +226,38 @@ namespace Microsoft.Crank.RegressionBot
                 Console.WriteLine($"{newRegressions.Count()} of them were not reported");
 
                 // Exclude all regressions that have recovered, and have not been reported
-                newRegressions = newRegressions.Where(x => !x.HasRecovered);
+                newRegressions = newRegressions.Where(x => !x.HasRecovered).ToArray();
 
                 Console.WriteLine($"{newRegressions.Count()} of them have not recovered");
+
+                // Group issues by trend, such that all improvements are in the same issue
+                var positiveRegressions = newRegressions.Where(x => x.Change >= 0).ToArray();
+                var negativeRegressions = newRegressions.Where(x => x.Change < 0).ToArray();
 
                 if (newRegressions.Any())
                 {
                     Console.WriteLine("Reporting new regressions...");
 
-                    if (_options.Verbose)
+                    foreach (var regressionSet in new[] { positiveRegressions, negativeRegressions })
                     {
-                        Console.WriteLine(JsonConvert.SerializeObject(newRegressions, Formatting.None));
-                    }
+                        if (_options.Verbose)
+                        {
+                            Console.WriteLine(JsonConvert.SerializeObject(regressionSet, Formatting.None));
+                        }
 
-                    var skip = 0;
-                    var pageSize = 10;
+                        var skip = 0;
+                        var pageSize = 10;
 
-                    while (true)
-                    {
-                        // Create issues with 10 regressions per issue max
-                        var page = newRegressions.Skip(skip).Take(pageSize);
+                        while (true)
+                        {
+                            // Create issues with 10 regressions per issue max
+                            var page = regressionSet.Skip(skip).Take(pageSize);
 
-                        if (!page.Any()) break;
+                            if (!page.Any()) break;
 
-                        await CreateRegressionIssue(page, template);
-                        skip += pageSize;
+                            await CreateRegressionIssue(page, s.Regressions.Title, template);
+                            skip += pageSize;
+                        }
                     }
                 }
                 else
@@ -291,21 +298,55 @@ namespace Microsoft.Crank.RegressionBot
             return body;
         }
 
-        private static async Task CreateRegressionIssue(IEnumerable<Regression> regressions, string template)
+        private static async Task<string> CreateIssueTitle(IEnumerable<Regression> regressions, string template)
+        {
+            var report = new Report
+            {
+                Regressions = regressions.OrderBy(x => x.CurrentResult.Scenario).ThenBy(x => x.CurrentResult.DateTimeUtc).ToList()
+            };
+
+            var title = "";
+
+            if (String.IsNullOrWhiteSpace(template))
+            {
+                title = "Performance difference: " + String.Join(", ", regressions.Select(x => x.CurrentResult.Scenario).Take(5));
+
+                if (regressions.Count() > 5)
+                {
+                    title += " ...";
+                }
+            }
+            else
+            {
+                if (!_fluidParser.TryParse(template, out var fluidTemplate, out var errors))
+                {
+                    Console.WriteLine("Error parsing the template:");
+                    foreach (var error in errors)
+                    {
+                        Console.WriteLine(error);
+                    }
+
+                    return "";
+                }
+
+                var context = new TemplateContext(report, _templateOptions);
+
+                title = await fluidTemplate.RenderAsync(context);
+            }
+
+            return title;
+        }
+
+        private static async Task CreateRegressionIssue(IEnumerable<Regression> regressions, string titleTemplate, string bodyTemplate)
         {
             if (regressions == null || !regressions.Any())
             {
                 return;
             }
 
-            var body = await CreateIssueBody(regressions, template);            
-            
-            var title = "Performance difference: " + String.Join(", ", regressions.Select(x => x.CurrentResult.Scenario).Take(5));
+            var body = await CreateIssueBody(regressions, bodyTemplate);
 
-            if (regressions.Count() > 5)
-            {
-                title += " ...";
-            }
+            var title = await CreateIssueTitle(regressions, titleTemplate);
 
             if (!_options.Debug)
             {
