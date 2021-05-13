@@ -639,6 +639,20 @@ namespace Microsoft.Crank.Agent
                                         });
                                     }
 
+                                    if (!job.Metadata.Any(x => x.Name == "benchmarks/compressed-image-size"))
+                                    {
+                                        job.Metadata.Enqueue(new MeasurementMetadata
+                                        {
+                                            Source = "Host Process",
+                                            Name = "benchmarks/compressed-image-size",
+                                            Aggregate = Operation.Max,
+                                            Reduce = Operation.Max,
+                                            Format = "n0",
+                                            LongDescription = "The size of the compressed docker image (KB)",
+                                            ShortDescription = "Compressed Image Size (KB)"
+                                        });
+                                    }
+
                                     if (!job.Metadata.Any(x => x.Name == "benchmarks/memory/swap"))
                                     {
                                         job.Metadata.Enqueue(new MeasurementMetadata
@@ -1866,6 +1880,61 @@ namespace Microsoft.Crank.Agent
                     if (buildResults.ExitCode != 0)
                     {
                         job.Error = job.BuildLog.ToString();
+                    }
+
+                    var dockerInspectArguments = $"inspect -f \"{{{{ .Size }}}}\" {imageName}";
+
+                    var inspectResults = await ProcessUtil.RunAsync("docker", dockerInspectArguments,
+                        workingDirectory: srcDir,
+                        cancellationToken: cancellationToken,
+                        captureOutput: true,
+                        log: true,
+                        outputDataReceived: text => job.BuildLog.AddLine(text));
+
+                    if(long.TryParse(inspectResults.StandardOutput.Trim(), out var imageSize))
+                    {
+                        if (imageSize != 0)
+                        {
+                            job.PublishedSize = imageSize;
+
+                            job.Measurements.Enqueue(new Measurement
+                            {
+                                Name = "benchmarks/published-size",
+                                Timestamp = DateTime.UtcNow,
+                                Value = imageSize
+                            });
+                        }
+                    }
+
+                    var dockerSaveArguments = $"save {imageName} -o {imageName}.tar";
+
+                    var saveResults = await ProcessUtil.RunAsync("docker", dockerSaveArguments,
+                        workingDirectory: srcDir,
+                        cancellationToken: cancellationToken,
+                        log: true,
+                        outputDataReceived: text => job.BuildLog.AddLine(text));
+                    
+                    var gZipArguments = $"{imageName}.tar";
+
+                    var gZipResults = await ProcessUtil.RunAsync("gzip", gZipArguments,
+                        workingDirectory: srcDir,
+                        cancellationToken: cancellationToken,
+                        log: true,
+                        outputDataReceived: text => job.BuildLog.AddLine(text));
+                    
+                    var filePath = Path.Combine(srcDir, $"{imageName}.tar.gz");
+                    var compressedSize = new FileInfo(filePath).Length;
+                    if (compressedSize != 0)
+                    {
+                        job.PublishedSize = compressedSize;
+
+                        job.Measurements.Enqueue(new Measurement
+                        {
+                            Name = "benchmarks/compressed-image-size",
+                            Timestamp = DateTime.UtcNow,
+                            Value = compressedSize
+                        });
+                        File.Delete(filePath);
                     }
                 }
                 else
