@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
@@ -1926,8 +1926,6 @@ namespace Microsoft.Crank.Agent
                     var compressedSize = new FileInfo(filePath).Length;
                     if (compressedSize != 0)
                     {
-                        job.PublishedSize = compressedSize;
-
                         job.Measurements.Enqueue(new Measurement
                         {
                             Name = "benchmarks/compressed-image-size",
