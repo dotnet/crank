@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
@@ -1895,13 +1895,13 @@ namespace Microsoft.Crank.Agent
                     {
                         if (imageSize != 0)
                         {
-                            job.PublishedSize = imageSize;
+                            job.PublishedSize = imageSize / 1024;
 
                             job.Measurements.Enqueue(new Measurement
                             {
                                 Name = "benchmarks/published-size",
                                 Timestamp = DateTime.UtcNow,
-                                Value = imageSize
+                                Value = imageSize / 1024
                             });
                         }
                     }
@@ -1930,7 +1930,7 @@ namespace Microsoft.Crank.Agent
                         {
                             Name = "benchmarks/compressed-image-size",
                             Timestamp = DateTime.UtcNow,
-                            Value = compressedSize
+                            Value = compressedSize / 1024
                         });
                         File.Delete(filePath);
                     }
