@@ -1,0 +1,124 @@
+﻿{
+  "Regressions": [
+    {
+      "PreviousResult": {
+        "Id": 65729,
+        "Excluded": false,
+        "DateTimeUtc": "2021-05-11T20:03:48.097Z",
+        "Session": "20210511.2",
+        "Scenario": "fortunes",
+        "Description": "Fortunes Platform aspnet-citrine-lin",
+        "Document": "{\"jobs\":{\"db\":{\"results\":{\"benchmarks/build-time\":1732.0,\"benchmarks/start-time\":339.0,\"benchmarks/working-set\":45.0,\"benchmarks/cpu\":37.0,\"benchmarks/cpu/raw\":1032.0},\"metadata\":[],\"dependencies\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}},\"application\":{\"results\":{\"netSdkVersion\":\"6.0.100-preview.5.21261.3\",\"aspNetCoreVersion\":\"6.0.0-preview.5.21261.3+1755ed9\",\"netCoreAppVersion\":\"6.0.0-preview.5.21261.2+753b764\",\"benchmarks/build-time\":3522.0,\"benchmarks/published-size\":89984.0,\"runtime-counter/cpu-usage\":95.0,\"runtime-counter/working-set\":471.0,\"runtime-counter/gc-heap-size\":328.0,\"runtime-counter/gen-0-gc-count\":7.0,\"runtime-counter/gen-1-gc-count\":2.0,\"runtime-counter/gen-2-gc-count\":1.0,\"runtime-counter/threadpool-thread-count\":45.0,\"runtime-counter/monitor-lock-contention-count\":3074.0,\"runtime-counter/threadpool-queue-length\":64.0,\"runtime-counter/threadpool-completed-items-count\":742803.0,\"runtime-counter/alloc-rate\":1974456816.0,\"runtime-counter/active-timer-count\":28.0,\"runtime-counter/gc-fragmentation\":46.55787387497558,\"runtime-counter/gc-committed\":388.0,\"runtime-counter/exception-count\":1440.0,\"runtime-counter/time-in-gc\":3.0,\"runtime-counter/gen-0-size\":14014336.0,\"runtime-counter/gen-1-size\":24311344.0,\"runtime-counter/gen-2-size\":20497784.0,\"runtime-counter/loh-size\":468032.0,\"runtime-counter/assembly-count\":87.0,\"runtime-counter/il-bytes-jitted\":302343.0,\"runtime-counter/methods-jitted-count\":3859.0,\"benchmarks/start-time\":14783.0,\"benchmarks/working-set\":450.0,\"benchmarks/private-memory\":1564.0,\"benchmarks/cpu\":95.0,\"benchmarks/cpu/raw\":2667.0},\"metadata\":[],\"dependencies\":[{\"id\":\"pqA8WJFOPNYRXwZcIXiG/Q==\",\"names\":[\"Microsoft.Extensions.Caching.Abstractions.dll\",\"Microsoft.Extensions.Caching.Memory.dll\",\"Microsoft.Extensions.Configuration.Abstractions.dll\",\"Microsoft.Extensions.Configuration.Binder.dll\",\"Microsoft.Extensions.Configuration.CommandLine.dll\",\"Microsoft.Extensions.Configuration.dll\",\"Microsoft.Extensions.Configuration.EnvironmentVariables.dll\",\"Microsoft.Extensions.Configuration.FileExtensions.dll\",\"Microsoft.Extensions.Configuration.Ini.dll\",\"Microsoft.Extensions.Configuration.Json.dll\",\"Microsoft.Extensions.Configuration.UserSecrets.dll\",\"Microsoft.Extensions.Configuration.Xml.dll\",\"Microsoft.Extensions.DependencyInjection.Abstractions.dll\",\"Microsoft.Extensions.DependencyInjection.dll\",\"Microsoft.Extensions.FileProviders.Abstractions.dll\",\"Microsoft.Extensions.FileProviders.Composite.dll\",\"Microsoft.Extensions.FileProviders.Physical.dll\",\"Microsoft.Extensions.FileSystemGlobbing.dll\",\"Microsoft.Extensions.Hosting.Abstractions.dll\",\"Microsoft.Extensions.Hosting.dll\",\"Microsoft.Extensions.Http.dll\",\"Microsoft.Extensions.Logging.Abstractions.dll\",\"Microsoft.Extensions.Logging.Configuration.dll\",\"Microsoft.Extensions.Logging.Console.dll\",\"Microsoft.Extensions.Logging.Debug.dll\",\"Microsoft.Extensions.Logging.dll\",\"Microsoft.Extensions.Logging.EventLog.dll\",\"Microsoft.Extensions.Logging.EventSource.dll\",\"Microsoft.Extensions.Logging.TraceSource.dll\",\"Microsoft.Extensions.Options.ConfigurationExtensions.dll\",\"Microsoft.Extensions.Options.DataAnnotations.dll\",\"Microsoft.Extensions.Options.dll\",\"Microsoft.Extensions.Primitives.dll\",\"System.Diagnostics.EventLog.dll\",\"System.IO.Pipelines.dll\",\"System.Security.Cryptography.Pkcs.dll\",\"System.Security.Cryptography.Xml.dll\"],\"repositoryUrl\":\"https://github.com/dotnet/runtime\",\"version\":\"6.0.0-preview.5.21260.8\",\"commitHash\":\"05b646c85e2d3cfb0f95a4c700238a560477144a\"},{\"id\":\"uchcFtFycvXwKqQunTt/dw==\",\"names\":[\"Microsoft.EntityFrameworkCore.Abstractions.dll\",\"Microsoft.EntityFrameworkCore.dll\",\"Microsoft.EntityFrameworkCore.Relational.dll\"],\"repositoryUrl\":\"https://github.com/dotnet/efcore\",\"version\":\"6.0.0-preview.3.21201.2\",\"commitHash\":\"a8d74d6ca43430dd5194b49ef79448b7dfe1d134\"},{\"id\":\"s3L5UzdMkuUbd+Q946IKNg==\",\"names\":[\"System.Runtime.CompilerServices.Unsafe.dll\"],\"repositoryUrl\":null,\"version\":\"6.0.0-preview.5.21261.2\",\"commitHash\":null},{\"id\":\"wgDk7tYcpc6uFOazh9poqA==\",\"names\":[\"Npgsql.EntityFrameworkCore.PostgreSQL.dll\"],\"repositoryUrl\":\"https://github.com/npgsql/efcore.pg\",\"version\":\"6.0.0-preview3\",\"commitHash\":\"66453b5090335621f9e7e42dea11afa4398ccabd\"},{\"id\":\"GLJ7YEtisl2ug9nkdN2EZA==\",\"names\":[\"Npgsql.dll\"],\"repositoryUrl\":\"https://github.com/npgsql/npgsql\",\"version\":\"6.0.0-preview3\",\"commitHash\":\"3786c260953cd49f2d285536131d57c6bf51422b\"},{\"id\":\"ob2eTk4nUpI96CMsEICCPA==\",\"names\":[\"PlatformBenchmarks.dll\"],\"repositoryUrl\":\"https://github.com/aspnet/benchmarks\",\"version\":\"1.0.0\",\"commitHash\":\"331f57310b027f3dc1814b681a3bd12a7e7b0de6\"},{\"id\":\"ewsL+2v4Qf38sp6Huqo5CA==\",\"names\":[\"Dapper.dll\"],\"repositoryUrl\":null,\"version\":\"2.0.30\",\"commitHash\":\"247e498f0e\"},{\"id\":\"+kL3IPaqvdVHIVR8mUBvrw==\",\"names\":[\"Microsoft.AspNetCore.App\"],\"repositoryUrl\":\"https://github.com/dotnet/aspnetcore\",\"version\":\"6.0.0-preview.5.21261.3\",\"commitHash\":\"1755ed950322b7526ac1413e73a3660d85496561\"},{\"id\":\"VQgr9CxNHDwaUGAf9ff0Tw==\",\"names\":[\"Microsoft.NETCore.App\"],\"repositoryUrl\":\"https://github.com/dotnet/runtime\",\"version\":\"6.0.0-preview.5.21261.2\",\"commitHash\":\"753b764d1c1d4a4cbab18f623ca989cc9c5b51ea\"}],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}},\"load\":{\"results\":{\"benchmarks/start-time\":0.0,\"benchmarks/working-set\":37.0,\"benchmarks/private-memory\":363.0,\"benchmarks/cpu\":30.0,\"benchmarks/cpu/raw\":842.0,\"http/firstrequest\":73.0,\"wrk/rps/mean\":468142.53,\"wrk/throughput\":607.63,\"wrk/latency/max\":20.1,\"wrk/requests\":7068962.0,\"wrk/errors/badresponses\":0.0,\"wrk/errors/socketerrors\":0.0,\"wrk/latency/50\":1.03,\"wrk/latency/75\":1.24,\"wrk/latency/90\":1.58,\"wrk/latency/99\":4.01,\"wrk/latency/mean\":1.14,\"http/latency/mean\":1.14,\"http/rps/mean\":468142.53,\"http/throughput\":607.63,\"http/latency/max\":20.1,\"http/requests\":7068962.0,\"http/requests/badresponses\":0.0,\"http/requests/errors\":0.0,\"http/latency/50\":1.03,\"http/latency/75\":1.24,\"http/latency/90\":1.58,\"http/latency/99\":4.01},\"metadata\":[],\"dependencies\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}}},\"properties\":{\"scenario\":\"FortunesPlatform\",\"protocol\":\"http\",\"buildId\":\"1133106\",\"buildNumber\":\"20210511.2\"}}"
+      },
+      "CurrentResult": {
+        "Id": 65856,
+        "Excluded": false,
+        "DateTimeUtc": "2021-05-12T08:55:44.8Z",
+        "Session": "20210512.1",
+        "Scenario": "fortunes",
+        "Description": "Fortunes Platform aspnet-citrine-lin",
+        "Document": "{\"jobs\":{\"db\":{\"results\":{\"benchmarks/build-time\":1726.0,\"benchmarks/start-time\":343.0,\"benchmarks/working-set\":43.0,\"benchmarks/cpu\":37.0,\"benchmarks/cpu/raw\":1050.0},\"metadata\":[],\"dependencies\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}},\"application\":{\"results\":{\"netSdkVersion\":\"6.0.100-preview.5.21261.3\",\"aspNetCoreVersion\":\"6.0.0-preview.5.21261.17+990e060\",\"netCoreAppVersion\":\"6.0.0-preview.5.21261.9+2e618ff\",\"benchmarks/build-time\":12503.0,\"benchmarks/published-size\":89987.0,\"runtime-counter/cpu-usage\":95.0,\"runtime-counter/working-set\":472.0,\"runtime-counter/gc-heap-size\":331.0,\"runtime-counter/gen-0-gc-count\":7.0,\"runtime-counter/gen-1-gc-count\":3.0,\"runtime-counter/gen-2-gc-count\":1.0,\"runtime-counter/threadpool-thread-count\":43.0,\"runtime-counter/monitor-lock-contention-count\":3168.0,\"runtime-counter/threadpool-queue-length\":165.0,\"runtime-counter/threadpool-completed-items-count\":721169.0,\"runtime-counter/alloc-rate\":1970810216.0,\"runtime-counter/active-timer-count\":29.0,\"runtime-counter/gc-fragmentation\":26.770099393671572,\"runtime-counter/gc-committed\":389.0,\"runtime-counter/exception-count\":1449.0,\"runtime-counter/time-in-gc\":2.0,\"runtime-counter/gen-0-size\":8957728.0,\"runtime-counter/gen-1-size\":28607168.0,\"runtime-counter/gen-2-size\":18265000.0,\"runtime-counter/loh-size\":238544.0,\"runtime-counter/assembly-count\":87.0,\"runtime-counter/il-bytes-jitted\":302249.0,\"runtime-counter/methods-jitted-count\":3867.0,\"benchmarks/start-time\":11327.0,\"benchmarks/working-set\":452.0,\"benchmarks/private-memory\":1549.0,\"benchmarks/cpu\":96.0,\"benchmarks/cpu/raw\":2681.0},\"metadata\":[],\"dependencies\":[{\"id\":\"pqA8WJFOPNYRXwZcIXiG/Q==\",\"names\":[\"Microsoft.Extensions.Caching.Abstractions.dll\",\"Microsoft.Extensions.Caching.Memory.dll\",\"Microsoft.Extensions.Configuration.Abstractions.dll\",\"Microsoft.Extensions.Configuration.Binder.dll\",\"Microsoft.Extensions.Configuration.CommandLine.dll\",\"Microsoft.Extensions.Configuration.dll\",\"Microsoft.Extensions.Configuration.EnvironmentVariables.dll\",\"Microsoft.Extensions.Configuration.FileExtensions.dll\",\"Microsoft.Extensions.Configuration.Ini.dll\",\"Microsoft.Extensions.Configuration.Json.dll\",\"Microsoft.Extensions.Configuration.UserSecrets.dll\",\"Microsoft.Extensions.Configuration.Xml.dll\",\"Microsoft.Extensions.DependencyInjection.Abstractions.dll\",\"Microsoft.Extensions.DependencyInjection.dll\",\"Microsoft.Extensions.FileProviders.Abstractions.dll\",\"Microsoft.Extensions.FileProviders.Composite.dll\",\"Microsoft.Extensions.FileProviders.Physical.dll\",\"Microsoft.Extensions.FileSystemGlobbing.dll\",\"Microsoft.Extensions.Hosting.Abstractions.dll\",\"Microsoft.Extensions.Hosting.dll\",\"Microsoft.Extensions.Http.dll\",\"Microsoft.Extensions.Logging.Abstractions.dll\",\"Microsoft.Extensions.Logging.Configuration.dll\",\"Microsoft.Extensions.Logging.Console.dll\",\"Microsoft.Extensions.Logging.Debug.dll\",\"Microsoft.Extensions.Logging.dll\",\"Microsoft.Extensions.Logging.EventLog.dll\",\"Microsoft.Extensions.Logging.EventSource.dll\",\"Microsoft.Extensions.Logging.TraceSource.dll\",\"Microsoft.Extensions.Options.ConfigurationExtensions.dll\",\"Microsoft.Extensions.Options.DataAnnotations.dll\",\"Microsoft.Extensions.Options.dll\",\"Microsoft.Extensions.Primitives.dll\",\"System.Diagnostics.EventLog.dll\",\"System.IO.Pipelines.dll\",\"System.Security.Cryptography.Pkcs.dll\",\"System.Security.Cryptography.Xml.dll\"],\"repositoryUrl\":\"https://github.com/dotnet/runtime\",\"version\":\"6.0.0-preview.5.21260.8\",\"commitHash\":\"05b646c85e2d3cfb0f95a4c700238a560477144a\"},{\"id\":\"uchcFtFycvXwKqQunTt/dw==\",\"names\":[\"Microsoft.EntityFrameworkCore.Abstractions.dll\",\"Microsoft.EntityFrameworkCore.dll\",\"Microsoft.EntityFrameworkCore.Relational.dll\"],\"repositoryUrl\":\"https://github.com/dotnet/efcore\",\"version\":\"6.0.0-preview.3.21201.2\",\"commitHash\":\"a8d74d6ca43430dd5194b49ef79448b7dfe1d134\"},{\"id\":\"s3L5UzdMkuUbd+Q946IKNg==\",\"names\":[\"System.Runtime.CompilerServices.Unsafe.dll\"],\"repositoryUrl\":null,\"version\":\"6.0.0-preview.5.21261.9\",\"commitHash\":null},{\"id\":\"wgDk7tYcpc6uFOazh9poqA==\",\"names\":[\"Npgsql.EntityFrameworkCore.PostgreSQL.dll\"],\"repositoryUrl\":\"https://github.com/npgsql/efcore.pg\",\"version\":\"6.0.0-preview3\",\"commitHash\":\"66453b5090335621f9e7e42dea11afa4398ccabd\"},{\"id\":\"GLJ7YEtisl2ug9nkdN2EZA==\",\"names\":[\"Npgsql.dll\"],\"repositoryUrl\":\"https://github.com/npgsql/npgsql\",\"version\":\"6.0.0-preview3\",\"commitHash\":\"3786c260953cd49f2d285536131d57c6bf51422b\"},{\"id\":\"ob2eTk4nUpI96CMsEICCPA==\",\"names\":[\"PlatformBenchmarks.dll\"],\"repositoryUrl\":\"https://github.com/aspnet/benchmarks\",\"version\":\"1.0.0\",\"commitHash\":\"6e7bff20860c92fd22b511bfd160f6f153e7e96e\"},{\"id\":\"ewsL+2v4Qf38sp6Huqo5CA==\",\"names\":[\"Dapper.dll\"],\"repositoryUrl\":null,\"version\":\"2.0.30\",\"commitHash\":\"247e498f0e\"},{\"id\":\"+kL3IPaqvdVHIVR8mUBvrw==\",\"names\":[\"Microsoft.AspNetCore.App\"],\"repositoryUrl\":\"https://github.com/dotnet/aspnetcore\",\"version\":\"6.0.0-preview.5.21261.17\",\"commitHash\":\"990e060885d6bf845c5cb7a6537d0fba5e969834\"},{\"id\":\"VQgr9CxNHDwaUGAf9ff0Tw==\",\"names\":[\"Microsoft.NETCore.App\"],\"repositoryUrl\":\"https://github.com/dotnet/runtime\",\"version\":\"6.0.0-preview.5.21261.9\",\"commitHash\":\"2e618ff905a619bc75138e26e2ef15ebd5bc19b6\"}],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}},\"load\":{\"results\":{\"netSdkVersion\":\"3.1.409\",\"aspNetCoreVersion\":\"3.1.15+8ca3954\",\"netCoreAppVersion\":\"3.1.15+dc339bd\",\"benchmarks/build-time\":4497.0,\"benchmarks/published-size\":76413.0,\"benchmarks/start-time\":0.0,\"benchmarks/working-set\":48.0,\"benchmarks/private-memory\":363.0,\"benchmarks/cpu\":30.0,\"benchmarks/cpu/raw\":852.0,\"http/firstrequest\":73.0,\"wrk/rps/mean\":458560.56,\"wrk/throughput\":595.19,\"wrk/latency/max\":31.16,\"wrk/requests\":6923898.0,\"wrk/errors/badresponses\":0.0,\"wrk/errors/socketerrors\":0.0,\"wrk/latency/50\":1.04,\"wrk/latency/75\":1.27,\"wrk/latency/90\":1.68,\"wrk/latency/99\":4.77,\"wrk/latency/mean\":1.2,\"http/latency/mean\":1.2,\"http/rps/mean\":458560.56,\"http/throughput\":595.19,\"http/latency/max\":31.16,\"http/requests\":6923898.0,\"http/requests/badresponses\":0.0,\"http/requests/errors\":0.0,\"http/latency/50\":1.04,\"http/latency/75\":1.27,\"http/latency/90\":1.68,\"http/latency/99\":4.77},\"metadata\":[],\"dependencies\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}}},\"properties\":{\"scenario\":\"FortunesPlatform\",\"protocol\":\"http\",\"buildId\":\"1134268\",\"buildNumber\":\"20210512.1\"}}"
+      },
+      "Change": -3456,
+      "StandardDeviation": 1601.191597096439,
+      "Average": 12811.42857142857,
+      "RecoveredResult": {
+        "Id": 66069,
+        "Excluded": false,
+        "DateTimeUtc": "2021-05-13T20:03:36.087Z",
+        "Session": "20210513.2",
+        "Scenario": "fortunes",
+        "Description": "Fortunes Platform aspnet-citrine-lin",
+        "Document": "{\"jobs\":{\"db\":{\"results\":{\"benchmarks/build-time\":1766.0,\"benchmarks/start-time\":345.0,\"benchmarks/working-set\":44.0,\"benchmarks/cpu\":37.0,\"benchmarks/cpu/raw\":1043.0},\"metadata\":[],\"dependencies\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}},\"application\":{\"results\":{\"netSdkVersion\":\"6.0.100-preview.5.21263.16\",\"aspNetCoreVersion\":\"6.0.0-preview.5.21263.4+302246d\",\"netCoreAppVersion\":\"6.0.0-preview.5.21263.5+d77854a\",\"benchmarks/build-time\":10726.0,\"benchmarks/published-size\":90019.0,\"runtime-counter/cpu-usage\":96.0,\"runtime-counter/working-set\":481.0,\"runtime-counter/gc-heap-size\":318.0,\"runtime-counter/gen-0-gc-count\":7.0,\"runtime-counter/gen-1-gc-count\":2.0,\"runtime-counter/gen-2-gc-count\":1.0,\"runtime-counter/threadpool-thread-count\":45.0,\"runtime-counter/monitor-lock-contention-count\":2915.0,\"runtime-counter/threadpool-queue-length\":128.0,\"runtime-counter/threadpool-completed-items-count\":709955.0,\"runtime-counter/alloc-rate\":1971028472.0,\"runtime-counter/active-timer-count\":29.0,\"runtime-counter/gc-fragmentation\":48.058026832999936,\"runtime-counter/gc-committed\":397.0,\"runtime-counter/exception-count\":1434.0,\"runtime-counter/time-in-gc\":1.0,\"runtime-counter/gen-0-size\":10038424.0,\"runtime-counter/gen-1-size\":32349944.0,\"runtime-counter/gen-2-size\":20381352.0,\"runtime-counter/loh-size\":533568.0,\"runtime-counter/assembly-count\":87.0,\"runtime-counter/il-bytes-jitted\":302130.0,\"runtime-counter/methods-jitted-count\":3847.0,\"benchmarks/start-time\":11610.0,\"benchmarks/working-set\":460.0,\"benchmarks/private-memory\":1574.0,\"benchmarks/cpu\":95.0,\"benchmarks/cpu/raw\":2674.0},\"metadata\":[],\"dependencies\":[{\"id\":\"pqA8WJFOPNYRXwZcIXiG/Q==\",\"names\":[\"Microsoft.Extensions.Caching.Abstractions.dll\",\"Microsoft.Extensions.Caching.Memory.dll\",\"Microsoft.Extensions.Configuration.Abstractions.dll\",\"Microsoft.Extensions.Configuration.Binder.dll\",\"Microsoft.Extensions.Configuration.CommandLine.dll\",\"Microsoft.Extensions.Configuration.dll\",\"Microsoft.Extensions.Configuration.EnvironmentVariables.dll\",\"Microsoft.Extensions.Configuration.FileExtensions.dll\",\"Microsoft.Extensions.Configuration.Ini.dll\",\"Microsoft.Extensions.Configuration.Json.dll\",\"Microsoft.Extensions.Configuration.UserSecrets.dll\",\"Microsoft.Extensions.Configuration.Xml.dll\",\"Microsoft.Extensions.DependencyInjection.Abstractions.dll\",\"Microsoft.Extensions.DependencyInjection.dll\",\"Microsoft.Extensions.FileProviders.Abstractions.dll\",\"Microsoft.Extensions.FileProviders.Composite.dll\",\"Microsoft.Extensions.FileProviders.Physical.dll\",\"Microsoft.Extensions.FileSystemGlobbing.dll\",\"Microsoft.Extensions.Hosting.Abstractions.dll\",\"Microsoft.Extensions.Hosting.dll\",\"Microsoft.Extensions.Http.dll\",\"Microsoft.Extensions.Logging.Abstractions.dll\",\"Microsoft.Extensions.Logging.Configuration.dll\",\"Microsoft.Extensions.Logging.Console.dll\",\"Microsoft.Extensions.Logging.Debug.dll\",\"Microsoft.Extensions.Logging.dll\",\"Microsoft.Extensions.Logging.EventLog.dll\",\"Microsoft.Extensions.Logging.EventSource.dll\",\"Microsoft.Extensions.Logging.TraceSource.dll\",\"Microsoft.Extensions.Options.ConfigurationExtensions.dll\",\"Microsoft.Extensions.Options.DataAnnotations.dll\",\"Microsoft.Extensions.Options.dll\",\"Microsoft.Extensions.Primitives.dll\",\"System.Diagnostics.EventLog.dll\",\"System.IO.Pipelines.dll\",\"System.Security.Cryptography.Pkcs.dll\",\"System.Security.Cryptography.Xml.dll\"],\"repositoryUrl\":\"https://github.com/dotnet/runtime\",\"version\":\"6.0.0-preview.5.21262.1\",\"commitHash\":\"b4f4418d56d32c3a1677b5651899a112d7e02226\"},{\"id\":\"uchcFtFycvXwKqQunTt/dw==\",\"names\":[\"Microsoft.EntityFrameworkCore.Abstractions.dll\",\"Microsoft.EntityFrameworkCore.dll\",\"Microsoft.EntityFrameworkCore.Relational.dll\"],\"repositoryUrl\":\"https://github.com/dotnet/efcore\",\"version\":\"6.0.0-preview.3.21201.2\",\"commitHash\":\"a8d74d6ca43430dd5194b49ef79448b7dfe1d134\"},{\"id\":\"s3L5UzdMkuUbd+Q946IKNg==\",\"names\":[\"System.Runtime.CompilerServices.Unsafe.dll\"],\"repositoryUrl\":null,\"version\":\"6.0.0-preview.5.21263.5\",\"commitHash\":null},{\"id\":\"wgDk7tYcpc6uFOazh9poqA==\",\"names\":[\"Npgsql.EntityFrameworkCore.PostgreSQL.dll\"],\"repositoryUrl\":\"https://github.com/npgsql/efcore.pg\",\"version\":\"6.0.0-preview3\",\"commitHash\":\"66453b5090335621f9e7e42dea11afa4398ccabd\"},{\"id\":\"GLJ7YEtisl2ug9nkdN2EZA==\",\"names\":[\"Npgsql.dll\"],\"repositoryUrl\":\"https://github.com/npgsql/npgsql\",\"version\":\"6.0.0-preview3\",\"commitHash\":\"3786c260953cd49f2d285536131d57c6bf51422b\"},{\"id\":\"ob2eTk4nUpI96CMsEICCPA==\",\"names\":[\"PlatformBenchmarks.dll\"],\"repositoryUrl\":\"https://github.com/aspnet/benchmarks\",\"version\":\"1.0.0\",\"commitHash\":\"f6406ad745556a386bf61239e0aea21494f6d673\"},{\"id\":\"ewsL+2v4Qf38sp6Huqo5CA==\",\"names\":[\"Dapper.dll\"],\"repositoryUrl\":null,\"version\":\"2.0.30\",\"commitHash\":\"247e498f0e\"},{\"id\":\"+kL3IPaqvdVHIVR8mUBvrw==\",\"names\":[\"Microsoft.AspNetCore.App\"],\"repositoryUrl\":\"https://github.com/dotnet/aspnetcore\",\"version\":\"6.0.0-preview.5.21263.4\",\"commitHash\":\"302246df4194a779fd526818a09976b7ed739d18\"},{\"id\":\"VQgr9CxNHDwaUGAf9ff0Tw==\",\"names\":[\"Microsoft.NETCore.App\"],\"repositoryUrl\":\"https://github.com/dotnet/runtime\",\"version\":\"6.0.0-preview.5.21263.5\",\"commitHash\":\"d77854a16eaa29f1a141f1da267885dcf2675027\"}],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}},\"load\":{\"results\":{\"benchmarks/start-time\":0.0,\"benchmarks/working-set\":37.0,\"benchmarks/private-memory\":363.0,\"benchmarks/cpu\":30.0,\"benchmarks/cpu/raw\":850.0,\"http/firstrequest\":71.0,\"wrk/rps/mean\":463327.55,\"wrk/throughput\":601.38,\"wrk/latency/max\":20.5,\"wrk/requests\":6995798.0,\"wrk/errors/badresponses\":0.0,\"wrk/errors/socketerrors\":0.0,\"wrk/latency/50\":1.03,\"wrk/latency/75\":1.26,\"wrk/latency/90\":1.63,\"wrk/latency/99\":4.49,\"wrk/latency/mean\":1.17,\"http/latency/mean\":1.17,\"http/rps/mean\":463327.55,\"http/throughput\":601.38,\"http/latency/max\":20.5,\"http/requests\":6995798.0,\"http/requests/badresponses\":0.0,\"http/requests/errors\":0.0,\"http/latency/50\":1.03,\"http/latency/75\":1.26,\"http/latency/90\":1.63,\"http/latency/99\":4.49},\"metadata\":[],\"dependencies\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}}},\"properties\":{\"scenario\":\"FortunesPlatform\",\"protocol\":\"http\",\"buildId\":\"1137850\",\"buildNumber\":\"20210513.2\"}}"
+      },
+      "Labels": [
+        "Perf",
+        "perf-regression"
+      ],
+      "Owners": [
+        "sebastienros",
+        "mangod9"
+      ],
+      "Changes": [
+        {
+          "Job": "application",
+          "Id": "s3L5UzdMkuUbd+Q946IKNg==",
+          "Names": [
+            "System.Runtime.CompilerServices.Unsafe.dll"
+          ],
+          "RepositoryUrl": null,
+          "PreviousVersion": "6.0.0-preview.5.21261.2",
+          "CurrentVersion": "6.0.0-preview.5.21261.9",
+          "PreviousCommitHash": null,
+          "CurrentCommitHash": null,
+          "ChangeType": 0
+        },
+        {
+          "Job": "application",
+          "Id": "ob2eTk4nUpI96CMsEICCPA==",
+          "Names": [
+            "PlatformBenchmarks.dll"
+          ],
+          "RepositoryUrl": "https://github.com/aspnet/benchmarks",
+          "PreviousVersion": "1.0.0",
+          "CurrentVersion": "1.0.0",
+          "PreviousCommitHash": "331f57310b027f3dc1814b681a3bd12a7e7b0de6",
+          "CurrentCommitHash": "6e7bff20860c92fd22b511bfd160f6f153e7e96e",
+          "ChangeType": 0
+        },
+        {
+          "Job": "application",
+          "Id": "+kL3IPaqvdVHIVR8mUBvrw==",
+          "Names": [
+            "Microsoft.AspNetCore.App"
+          ],
+          "RepositoryUrl": "https://github.com/dotnet/aspnetcore",
+          "PreviousVersion": "6.0.0-preview.5.21261.3",
+          "CurrentVersion": "6.0.0-preview.5.21261.17",
+          "PreviousCommitHash": "1755ed950322b7526ac1413e73a3660d85496561",
+          "CurrentCommitHash": "990e060885d6bf845c5cb7a6537d0fba5e969834",
+          "ChangeType": 0
+        },
+        {
+          "Job": "application",
+          "Id": "VQgr9CxNHDwaUGAf9ff0Tw==",
+          "Names": [
+            "Microsoft.NETCore.App"
+          ],
+          "RepositoryUrl": "https://github.com/dotnet/runtime",
+          "PreviousVersion": "6.0.0-preview.5.21261.2",
+          "CurrentVersion": "6.0.0-preview.5.21261.9",
+          "PreviousCommitHash": "753b764d1c1d4a4cbab18f623ca989cc9c5b51ea",
+          "CurrentCommitHash": "2e618ff905a619bc75138e26e2ef15ebd5bc19b6",
+          "ChangeType": 0
+        },
+        {
+          "Job": "load",
+          "Id": "+kL3IPaqvdVHIVR8mUBvrw==",
+          "Names": [
+            "Microsoft.AspNetCore.App"
+          ],
+          "RepositoryUrl": "https://github.com/dotnet/aspnetcore",
+          "PreviousVersion": "",
+          "CurrentVersion": "3.1.15",
+          "PreviousCommitHash": "",
+          "CurrentCommitHash": "8ca3954",
+          "ChangeType": 1
+        },
+        {
+          "Job": "load",
+          "Id": "VQgr9CxNHDwaUGAf9ff0Tw==",
+          "Names": [
+            "Microsoft.NETCore.App"
+          ],
+          "RepositoryUrl": "https://github.com/dotnet/runtime",
+          "PreviousVersion": "",
+          "CurrentVersion": "3.1.15",
+          "PreviousCommitHash": "",
+          "CurrentCommitHash": "dc339bd",
+          "ChangeType": 1
+        }
+      ]
+    }
+  ]
+}

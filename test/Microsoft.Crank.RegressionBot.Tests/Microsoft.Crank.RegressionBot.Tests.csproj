@@ -15,6 +15,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Remove="assets\regressions.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Include="..\..\src\Microsoft.Crank.RegressionBot\Models\BenchmarksResult.cs" Link="Models\BenchmarksResult.cs" />
     <Compile Include="..\..\src\Microsoft.Crank.RegressionBot\Models\DependencyChange.cs" Link="Models\DependencyChange.cs" />
     <Compile Include="..\..\src\Microsoft.Crank.RegressionBot\Models\Regression.cs" Link="Models\Regression.cs" />

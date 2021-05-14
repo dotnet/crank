@@ -1,5 +1,3 @@
-A performance difference has been detected for {% for r in Regressions %}{{ r.CurrentResult.Scenario }}{% if forloop.last == false %}, {% endif %}{% endfor %}
-
 | Scenario | Environment | Date | Old RPS | New RPS | Change | Deviation | StDev | Dependencies |
 | -------- | ----------- | ---- | ------- | ------- | ------ | --------- | ----- | ------------ |
 {%- for regression in Regressions -%}
@@ -13,18 +11,19 @@ A performance difference has been detected for {% for r in Regressions %}{{ r.Cu
 <details>
     <summary>Changes</summary> 
     <table><th>Name</th><th>Version</th><th>Diff</th>
-    {%- for diff in regression.Changes -%}
+        {%- assign application_changes = regression.Changes | where: "Job", "application" -%}
+        {%- for diff in application_changes -%}
         <tr>
-            <td>{{diff.Names.first}}{% if diff.Names.length > 1 %} and {{diff.Names.length | minus: 1}} others{% endif %}</td><td>
-                {%- if diff.PreviousVersion != empty and diff.CurrentVersion != empty and diff.PreviousVersion != blank and diff.CurrentVersion != blank -%}
-                    `{{ diff.PreviousVersion }}` -> `{{ diff.CurrentVersion }}`
-                {%- elsif diff.PreviousVersion == empty or diff.PreviousVersion == blank -%}
-                  `{{diff.CurrentVersion }}` (__New__ )
-                {%- else -%}
-                    `{{diff.PreviousVersion }}` (__Removed__)
-                {%- endif -%}
-            </td><td>
-                {%- if diff.PreviousCommitHash != diff.CurrentCommitHash -%}
+            <td>{{diff.Names.first}}{% if diff.Names.length > 1 %} and {{diff.Names.length | minus: 1}} others{% endif %}</td>
+            <td>
+                {%- case diff.ChangeType -%}
+                    {%- when 0 -%} `{{ diff.PreviousVersion }}` -> `{{ diff.CurrentVersion }}`
+                    {%- when 1 -%} `{{diff.CurrentVersion }}` (__New__ )
+                    {%- when 2 -%} `{{diff.PreviousVersion }}` (__Removed__)
+                {%- endcase -%}
+            </td>
+            <td>
+                {%- if diff.ChangeType == 0 and diff.PreviousCommitHash != diff.CurrentCommitHash -%}
                     {%- if diff.PreviousCommitHash != empty and diff.CurrentCommitHash != empty -%}
                         {%- if diff.RepositoryUrl == empty -%}
                             `{{ diff.PreviousCommitHash | slice: 0, 7 }}...{{ diff.CurrentCommitHash | slice: 0, 7 }}`
@@ -43,20 +42,3 @@ A performance difference has been detected for {% for r in Regressions %}{{ r.Cu
 {%- endcapture %}
 | {{r.Scenario}} {% if regression.HasRecovered %}[Fixed]{% endif %} | {{r.Description}} | {{r.DateTimeUtc | format_date: 'G'}} | {{prevRps | format_number: 'N0' }} | {{rps | format_number: 'N0' }} | {{change | format_number: 'N2'}} % ({{regression.Change | format_number: 'N0'}}) {% if regression.Change > 0 %} :thumbsup: {% else %} :thumbsdown: {% endif %} | {{deviation | format_number: 'N2'}} σ | {{ regression.StandardDeviation | format_number: 'N2'}} | {{ changes | strip_newlines }} |
 {%- endfor %}
-
-<!--
-### Changes:
-
-{%- assign currentAspNetCoreVersion = r.Data.jobs.application.results.aspNetCoreVersion | split: '+' -%}
-{%- assign previousAspNetCoreVersion = p.Data.jobs.application.results.aspNetCoreVersion | split: '+' -%}
-{%- assign currentNetCoreAppVersion = r.Data.jobs.application.results.netCoreAppVersion | split: '+' -%}
-{%- assign previousNetCoreAppVersion = p.Data.jobs.application.results.netCoreAppVersion | split: '+' -%}
-{%- assign currentNetCoreSdk = r.Data.jobs.application.results.netSdkVersion -%}
-{%- assign previousNetCoreSdk = p.Data.jobs.application.results.netSdkVersion -%}
-
-| Runtime | Previous Version | Current Version | Diff |
-| ------- | ---------------- | --------------- | ---- |
-| ASP.NET | {{ previousAspNetCoreVersion[0] | default: 'n/a' }} | {{ currentAspNetCoreVersion[0] | default: 'n/a' }} | {% if previousAspNetCoreVersion[1] != currentAspNetCoreVersion[1] %} https://github.com/dotnet/aspnetcore/compare/{{previousAspNetCoreVersion[1]}}...{{currentAspNetCoreVersion[1]}} {% else %} n/a  {% endif %} |
-| CLR | {{ previousNetCoreAppVersion[0] | default: 'n/a' }} | {{ currentNetCoreAppVersion[0] | default: 'n/a' }} | {% if previousNetCoreAppVersion[1] != currentNetCoreAppVersion[1] %} https://github.com/dotnet/runtime/compare/{{previousNetCoreAppVersion[1]}}...{{currentNetCoreAppVersion[1]}} {% else %} n/a {% endif %} |
-| SDK | {{ previousNetCoreSdk | default: 'n/a' }} | {{ currentNetCoreSdk }} | n/a |
--->

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Fluid;
 using Fluid.Values;
@@ -34,43 +36,9 @@ namespace Microsoft.Crank.RegressionBot.Tests
         [Fact]
         public async Task TemplateIsRendered()
         {
-            var regressions = new List<Regression>();
-            
-            regressions.Add(new Regression 
-            {
-                PreviousResult = new BenchmarksResult
-                {
-                    Id = 1,
-                    Excluded = false,
-                    DateTimeUtc = DateTime.UtcNow,
-                    Session = "1234",
-                    Scenario = "Json",
-                    Description = "Json aspnet-citrine-lin",
-                    Document = File.ReadAllText("assets/benchmarkresult1.json")
-                },
-                CurrentResult = new BenchmarksResult
-                {
-                    Id = 2,
-                    Excluded = false,
-                    DateTimeUtc = DateTime.UtcNow,
-                    Session = "1235",
-                    Scenario = "Json",
-                    Description = "Json aspnet-citrine-lin",
-                    Document = File.ReadAllText("assets/benchmarkresult2.json")
-                },
-                Change = 1000,
-                StandardDeviation = 1,
-                Average = 10
-            });
-            
-            var report = new Report
-            {
-                Regressions = regressions
-            };
+            var content = File.ReadAllText("assets/regressions.json");
 
-
-            // Create the Changes data
-            regressions[0].ComputeChanges();
+            var report = JsonSerializer.Deserialize<Report>(content);
 
             var template = File.ReadAllText("assets/template.fluid");
 

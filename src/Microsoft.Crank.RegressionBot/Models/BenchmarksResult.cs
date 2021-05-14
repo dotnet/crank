@@ -21,6 +21,7 @@ namespace Microsoft.Crank.RegressionBot.Models
         private JObject _data;
 
         [MessagePack.IgnoreMember]
+        [System.Text.Json.Serialization.JsonIgnore]
         public JObject Data => _data ??= JObject.Parse(Document);
     }
 }
