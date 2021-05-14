@@ -139,7 +139,7 @@
           "default": 1,
           "description": "The minimum value to detect a problem."
         },
-        "thresholdUnit": {
+        "unit": {
           "type":"string",
           "default": "StDev",
           "description": "The unit of the threshold.",
