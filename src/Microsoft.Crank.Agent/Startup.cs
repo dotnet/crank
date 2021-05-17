@@ -639,6 +639,7 @@ namespace Microsoft.Crank.Agent
                                         });
                                     }
 
+
                                     if (!job.Metadata.Any(x => x.Name == "benchmarks/memory/swap"))
                                     {
                                         job.Metadata.Enqueue(new MeasurementMetadata
@@ -1867,6 +1868,32 @@ namespace Microsoft.Crank.Agent
                     {
                         job.Error = job.BuildLog.ToString();
                     }
+
+                    var dockerInspectArguments = $"inspect -f \"{{{{ .Size }}}}\" {imageName}";
+
+                    var inspectResults = await ProcessUtil.RunAsync("docker", dockerInspectArguments,
+                        workingDirectory: srcDir,
+                        cancellationToken: cancellationToken,
+                        captureOutput: true,
+                        log: true,
+                        outputDataReceived: text => job.BuildLog.AddLine(text));
+
+                    if(long.TryParse(inspectResults.StandardOutput.Trim(), out var imageSize))
+                    {
+                        if (imageSize != 0)
+                        {
+                            job.PublishedSize = imageSize / 1024;
+
+                            job.Measurements.Enqueue(new Measurement
+                            {
+                                Name = "benchmarks/published-size",
+                                Timestamp = DateTime.UtcNow,
+                                Value = imageSize / 1024
+                            });
+                        }
+                    }
+
+                  
                 }
                 else
                 {
