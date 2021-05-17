@@ -639,19 +639,6 @@ namespace Microsoft.Crank.Agent
                                         });
                                     }
 
-                                    if (!job.Metadata.Any(x => x.Name == "benchmarks/compressed-image-size"))
-                                    {
-                                        job.Metadata.Enqueue(new MeasurementMetadata
-                                        {
-                                            Source = "Host Process",
-                                            Name = "benchmarks/compressed-image-size",
-                                            Aggregate = Operation.Max,
-                                            Reduce = Operation.Max,
-                                            Format = "n0",
-                                            LongDescription = "The size of the compressed docker image (KB)",
-                                            ShortDescription = "Compressed Image Size (KB)"
-                                        });
-                                    }
 
                                     if (!job.Metadata.Any(x => x.Name == "benchmarks/memory/swap"))
                                     {
@@ -1906,34 +1893,7 @@ namespace Microsoft.Crank.Agent
                         }
                     }
 
-                    var dockerSaveArguments = $"save {imageName} -o {imageName}.tar";
-
-                    var saveResults = await ProcessUtil.RunAsync("docker", dockerSaveArguments,
-                        workingDirectory: srcDir,
-                        cancellationToken: cancellationToken,
-                        log: true,
-                        outputDataReceived: text => job.BuildLog.AddLine(text));
-                    
-                    var gZipArguments = $"{imageName}.tar";
-
-                    var gZipResults = await ProcessUtil.RunAsync("gzip", gZipArguments,
-                        workingDirectory: srcDir,
-                        cancellationToken: cancellationToken,
-                        log: true,
-                        outputDataReceived: text => job.BuildLog.AddLine(text));
-                    
-                    var filePath = Path.Combine(srcDir, $"{imageName}.tar.gz");
-                    var compressedSize = new FileInfo(filePath).Length;
-                    if (compressedSize != 0)
-                    {
-                        job.Measurements.Enqueue(new Measurement
-                        {
-                            Name = "benchmarks/compressed-image-size",
-                            Timestamp = DateTime.UtcNow,
-                            Value = compressedSize / 1024
-                        });
-                        File.Delete(filePath);
-                    }
+                  
                 }
                 else
                 {
