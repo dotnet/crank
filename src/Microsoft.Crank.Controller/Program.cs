@@ -68,6 +68,7 @@ namespace Microsoft.Crank.Controller
             _chartTypeOption,
             _chartScaleOption,
             _iterationsOption,
+            _intervalOption,
             _verboseOption,
             _quietOption,
             _scriptOption,
@@ -160,6 +161,7 @@ namespace Microsoft.Crank.Controller
             _chartTypeOption = app.Option("--chart-type", "Type of chart to render. Values are 'bar' (default) or 'hex'", CommandOptionType.SingleValue);
             _chartScaleOption = app.Option("--chart-scale", "Scale for chart. Values are 'off' (default) or 'auto'. When scale is off, the min value starts at 0.", CommandOptionType.SingleValue);
             _iterationsOption = app.Option("-i|--iterations", "The number of iterations.", CommandOptionType.SingleValue);
+            _intervalOption = app.Option("-m|--interval", "The measurements interval in seconds. Default is 1.", CommandOptionType.SingleValue);
             _verboseOption = app.Option("-v|--verbose", "Verbose output", CommandOptionType.NoValue);
             _quietOption = app.Option("--quiet", "Quiet output, only the results are displayed", CommandOptionType.NoValue);
             _excludeOption = app.Option("-x|--exclude", "Excludes the specified number of high and low results, e.g., 1", CommandOptionType.SingleValue);
@@ -217,6 +219,23 @@ namespace Microsoft.Crank.Controller
                 }
 
                 var description = _descriptionOption.Value() ?? "";
+
+                if (_intervalOption.HasValue())
+                {
+                    if (!int.TryParse(_intervalOption.Value(), out var interval))
+                    {
+                        Console.WriteLine($"The option --interval must be a valid integer.");
+                        return -1;
+                    }
+                    else
+                    {
+                        if (interval < 1)
+                        {
+                            Console.WriteLine($"The option --interval must be greater than 1.");
+                            return -1;
+                        }
+                    }
+                }
 
                 if (_iterationsOption.HasValue())
                 {
@@ -1539,6 +1558,12 @@ namespace Microsoft.Crank.Controller
 
                     job.Value.DumpProcess = true;
                     job.Value.DumpType = dumpType;
+                }
+
+                // Update the job's interval based on the common config
+                if (_intervalOption.HasValue())
+                {
+                    job.Value.MeasurementsIntervalSec = int.Parse(_intervalOption.Value());
                 }
 
                 // Copy the dotnet counters from the list of providers

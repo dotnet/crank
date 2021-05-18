@@ -118,6 +118,11 @@ namespace Microsoft.Crank.Models
         
         // For backward compatibility. Use Options.CollectCounters instead
         public bool CollectCounters { get; set; }
+
+        /// <summary>
+        /// The expected interval for each recurring measurements (dotnet counters, custom measurements, ...)
+        /// </summary>
+        public int MeasurementsIntervalSec { get; set; } = 1;
         
         /// <summary>
         /// The list of performance counter providers to be collected. Defaults to <c>System.Runtime</c>.

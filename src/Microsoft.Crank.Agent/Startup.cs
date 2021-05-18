@@ -38,6 +38,7 @@ using System.Net;
 using System.Reflection.PortableExecutable;
 using System.Reflection.Metadata;
 using System.Security.Cryptography;
+using System.Globalization;
 
 namespace Microsoft.Crank.Agent
 {
@@ -799,6 +800,14 @@ namespace Microsoft.Crank.Agent
                                                 return;
                                             }
 
+                                            // whether to capture a measurement right now, or wait until the delay has passed
+                                            var takeMeasurement = context.NextMeasurement < DateTime.UtcNow;
+
+                                            if (takeMeasurement)
+                                            {
+                                                context.NextMeasurement = context.NextMeasurement + TimeSpan.FromSeconds(job.MeasurementsIntervalSec);
+                                            }
+
                                             try
                                             {
                                                 if (context.Disposed || context.Timer == null)
@@ -845,89 +854,92 @@ namespace Microsoft.Crank.Agent
                                                         }
                                                         else if (job.State == JobState.Running)
                                                         {
-                                                            // Get docker stats
-                                                            var result = ProcessUtil.RunAsync("docker", "container stats --no-stream --format \"{{.CPUPerc}}-{{.MemUsage}}\" " + dockerContainerId,
-                                                                    log: false, throwOnError: false, captureOutput: true, captureError: true).GetAwaiter().GetResult();
-
-                                                            var stats = result.StandardOutput;
-
-                                                            if (!String.IsNullOrEmpty(stats))
+                                                            if (takeMeasurement)
                                                             {
-                                                                var data = stats.Trim().Split('-');
+                                                                // Get docker stats
+                                                                var result = ProcessUtil.RunAsync("docker", "container stats --no-stream --format \"{{.CPUPerc}}-{{.MemUsage}}\" " + dockerContainerId,
+                                                                        log: false, throwOnError: false, captureOutput: true, captureError: true).GetAwaiter().GetResult();
 
-                                                                // Format is {value}%
-                                                                var cpuPercentRaw = data[0];
+                                                                var stats = result.StandardOutput;
 
-                                                                // Format is {used}M/GiB/{total}M/GiB
-                                                                var workingSetRaw = data[1];
-                                                                var usedMemoryRaw = workingSetRaw.Split('/')[0].Trim();
-                                                                var cpu = double.Parse(cpuPercentRaw.Trim('%'));
-                                                                var rawCpu = cpu;
-
-                                                                // On Windows the CPU already takes the number or HT into account
-                                                                if (OperatingSystem == OperatingSystem.Linux)
+                                                                if (!String.IsNullOrEmpty(stats))
                                                                 {
-                                                                    cpu = cpu / Environment.ProcessorCount;
-                                                                }
+                                                                    var data = stats.Trim().Split('-');
 
-                                                                cpu = Math.Round(cpu);
+                                                                    // Format is {value}%
+                                                                    var cpuPercentRaw = data[0];
 
-                                                                // MiB, GiB, B ?
-                                                                var factor = 1;
-                                                                double memory;
+                                                                    // Format is {used}M/GiB/{total}M/GiB
+                                                                    var workingSetRaw = data[1];
+                                                                    var usedMemoryRaw = workingSetRaw.Split('/')[0].Trim();
+                                                                    var cpu = double.Parse(cpuPercentRaw.Trim('%'));
+                                                                    var rawCpu = cpu;
 
-                                                                if (usedMemoryRaw.EndsWith("GiB"))
-                                                                {
-                                                                    factor = 1024 * 1024 * 1024;
-                                                                    memory = double.Parse(usedMemoryRaw.Substring(0, usedMemoryRaw.Length - 3));
-                                                                }
-                                                                else if (usedMemoryRaw.EndsWith("MiB"))
-                                                                {
-                                                                    factor = 1024 * 1024;
-                                                                    memory = double.Parse(usedMemoryRaw.Substring(0, usedMemoryRaw.Length - 3));
-                                                                }
-                                                                else
-                                                                {
-                                                                    memory = double.Parse(usedMemoryRaw.Substring(0, usedMemoryRaw.Length - 1));
-                                                                }
-
-                                                                var workingSet = (long)(memory * factor);
-
-                                                                job.Measurements.Enqueue(new Measurement
-                                                                {
-                                                                    Name = "benchmarks/working-set",
-                                                                    Timestamp = now,
-                                                                    Value = Math.Ceiling((double)workingSet / 1024 / 1024) // < 1MB still needs to appear as 1MB
-                                                                });
-
-                                                                job.Measurements.Enqueue(new Measurement
-                                                                {
-                                                                    Name = "benchmarks/cpu",
-                                                                    Timestamp = now,
-                                                                    Value = cpu
-                                                                });
-
-                                                                job.Measurements.Enqueue(new Measurement
-                                                                {
-                                                                    Name = "benchmarks/cpu/raw",
-                                                                    Timestamp = now,
-                                                                    Value = Math.Round(rawCpu)
-                                                                });
-
-                                                                if (job.CollectSwapMemory && OperatingSystem == OperatingSystem.Linux)
-                                                                {
-                                                                    try
+                                                                    // On Windows the CPU already takes the number or HT into account
+                                                                    if (OperatingSystem == OperatingSystem.Linux)
                                                                     {
-                                                                        job.Measurements.Enqueue(new Measurement
-                                                                        {
-                                                                            Name = "benchmarks/memory/swap",
-                                                                            Timestamp = now,
-                                                                            Value = GetSwapBytesAsync().GetAwaiter().GetResult() / 1024 / 1024
-                                                                        });
+                                                                        cpu = cpu / Environment.ProcessorCount;
                                                                     }
-                                                                    catch (Exception e)
+
+                                                                    cpu = Math.Round(cpu);
+
+                                                                    // MiB, GiB, B ?
+                                                                    var factor = 1;
+                                                                    double memory;
+
+                                                                    if (usedMemoryRaw.EndsWith("GiB"))
                                                                     {
-                                                                        Log.WriteLine($"[ERROR] Could not get swap memory:" + e.ToString());
+                                                                        factor = 1024 * 1024 * 1024;
+                                                                        memory = double.Parse(usedMemoryRaw.Substring(0, usedMemoryRaw.Length - 3));
+                                                                    }
+                                                                    else if (usedMemoryRaw.EndsWith("MiB"))
+                                                                    {
+                                                                        factor = 1024 * 1024;
+                                                                        memory = double.Parse(usedMemoryRaw.Substring(0, usedMemoryRaw.Length - 3));
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        memory = double.Parse(usedMemoryRaw.Substring(0, usedMemoryRaw.Length - 1));
+                                                                    }
+
+                                                                    var workingSet = (long)(memory * factor);
+
+                                                                    job.Measurements.Enqueue(new Measurement
+                                                                    {
+                                                                        Name = "benchmarks/working-set",
+                                                                        Timestamp = now,
+                                                                        Value = Math.Ceiling((double)workingSet / 1024 / 1024) // < 1MB still needs to appear as 1MB
+                                                                    });
+
+                                                                    job.Measurements.Enqueue(new Measurement
+                                                                    {
+                                                                        Name = "benchmarks/cpu",
+                                                                        Timestamp = now,
+                                                                        Value = cpu
+                                                                    });
+
+                                                                    job.Measurements.Enqueue(new Measurement
+                                                                    {
+                                                                        Name = "benchmarks/cpu/raw",
+                                                                        Timestamp = now,
+                                                                        Value = Math.Round(rawCpu)
+                                                                    });
+
+                                                                    if (job.CollectSwapMemory && OperatingSystem == OperatingSystem.Linux)
+                                                                    {
+                                                                        try
+                                                                        {
+                                                                            job.Measurements.Enqueue(new Measurement
+                                                                            {
+                                                                                Name = "benchmarks/memory/swap",
+                                                                                Timestamp = now,
+                                                                                Value = GetSwapBytesAsync().GetAwaiter().GetResult() / 1024 / 1024
+                                                                            });
+                                                                        }
+                                                                        catch (Exception e)
+                                                                        {
+                                                                            Log.WriteLine($"[ERROR] Could not get swap memory:" + e.ToString());
+                                                                        }
                                                                     }
                                                                 }
                                                             }
@@ -1000,7 +1012,7 @@ namespace Microsoft.Crank.Agent
                                                                 }
                                                             }
 
-                                                            if (trackProcess != null)
+                                                            if (takeMeasurement && trackProcess != null)
                                                             {
                                                                 var newCPUTime = OperatingSystem == OperatingSystem.OSX
                                                                     ? TimeSpan.Zero
@@ -1514,7 +1526,7 @@ namespace Microsoft.Crank.Agent
             }
             catch (Exception e)
             {
-                Log.WriteLine($"Unexpected error: {e.ToString()}");
+                Log.WriteLine($"Unexpected error: {e}");
             }
         }
 
@@ -4334,7 +4346,7 @@ namespace Microsoft.Crank.Agent
                     name: p,
                     eventLevel: EventLevel.Informational,
                     arguments: new Dictionary<string, string>() 
-                        { { "EventCounterIntervalSec", "1" } })
+                        { { "EventCounterIntervalSec", job.MeasurementsIntervalSec.ToString(CultureInfo.InvariantCulture) } })
                 )
                 .ToList();
 
