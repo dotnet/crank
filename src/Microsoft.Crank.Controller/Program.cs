@@ -1484,39 +1484,44 @@ namespace Microsoft.Crank.Controller
                 }
             }
 
-            // Jobs post configuration
-            foreach (var job in result.Jobs)
+            // Jobs post configuration for all jobs in the scenario
+
+            var dependencies = result.Scenarios[scenarioName].Select(x => x.Key).ToArray();
+
+            foreach (var jobName in dependencies)
             {
-                if (job.Value.OnConfigure != null && job.Value.OnConfigure.Any())
+                var job = result.Jobs[jobName];
+
+                if (job.OnConfigure != null && job.OnConfigure.Any())
                 {
                     var engine =  new Engine();
                     
-                    engine.SetValue("job", job.Value);
+                    engine.SetValue("job", job);
                     engine.SetValue("console", _scriptConsole);
 
-                    foreach(var script in job.Value.OnConfigure)
+                    foreach(var script in job.OnConfigure)
                     {
                         engine.Execute(script);
                     }                    
                 }
 
                 // Set default trace arguments if none is specified
-                if (job.Value.Collect && String.IsNullOrEmpty(job.Value.CollectArguments))
+                if (job.Collect && String.IsNullOrEmpty(job.CollectArguments))
                 {
-                    job.Value.CollectArguments = _defaultTraceArguments;
+                    job.CollectArguments = _defaultTraceArguments;
                 }
 
                 // If the job is a BenchmarkDotNet application, define default arguments so we can download the results as JSon
-                if (job.Value.Options.BenchmarkDotNet)
+                if (job.Options.BenchmarkDotNet)
                 {
-                    job.Value.WaitForExit = true;
-                    job.Value.ReadyStateText ??= "BenchmarkRunner: Start";
-                    job.Value.Arguments = DefaultBenchmarkDotNetArguments + " " + job.Value.Arguments;
+                    job.WaitForExit = true;
+                    job.ReadyStateText ??= "BenchmarkRunner: Start";
+                    job.Arguments = DefaultBenchmarkDotNetArguments + " " + job.Arguments;
                 }
 
-                if (job.Value.Options.ReuseSource || job.Value.Options.ReuseBuild)
+                if (job.Options.ReuseSource || job.Options.ReuseBuild)
                 {
-                    var source = job.Value.Source;
+                    var source = job.Source;
 
                     // Compute a custom source key
                     source.SourceKey = source.Repository
@@ -1532,44 +1537,44 @@ namespace Microsoft.Crank.Controller
                     using (var sha1 = SHA1.Create())  
                     {  
                         // Assume no collision since it's verified on the server
-                        var bytes = sha1.ComputeHash(Encoding.UTF8.GetBytes(job.Value.Source.SourceKey));
+                        var bytes = sha1.ComputeHash(Encoding.UTF8.GetBytes(job.Source.SourceKey));
                         source.SourceKey = String.Concat(bytes.Select(b => b.ToString("x2"))).Substring(0, 8);
                     }
 
-                    if (job.Value.Options.ReuseBuild)
+                    if (job.Options.ReuseBuild)
                     {
                         source.NoBuild = true;
                     }
                 }
 
-                if (job.Value.CollectCounters)
+                if (job.CollectCounters)
                 {
-                    Log.WriteWarning($"WARNING: '{job.Key}.collectCounters' has been deprecated, in the future please use '{job.Key}.options.collectCounters'.");
-                    job.Value.Options.CollectCounters = true;
+                    Log.WriteWarning($"WARNING: '{jobName}.collectCounters' has been deprecated, in the future please use '{jobName}.options.collectCounters'.");
+                    job.Options.CollectCounters = true;
                 }
 
                 // if CollectCounters is set and no provider are defined, use System.Runtime as the default provider
-                if (job.Value.Options.CollectCounters == true && !job.Value.Options.CounterProviders.Any())
+                if (job.Options.CollectCounters == true && !job.Options.CounterProviders.Any())
                 {
-                    job.Value.Options.CounterProviders.Add("System.Runtime");
+                    job.Options.CounterProviders.Add("System.Runtime");
                 }
 
-                if (!String.IsNullOrEmpty(job.Value.Options.DumpType))
+                if (!String.IsNullOrEmpty(job.Options.DumpType))
                 {
-                    if (!Enum.TryParse<DumpTypeOption>(job.Value.Options.DumpType, ignoreCase: true, out var dumpType))
+                    if (!Enum.TryParse<DumpTypeOption>(job.Options.DumpType, ignoreCase: true, out var dumpType))
                     {
                         dumpType = DumpTypeOption.Mini;
                         Log.WriteWarning($"WARNING: Invalid value for 'DumpType'. Using 'Mini'.");
                     }
 
-                    job.Value.DumpProcess = true;
-                    job.Value.DumpType = dumpType;
+                    job.DumpProcess = true;
+                    job.DumpType = dumpType;
                 }
 
                 // Copy the dotnet counters from the list of providers
-                if (job.Value.Options.CollectCounters != false && job.Value.Options.CounterProviders.Any())
+                if (job.Options.CollectCounters != false && job.Options.CounterProviders.Any())
                 {
-                    foreach (var provider in job.Value.Options.CounterProviders)
+                    foreach (var provider in job.Options.CounterProviders)
                     {
                         var allProviderSections = configurationInstance.Counters.Where(x => x.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase));
 
@@ -1582,7 +1587,7 @@ namespace Microsoft.Crank.Controller
                         {
                             foreach (var counter in providerSection.Values)
                             {
-                                job.Value.Counters.Add(new DotnetCounter { Provider = providerSection.Provider, Name = counter.Name, Measurement = counter.Measurement });
+                                job.Counters.Add(new DotnetCounter { Provider = providerSection.Provider, Name = counter.Name, Measurement = counter.Measurement });
                             }
                         }
                     }
