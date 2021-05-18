@@ -8,7 +8,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Crank.Models;
 using Microsoft.Diagnostics.NETCore.Client;
-using Microsoft.Diagnostics.Tracing;
 
 namespace Microsoft.Crank.Agent
 {
@@ -24,6 +23,7 @@ namespace Microsoft.Crank.Agent
         public bool Disposed { get; set; }
         public string BenchmarksDir { get; set; }
         public DateTime StartMonitorTime { get; set; } = DateTime.UtcNow;
+        public DateTime NextMeasurement { get; set; } = DateTime.UtcNow;
 
         public string TempDir { get; set; }
         public string DockerImage { get; set; }
