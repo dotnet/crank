@@ -220,9 +220,11 @@ namespace Microsoft.Crank.Controller
 
                 var description = _descriptionOption.Value() ?? "";
 
+                var interval = 1;
+
                 if (_intervalOption.HasValue())
                 {
-                    if (!int.TryParse(_intervalOption.Value(), out var interval))
+                    if (!int.TryParse(_intervalOption.Value(), out interval))
                     {
                         Console.WriteLine($"The option --interval must be a valid integer.");
                         return -1;
@@ -388,7 +390,7 @@ namespace Microsoft.Crank.Controller
                     }
                 }
 
-                var configuration = await BuildConfigurationAsync(_configOption.Values, scenarioName, _jobOption.Values, Arguments, variables, _profileOption.Values, _scriptOption.Values);
+                var configuration = await BuildConfigurationAsync(_configOption.Values, scenarioName, _jobOption.Values, Arguments, variables, _profileOption.Values, _scriptOption.Values, interval);
 
                 // Storing the list of services to run as part of the selected scenario
                 var dependencies = String.IsNullOrEmpty(scenarioName)
@@ -1291,7 +1293,8 @@ namespace Microsoft.Crank.Controller
             IEnumerable<KeyValuePair<string, string>> arguments,
             JObject commandLineVariables,
             IEnumerable<string> profiles,
-            IEnumerable<string> scripts
+            IEnumerable<string> scripts,
+            int interval
             )
         {
             JObject configuration = null;
@@ -1356,12 +1359,16 @@ namespace Microsoft.Crank.Controller
                 configurationInstance.Jobs[jobName] = new Job();
             }
 
+            // Pee-configuration
             foreach (var job in configurationInstance.Jobs)
             {
                 // Force all jobs as self-contained by default. This can be overrided by command line config.
                 // This can't be done in ServerJob for backward compatibility
                 job.Value.SelfContained = true;
 
+                // Update the job's interval based on the common config
+                job.Value.MeasurementsIntervalSec = interval;
+                
                 job.Value.Service = job.Key;
             }
 
@@ -1453,6 +1460,7 @@ namespace Microsoft.Crank.Controller
             foreach (JProperty property in configuration["Jobs"] ?? new JObject())
             {
                 var job = property.Value;
+
                 var rootVariables = configuration["Variables"] as JObject ?? new JObject();
                 var jobVariables = job["Variables"] as JObject ?? new JObject();
 
@@ -1465,7 +1473,6 @@ namespace Microsoft.Crank.Controller
             }
 
             var result = configuration.ToObject<Configuration>();
-
 
             // Validates that the scripts defined in the command line exist
             foreach (var script in scripts)
@@ -1547,7 +1554,6 @@ namespace Microsoft.Crank.Controller
                     job.Value.Options.CounterProviders.Add("System.Runtime");
                 }
 
-                // 
                 if (!String.IsNullOrEmpty(job.Value.Options.DumpType))
                 {
                     if (!Enum.TryParse<DumpTypeOption>(job.Value.Options.DumpType, ignoreCase: true, out var dumpType))
@@ -1558,12 +1564,6 @@ namespace Microsoft.Crank.Controller
 
                     job.Value.DumpProcess = true;
                     job.Value.DumpType = dumpType;
-                }
-
-                // Update the job's interval based on the common config
-                if (_intervalOption.HasValue())
-                {
-                    job.Value.MeasurementsIntervalSec = int.Parse(_intervalOption.Value());
                 }
 
                 // Copy the dotnet counters from the list of providers
