@@ -164,7 +164,7 @@ namespace Microsoft.Crank.Controller
             _intervalOption = app.Option("-m|--interval", "The measurements interval in seconds. Default is 1.", CommandOptionType.SingleValue);
             _verboseOption = app.Option("-v|--verbose", "Verbose output", CommandOptionType.NoValue);
             _quietOption = app.Option("--quiet", "Quiet output, only the results are displayed", CommandOptionType.NoValue);
-            _excludeOption = app.Option("-x|--exclude", "Excludes the specified number of high and low results, e.g., 1", CommandOptionType.SingleValue);
+            _excludeOption = app.Option("-x|--exclude", "Excludes the specified number of high and low results, e.g., 1, 1:0 (exclude the lowest), 0:3 (exclude the 3 highest)", CommandOptionType.SingleValue);
             _excludeOrderOption = app.Option("-xo|--exclude-order", "The result to use to detect the high and low results, e.g., 'load:wrk/rps/mean'", CommandOptionType.SingleValue);
             
             app.Command("compare", compareCmd =>
@@ -265,6 +265,8 @@ namespace Microsoft.Crank.Controller
                     return -1;
                 }
 
+                int excludeLow = 0, excludeHigh = 0;
+
                 if (_excludeOption.HasValue())
                 {
                     if (!_iterationsOption.HasValue())
@@ -273,13 +275,34 @@ namespace Microsoft.Crank.Controller
                         return -1;
                     }
 
-                    if (!Int32.TryParse(_excludeOption.Value(), out var excludeValue) || excludeValue < 1)
+                    var segments = _excludeOption.Value().Split(':', 2, StringSplitOptions.RemoveEmptyEntries);
+
+                    if (segments.Length == 1)
                     {
-                        Console.WriteLine($"Invalid value for --exclude option. A positive integer was expected.");
-                        return -1;
+                        if (!Int32.TryParse(segments[0], out excludeLow) || excludeLow < 1)
+                        {
+                            Console.WriteLine($"Invalid value for --exclude <x> option. A positive integer was expected.");
+                            return -1;
+                        }
+
+                        excludeHigh = excludeLow;
+                    }
+                    else if (segments.Length == 2)
+                    {
+                        if (!Int32.TryParse(segments[0], out excludeLow) || excludeLow < 1)
+                        {
+                            Console.WriteLine($"Invalid value for --exclude <low:high> option. A positive integer was expected as the lower value.");
+                            return -1;
+                        }
+
+                        if (!Int32.TryParse(segments[1], out excludeHigh) || excludeHigh < 1)
+                        {
+                            Console.WriteLine($"Invalid value for --exclude <low:high> option. A positive integer was expected as the higher value.");
+                            return -1;
+                        }
                     }
 
-                    if (iterations <= excludeValue * 2)
+                    if (iterations <= excludeLow + excludeHigh)
                     {
                         Console.WriteLine($"Invalid value for --exclude option. Remaining benchmarks number is negative.");
                         return -1;
@@ -293,7 +316,8 @@ namespace Microsoft.Crank.Controller
                         return -1;
                     }
 
-                    exclude.Value = excludeValue;
+                    exclude.Low = excludeLow;
+                    exclude.High = excludeHigh;
                     exclude.Job = excludeOrder[0];
                     exclude.Result = excludeOrder[1];
                 }
@@ -851,7 +875,7 @@ namespace Microsoft.Crank.Controller
                 {
                     // Exclude highs and lows
 
-                    if (exclude.Value > 0)
+                    if (exclude.High + exclude.Low > 0)
                     {
                         if (executionResults.Any(x => !x.JobResults.Jobs.ContainsKey(exclude.Job)))
                         {
@@ -864,7 +888,7 @@ namespace Microsoft.Crank.Controller
                         else 
                         {
                             var orderedResults = executionResults.OrderBy(x => x.JobResults.Jobs[exclude.Job].Results[exclude.Result]);
-                            var includedResults = executionResults.Skip(exclude.Value).SkipLast(exclude.Value);
+                            var includedResults = executionResults.Skip(exclude.Low).SkipLast(exclude.High);
                             var excludedresults = executionResults.Except(includedResults);
 
                             Console.WriteLine($"Excluded values: {string.Join(", ", excludedresults.Select(x => x.JobResults.Jobs[exclude.Job].Results[exclude.Result]))}");
