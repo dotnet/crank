@@ -8,7 +8,8 @@ namespace Microsoft.Crank.Controller
     {
         public static readonly ExcludeOptions Empty = new ExcludeOptions();
 
-        public int Value;
+        public int Low;
+        public int High;
         public string Job;
         public string Result;
     } 
