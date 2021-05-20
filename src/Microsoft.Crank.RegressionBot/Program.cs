@@ -658,10 +658,10 @@ namespace Microsoft.Crank.RegressionBot
                          *                      ^                          ______/i+3---------i+4---------
                          *  (stdev results) ----i---------i+1---------i+2/
                          *         
-                         *                      <- value1 ->            <- value3 ->  
-                         *                      <------- value2 -------><------- value4 ------>
-                         *                 
-                         *
+                         *                      <- value1 ->            
+                         *                      <------- value2 ------->
+                         *                      <--------------- value3 --------->  
+                         *                      <------------------------ value4 ------------->
                          */
 
                         if (standardDeviation == 0)
@@ -674,8 +674,8 @@ namespace Microsoft.Crank.RegressionBot
                         
                         var value1 = values[i+1] - values[i];
                         var value2 = values[i+2] - values[i];
-                        var value3 = values[i+3] - values[i+2];
-                        var value4 = values[i+4] - values[i+2];
+                        var value3 = values[i+3] - values[i];
+                        var value4 = values[i+4] - values[i];
                         
                         if (_options.Verbose)
                         {
@@ -760,11 +760,13 @@ namespace Microsoft.Crank.RegressionBot
                             }
 
                             // If there are subsequent measurements, detect if the benchmark has 
-                            // recovered by search for a value in the limits
+                            // recovered
+                            // - if the delta is inside the threshold limits
+                            // - the delta is outside the threshold limits but in the opposite sign
                             
                             for (var j = i + 5; j < resultSet.Length; j++)
                             {
-                                var nextValue = values[j] - values[i+2];
+                                var nextValue = values[j] - values[i];
 
                                 var hasRecovered = false;
 
@@ -772,20 +774,26 @@ namespace Microsoft.Crank.RegressionBot
                                 {
                                     case ThresholdUnits.StDev:
                                         // factor of standard deviation
-                                        hasRecovered = Math.Abs(nextValue) < probe.Threshold * standardDeviation
-                                            && Math.Sign(nextValue) == Math.Sign(value4);
+                                        hasRecovered = Math.Sign(nextValue) == Math.Sign(value4)
+                                            ? Math.Abs(nextValue) < probe.Threshold * standardDeviation
+                                            : Math.Abs(nextValue) >= probe.Threshold * standardDeviation
+                                            ;
 
                                         break;
                                     case ThresholdUnits.Percent:
                                         // percentage of the average of values
-                                        hasRecovered = Math.Abs(nextValue) < average * (probe.Threshold / 100)
-                                            && Math.Sign(nextValue) == Math.Sign(value4);
+                                        hasRecovered = Math.Sign(nextValue) == Math.Sign(value4)
+                                            ? Math.Abs(nextValue) < average * (probe.Threshold / 100)
+                                            : Math.Abs(nextValue) >= average * (probe.Threshold / 100)
+                                            ;
 
                                         break;                            
                                     case ThresholdUnits.Absolute:
                                         // absolute deviation
-                                        hasRecovered = Math.Abs(nextValue) < probe.Threshold
-                                            && Math.Sign(nextValue) == Math.Sign(value4);
+                                        hasRecovered = Math.Sign(nextValue) == Math.Sign(value4)
+                                            ? Math.Abs(nextValue) < probe.Threshold
+                                            : Math.Abs(nextValue) >= probe.Threshold
+                                            ;
 
                                         break;
                                     default:
