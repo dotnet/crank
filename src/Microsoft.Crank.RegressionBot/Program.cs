@@ -276,6 +276,9 @@ namespace Microsoft.Crank.RegressionBot
                 Regressions = regressions.OrderBy(x => x.CurrentResult.Scenario).ThenBy(x => x.CurrentResult.DateTimeUtc).ToList()
             };
 
+            // The base64 encoded MessagePack-serialized model
+            var regressionBlock = CreateRegressionsBlock(regressions);
+
             if (!_fluidParser.TryParse(template, out var fluidTemplate, out var errors))
             {   
                 Console.WriteLine("Error parsing the template:");
@@ -289,13 +292,24 @@ namespace Microsoft.Crank.RegressionBot
 
             var context = new TemplateContext(report, _templateOptions);
 
-            var body = await fluidTemplate.RenderAsync(context);
+            try
+            {
+                var body = await fluidTemplate.RenderAsync(context);
 
-            body = AddOwners(body, regressions);
+                body = AddOwners(body, regressions);
 
-            body += CreateRegressionsBlock(regressions);
+                body += regressionBlock;
 
-            return body;
+                return body;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"An error occurred while rendering an issue: {e}");
+                Console.WriteLine("[DEBUG] Model used:");
+                Console.WriteLine(regressionBlock);
+
+                throw;
+            }
         }
 
         private static async Task<string> CreateIssueTitle(IEnumerable<Regression> regressions, string template)
