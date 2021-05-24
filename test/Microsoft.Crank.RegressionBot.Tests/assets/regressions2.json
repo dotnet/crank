@@ -1,0 +1,335 @@
+﻿{
+  "Regressions": [
+    {
+      "PreviousResult": {
+        "Id": 60622,
+        "Excluded": false,
+        "DateTimeUtc": "2021-04-20T20:20:26.12Z",
+        "Session": "20210420.2",
+        "Scenario": "connectionclose",
+        "Description": "Plaintext Connection Close aspnet-citrine-arm",
+        "Document": "{\"jobs\":{\"application\":{\"results\":{\"netSdkVersion\":\"6.0.100-preview.4.21220.5\",\"aspNetCoreVersion\":\"6.0.0-preview.5.21220.5+3489b86\",\"netCoreAppVersion\":\"6.0.0-preview.5.21220.7+58b25df\",\"benchmarks/build-time\":13936.0,\"benchmarks/published-size\":109185.0,\"benchmarks/start-time\":551.0,\"runtime-counter/cpu-usage\":48.0,\"benchmarks/working-set\":91.0,\"benchmarks/private-memory\":581.0,\"benchmarks/cpu\":47.0,\"benchmarks/cpu/raw\":1514.0,\"runtime-counter/working-set\":94.0,\"runtime-counter/gc-heap-size\":9.0,\"runtime-counter/gen-0-gc-count\":6.0,\"runtime-counter/gen-1-gc-count\":1.0,\"runtime-counter/gen-2-gc-count\":0.0,\"runtime-counter/threadpool-thread-count\":32.0,\"runtime-counter/monitor-lock-contention-count\":460.0,\"runtime-counter/threadpool-queue-length\":0.0,\"runtime-counter/threadpool-completed-items-count\":56293.0,\"runtime-counter/alloc-rate\":60779984.0,\"runtime-counter/active-timer-count\":0.0,\"runtime-counter/gc-fragmentation\":0.6690200706021181,\"runtime-counter/gc-committed\":19.0,\"runtime-counter/exception-count\":5394.0,\"runtime-counter/time-in-gc\":3.0,\"runtime-counter/gen-0-size\":768.0,\"runtime-counter/gen-1-size\":601736.0,\"runtime-counter/gen-2-size\":779120.0,\"runtime-counter/loh-size\":768.0,\"runtime-counter/assembly-count\":93.0,\"runtime-counter/il-bytes-jitted\":178845.0,\"runtime-counter/methods-jitted-count\":2331.0},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"ARM64\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"Arm64\",\"proc\":32}},\"load\":{\"results\":{\"benchmarks/start-time\":0.0,\"benchmarks/working-set\":37.0,\"benchmarks/private-memory\":357.0,\"benchmarks/cpu\":0.0,\"benchmarks/cpu/raw\":1.0,\"http/firstrequest\":188.0,\"wrk/latency/mean\":3.16,\"wrk/rps/mean\":1.32,\"wrk/throughput\":0.00019073486328125,\"wrk/latency/max\":5.11,\"wrk/requests\":20.0,\"wrk/errors/badresponses\":0.0,\"wrk/errors/socketerrors\":32.0,\"wrk/latency/50\":3.47,\"wrk/latency/75\":4.26,\"wrk/latency/90\":4.54,\"wrk/latency/99\":5.11},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}}},\"properties\":{\"scenario\":\"ConnectionClose\",\"protocol\":\"http\",\"connections\":\"32\",\"buildId\":\"1098185\",\"buildNumber\":\"20210420.2\"}}"
+      },
+      "CurrentResult": {
+        "Id": 60986,
+        "Excluded": false,
+        "DateTimeUtc": "2021-04-22T08:24:20.437Z",
+        "Session": "20210422.1",
+        "Scenario": "connectionclose",
+        "Description": "Plaintext Connection Close aspnet-citrine-arm",
+        "Document": "{\"jobs\":{\"application\":{\"results\":{\"netSdkVersion\":\"6.0.100-preview.4.21221.21\",\"aspNetCoreVersion\":\"6.0.0-preview.5.21221.9+9819c08\",\"netCoreAppVersion\":\"6.0.0-preview.5.21221.9+c528859\",\"benchmarks/build-time\":7413.0,\"benchmarks/published-size\":111194.0,\"benchmarks/start-time\":414.0,\"benchmarks/working-set\":93.0,\"benchmarks/private-memory\":581.0,\"benchmarks/cpu\":47.0,\"benchmarks/cpu/raw\":1499.0,\"runtime-counter/cpu-usage\":46.0,\"runtime-counter/working-set\":96.0,\"runtime-counter/gc-heap-size\":10.0,\"runtime-counter/gen-0-gc-count\":7.0,\"runtime-counter/gen-1-gc-count\":1.0,\"runtime-counter/gen-2-gc-count\":0.0,\"runtime-counter/threadpool-thread-count\":32.0,\"runtime-counter/monitor-lock-contention-count\":530.0,\"runtime-counter/threadpool-queue-length\":1.0,\"runtime-counter/threadpool-completed-items-count\":53783.0,\"runtime-counter/alloc-rate\":57937704.0,\"runtime-counter/active-timer-count\":0.0,\"runtime-counter/gc-fragmentation\":1.2090451431872575,\"runtime-counter/gc-committed\":20.0,\"runtime-counter/exception-count\":5132.0,\"runtime-counter/time-in-gc\":5.0,\"runtime-counter/gen-0-size\":768.0,\"runtime-counter/gen-1-size\":1001048.0,\"runtime-counter/gen-2-size\":770920.0,\"runtime-counter/loh-size\":768.0,\"runtime-counter/assembly-count\":93.0,\"runtime-counter/il-bytes-jitted\":152402.0,\"runtime-counter/methods-jitted-count\":1700.0},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"ARM64\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"Arm64\",\"proc\":32}},\"load\":{\"results\":{\"benchmarks/start-time\":0.0,\"benchmarks/working-set\":37.0,\"benchmarks/private-memory\":357.0,\"benchmarks/cpu\":0.0,\"benchmarks/cpu/raw\":1.0,\"http/firstrequest\":173.0,\"wrk/latency/mean\":0.443,\"wrk/rps/mean\":0.07,\"wrk/throughput\":9.584426879882813E-06,\"wrk/latency/max\":0.443,\"wrk/requests\":1.0,\"wrk/errors/badresponses\":0.0,\"wrk/errors/socketerrors\":32.0,\"wrk/latency/50\":0.443,\"wrk/latency/75\":0.443,\"wrk/latency/90\":0.443,\"wrk/latency/99\":0.443},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}}},\"properties\":{\"scenario\":\"ConnectionClose\",\"protocol\":\"http\",\"connections\":\"32\",\"buildId\":\"1101609\",\"buildNumber\":\"20210422.1\"}}"
+      },
+      "Change": -137,
+      "StandardDeviation": 10.57914776089921,
+      "Average": 575.2857142857143,
+      "RecoveredResult": null,
+      "Labels": [
+        "Perf",
+        "perf-regression"
+      ],
+      "Owners": [
+        "sebastienros",
+        "mangod9"
+      ],
+      "Changes": null
+    },
+    {
+      "PreviousResult": {
+        "Id": 60643,
+        "Excluded": false,
+        "DateTimeUtc": "2021-04-20T20:32:16.217Z",
+        "Session": "20210420.2",
+        "Scenario": "connectionclose",
+        "Description": "Plaintext Connection Close aspnet-citrine-amd",
+        "Document": "{\"jobs\":{\"application\":{\"results\":{\"netSdkVersion\":\"6.0.100-preview.4.21220.5\",\"aspNetCoreVersion\":\"6.0.0-preview.5.21220.5+3489b86\",\"netCoreAppVersion\":\"6.0.0-preview.5.21220.7+58b25df\",\"benchmarks/build-time\":2526.0,\"benchmarks/published-size\":102059.0,\"benchmarks/start-time\":202.0,\"runtime-counter/cpu-usage\":94.0,\"benchmarks/working-set\":3769.0,\"benchmarks/private-memory\":4440.0,\"benchmarks/cpu\":94.0,\"benchmarks/cpu/raw\":4518.0,\"runtime-counter/working-set\":3951.0,\"runtime-counter/gc-heap-size\":3514.0,\"runtime-counter/gen-0-gc-count\":1.0,\"runtime-counter/gen-1-gc-count\":1.0,\"runtime-counter/gen-2-gc-count\":0.0,\"runtime-counter/threadpool-thread-count\":48.0,\"runtime-counter/monitor-lock-contention-count\":260.0,\"runtime-counter/threadpool-queue-length\":54.0,\"runtime-counter/threadpool-completed-items-count\":225476.0,\"runtime-counter/alloc-rate\":375121904.0,\"runtime-counter/active-timer-count\":0.0,\"runtime-counter/gc-fragmentation\":1.0271950271950272,\"runtime-counter/gc-committed\":3835.0,\"runtime-counter/exception-count\":41651.0,\"runtime-counter/time-in-gc\":0.0,\"runtime-counter/gen-0-size\":1152.0,\"runtime-counter/gen-1-size\":1314760.0,\"runtime-counter/gen-2-size\":761616.0,\"runtime-counter/loh-size\":1152.0,\"runtime-counter/assembly-count\":93.0,\"runtime-counter/il-bytes-jitted\":184641.0,\"runtime-counter/methods-jitted-count\":2362.0},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"AMD64\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":48}},\"load\":{\"results\":{\"benchmarks/start-time\":0.0,\"benchmarks/working-set\":38.0,\"benchmarks/private-memory\":357.0,\"benchmarks/cpu\":20.0,\"benchmarks/cpu/raw\":550.0,\"http/firstrequest\":83.0,\"wrk/latency/mean\":0.6879400000000001,\"wrk/rps/mean\":41265.13,\"wrk/throughput\":5.94,\"wrk/latency/max\":21.51,\"wrk/requests\":621678.0,\"wrk/errors/badresponses\":0.0,\"wrk/errors/socketerrors\":0.0,\"wrk/latency/50\":0.628,\"wrk/latency/75\":0.732,\"wrk/latency/90\":0.87,\"wrk/latency/99\":1.7},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}}},\"properties\":{\"scenario\":\"ConnectionClose\",\"protocol\":\"http\",\"connections\":\"32\",\"buildId\":\"1098185\",\"buildNumber\":\"20210420.2\"}}"
+      },
+      "CurrentResult": {
+        "Id": 60967,
+        "Excluded": false,
+        "DateTimeUtc": "2021-04-22T08:17:09.45Z",
+        "Session": "20210422.1",
+        "Scenario": "connectionclose",
+        "Description": "Plaintext Connection Close aspnet-citrine-amd",
+        "Document": "{\"jobs\":{\"application\":{\"results\":{\"netSdkVersion\":\"6.0.100-preview.4.21221.21\",\"aspNetCoreVersion\":\"6.0.0-preview.5.21221.9+9819c08\",\"netCoreAppVersion\":\"6.0.0-preview.5.21221.9+c528859\",\"benchmarks/build-time\":2481.0,\"benchmarks/published-size\":103704.0,\"benchmarks/start-time\":144.0,\"benchmarks/working-set\":3800.0,\"benchmarks/private-memory\":4472.0,\"benchmarks/cpu\":94.0,\"benchmarks/cpu/raw\":4516.0,\"runtime-counter/cpu-usage\":94.0,\"runtime-counter/working-set\":3984.0,\"runtime-counter/gc-heap-size\":3639.0,\"runtime-counter/gen-0-gc-count\":1.0,\"runtime-counter/gen-1-gc-count\":1.0,\"runtime-counter/gen-2-gc-count\":0.0,\"runtime-counter/threadpool-thread-count\":48.0,\"runtime-counter/monitor-lock-contention-count\":432.0,\"runtime-counter/threadpool-queue-length\":44.0,\"runtime-counter/threadpool-completed-items-count\":231841.0,\"runtime-counter/alloc-rate\":368970912.0,\"runtime-counter/active-timer-count\":0.0,\"runtime-counter/gc-fragmentation\":1.0364091897023047,\"runtime-counter/gc-committed\":3865.0,\"runtime-counter/exception-count\":41000.0,\"runtime-counter/time-in-gc\":0.0,\"runtime-counter/gen-0-size\":1152.0,\"runtime-counter/gen-1-size\":1312608.0,\"runtime-counter/gen-2-size\":761984.0,\"runtime-counter/loh-size\":1152.0,\"runtime-counter/assembly-count\":93.0,\"runtime-counter/il-bytes-jitted\":157223.0,\"runtime-counter/methods-jitted-count\":1711.0},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"AMD64\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":48}},\"load\":{\"results\":{\"benchmarks/start-time\":0.0,\"benchmarks/working-set\":38.0,\"benchmarks/private-memory\":357.0,\"benchmarks/cpu\":19.0,\"benchmarks/cpu/raw\":543.0,\"http/firstrequest\":78.0,\"wrk/latency/mean\":0.6939299999999999,\"wrk/rps/mean\":40653.8,\"wrk/throughput\":5.85,\"wrk/latency/max\":20.91,\"wrk/requests\":613845.0,\"wrk/errors/badresponses\":0.0,\"wrk/errors/socketerrors\":0.0,\"wrk/latency/50\":0.638,\"wrk/latency/75\":0.743,\"wrk/latency/90\":0.88,\"wrk/latency/99\":1.53},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}}},\"properties\":{\"scenario\":\"ConnectionClose\",\"protocol\":\"http\",\"connections\":\"32\",\"buildId\":\"1101609\",\"buildNumber\":\"20210422.1\"}}"
+      },
+      "Change": -58,
+      "StandardDeviation": 4.580348440537541,
+      "Average": 203.14285714285714,
+      "RecoveredResult": null,
+      "Labels": [
+        "Perf",
+        "perf-regression"
+      ],
+      "Owners": [
+        "sebastienros",
+        "mangod9"
+      ],
+      "Changes": null
+    },
+    {
+      "PreviousResult": {
+        "Id": 60624,
+        "Excluded": false,
+        "DateTimeUtc": "2021-04-20T20:20:50.353Z",
+        "Session": "20210420.2",
+        "Scenario": "connectionclosehttps",
+        "Description": "Plaintext Connection Close Https aspnet-citrine-arm",
+        "Document": "{\"jobs\":{\"application\":{\"results\":{\"netSdkVersion\":\"6.0.100-preview.4.21220.5\",\"aspNetCoreVersion\":\"6.0.0-preview.5.21220.5+3489b86\",\"netCoreAppVersion\":\"6.0.0-preview.5.21220.7+58b25df\",\"benchmarks/build-time\":7875.0,\"benchmarks/published-size\":109185.0,\"benchmarks/start-time\":906.0,\"benchmarks/working-set\":79.0,\"benchmarks/private-memory\":346.0,\"benchmarks/cpu\":0.0,\"benchmarks/cpu/raw\":12.0,\"runtime-counter/cpu-usage\":0.0,\"runtime-counter/working-set\":82.0,\"runtime-counter/gc-heap-size\":4.0,\"runtime-counter/gen-0-gc-count\":0.0,\"runtime-counter/gen-1-gc-count\":0.0,\"runtime-counter/gen-2-gc-count\":0.0,\"runtime-counter/threadpool-thread-count\":5.0,\"runtime-counter/monitor-lock-contention-count\":3.0,\"runtime-counter/threadpool-queue-length\":0.0,\"runtime-counter/threadpool-completed-items-count\":7.0,\"runtime-counter/alloc-rate\":3970376.0,\"runtime-counter/active-timer-count\":0.0,\"runtime-counter/gc-fragmentation\":0.0,\"runtime-counter/gc-committed\":0.0,\"runtime-counter/exception-count\":0.0,\"runtime-counter/time-in-gc\":0.0,\"runtime-counter/gen-0-size\":0.0,\"runtime-counter/gen-1-size\":0.0,\"runtime-counter/gen-2-size\":0.0,\"runtime-counter/loh-size\":0.0,\"runtime-counter/assembly-count\":95.0,\"runtime-counter/il-bytes-jitted\":65718.0,\"runtime-counter/methods-jitted-count\":1033.0},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"ARM64\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"Arm64\",\"proc\":32}},\"load\":{\"results\":{\"benchmarks/start-time\":0.0},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}}},\"properties\":{\"scenario\":\"ConnectionCloseHttps\",\"protocol\":\"https\",\"connections\":\"32\",\"buildId\":\"1098185\",\"buildNumber\":\"20210420.2\"}}"
+      },
+      "CurrentResult": {
+        "Id": 60988,
+        "Excluded": false,
+        "DateTimeUtc": "2021-04-22T08:25:21.207Z",
+        "Session": "20210422.1",
+        "Scenario": "connectionclosehttps",
+        "Description": "Plaintext Connection Close Https aspnet-citrine-arm",
+        "Document": "{\"jobs\":{\"application\":{\"results\":{\"netSdkVersion\":\"6.0.100-preview.4.21221.21\",\"aspNetCoreVersion\":\"6.0.0-preview.5.21221.9+9819c08\",\"netCoreAppVersion\":\"6.0.0-preview.5.21221.9+c528859\",\"benchmarks/build-time\":7391.0,\"benchmarks/published-size\":111194.0,\"benchmarks/start-time\":729.0,\"benchmarks/working-set\":123.0,\"benchmarks/private-memory\":605.0,\"benchmarks/cpu\":95.0,\"benchmarks/cpu/raw\":3034.0,\"runtime-counter/cpu-usage\":94.0,\"runtime-counter/working-set\":128.0,\"runtime-counter/gc-heap-size\":22.0,\"runtime-counter/gen-0-gc-count\":2.0,\"runtime-counter/gen-1-gc-count\":1.0,\"runtime-counter/gen-2-gc-count\":0.0,\"runtime-counter/threadpool-thread-count\":32.0,\"runtime-counter/monitor-lock-contention-count\":31.0,\"runtime-counter/threadpool-queue-length\":2.0,\"runtime-counter/threadpool-completed-items-count\":33776.0,\"runtime-counter/alloc-rate\":36666216.0,\"runtime-counter/active-timer-count\":32.0,\"runtime-counter/gc-fragmentation\":0.7708141513572403,\"runtime-counter/gc-committed\":35.0,\"runtime-counter/exception-count\":1632.0,\"runtime-counter/time-in-gc\":1.0,\"runtime-counter/gen-0-size\":512696.0,\"runtime-counter/gen-1-size\":4442064.0,\"runtime-counter/gen-2-size\":2034984.0,\"runtime-counter/loh-size\":768.0,\"runtime-counter/assembly-count\":102.0,\"runtime-counter/il-bytes-jitted\":209257.0,\"runtime-counter/methods-jitted-count\":2433.0},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"ARM64\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"Arm64\",\"proc\":32}},\"load\":{\"results\":{\"benchmarks/start-time\":0.0,\"benchmarks/working-set\":149.0,\"benchmarks/private-memory\":500.0,\"benchmarks/cpu\":96.0,\"benchmarks/cpu/raw\":2692.0,\"http/firstrequest\":331.0,\"wrk/latency/mean\":0.38189,\"wrk/rps/mean\":1695.46,\"wrk/throughput\":0.244150390625,\"wrk/latency/max\":26.61,\"wrk/requests\":25528.0,\"wrk/errors/badresponses\":0.0,\"wrk/errors/socketerrors\":0.0,\"wrk/latency/50\":0.297,\"wrk/latency/75\":0.402,\"wrk/latency/90\":0.565,\"wrk/latency/99\":1.58},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}}},\"properties\":{\"scenario\":\"ConnectionCloseHttps\",\"protocol\":\"https\",\"connections\":\"32\",\"buildId\":\"1101609\",\"buildNumber\":\"20210422.1\"}}"
+      },
+      "Change": -177,
+      "StandardDeviation": 15.673974269079142,
+      "Average": 886.4285714285714,
+      "RecoveredResult": null,
+      "Labels": [
+        "Perf",
+        "perf-regression"
+      ],
+      "Owners": [
+        "sebastienros",
+        "mangod9"
+      ],
+      "Changes": null
+    },
+    {
+      "PreviousResult": {
+        "Id": 60644,
+        "Excluded": false,
+        "DateTimeUtc": "2021-04-20T20:33:03.86Z",
+        "Session": "20210420.2",
+        "Scenario": "connectionclosehttps",
+        "Description": "Plaintext Connection Close Https aspnet-citrine-amd",
+        "Document": "{\"jobs\":{\"application\":{\"results\":{\"netSdkVersion\":\"6.0.100-preview.4.21220.5\",\"aspNetCoreVersion\":\"6.0.0-preview.5.21220.5+3489b86\",\"netCoreAppVersion\":\"6.0.0-preview.5.21220.7+58b25df\",\"benchmarks/build-time\":2536.0,\"benchmarks/published-size\":102059.0,\"benchmarks/start-time\":305.0,\"runtime-counter/cpu-usage\":65.0,\"benchmarks/working-set\":2249.0,\"benchmarks/private-memory\":2916.0,\"benchmarks/cpu\":64.0,\"benchmarks/cpu/raw\":3068.0,\"runtime-counter/working-set\":2357.0,\"runtime-counter/gc-heap-size\":2215.0,\"runtime-counter/gen-0-gc-count\":0.0,\"runtime-counter/gen-1-gc-count\":0.0,\"runtime-counter/gen-2-gc-count\":0.0,\"runtime-counter/threadpool-thread-count\":48.0,\"runtime-counter/monitor-lock-contention-count\":122.0,\"runtime-counter/threadpool-queue-length\":1.0,\"runtime-counter/threadpool-completed-items-count\":74944.0,\"runtime-counter/alloc-rate\":79504384.0,\"runtime-counter/active-timer-count\":32.0,\"runtime-counter/gc-fragmentation\":0.0,\"runtime-counter/gc-committed\":0.0,\"runtime-counter/exception-count\":3791.0,\"runtime-counter/time-in-gc\":0.0,\"runtime-counter/gen-0-size\":0.0,\"runtime-counter/gen-1-size\":0.0,\"runtime-counter/gen-2-size\":0.0,\"runtime-counter/loh-size\":0.0,\"runtime-counter/assembly-count\":102.0,\"runtime-counter/il-bytes-jitted\":242669.0,\"runtime-counter/methods-jitted-count\":3147.0},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"AMD64\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":48}},\"load\":{\"results\":{\"benchmarks/start-time\":0.0,\"benchmarks/working-set\":149.0,\"benchmarks/private-memory\":501.0,\"benchmarks/cpu\":96.0,\"benchmarks/cpu/raw\":2699.0,\"http/firstrequest\":207.0,\"wrk/latency/mean\":0.16252,\"wrk/rps/mean\":3579.53,\"wrk/throughput\":0.51546875,\"wrk/latency/max\":15.94,\"wrk/requests\":53960.0,\"wrk/errors/badresponses\":0.0,\"wrk/errors/socketerrors\":0.0,\"wrk/latency/50\":0.124,\"wrk/latency/75\":0.167,\"wrk/latency/90\":0.243,\"wrk/latency/99\":0.68},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}}},\"properties\":{\"scenario\":\"ConnectionCloseHttps\",\"protocol\":\"https\",\"connections\":\"32\",\"buildId\":\"1098185\",\"buildNumber\":\"20210420.2\"}}"
+      },
+      "CurrentResult": {
+        "Id": 60970,
+        "Excluded": false,
+        "DateTimeUtc": "2021-04-22T08:17:57.01Z",
+        "Session": "20210422.1",
+        "Scenario": "connectionclosehttps",
+        "Description": "Plaintext Connection Close Https aspnet-citrine-amd",
+        "Document": "{\"jobs\":{\"application\":{\"results\":{\"netSdkVersion\":\"6.0.100-preview.4.21221.21\",\"aspNetCoreVersion\":\"6.0.0-preview.5.21221.9+9819c08\",\"netCoreAppVersion\":\"6.0.0-preview.5.21221.9+c528859\",\"benchmarks/build-time\":2481.0,\"benchmarks/published-size\":103704.0,\"benchmarks/start-time\":260.0,\"benchmarks/working-set\":2288.0,\"benchmarks/private-memory\":2956.0,\"benchmarks/cpu\":66.0,\"benchmarks/cpu/raw\":3146.0,\"runtime-counter/cpu-usage\":64.0,\"runtime-counter/working-set\":2398.0,\"runtime-counter/gc-heap-size\":2257.0,\"runtime-counter/gen-0-gc-count\":0.0,\"runtime-counter/gen-1-gc-count\":0.0,\"runtime-counter/gen-2-gc-count\":0.0,\"runtime-counter/threadpool-thread-count\":48.0,\"runtime-counter/monitor-lock-contention-count\":111.0,\"runtime-counter/threadpool-queue-length\":2.0,\"runtime-counter/threadpool-completed-items-count\":75563.0,\"runtime-counter/alloc-rate\":80025016.0,\"runtime-counter/active-timer-count\":32.0,\"runtime-counter/gc-fragmentation\":0.0,\"runtime-counter/gc-committed\":0.0,\"runtime-counter/exception-count\":3791.0,\"runtime-counter/time-in-gc\":0.0,\"runtime-counter/gen-0-size\":0.0,\"runtime-counter/gen-1-size\":0.0,\"runtime-counter/gen-2-size\":0.0,\"runtime-counter/loh-size\":0.0,\"runtime-counter/assembly-count\":102.0,\"runtime-counter/il-bytes-jitted\":213028.0,\"runtime-counter/methods-jitted-count\":2457.0},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"AMD64\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":48}},\"load\":{\"results\":{\"benchmarks/start-time\":0.0,\"benchmarks/working-set\":149.0,\"benchmarks/private-memory\":501.0,\"benchmarks/cpu\":96.0,\"benchmarks/cpu/raw\":2695.0,\"http/firstrequest\":202.0,\"wrk/latency/mean\":0.15957,\"wrk/rps/mean\":3649.21,\"wrk/throughput\":0.5255078125,\"wrk/latency/max\":16.02,\"wrk/requests\":55081.0,\"wrk/errors/badresponses\":0.0,\"wrk/errors/socketerrors\":0.0,\"wrk/latency/50\":0.124,\"wrk/latency/75\":0.165,\"wrk/latency/90\":0.241,\"wrk/latency/99\":0.678},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}}},\"properties\":{\"scenario\":\"ConnectionCloseHttps\",\"protocol\":\"https\",\"connections\":\"32\",\"buildId\":\"1101609\",\"buildNumber\":\"20210422.1\"}}"
+      },
+      "Change": -45,
+      "StandardDeviation": 5.678459118386226,
+      "Average": 299.57142857142856,
+      "RecoveredResult": null,
+      "Labels": [
+        "Perf",
+        "perf-regression"
+      ],
+      "Owners": [
+        "sebastienros",
+        "mangod9"
+      ],
+      "Changes": null
+    },
+    {
+      "PreviousResult": {
+        "Id": 60630,
+        "Excluded": false,
+        "DateTimeUtc": "2021-04-20T20:23:13.25Z",
+        "Session": "20210420.2",
+        "Scenario": "https",
+        "Description": "Json Https aspnet-citrine-arm",
+        "Document": "{\"jobs\":{\"application\":{\"results\":{\"netSdkVersion\":\"6.0.100-preview.4.21220.5\",\"aspNetCoreVersion\":\"6.0.0-preview.5.21220.5+3489b86\",\"netCoreAppVersion\":\"6.0.0-preview.5.21220.7+58b25df\",\"benchmarks/build-time\":7723.0,\"benchmarks/published-size\":109185.0,\"benchmarks/start-time\":861.0,\"benchmarks/working-set\":152.0,\"benchmarks/private-memory\":1282.0,\"benchmarks/cpu\":99.0,\"benchmarks/cpu/raw\":3170.0,\"runtime-counter/cpu-usage\":98.0,\"runtime-counter/working-set\":159.0,\"runtime-counter/gc-heap-size\":28.0,\"runtime-counter/gen-0-gc-count\":16.0,\"runtime-counter/gen-1-gc-count\":2.0,\"runtime-counter/gen-2-gc-count\":1.0,\"runtime-counter/threadpool-thread-count\":32.0,\"runtime-counter/monitor-lock-contention-count\":39.0,\"runtime-counter/threadpool-queue-length\":131.0,\"runtime-counter/threadpool-completed-items-count\":260203.0,\"runtime-counter/alloc-rate\":182783120.0,\"runtime-counter/active-timer-count\":0.0,\"runtime-counter/gc-fragmentation\":9.36779750630098,\"runtime-counter/gc-committed\":60.0,\"runtime-counter/exception-count\":1614.0,\"runtime-counter/time-in-gc\":2.0,\"runtime-counter/gen-0-size\":561048.0,\"runtime-counter/gen-1-size\":7020616.0,\"runtime-counter/gen-2-size\":8762960.0,\"runtime-counter/loh-size\":768.0,\"runtime-counter/assembly-count\":102.0,\"runtime-counter/il-bytes-jitted\":248379.0,\"runtime-counter/methods-jitted-count\":3228.0},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"ARM64\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"Arm64\",\"proc\":32}},\"load\":{\"results\":{\"benchmarks/start-time\":0.0,\"benchmarks/working-set\":48.0,\"benchmarks/private-memory\":376.0,\"benchmarks/cpu\":21.0,\"benchmarks/cpu/raw\":584.0,\"http/firstrequest\":416.0,\"wrk/latency/mean\":1.5,\"wrk/rps/mean\":206125.47,\"wrk/throughput\":29.88,\"wrk/latency/max\":37.1,\"wrk/requests\":3105408.0,\"wrk/errors/badresponses\":0.0,\"wrk/errors/socketerrors\":0.0,\"wrk/latency/50\":0.97,\"wrk/latency/75\":1.25,\"wrk/latency/90\":3.26,\"wrk/latency/99\":6.89},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}}},\"properties\":{\"scenario\":\"JsonHttps\",\"protocol\":\"https\",\"buildId\":\"1098185\",\"buildNumber\":\"20210420.2\"}}"
+      },
+      "CurrentResult": {
+        "Id": 60991,
+        "Excluded": false,
+        "DateTimeUtc": "2021-04-22T08:27:21.463Z",
+        "Session": "20210422.1",
+        "Scenario": "https",
+        "Description": "Json Https aspnet-citrine-arm",
+        "Document": "{\"jobs\":{\"application\":{\"results\":{\"netSdkVersion\":\"6.0.100-preview.4.21221.21\",\"aspNetCoreVersion\":\"6.0.0-preview.5.21221.9+9819c08\",\"netCoreAppVersion\":\"6.0.0-preview.5.21221.9+c528859\",\"benchmarks/build-time\":7497.0,\"benchmarks/published-size\":111194.0,\"benchmarks/start-time\":767.0,\"benchmarks/working-set\":155.0,\"benchmarks/private-memory\":1285.0,\"benchmarks/cpu\":99.0,\"benchmarks/cpu/raw\":3156.0,\"runtime-counter/cpu-usage\":99.0,\"runtime-counter/working-set\":162.0,\"runtime-counter/gc-heap-size\":34.0,\"runtime-counter/gen-0-gc-count\":19.0,\"runtime-counter/gen-1-gc-count\":2.0,\"runtime-counter/gen-2-gc-count\":1.0,\"runtime-counter/threadpool-thread-count\":32.0,\"runtime-counter/monitor-lock-contention-count\":35.0,\"runtime-counter/threadpool-queue-length\":309.0,\"runtime-counter/threadpool-completed-items-count\":291860.0,\"runtime-counter/alloc-rate\":204735656.0,\"runtime-counter/active-timer-count\":228.0,\"runtime-counter/gc-fragmentation\":13.127138124170381,\"runtime-counter/gc-committed\":56.0,\"runtime-counter/exception-count\":1545.0,\"runtime-counter/time-in-gc\":1.0,\"runtime-counter/gen-0-size\":563976.0,\"runtime-counter/gen-1-size\":4019600.0,\"runtime-counter/gen-2-size\":6595592.0,\"runtime-counter/loh-size\":768.0,\"runtime-counter/assembly-count\":102.0,\"runtime-counter/il-bytes-jitted\":218262.0,\"runtime-counter/methods-jitted-count\":2536.0},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"ARM64\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"Arm64\",\"proc\":32}},\"load\":{\"results\":{\"benchmarks/start-time\":0.0,\"benchmarks/working-set\":48.0,\"benchmarks/private-memory\":376.0,\"benchmarks/cpu\":22.0,\"benchmarks/cpu/raw\":606.0,\"http/firstrequest\":378.0,\"wrk/latency/mean\":1.18,\"wrk/rps/mean\":247202.78,\"wrk/throughput\":35.83,\"wrk/latency/max\":42.32,\"wrk/requests\":3732644.0,\"wrk/errors/badresponses\":0.0,\"wrk/errors/socketerrors\":0.0,\"wrk/latency/50\":0.92,\"wrk/latency/75\":1.06,\"wrk/latency/90\":1.54,\"wrk/latency/99\":5.81},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}}},\"properties\":{\"scenario\":\"JsonHttps\",\"protocol\":\"https\",\"buildId\":\"1101609\",\"buildNumber\":\"20210422.1\"}}"
+      },
+      "Change": -94,
+      "StandardDeviation": 9.880923694737474,
+      "Average": 885.7142857142857,
+      "RecoveredResult": null,
+      "Labels": [
+        "Perf",
+        "perf-regression"
+      ],
+      "Owners": [
+        "sebastienros",
+        "mangod9"
+      ],
+      "Changes": null
+    },
+    {
+      "PreviousResult": {
+        "Id": 60646,
+        "Excluded": false,
+        "DateTimeUtc": "2021-04-20T20:34:45.833Z",
+        "Session": "20210420.2",
+        "Scenario": "https",
+        "Description": "Json Https aspnet-citrine-amd",
+        "Document": "{\"jobs\":{\"application\":{\"results\":{\"netSdkVersion\":\"6.0.100-preview.4.21220.5\",\"aspNetCoreVersion\":\"6.0.0-preview.5.21220.5+3489b86\",\"netCoreAppVersion\":\"6.0.0-preview.5.21220.7+58b25df\",\"benchmarks/build-time\":2521.0,\"benchmarks/published-size\":102059.0,\"benchmarks/start-time\":295.0,\"runtime-counter/cpu-usage\":98.0,\"benchmarks/working-set\":3626.0,\"benchmarks/private-memory\":4293.0,\"benchmarks/cpu\":99.0,\"benchmarks/cpu/raw\":4746.0,\"runtime-counter/working-set\":3801.0,\"runtime-counter/gc-heap-size\":3443.0,\"runtime-counter/gen-0-gc-count\":1.0,\"runtime-counter/gen-1-gc-count\":1.0,\"runtime-counter/gen-2-gc-count\":0.0,\"runtime-counter/threadpool-thread-count\":48.0,\"runtime-counter/monitor-lock-contention-count\":429.0,\"runtime-counter/threadpool-queue-length\":156.0,\"runtime-counter/threadpool-completed-items-count\":540074.0,\"runtime-counter/alloc-rate\":376000976.0,\"runtime-counter/active-timer-count\":21.0,\"runtime-counter/gc-fragmentation\":58.7114188596526,\"runtime-counter/gc-committed\":3694.0,\"runtime-counter/exception-count\":1585.0,\"runtime-counter/time-in-gc\":0.0,\"runtime-counter/gen-0-size\":11908688.0,\"runtime-counter/gen-1-size\":6553008.0,\"runtime-counter/gen-2-size\":3492080.0,\"runtime-counter/loh-size\":918824.0,\"runtime-counter/assembly-count\":102.0,\"runtime-counter/il-bytes-jitted\":254992.0,\"runtime-counter/methods-jitted-count\":3257.0},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"AMD64\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":48}},\"load\":{\"results\":{\"benchmarks/start-time\":0.0,\"benchmarks/working-set\":48.0,\"benchmarks/private-memory\":376.0,\"benchmarks/cpu\":45.0,\"benchmarks/cpu/raw\":1250.0,\"http/firstrequest\":232.0,\"wrk/latency/mean\":0.66949,\"wrk/rps/mean\":470418.28,\"wrk/throughput\":68.19,\"wrk/latency/max\":25.98,\"wrk/requests\":7102896.0,\"wrk/errors/badresponses\":0.0,\"wrk/errors/socketerrors\":0.0,\"wrk/latency/50\":0.508,\"wrk/latency/75\":0.601,\"wrk/latency/90\":0.765,\"wrk/latency/99\":4.88},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}}},\"properties\":{\"scenario\":\"JsonHttps\",\"protocol\":\"https\",\"buildId\":\"1098185\",\"buildNumber\":\"20210420.2\"}}"
+      },
+      "CurrentResult": {
+        "Id": 60975,
+        "Excluded": false,
+        "DateTimeUtc": "2021-04-22T08:19:39.437Z",
+        "Session": "20210422.1",
+        "Scenario": "https",
+        "Description": "Json Https aspnet-citrine-amd",
+        "Document": "{\"jobs\":{\"application\":{\"results\":{\"netSdkVersion\":\"6.0.100-preview.4.21221.21\",\"aspNetCoreVersion\":\"6.0.0-preview.5.21221.9+9819c08\",\"netCoreAppVersion\":\"6.0.0-preview.5.21221.9+c528859\",\"benchmarks/build-time\":2485.0,\"benchmarks/published-size\":103704.0,\"benchmarks/start-time\":254.0,\"benchmarks/working-set\":3597.0,\"benchmarks/private-memory\":4264.0,\"benchmarks/cpu\":99.0,\"benchmarks/cpu/raw\":4738.0,\"runtime-counter/cpu-usage\":98.0,\"runtime-counter/working-set\":3771.0,\"runtime-counter/gc-heap-size\":3437.0,\"runtime-counter/gen-0-gc-count\":1.0,\"runtime-counter/gen-1-gc-count\":1.0,\"runtime-counter/gen-2-gc-count\":0.0,\"runtime-counter/threadpool-thread-count\":48.0,\"runtime-counter/monitor-lock-contention-count\":337.0,\"runtime-counter/threadpool-queue-length\":144.0,\"runtime-counter/threadpool-completed-items-count\":553280.0,\"runtime-counter/alloc-rate\":382818264.0,\"runtime-counter/active-timer-count\":0.0,\"runtime-counter/gc-fragmentation\":89.83307829830365,\"runtime-counter/gc-committed\":3666.0,\"runtime-counter/exception-count\":1559.0,\"runtime-counter/time-in-gc\":0.0,\"runtime-counter/gen-0-size\":72977424.0,\"runtime-counter/gen-1-size\":6411536.0,\"runtime-counter/gen-2-size\":3432592.0,\"runtime-counter/loh-size\":1967456.0,\"runtime-counter/assembly-count\":102.0,\"runtime-counter/il-bytes-jitted\":224629.0,\"runtime-counter/methods-jitted-count\":2560.0},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"AMD64\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":48}},\"load\":{\"results\":{\"benchmarks/start-time\":0.0,\"benchmarks/working-set\":48.0,\"benchmarks/private-memory\":375.0,\"benchmarks/cpu\":45.0,\"benchmarks/cpu/raw\":1256.0,\"http/firstrequest\":215.0,\"wrk/latency/mean\":0.65949,\"wrk/rps/mean\":474214.41,\"wrk/throughput\":68.74,\"wrk/latency/max\":30.34,\"wrk/requests\":7160354.0,\"wrk/errors/badresponses\":0.0,\"wrk/errors/socketerrors\":0.0,\"wrk/latency/50\":0.501,\"wrk/latency/75\":0.604,\"wrk/latency/90\":0.79,\"wrk/latency/99\":4.56},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}}},\"properties\":{\"scenario\":\"JsonHttps\",\"protocol\":\"https\",\"buildId\":\"1101609\",\"buildNumber\":\"20210422.1\"}}"
+      },
+      "Change": -41,
+      "StandardDeviation": 6.6424731071786685,
+      "Average": 298.14285714285717,
+      "RecoveredResult": null,
+      "Labels": [
+        "Perf",
+        "perf-regression"
+      ],
+      "Owners": [
+        "sebastienros",
+        "mangod9"
+      ],
+      "Changes": null
+    },
+    {
+      "PreviousResult": {
+        "Id": 60647,
+        "Excluded": false,
+        "DateTimeUtc": "2021-04-20T20:35:38.72Z",
+        "Session": "20210420.2",
+        "Scenario": "mvc",
+        "Description": "Json Mvc aspnet-citrine-amd",
+        "Document": "{\"jobs\":{\"application\":{\"results\":{\"netSdkVersion\":\"6.0.100-preview.4.21220.5\",\"aspNetCoreVersion\":\"6.0.0-preview.5.21220.5+3489b86\",\"netCoreAppVersion\":\"6.0.0-preview.5.21220.7+58b25df\",\"benchmarks/build-time\":2534.0,\"benchmarks/published-size\":102059.0,\"benchmarks/start-time\":246.0,\"runtime-counter/cpu-usage\":98.0,\"benchmarks/working-set\":3844.0,\"benchmarks/private-memory\":5470.0,\"benchmarks/cpu\":98.0,\"benchmarks/cpu/raw\":4726.0,\"runtime-counter/working-set\":4030.0,\"runtime-counter/gc-heap-size\":3609.0,\"runtime-counter/gen-0-gc-count\":1.0,\"runtime-counter/gen-1-gc-count\":1.0,\"runtime-counter/gen-2-gc-count\":1.0,\"runtime-counter/threadpool-thread-count\":48.0,\"runtime-counter/monitor-lock-contention-count\":125.0,\"runtime-counter/threadpool-queue-length\":100.0,\"runtime-counter/threadpool-completed-items-count\":922538.0,\"runtime-counter/alloc-rate\":2218048616.0,\"runtime-counter/active-timer-count\":0.0,\"runtime-counter/gc-fragmentation\":0.5118698644635309,\"runtime-counter/gc-committed\":3943.0,\"runtime-counter/exception-count\":696.0,\"runtime-counter/time-in-gc\":2.0,\"runtime-counter/gen-0-size\":1152.0,\"runtime-counter/gen-1-size\":4663640.0,\"runtime-counter/gen-2-size\":4681072.0,\"runtime-counter/loh-size\":2854288.0,\"runtime-counter/assembly-count\":114.0,\"runtime-counter/il-bytes-jitted\":251919.0,\"runtime-counter/methods-jitted-count\":3136.0},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"AMD64\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":48}},\"load\":{\"results\":{\"benchmarks/start-time\":0.0,\"benchmarks/working-set\":38.0,\"benchmarks/private-memory\":358.0,\"benchmarks/cpu\":53.0,\"benchmarks/cpu/raw\":1490.0,\"http/firstrequest\":126.0,\"wrk/latency/mean\":0.50901,\"wrk/rps/mean\":756327.01,\"wrk/throughput\":134.16,\"wrk/latency/max\":74.98,\"wrk/requests\":11420280.0,\"wrk/errors/badresponses\":0.0,\"wrk/errors/socketerrors\":0.0,\"wrk/latency/50\":0.303,\"wrk/latency/75\":0.366,\"wrk/latency/90\":0.582,\"wrk/latency/99\":4.36},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}}},\"properties\":{\"scenario\":\"JsonMvc\",\"protocol\":\"http\",\"buildId\":\"1098185\",\"buildNumber\":\"20210420.2\"}}"
+      },
+      "CurrentResult": {
+        "Id": 60977,
+        "Excluded": false,
+        "DateTimeUtc": "2021-04-22T08:20:33.313Z",
+        "Session": "20210422.1",
+        "Scenario": "mvc",
+        "Description": "Json Mvc aspnet-citrine-amd",
+        "Document": "{\"jobs\":{\"application\":{\"results\":{\"netSdkVersion\":\"6.0.100-preview.4.21221.21\",\"aspNetCoreVersion\":\"6.0.0-preview.5.21221.9+9819c08\",\"netCoreAppVersion\":\"6.0.0-preview.5.21221.9+c528859\",\"benchmarks/build-time\":2477.0,\"benchmarks/published-size\":103704.0,\"benchmarks/start-time\":191.0,\"benchmarks/working-set\":3843.0,\"benchmarks/private-memory\":5469.0,\"benchmarks/cpu\":98.0,\"benchmarks/cpu/raw\":4723.0,\"runtime-counter/cpu-usage\":98.0,\"runtime-counter/working-set\":4029.0,\"runtime-counter/gc-heap-size\":3526.0,\"runtime-counter/gen-0-gc-count\":1.0,\"runtime-counter/gen-1-gc-count\":1.0,\"runtime-counter/gen-2-gc-count\":1.0,\"runtime-counter/threadpool-thread-count\":48.0,\"runtime-counter/monitor-lock-contention-count\":140.0,\"runtime-counter/threadpool-queue-length\":131.0,\"runtime-counter/threadpool-completed-items-count\":912560.0,\"runtime-counter/alloc-rate\":2206465680.0,\"runtime-counter/active-timer-count\":0.0,\"runtime-counter/gc-fragmentation\":92.53884248816294,\"runtime-counter/gc-committed\":3941.0,\"runtime-counter/exception-count\":678.0,\"runtime-counter/time-in-gc\":2.0,\"runtime-counter/gen-0-size\":73469512.0,\"runtime-counter/gen-1-size\":4660016.0,\"runtime-counter/gen-2-size\":4591488.0,\"runtime-counter/loh-size\":1017208.0,\"runtime-counter/assembly-count\":114.0,\"runtime-counter/il-bytes-jitted\":222921.0,\"runtime-counter/methods-jitted-count\":2425.0},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"AMD64\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":48}},\"load\":{\"results\":{\"benchmarks/start-time\":0.0,\"benchmarks/working-set\":38.0,\"benchmarks/private-memory\":358.0,\"benchmarks/cpu\":53.0,\"benchmarks/cpu/raw\":1496.0,\"http/firstrequest\":120.0,\"wrk/latency/mean\":0.5013299999999999,\"wrk/rps/mean\":761790.92,\"wrk/throughput\":135.13,\"wrk/latency/max\":79.37,\"wrk/requests\":11489598.0,\"wrk/errors/badresponses\":0.0,\"wrk/errors/socketerrors\":0.0,\"wrk/latency/50\":0.3,\"wrk/latency/75\":0.366,\"wrk/latency/90\":0.585,\"wrk/latency/99\":3.98},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}}},\"properties\":{\"scenario\":\"JsonMvc\",\"protocol\":\"http\",\"buildId\":\"1101609\",\"buildNumber\":\"20210422.1\"}}"
+      },
+      "Change": -55,
+      "StandardDeviation": 7.004371812646435,
+      "Average": 252.71428571428572,
+      "RecoveredResult": null,
+      "Labels": [
+        "Perf",
+        "perf-regression"
+      ],
+      "Owners": [
+        "sebastienros",
+        "mangod9"
+      ],
+      "Changes": null
+    },
+    {
+      "PreviousResult": {
+        "Id": 60612,
+        "Excluded": false,
+        "DateTimeUtc": "2021-04-20T20:18:41.923Z",
+        "Session": "20210420.2",
+        "Scenario": "mapaction",
+        "Description": "Plaintext MapAction aspnet-citrine-win",
+        "Document": "{\"jobs\":{\"application\":{\"results\":{\"netSdkVersion\":\"6.0.100-preview.4.21220.5\",\"aspNetCoreVersion\":\"6.0.0-preview.5.21220.5+3489b86\",\"netCoreAppVersion\":\"6.0.0-preview.5.21220.7+58b25df\",\"benchmarks/build-time\":2490.0,\"benchmarks/published-size\":81765.0,\"benchmarks/start-time\":408.0,\"runtime-counter/cpu-usage\":114.0,\"benchmarks/working-set\":53.0,\"benchmarks/private-memory\":137.0,\"benchmarks/cpu\":97.0,\"benchmarks/cpu/raw\":2716.0,\"runtime-counter/working-set\":55.0,\"runtime-counter/gc-heap-size\":9.0,\"runtime-counter/gen-0-gc-count\":0.0,\"runtime-counter/gen-1-gc-count\":0.0,\"runtime-counter/gen-2-gc-count\":0.0,\"runtime-counter/threadpool-thread-count\":73.0,\"runtime-counter/monitor-lock-contention-count\":507.0,\"runtime-counter/threadpool-queue-length\":177.0,\"runtime-counter/threadpool-completed-items-count\":557019.0,\"runtime-counter/alloc-rate\":3744152.0,\"runtime-counter/active-timer-count\":0.0,\"runtime-counter/gc-fragmentation\":0.0,\"runtime-counter/gc-committed\":0.0,\"runtime-counter/exception-count\":683.0,\"runtime-counter/time-in-gc\":0.0,\"runtime-counter/gen-0-size\":0.0,\"runtime-counter/gen-1-size\":0.0,\"runtime-counter/gen-2-size\":0.0,\"runtime-counter/loh-size\":0.0,\"runtime-counter/assembly-count\":94.0,\"runtime-counter/il-bytes-jitted\":187058.0,\"runtime-counter/methods-jitted-count\":2518.0},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Windows\",\"arch\":\"X64\",\"proc\":28}},\"load\":{\"results\":{\"benchmarks/start-time\":0.0,\"benchmarks/working-set\":38.0,\"benchmarks/private-memory\":358.0,\"benchmarks/cpu\":36.0,\"benchmarks/cpu/raw\":1001.0,\"http/firstrequest\":110.0,\"wrk/latency/mean\":2.22,\"wrk/rps/mean\":3467717.52,\"wrk/throughput\":410.08,\"wrk/latency/max\":239.33,\"wrk/requests\":52361300.0,\"wrk/errors/badresponses\":0.0,\"wrk/errors/socketerrors\":0.0,\"wrk/latency/50\":0.687,\"wrk/latency/75\":1.01,\"wrk/latency/90\":1.56,\"wrk/latency/99\":0.0},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}}},\"properties\":{\"scenario\":\"PlaintextMapAction\",\"protocol\":\"http\",\"buildId\":\"1098185\",\"buildNumber\":\"20210420.2\"}}"
+      },
+      "CurrentResult": {
+        "Id": 60795,
+        "Excluded": false,
+        "DateTimeUtc": "2021-04-21T20:47:46.417Z",
+        "Session": "20210421.8",
+        "Scenario": "mapaction",
+        "Description": "Plaintext MapAction aspnet-citrine-win",
+        "Document": "{\"jobs\":{\"application\":{\"results\":{\"netSdkVersion\":\"6.0.100-preview.4.21221.7\",\"aspNetCoreVersion\":\"6.0.0-preview.5.21221.7+5ab47f3\",\"netCoreAppVersion\":\"6.0.0-preview.5.21221.3+d08f7f2\",\"benchmarks/build-time\":2226.0,\"benchmarks/published-size\":83525.0,\"benchmarks/start-time\":303.0,\"benchmarks/working-set\":53.0,\"benchmarks/private-memory\":137.0,\"benchmarks/cpu\":92.0,\"benchmarks/cpu/raw\":2585.0,\"runtime-counter/cpu-usage\":108.0,\"runtime-counter/working-set\":55.0,\"runtime-counter/gc-heap-size\":8.0,\"runtime-counter/gen-0-gc-count\":0.0,\"runtime-counter/gen-1-gc-count\":0.0,\"runtime-counter/gen-2-gc-count\":0.0,\"runtime-counter/threadpool-thread-count\":76.0,\"runtime-counter/monitor-lock-contention-count\":604.0,\"runtime-counter/threadpool-queue-length\":126.0,\"runtime-counter/threadpool-completed-items-count\":570648.0,\"runtime-counter/alloc-rate\":3918496.0,\"runtime-counter/active-timer-count\":0.0,\"runtime-counter/gc-fragmentation\":0.0,\"runtime-counter/gc-committed\":0.0,\"runtime-counter/exception-count\":677.0,\"runtime-counter/time-in-gc\":0.0,\"runtime-counter/gen-0-size\":0.0,\"runtime-counter/gen-1-size\":0.0,\"runtime-counter/gen-2-size\":0.0,\"runtime-counter/loh-size\":0.0,\"runtime-counter/assembly-count\":92.0,\"runtime-counter/il-bytes-jitted\":156505.0,\"runtime-counter/methods-jitted-count\":1734.0},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Windows\",\"arch\":\"X64\",\"proc\":28}},\"load\":{\"results\":{\"benchmarks/start-time\":0.0,\"benchmarks/working-set\":38.0,\"benchmarks/private-memory\":358.0,\"benchmarks/cpu\":36.0,\"benchmarks/cpu/raw\":1022.0,\"http/firstrequest\":99.0,\"wrk/latency/mean\":2.76,\"wrk/rps/mean\":3596358.36,\"wrk/throughput\":425.29,\"wrk/latency/max\":304.39,\"wrk/requests\":54305004.0,\"wrk/errors/badresponses\":0.0,\"wrk/errors/socketerrors\":0.0,\"wrk/latency/50\":0.66,\"wrk/latency/75\":0.99,\"wrk/latency/90\":5.72,\"wrk/latency/99\":0.0},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}}},\"properties\":{\"scenario\":\"PlaintextMapAction\",\"protocol\":\"http\",\"buildId\":\"1100635\",\"buildNumber\":\"20210421.8\"}}"
+      },
+      "Change": -105,
+      "StandardDeviation": 21.751847212199177,
+      "Average": 400,
+      "RecoveredResult": null,
+      "Labels": [
+        "Perf",
+        "perf-regression"
+      ],
+      "Owners": [
+        "sebastienros",
+        "mangod9"
+      ],
+      "Changes": null
+    },
+    {
+      "PreviousResult": {
+        "Id": 60633,
+        "Excluded": false,
+        "DateTimeUtc": "2021-04-20T20:24:36.227Z",
+        "Session": "20210420.2",
+        "Scenario": "mapaction",
+        "Description": "Json MapAction aspnet-citrine-win",
+        "Document": "{\"jobs\":{\"application\":{\"results\":{\"netSdkVersion\":\"6.0.100-preview.4.21220.5\",\"aspNetCoreVersion\":\"6.0.0-preview.5.21220.5+3489b86\",\"netCoreAppVersion\":\"6.0.0-preview.5.21220.7+58b25df\",\"benchmarks/build-time\":2439.0,\"benchmarks/published-size\":81765.0,\"benchmarks/start-time\":391.0,\"runtime-counter/cpu-usage\":92.0,\"benchmarks/working-set\":369.0,\"benchmarks/private-memory\":788.0,\"benchmarks/cpu\":91.0,\"benchmarks/cpu/raw\":2535.0,\"runtime-counter/working-set\":386.0,\"runtime-counter/gc-heap-size\":224.0,\"runtime-counter/gen-0-gc-count\":2.0,\"runtime-counter/gen-1-gc-count\":1.0,\"runtime-counter/gen-2-gc-count\":1.0,\"runtime-counter/threadpool-thread-count\":76.0,\"runtime-counter/monitor-lock-contention-count\":105.0,\"runtime-counter/threadpool-queue-length\":163.0,\"runtime-counter/threadpool-completed-items-count\":1504988.0,\"runtime-counter/alloc-rate\":299376056.0,\"runtime-counter/active-timer-count\":0.0,\"runtime-counter/gc-fragmentation\":36.53812575517661,\"runtime-counter/gc-committed\":337.0,\"runtime-counter/exception-count\":684.0,\"runtime-counter/time-in-gc\":0.0,\"runtime-counter/gen-0-size\":252576.0,\"runtime-counter/gen-1-size\":3789592.0,\"runtime-counter/gen-2-size\":4688072.0,\"runtime-counter/loh-size\":106880.0,\"runtime-counter/assembly-count\":95.0,\"runtime-counter/il-bytes-jitted\":202902.0,\"runtime-counter/methods-jitted-count\":2700.0},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Windows\",\"arch\":\"X64\",\"proc\":28}},\"load\":{\"results\":{\"benchmarks/start-time\":0.0,\"benchmarks/working-set\":37.0,\"benchmarks/private-memory\":358.0,\"benchmarks/cpu\":48.0,\"benchmarks/cpu/raw\":1358.0,\"http/firstrequest\":118.0,\"wrk/latency/mean\":1.14,\"wrk/rps/mean\":678014.3,\"wrk/throughput\":120.27,\"wrk/latency/max\":263.43,\"wrk/requests\":10237603.0,\"wrk/errors/badresponses\":0.0,\"wrk/errors/socketerrors\":0.0,\"wrk/latency/50\":0.243,\"wrk/latency/75\":0.546,\"wrk/latency/90\":1.23,\"wrk/latency/99\":12.88},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}}},\"properties\":{\"scenario\":\"JsonMapAction\",\"protocol\":\"http\",\"buildId\":\"1098185\",\"buildNumber\":\"20210420.2\"}}"
+      },
+      "CurrentResult": {
+        "Id": 60820,
+        "Excluded": false,
+        "DateTimeUtc": "2021-04-21T20:56:05.21Z",
+        "Session": "20210421.8",
+        "Scenario": "mapaction",
+        "Description": "Json MapAction aspnet-citrine-win",
+        "Document": "{\"jobs\":{\"application\":{\"results\":{\"netSdkVersion\":\"6.0.100-preview.4.21221.7\",\"aspNetCoreVersion\":\"6.0.0-preview.5.21221.7+5ab47f3\",\"netCoreAppVersion\":\"6.0.0-preview.5.21221.3+d08f7f2\",\"benchmarks/build-time\":2186.0,\"benchmarks/published-size\":83525.0,\"benchmarks/start-time\":300.0,\"benchmarks/working-set\":367.0,\"benchmarks/private-memory\":448.0,\"benchmarks/cpu\":87.0,\"benchmarks/cpu/raw\":2433.0,\"runtime-counter/cpu-usage\":108.0,\"runtime-counter/working-set\":383.0,\"runtime-counter/gc-heap-size\":237.0,\"runtime-counter/gen-0-gc-count\":2.0,\"runtime-counter/gen-1-gc-count\":1.0,\"runtime-counter/gen-2-gc-count\":1.0,\"runtime-counter/threadpool-thread-count\":76.0,\"runtime-counter/monitor-lock-contention-count\":111.0,\"runtime-counter/threadpool-queue-length\":77.0,\"runtime-counter/threadpool-completed-items-count\":1459914.0,\"runtime-counter/alloc-rate\":291973296.0,\"runtime-counter/active-timer-count\":0.0,\"runtime-counter/gc-fragmentation\":0.6420782282851248,\"runtime-counter/gc-committed\":336.0,\"runtime-counter/exception-count\":671.0,\"runtime-counter/time-in-gc\":0.0,\"runtime-counter/gen-0-size\":672.0,\"runtime-counter/gen-1-size\":3414992.0,\"runtime-counter/gen-2-size\":3836872.0,\"runtime-counter/loh-size\":106512.0,\"runtime-counter/assembly-count\":93.0,\"runtime-counter/il-bytes-jitted\":172038.0,\"runtime-counter/methods-jitted-count\":1899.0},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Windows\",\"arch\":\"X64\",\"proc\":28}},\"load\":{\"results\":{\"benchmarks/start-time\":0.0,\"benchmarks/working-set\":37.0,\"benchmarks/private-memory\":358.0,\"benchmarks/cpu\":50.0,\"benchmarks/cpu/raw\":1401.0,\"http/firstrequest\":113.0,\"wrk/latency/mean\":0.7457999999999999,\"wrk/rps/mean\":712702.87,\"wrk/throughput\":126.42,\"wrk/latency/max\":246.86,\"wrk/requests\":10761405.0,\"wrk/errors/badresponses\":0.0,\"wrk/errors/socketerrors\":0.0,\"wrk/latency/50\":0.231,\"wrk/latency/75\":0.526,\"wrk/latency/90\":0.838,\"wrk/latency/99\":3.68},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}}},\"properties\":{\"scenario\":\"JsonMapAction\",\"protocol\":\"http\",\"buildId\":\"1100635\",\"buildNumber\":\"20210421.8\"}}"
+      },
+      "Change": 45937.390000000014,
+      "StandardDeviation": 18751.259912078185,
+      "Average": 697665.2757142857,
+      "RecoveredResult": {
+        "Id": 61327,
+        "Excluded": false,
+        "DateTimeUtc": "2021-04-23T20:16:08.933Z",
+        "Session": "20210423.2",
+        "Scenario": "mapaction",
+        "Description": "Json MapAction aspnet-citrine-win",
+        "Document": "{\"jobs\":{\"application\":{\"results\":{\"netSdkVersion\":\"6.0.100-preview.5.21223.9\",\"aspNetCoreVersion\":\"6.0.0-preview.5.21223.6+917928d\",\"netCoreAppVersion\":\"6.0.0-preview.5.21223.5+6cd562f\",\"benchmarks/build-time\":2236.0,\"benchmarks/published-size\":83693.0,\"benchmarks/start-time\":301.0,\"benchmarks/working-set\":373.0,\"benchmarks/private-memory\":455.0,\"benchmarks/cpu\":89.0,\"benchmarks/cpu/raw\":2485.0,\"runtime-counter/cpu-usage\":123.0,\"runtime-counter/working-set\":390.0,\"runtime-counter/gc-heap-size\":260.0,\"runtime-counter/gen-0-gc-count\":2.0,\"runtime-counter/gen-1-gc-count\":1.0,\"runtime-counter/gen-2-gc-count\":1.0,\"runtime-counter/threadpool-thread-count\":76.0,\"runtime-counter/monitor-lock-contention-count\":101.0,\"runtime-counter/threadpool-queue-length\":89.0,\"runtime-counter/threadpool-completed-items-count\":1370864.0,\"runtime-counter/alloc-rate\":273625376.0,\"runtime-counter/active-timer-count\":0.0,\"runtime-counter/gc-fragmentation\":0.6109912750100247,\"runtime-counter/gc-committed\":342.0,\"runtime-counter/exception-count\":682.0,\"runtime-counter/time-in-gc\":0.0,\"runtime-counter/gen-0-size\":672.0,\"runtime-counter/gen-1-size\":3486512.0,\"runtime-counter/gen-2-size\":3860464.0,\"runtime-counter/loh-size\":107464.0,\"runtime-counter/assembly-count\":93.0,\"runtime-counter/il-bytes-jitted\":172095.0,\"runtime-counter/methods-jitted-count\":1900.0},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Windows\",\"arch\":\"X64\",\"proc\":28}},\"load\":{\"results\":{\"benchmarks/start-time\":0.0,\"benchmarks/working-set\":38.0,\"benchmarks/private-memory\":358.0,\"benchmarks/cpu\":48.0,\"benchmarks/cpu/raw\":1341.0,\"http/firstrequest\":114.0,\"wrk/latency/mean\":1.02,\"wrk/rps/mean\":676285.48,\"wrk/throughput\":119.96,\"wrk/latency/max\":272.27,\"wrk/requests\":10211624.0,\"wrk/errors/badresponses\":0.0,\"wrk/errors/socketerrors\":0.0,\"wrk/latency/50\":0.243,\"wrk/latency/75\":0.554,\"wrk/latency/90\":1.08,\"wrk/latency/99\":6.89},\"metadata\":[],\"measurements\":[],\"environment\":{\"hw\":\"Physical\",\"env\":\"Unspecified\",\"os\":\"Linux\",\"arch\":\"X64\",\"proc\":28}}},\"properties\":{\"scenario\":\"JsonMapAction\",\"protocol\":\"http\",\"buildId\":\"1104819\",\"buildNumber\":\"20210423.2\"}}"
+      },
+      "Labels": [
+        "Perf",
+        "perf-regression"
+      ],
+      "Owners": [
+        "sebastienros"
+      ],
+      "Changes": [
+        {
+          "Job": "application",
+          "Id": "+kL3IPaqvdVHIVR8mUBvrw==",
+          "Names": [
+            "Microsoft.AspNetCore.App"
+          ],
+          "RepositoryUrl": "https://github.com/dotnet/aspnetcore",
+          "PreviousVersion": "6.0.0-preview.5.21220.5",
+          "CurrentVersion": "6.0.0-preview.5.21221.7",
+          "PreviousCommitHash": "3489b86",
+          "CurrentCommitHash": "5ab47f3",
+          "ChangeType": 0
+        },
+        {
+          "Job": "application",
+          "Id": "VQgr9CxNHDwaUGAf9ff0Tw==",
+          "Names": [
+            "Microsoft.NETCore.App"
+          ],
+          "RepositoryUrl": "https://github.com/dotnet/runtime",
+          "PreviousVersion": "6.0.0-preview.5.21220.7",
+          "CurrentVersion": "6.0.0-preview.5.21221.3",
+          "PreviousCommitHash": "58b25df",
+          "CurrentCommitHash": "d08f7f2",
+          "ChangeType": 0
+        }
+      ]
+    }
+  ]
+}

@@ -15,7 +15,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Remove="assets\regressions.json" />
+    <None Remove="assets\regressions1.json" />
+    <None Remove="assets\regressions2.json" />
+    <None Remove="assets\template1.fluid" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,18 +1,20 @@
+RPS regressions
+
 | Scenario | Environment | Date | Old RPS | New RPS | Change | Deviation | StDev | Dependencies |
 | -------- | ----------- | ---- | ------- | ------- | ------ | --------- | ----- | ------------ |
 {%- for regression in Regressions -%}
 {%- assign r = regression.CurrentResult -%}
 {%- assign p = regression.PreviousResult -%}
 {%- assign rps = 0 | plus: r.Data.jobs.load.results['wrk/rps/mean'] | plus: r.Data.jobs.load.results['bombardier/rps/mean'] -%}
-{%- assign prevRps = 0 | plus: p.Data.jobs.load.results['wrk/rps/mean'] | plus: p.Data.jobs.load.results['bombardier/rps/mean'] -%}
+{%- assign prevRps = 0 | plus: p.Data.jobs.load.results['wrk/rps/mean'] | plus: p.Data.jobs.load.results['bombardier/rps/mean'] | at_least: 1 -%}
 {%- assign change = regression.Change | divided_by: prevRps | times: 100 | round: 2 -%}
 {%- assign deviation = regression.Change | divided_by: regression.StandardDeviation | round: 2 -%}
 {%- capture changes -%}
 <details>
     <summary>Changes</summary> 
     <table><th>Name</th><th>Version</th><th>Diff</th>
-        {%- assign application_changes = regression.Changes | where: "Job", "application" -%}
-        {%- for diff in application_changes -%}
+    {%- assign application_changes = regression.Changes | where: "Job", "application" -%}
+    {%- for diff in application_changes -%}
         <tr>
             <td>{{diff.Names.first}}{% if diff.Names.length > 1 %} and {{diff.Names.length | minus: 1}} others{% endif %}</td>
             <td>

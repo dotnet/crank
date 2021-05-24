@@ -33,14 +33,16 @@ namespace Microsoft.Crank.RegressionBot.Tests
             _output = output;
         }
 
-        [Fact]
-        public async Task TemplateIsRendered()
+        [Theory]
+        [InlineData("assets/regressions1.json", "assets/template1.fluid")]
+        [InlineData("assets/regressions2.json", "assets/template1.fluid")]
+        public async Task TemplateIsRendered(string filename, string templatename)
         {
-            var content = File.ReadAllText("assets/regressions.json");
+            var content = File.ReadAllText(filename);
 
             var report = JsonSerializer.Deserialize<Report>(content);
 
-            var template = File.ReadAllText("assets/template.fluid");
+            var template = File.ReadAllText(templatename);
 
             var parseIsSuccessful = FluidTemplate.TryParse(template, out var fluidTemplate, out var errors);
 
