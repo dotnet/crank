@@ -57,7 +57,7 @@ set-strictmode -version 2.0
 $ErrorActionPreference = 'Stop'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-# If specifies, provides an alternate path for getting .NET Core SDKs and Runtimes. This script will still try public sources first.
+# If specified, provides an alternate path for getting .NET Core SDKs and Runtimes. This script will still try public sources first.
 [string]$runtimeSourceFeed = if (Test-Path variable:runtimeSourceFeed) { $runtimeSourceFeed } else { $null }
 # Base-64 encoded SAS token that has permission to storage container described by $runtimeSourceFeed
 [string]$runtimeSourceFeedKey = if (Test-Path variable:runtimeSourceFeedKey) { $runtimeSourceFeedKey } else { $null }
@@ -169,7 +169,7 @@ function InitializeDotNetCli([bool]$install, [bool]$createSdkLocationFile) {
     Set-Content -Path $sdkCacheFileTemp -Value $dotnetRoot
 
     try {
-      Move-Item -Force $sdkCacheFileTemp (Join-Path $ToolsetDir 'sdk.txt')
+      Rename-Item -Force -Path $sdkCacheFileTemp 'sdk.txt'
     } catch {
       # Somebody beat us
       Remove-Item -Path $sdkCacheFileTemp
@@ -439,26 +439,11 @@ function LocateVisualStudio([object]$vsRequirements = $null){
   if (!(Test-Path $vsWhereExe)) {
     Create-Directory $vsWhereDir
     Write-Host 'Downloading vswhere'
-    $maxRetries = 5
-    $retries = 1
-
-    while($true) {
-      try {
-        Invoke-WebRequest "https://netcorenativeassets.blob.core.windows.net/resource-packages/external/windows/vswhere/$vswhereVersion/vswhere.exe" -OutFile $vswhereExe
-        break
-      }
-      catch{
-        Write-PipelineTelemetryError -Category 'InitializeToolset' -Message $_
-      }
-
-      if (++$retries -le $maxRetries) {
-        $delayInSeconds = [math]::Pow(2, $retries) - 1 # Exponential backoff
-        Write-Host "Retrying. Waiting for $delayInSeconds seconds before next attempt ($retries of $maxRetries)."
-        Start-Sleep -Seconds $delayInSeconds
-      }
-      else {
-        Write-PipelineTelemetryError -Category 'InitializeToolset' -Message "Unable to download file in $maxRetries attempts."
-      }
+    try {
+      Invoke-WebRequest "https://netcorenativeassets.blob.core.windows.net/resource-packages/external/windows/vswhere/$vswhereVersion/vswhere.exe" -OutFile $vswhereExe
+    }
+    catch {
+      Write-PipelineTelemetryError -Category 'InitializeToolset' -Message $_
     }
   }
 
@@ -508,7 +493,7 @@ function InitializeBuildTool() {
       ExitWithExitCode 1
     }
     $dotnetPath = Join-Path $dotnetRoot (GetExecutableFileName 'dotnet')
-    $buildTool = @{ Path = $dotnetPath; Command = 'msbuild'; Tool = 'dotnet'; Framework = 'netcoreapp3.1' }
+    $buildTool = @{ Path = $dotnetPath; Command = 'msbuild'; Tool = 'dotnet'; Framework = 'netcoreapp2.1' }
   } elseif ($msbuildEngine -eq "vs") {
     try {
       $msbuildPath = InitializeVisualStudioMSBuild -install:$restore
@@ -644,26 +629,9 @@ function MSBuild() {
     }
 
     $toolsetBuildProject = InitializeToolset
-    $basePath = Split-Path -parent $toolsetBuildProject
-    $possiblePaths = @(
-      # new scripts need to work with old packages, so we need to look for the old names/versions
-      (Join-Path $basePath (Join-Path $buildTool.Framework 'Microsoft.DotNet.ArcadeLogging.dll')),
-      (Join-Path $basePath (Join-Path $buildTool.Framework 'Microsoft.DotNet.Arcade.Sdk.dll')),
-      (Join-Path $basePath (Join-Path netcoreapp2.1 'Microsoft.DotNet.ArcadeLogging.dll')),
-      (Join-Path $basePath (Join-Path netcoreapp2.1 'Microsoft.DotNet.Arcade.Sdk.dll'))
-    )
-    $selectedPath = $null
-    foreach ($path in $possiblePaths) {
-      if (Test-Path $path -PathType Leaf) {
-        $selectedPath = $path
-        break
-      }
-    }
-    if (-not $selectedPath) {
-      Write-PipelineTelemetryError -Category 'Build' -Message 'Unable to find arcade sdk logger assembly.'
-      ExitWithExitCode 1
-    }
-    $args += "/logger:$selectedPath"
+    $path = Split-Path -parent $toolsetBuildProject
+    $path = Join-Path $path (Join-Path $buildTool.Framework 'Microsoft.DotNet.Arcade.Sdk.dll')
+    $args += "/logger:$path"
   }
 
   MSBuild-Core @args
@@ -709,23 +677,14 @@ function MSBuild-Core() {
   $exitCode = Exec-Process $buildTool.Path $cmdArgs
 
   if ($exitCode -ne 0) {
-    # We should not Write-PipelineTaskError here because that message shows up in the build summary
-    # The build already logged an error, that's the reason it failed. Producing an error here only adds noise.
-    Write-Host "Build failed with exit code $exitCode. Check errors above." -ForegroundColor Red
+    Write-PipelineTelemetryError -Category 'Build' -Message 'Build failed.'
 
     $buildLog = GetMSBuildBinaryLogCommandLineArgument $args
-    if ($null -ne $buildLog) {
+    if ($buildLog -ne $null) {
       Write-Host "See log: $buildLog" -ForegroundColor DarkGray
     }
 
-    if ($ci) {
-      Write-PipelineSetResult -Result "Failed" -Message "msbuild execution failed."
-      # Exiting with an exit code causes the azure pipelines task to log yet another "noise" error
-      # The above Write-PipelineSetResult will cause the task to be marked as failure without adding yet another error
-      ExitWithExitCode 0
-    } else {
-      ExitWithExitCode $exitCode
-    }
+    ExitWithExitCode $exitCode
   }
 }
 
