@@ -1184,6 +1184,18 @@ namespace Microsoft.Crank.Agent
                                     job.State = JobState.TraceCollected;
                                 }
                             }
+                            else if (job.State == JobState.TraceCollected)
+                            {
+                                // Ensure the driver is still connected once the trace is collected
+
+                                if (DateTime.UtcNow - job.LastDriverCommunicationUtc > DriverTimeout)
+                                {
+                                    // The job needs to be deleted
+                                    Log.WriteLine($"Driver didn't communicate for {DriverTimeout}. Halting job.");
+                                    Log.WriteLine($"{job.State} -> Deleting ({job.Service}:{job.Id})");
+                                    job.State = JobState.Deleting;
+                                }
+                            }
                             else if (job.State == JobState.Starting)
                             {
                                 var startTimeout = job.StartTimeout > TimeSpan.Zero
