@@ -70,7 +70,9 @@ namespace Microsoft.Crank.Controller
 
                 foreach (var metadata in jobResult.Metadata)
                 {
-                    if (!jobResult.Results.ContainsKey(metadata.Name))
+                    var metadataKey = metadata.Name.Split(';').First();
+
+                    if (!jobResult.Results.ContainsKey(metadataKey))
                     {
                         continue;
                     }
@@ -109,8 +111,8 @@ namespace Microsoft.Crank.Controller
                         
                         if (!String.IsNullOrEmpty(metadata.Format))
                         {
-                            var measure = Convert.ToDouble(job.Results.ContainsKey(metadata.Name) ? job.Results[metadata.Name] : 0);
-                            var previous = Convert.ToDouble(firstJob.Jobs[jobName].Results.ContainsKey(metadata.Name) ? jobResult.Results[metadata.Name] : 0);
+                            var measure = Convert.ToDouble(job.Results.ContainsKey(metadataKey) ? job.Results[metadataKey] : 0);
+                            var previous = Convert.ToDouble(firstJob.Jobs[jobName].Results.ContainsKey(metadataKey) ? jobResult.Results[metadataKey] : 0);
 
                             var improvement = measure == 0
                             ? 0
@@ -134,7 +136,7 @@ namespace Microsoft.Crank.Controller
                         }
                         else
                         {
-                            var measure = job.Results.ContainsKey(metadata.Name) ? job.Results[metadata.Name] : 0;
+                            var measure = job.Results.ContainsKey(metadataKey) ? job.Results[metadataKey] : 0;
 
                             row.Add(cell = new Cell());
                             cell.Elements.Add(new CellElement { Text = measure.ToString(), Alignment = CellTextAlignment.Right });
