@@ -30,14 +30,3 @@ profiles:
       load:
         endpoints: 
           - http://localhost:5010
-
-  remote:
-    variables:
-      serverAddress: localhost
-    jobs: 
-      application:
-        endpoints: 
-          - https://aspnetperf.servicebus.windows.net/local
-      load:
-        endpoints: 
-          - https://aspnetperf.servicebus.windows.net/local
