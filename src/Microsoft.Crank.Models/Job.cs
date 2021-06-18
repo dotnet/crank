@@ -81,6 +81,8 @@ namespace Microsoft.Crank.Models
         [JsonConverter(typeof(StringEnumConverter))]
         public JobState State { get; set; }
 
+        public int? ExitCode { get; set; }
+
         public string Url { get; set; }
 
         [JsonConverter(typeof(StringEnumConverter))]

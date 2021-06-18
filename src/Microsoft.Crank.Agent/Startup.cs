@@ -949,11 +949,13 @@ namespace Microsoft.Crank.Agent
                                                     {
                                                         if (process.HasExited)
                                                         {
+                                                            job.ExitCode = process.ExitCode;
+
                                                             if (process.ExitCode != 0)
                                                             {
                                                                 Log.WriteLine($"Job failed");
 
-                                                                job.Error = $"Job failed at runtime:\n{job.Output}";
+                                                                job.Error = $"Job failed at runtime with exit code {process.ExitCode}:\n{job.Output}";
 
                                                                 if (job.State != JobState.Deleting)
                                                                 {
@@ -1463,6 +1465,10 @@ namespace Microsoft.Crank.Agent
 
                                         } while (process != null && !process.HasExited);
                                     }
+                                    else
+                                    {
+                                        job.ExitCode = process.ExitCode;
+                                    }
 
                                     Log.WriteLine($"Process has stopped");
 
@@ -1473,7 +1479,6 @@ namespace Microsoft.Crank.Agent
                                 }
                                 else if (!String.IsNullOrEmpty(dockerImage))
                                 {
-
                                     await DockerCleanUpAsync(dockerContainerId, dockerImage, job);
                                 }
 
@@ -1996,7 +2001,15 @@ namespace Microsoft.Crank.Agent
                 EnableRaisingEvents = true
             };
 
+            process.Exited += (_, e) =>
+            {
+                // Even though the Exited event has been raised, WaitForExit() must still be called to ensure the output buffers
+                // have been flushed before the process is considered completely done.
+                process.WaitForExit();
+            };
+
             process.Start();
+            
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
 
@@ -4268,6 +4281,13 @@ namespace Microsoft.Crank.Agent
                     StartDotNetTrace(process.Id, job);
                 }
             }
+
+            process.Exited += (_, e) =>
+            {
+                // Even though the Exited event has been raised, WaitForExit() must still be called to ensure the output buffers
+                // have been flushed before the process is considered completely done.
+                process.WaitForExit();
+            };
 
             stopwatch.Start();
             process.Start();
