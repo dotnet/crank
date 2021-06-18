@@ -22,8 +22,8 @@ namespace Microsoft.Crank.Controller
 {
     public class JobConnection
     {
-        static readonly HttpClient _httpClient;
-        static readonly HttpClientHandler _httpClientHandler;
+        readonly HttpClient _httpClient;
+        readonly HttpClientHandler _httpClientHandler;
 
         static List<string> _temporaryFolders = new List<string>();
 
@@ -32,8 +32,6 @@ namespace Microsoft.Crank.Controller
         // The uri of the server
         private readonly Uri _serverUri;
 
-        // The uri of the /jobs endpoint on the server
-        private readonly Uri _serverJobsUri;
         private string _serverJobUri;
         private bool _keepAlive;
         private DateTime? _runningUtc;
@@ -44,7 +42,7 @@ namespace Microsoft.Crank.Controller
         private int _buildCursor;
         private Dictionary<string, string> _benchmarkDotNetResults = new Dictionary<string, string>();
 
-        static JobConnection()
+        public JobConnection(Job definition, Uri serverUri)
         {
             _httpClientHandler = new HttpClientHandler();
             _httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
@@ -52,22 +50,39 @@ namespace Microsoft.Crank.Controller
 
             _httpClient = new HttpClient(_httpClientHandler);
             _httpClient.Timeout = Timeout.InfiniteTimeSpan;
-        }
 
-        public JobConnection(Job definition, Uri serverUri)
-        {
             Job = definition;
             _serverUri = serverUri;
-            _serverJobsUri = new Uri(_serverUri, "/jobs");
+        }
+
+        public void ConfigureRelay(string token)
+        {
+            _httpClient.DefaultRequestHeaders.Add("ServiceBusAuthorization", token);
+        }
+
+        public async Task<bool> CheckConnectionAsync()
+        {
+            try
+            {
+                using (var cts = new CancellationTokenSource(10000))
+                {
+                    var response = await _httpClient.GetAsync("", cts.Token);
+                    response.EnsureSuccessStatusCode();
+                }
+            }
+            catch
+            {
+                return false;
+            }
+
+            return true;
         }
 
         public Job Job { get; private set; }
 
         public string ServerJobUri => _serverJobUri;
 
-        public async Task<string> StartAsync(
-            string jobName
-            )
+        public async Task<string> StartAsync(string jobName)
         {
             _jobName = jobName;
 
@@ -75,15 +90,15 @@ namespace Microsoft.Crank.Controller
 
             Log.Write($"Starting job '{_jobName}' ...");
 
-            Log.Verbose($"POST {_serverJobsUri} {content}...");
+            Log.Verbose($"POST {Combine(_serverUri, "/jobs")} {content}...");
 
-            var response = await _httpClient.PostAsync(_serverJobsUri, new StringContent(content, Encoding.UTF8, "application/json"));
+            var response = await _httpClient.PostAsync(Combine(_serverUri, "/jobs"), new StringContent(content, Encoding.UTF8, "application/json"));
             var responseContent = await response.Content.ReadAsStringAsync();
             Log.Verbose($"{(int)response.StatusCode} {response.StatusCode}");
 
             response.EnsureSuccessStatusCode();
 
-            _serverJobUri = new Uri(_serverUri, response.Headers.Location).ToString();
+            _serverJobUri = Combine(_serverUri, response.Headers.Location.ToString()).ToString();
 
             Log.Write($"Submitted job: {_serverJobUri}");
 
@@ -162,7 +177,7 @@ namespace Microsoft.Crank.Controller
                             DoCreateFromDirectory(sourceDir, tempFilename);
                         }
 
-                        var result = await UploadFileAsync(tempFilename, Job, _serverJobUri + "/source");
+                        var result = await UploadFileAsync(tempFilename, Combine(_serverJobUri, "/source"));
 
                         File.Delete(tempFilename);
 
@@ -193,7 +208,7 @@ namespace Microsoft.Crank.Controller
                         // Download the archive, while pinging the server to keep the job alive
                         if (outputArchiveValue.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                         {
-                            localArchiveFilename = await DownloadTemporaryFileAsync(localArchiveFilename, _serverJobUri);
+                            localArchiveFilename = await DownloadTemporaryFileAsync(localArchiveFilename);
                         }
 
                         ZipFile.ExtractToDirectory(localArchiveFilename, tempFolder);
@@ -230,7 +245,7 @@ namespace Microsoft.Crank.Controller
                         // Download the archive, while pinging the server to keep the job alive
                         if (buildArchiveValue.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                         {
-                            localArchiveFilename = await DownloadTemporaryFileAsync(localArchiveFilename, _serverJobUri);
+                            localArchiveFilename = await DownloadTemporaryFileAsync(localArchiveFilename);
                         }
 
                         ZipFile.ExtractToDirectory(localArchiveFilename, tempFolder);
@@ -263,7 +278,7 @@ namespace Microsoft.Crank.Controller
                                     resolvedFileWithDestination += ";" + buildFileSegments[1] + Path.GetDirectoryName(resolvedFile).Substring(Path.GetDirectoryName(buildFileSegments[0]).Length) + "/" + Path.GetFileName(resolvedFileWithDestination);
                                 }
 
-                                var result = await UploadFileAsync(resolvedFileWithDestination, Job, _serverJobUri + "/build");
+                                var result = await UploadFileAsync(resolvedFileWithDestination, _serverJobUri + "/build");
 
                                 if (result != 0)
                                 {
@@ -300,7 +315,7 @@ namespace Microsoft.Crank.Controller
                                     resolvedFileWithDestination += ";" + outputFileSegments[1] + Path.GetDirectoryName(resolvedFile).Substring(Path.GetDirectoryName(outputFileSegments[0]).Length) + "/" + Path.GetFileName(resolvedFileWithDestination);
                                 }
 
-                                var result = await UploadFileAsync(resolvedFileWithDestination, Job, _serverJobUri + "/attachment");
+                                var result = await UploadFileAsync(resolvedFileWithDestination, Combine(_serverJobUri, "/attachment"));
 
                                 if (result != 0)
                                 {
@@ -317,7 +332,7 @@ namespace Microsoft.Crank.Controller
                         }
                     }
 
-                    response = await _httpClient.PostAsync(_serverJobUri + "/start", new StringContent(""));
+                    response = await _httpClient.PostAsync(Combine(_serverJobUri, "/start"), new StringContent(""));
                     responseContent = await response.Content.ReadAsStringAsync();
                     Log.Verbose($"{(int)response.StatusCode} {response.StatusCode}");
                     response.EnsureSuccessStatusCode();
@@ -401,7 +416,7 @@ namespace Microsoft.Crank.Controller
 
             Log.Write($"Stopping job '{_jobName}' ...");
 
-            var response = await _httpClient.PostAsync(_serverJobUri + "/stop", new StringContent(""));
+            var response = await _httpClient.PostAsync(Combine(_serverJobUri, "/stop"), new StringContent(""));
             Log.Verbose($"{(int)response.StatusCode} {response.StatusCode}");
             var jobStoppedUtc = DateTime.UtcNow;
 
@@ -486,7 +501,7 @@ namespace Microsoft.Crank.Controller
         public async Task ClearMeasurements()
         {
             Log.Verbose($"POST {_serverJobUri}/resetstats...");
-            var response = await _httpClient.PostAsync(_serverJobUri + "/resetstats", new StringContent(""));
+            var response = await _httpClient.PostAsync(Combine(_serverJobUri, "/resetstats"), new StringContent(""));
             var responseContent = await response.Content.ReadAsStringAsync();
             Log.Verbose($"{(int)response.StatusCode} {response.StatusCode}");
 
@@ -496,7 +511,7 @@ namespace Microsoft.Crank.Controller
         public async Task FlushMeasurements()
         {
             Log.Verbose($"POST {_serverJobUri}/measurements/flush...");
-            var response = await _httpClient.PostAsync(_serverJobUri + "/measurements/flush", new StringContent(""));
+            var response = await _httpClient.PostAsync(Combine(_serverJobUri, "/measurements/flush"), new StringContent(""));
             var responseContent = await response.Content.ReadAsStringAsync();
             Log.Verbose($"{(int)response.StatusCode} {response.StatusCode}");
 
@@ -518,7 +533,7 @@ namespace Microsoft.Crank.Controller
                 try
                 {
                     Log.Verbose($"GET {_serverJobUri}/state...");
-                    response = await _httpClient.GetAsync(_serverJobUri + "/state");
+                    response = await _httpClient.GetAsync(Combine(_serverJobUri, "/state"));
                     responseContent = await response.Content.ReadAsStringAsync();
                 }
                 catch
@@ -572,7 +587,7 @@ namespace Microsoft.Crank.Controller
                     {
                         // Ping server job to keep it alive
                         Log.Verbose($"GET {_serverJobUri}/touch...");
-                        var response = await _httpClient.GetAsync(_serverJobUri + "/touch", new CancellationTokenSource(2000).Token);
+                        var response = await _httpClient.GetAsync(Combine(_serverJobUri, "/touch"), new CancellationTokenSource(2000).Token);
 
                         // Detect if the job has timed out. This doesn't account for any other service
                         if (Job.Timeout > 0 && _runningUtc != null && DateTime.UtcNow - _runningUtc > TimeSpan.FromSeconds(Job.Timeout))
@@ -682,7 +697,7 @@ namespace Microsoft.Crank.Controller
                 try
                 {
                     StartKeepAlive();
-                    var uri = _serverJobUri + "/trace";
+                    var uri = Combine(_serverJobUri, "/trace");
                     await _httpClient.DownloadFileWithProgressAsync(uri, _serverJobUri, traceDestination);
                 }
                 catch (Exception e)
@@ -713,7 +728,7 @@ namespace Microsoft.Crank.Controller
 
             Log.Write($"Server is collecting trace file, this can take up to 1 minute");
 
-            var uri = _serverJobUri + "/trace";
+            var uri = Combine(_serverJobUri, "/trace");
             var response = await _httpClient.PostAsync(uri, new StringContent(""));
             response.EnsureSuccessStatusCode();
 
@@ -772,7 +787,7 @@ namespace Microsoft.Crank.Controller
                 try
                 {
                     StartKeepAlive();
-                    var uri = _serverJobUri + "/dump";
+                    var uri = Combine(_serverJobUri, "/dump");
                     await _httpClient.DownloadFileWithProgressAsync(uri, _serverJobUri, dumpDestination);
                 }
                 catch (Exception e)
@@ -816,7 +831,7 @@ namespace Microsoft.Crank.Controller
                     try
                     {
                         StartKeepAlive();
-                        await _httpClient.DownloadFileWithProgressAsync(_serverJobUri + "/fetch", _serverJobUri, fetchDestination);
+                        await _httpClient.DownloadFileWithProgressAsync(Combine(_serverJobUri, "/fetch"), _serverJobUri, fetchDestination);
                     }
                     finally
                     {
@@ -921,7 +936,7 @@ namespace Microsoft.Crank.Controller
             }
         }
 
-        private static async Task<int> UploadFileAsync(string filename, Job serverJob, string uri)
+        private async Task<int> UploadFileAsync(string filename, string uri)
         {
             try
             {
@@ -949,7 +964,7 @@ namespace Microsoft.Crank.Controller
                     using (fileContent)
                     {
                         request.Content = fileContent;
-                        request.Headers.Add("id", serverJob.Id.ToString());
+                        request.Headers.Add("id", Job.Id.ToString());
                         request.Headers.Add("destinationFilename", destinationFilename);
 
                         await _httpClient.SendAsync(request);
@@ -964,7 +979,7 @@ namespace Microsoft.Crank.Controller
             return 0;
         }
 
-        private static async Task<string> DownloadTemporaryFileAsync(string uri, string serverJobUri)
+        private async Task<string> DownloadTemporaryFileAsync(string uri)
         {
             if (_filecache == null)
             {
@@ -979,7 +994,7 @@ namespace Microsoft.Crank.Controller
 
             if (!File.Exists(filehashname))
             {
-                await _httpClient.DownloadFileAsync(uri, serverJobUri, filehashname);
+                await _httpClient.DownloadFileAsync(uri, _serverJobUri, filehashname);
             }
 
             return filehashname;
@@ -998,14 +1013,14 @@ namespace Microsoft.Crank.Controller
 
         public async Task<string> DownloadBuildLog()
         {
-            var uri = _serverJobUri + "/buildlog";
+            var uri = Combine(_serverJobUri, "/buildlog");
 
             return await _httpClient.GetStringAsync(uri);
         }
 
         public async Task<string> StreamOutputAsync()
         {
-            var uri = _serverJobUri + "/output/" + _outputCursor;
+            var uri = Combine(_serverJobUri, "/output/" + _outputCursor);
 
             var jsonLines = await _httpClient.GetStringAsync(uri);
             var lines = JsonConvert.DeserializeObject<string[]>(jsonLines);
@@ -1025,7 +1040,7 @@ namespace Microsoft.Crank.Controller
 
         public async Task<string> StreamBuildLogAsync()
         {
-            var uri = _serverJobUri + "/buildlog/" + _buildCursor;
+            var uri = Combine(_serverJobUri, "/buildlog/" + _buildCursor);
 
             var jsonLines = await _httpClient.GetStringAsync(uri);
             var lines = JsonConvert.DeserializeObject<string[]>(jsonLines);
@@ -1045,7 +1060,7 @@ namespace Microsoft.Crank.Controller
 
         public async Task<string> DownloadOutput()
         {
-            var uri = _serverJobUri + "/output";
+            var uri = Combine(_serverJobUri, "/output");
 
             return await _httpClient.GetStringAsync(uri);
         }
@@ -1060,7 +1075,7 @@ namespace Microsoft.Crank.Controller
 
                 foreach (var f in files)
                 {
-                    var uri = _serverJobUri + "/download?path=" + HttpUtility.UrlEncode(f);
+                    var uri = Combine(_serverJobUri, "/download?path=" + HttpUtility.UrlEncode(f));
                     Log.Verbose("GET " + uri);
 
                     var filename = Path.Combine(output ?? "", Path.GetDirectoryName(file), f);
@@ -1078,7 +1093,7 @@ namespace Microsoft.Crank.Controller
             }
             else
             {
-                var uri = _serverJobUri + "/download?path=" + HttpUtility.UrlEncode(file);
+                var uri = Combine(_serverJobUri, "/download?path=" + HttpUtility.UrlEncode(file));
                 Log.Verbose("GET " + uri);
 
                 var filename = Path.Combine(output ?? "", file);
@@ -1097,7 +1112,7 @@ namespace Microsoft.Crank.Controller
 
         public async Task<IEnumerable<string>> ListFilesAsync(string pattern)
         {
-            var uri = _serverJobUri + "/list?path=" + HttpUtility.UrlEncode(pattern);
+            var uri = Combine(_serverJobUri, "/list?path=" + HttpUtility.UrlEncode(pattern));
             Log.Verbose("GET " + uri);
 
             var response = await _httpClient.GetStringAsync(uri);
@@ -1108,7 +1123,7 @@ namespace Microsoft.Crank.Controller
 
         public async Task<string> DownloadFileContentAsync(string file)
         {
-            var uri = _serverJobUri + "/download?path=" + HttpUtility.UrlEncode(file);
+            var uri = Combine(_serverJobUri, "/download?path=" + HttpUtility.UrlEncode(file));
             Log.Verbose("GET " + uri);
 
             return await _httpClient.DownloadFileContentAsync(uri);
@@ -1116,7 +1131,7 @@ namespace Microsoft.Crank.Controller
 
         public async Task<Dictionary<string, object>> GetInfoAsync()
         {
-            var uri = new Uri(_serverUri, "/info");
+            var uri = Combine(_serverUri, "/info");
             var response = await _httpClient.GetStringAsync(uri);
 
             return JsonConvert.DeserializeObject<Dictionary<string, object>>(response);
@@ -1127,8 +1142,8 @@ namespace Microsoft.Crank.Controller
         /// </summary>
         public async Task<IEnumerable<JobView>> GetQueueAsync()
         {
-            Log.Verbose($"GET {_serverJobsUri} ...");
-            var response = await _httpClient.GetAsync(_serverJobsUri);
+            Log.Verbose($"GET {Combine(_serverUri, "/jobs")} ...");
+            var response = await _httpClient.GetAsync(Combine(_serverUri, "/jobs"));
             response.EnsureSuccessStatusCode();
 
             var responseContent = await response.Content.ReadAsStringAsync();
@@ -1148,6 +1163,18 @@ namespace Microsoft.Crank.Controller
             response.EnsureSuccessStatusCode();
 
             return JsonConvert.DeserializeObject<Job>(responseContent);
-        }  
+        }
+
+        private static string Combine(string uri1, string uri2)
+        {
+            uri1 = uri1.TrimEnd('/');
+            uri2 = uri2.TrimStart('/');
+            return String.Concat(uri1, "/", uri2);
+        }
+
+        private static string Combine(Uri uri1, string uri2)
+        {
+            return Combine(uri1.ToString(), uri2);
+        }
     }
 }

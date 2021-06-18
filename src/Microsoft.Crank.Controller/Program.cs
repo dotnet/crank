@@ -25,6 +25,7 @@ using Manatee.Json.Schema;
 using Manatee.Json;
 using Jint;
 using System.Security.Cryptography;
+using Microsoft.Azure.Relay;
 
 namespace Microsoft.Crank.Controller
 {
@@ -35,8 +36,8 @@ namespace Microsoft.Crank.Controller
 
         private static string _tableName = "Benchmarks";
         private static string _sqlConnectionString = "";
-
-        private const string EventPipeOutputFile = "eventpipe.netperf";
+        private static string _relayConnectionString = "";
+        private static string _relayToken = "";
 
         private const string DefaultBenchmarkDotNetArguments = "--inProcess --cli {{benchmarks-cli}} --join --exporters briefjson markdown";
 
@@ -56,6 +57,7 @@ namespace Microsoft.Crank.Controller
             _variableOption,
             _sqlConnectionStringOption,
             _sqlTableOption,
+            _relayConnectionStringOption,
             _sessionOption,
             _descriptionOption,
             _propertyOption,
@@ -149,6 +151,7 @@ namespace Microsoft.Crank.Controller
                 "Connection string of the SQL Server Database to store results in", CommandOptionType.SingleValue);
             _sqlTableOption = app.Option("--table",
                 "Table name of the SQL Database to store results in", CommandOptionType.SingleValue);
+            _relayConnectionStringOption = app.Option("--relay", "Connection string of the Azure Relay", CommandOptionType.SingleValue);
             _sessionOption = app.Option("--session", "A logical identifier to group related jobs.", CommandOptionType.SingleValue);
             _descriptionOption = app.Option("--description", "A string describing the job.", CommandOptionType.SingleValue);
             _propertyOption = app.Option("-p|--property", "Some custom key/value that will be added to the results, .e.g. --property arch=arm --property os=linux", CommandOptionType.MultipleValue);
@@ -348,6 +351,20 @@ namespace Microsoft.Crank.Controller
                     }
                 }
 
+                if (_relayConnectionStringOption.HasValue())
+                {
+                    _relayConnectionString = _relayConnectionStringOption.Value();
+
+                    if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(_relayConnectionString)))
+                    {
+                        _relayConnectionString = Environment.GetEnvironmentVariable(_relayConnectionString);
+                    }
+
+                    var rcsb = new RelayConnectionStringBuilder(_relayConnectionString);
+                    var tokenProvider = TokenProvider.CreateSharedAccessSignatureTokenProvider(rcsb.SharedAccessKeyName, rcsb.SharedAccessKey);
+                    _relayToken = (await tokenProvider.GetTokenAsync(rcsb.Endpoint.ToString(), TimeSpan.FromHours(1))).TokenString;
+                }
+
                 if (!_configOption.HasValue())
                 {
                     if (!_jobOption.HasValue())
@@ -451,22 +468,28 @@ namespace Microsoft.Crank.Controller
                         return -1;
                     }
 
-                    foreach (var endpoint in service.Endpoints)
+                    // We can't test endpoints when a relay is used
+                    if (String.IsNullOrEmpty(_relayConnectionString))
                     {
-                        try
+                        foreach (var endpoint in service.Endpoints)
                         {
-                            using (var cts = new CancellationTokenSource(10000))
+                            try
                             {
-                                var response = await _httpClient.GetAsync(endpoint, cts.Token);
-                                response.EnsureSuccessStatusCode();
+                                using (var cts = new CancellationTokenSource(10000))
+                                {
+                                    var response = await _httpClient.GetAsync(endpoint, cts.Token);
+                                    response.EnsureSuccessStatusCode();
+                                }
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine($"The specified endpoint url '{endpoint}' for '{jobName}' is invalid or not responsive: \"{e.Message}\"");
+                                return -1;
                             }
                         }
-                        catch (Exception e)
-                        {
-                            Console.WriteLine($"The specified endpoint url '{endpoint}' for '{jobName}' is invalid or not responsive: \"{e.Message}\"");
-                            return -1;
-                        }
                     }
+
+                    // Add final '/' to endpoints
                 }
 
                 // Initialize database
@@ -609,6 +632,11 @@ namespace Microsoft.Crank.Controller
                             else
                             {
                                 jobs = service.Endpoints.Select(endpoint => new JobConnection(service, new Uri(endpoint))).ToList();
+
+                                foreach (var jobConnection in jobs)
+                                {
+                                    jobConnection.ConfigureRelay(_relayToken);
+                                }
 
                                 jobsByDependency[jobName] = jobs;
 

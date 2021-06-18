@@ -286,6 +286,10 @@ namespace Microsoft.Crank.Agent
                     .UseKestrel()
                     .ConfigureKestrel(o => o.Limits.MaxRequestBodySize = (long)10 * 1024 * 1024 * 1024)
                     .UseStartup<Startup>()
+                    .UseAzureRelay(options =>
+                    {
+                        options.UrlPrefixes.Add("Endpoint=sb://aspnetperf.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=ValRG7yer9CKPspgbOJuk9DhXH8D92ujeIsG8QkIqzc=;EntityPath=local");
+                    })
                     .UseUrls(url)
                     .ConfigureLogging((hostingContext, logging) =>
                     {
@@ -5289,7 +5293,7 @@ namespace Microsoft.Crank.Agent
             Log.WriteLine($"Checking requirements...");
 
             // Add a NuGet.config for the self-contained deployments to be able to find the runtime packages on the CI feeds
-            // This is not taken into account however if the source folder contains its own witha <clear /> statement as this one
+            // This is not taken into account however if the source folder contains its own with a <clear /> statement as this one
             // is defined in the root benchmarks agent folder.
 
             var rootNugetConfig = Path.Combine(_rootTempDir, "NuGet.Config");
