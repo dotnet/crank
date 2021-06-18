@@ -39,6 +39,7 @@ using System.Reflection.PortableExecutable;
 using System.Reflection.Metadata;
 using System.Security.Cryptography;
 using System.Globalization;
+using Microsoft.Azure.Relay;
 
 namespace Microsoft.Crank.Agent
 {
@@ -131,6 +132,11 @@ namespace Microsoft.Crank.Agent
 
         private static string _startPerfviewArguments;
 
+        private static CommandOption
+            _relayConnectionStringOption,
+            _relayPathOption
+            ;
+
         static Startup()
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
@@ -209,6 +215,8 @@ namespace Microsoft.Crank.Agent
                 CommandOptionType.SingleValue);
             var dotnethomeOption = app.Option("--dotnethome", "Folder to reuse for sdk and runtime installs.",
                 CommandOptionType.SingleValue);
+            _relayConnectionStringOption = app.Option("--relay", "Connection string or environment variable name of the Azure Relay Hybrid Connection to listen to. e.g., Endpoint=sb://mynamespace.servicebus.windows.net;...", CommandOptionType.SingleValue);
+            _relayPathOption = app.Option("--relay-path", "The hybrid connection name used to bind this agent. If not set the --relay argument must contain 'EntityPath={name}'", CommandOptionType.SingleValue);
             var hardwareVersionOption = app.Option("--hardware-version", "Hardware version (e.g, D3V2, Z420, ...).  Required.",
                 CommandOptionType.SingleValue);
             var noCleanupOption = app.Option("--no-cleanup",
@@ -282,21 +290,41 @@ namespace Microsoft.Crank.Agent
 
         private static async Task<int> Run(string url, string hostname, string dockerHostname)
         {
-            var host = new WebHostBuilder()
+            var builder = new WebHostBuilder()
                     .UseKestrel()
                     .ConfigureKestrel(o => o.Limits.MaxRequestBodySize = (long)10 * 1024 * 1024 * 1024)
                     .UseStartup<Startup>()
-                    .UseAzureRelay(options =>
-                    {
-                        options.UrlPrefixes.Add("Endpoint=sb://aspnetperf.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=ValRG7yer9CKPspgbOJuk9DhXH8D92ujeIsG8QkIqzc=;EntityPath=local");
-                    })
                     .UseUrls(url)
                     .ConfigureLogging((hostingContext, logging) =>
                     {
                         logging.SetMinimumLevel(LogLevel.Error);
                         logging.AddConsole();
-                    })
-                    .Build();
+                    });
+
+            if (_relayConnectionStringOption.HasValue())
+            {
+                builder.UseAzureRelay(options =>
+                {
+                    var relayConnectionString = _relayConnectionStringOption.Value();
+
+                    if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(relayConnectionString)))
+                    {
+                        relayConnectionString = Environment.GetEnvironmentVariable(relayConnectionString);
+                    }
+
+                    var rcsb = new RelayConnectionStringBuilder(relayConnectionString);
+
+                    if (_relayPathOption.HasValue())
+                    {
+                        rcsb.EntityPath = _relayPathOption.Value();
+                    }
+
+                    options.UrlPrefixes.Add(rcsb.ToString());
+                });
+
+            }
+
+            var host = builder.Build();
 
             var hostTask = host.RunAsync();
 
