@@ -36,8 +36,6 @@ namespace Microsoft.Crank.Controller
 
         private static string _tableName = "Benchmarks";
         private static string _sqlConnectionString = "";
-        private static string _relayConnectionString = "";
-        private static string _relayToken = "";
 
         private const string DefaultBenchmarkDotNetArguments = "--inProcess --cli {{benchmarks-cli}} --join --exporters briefjson markdown";
 
@@ -351,20 +349,6 @@ namespace Microsoft.Crank.Controller
                     }
                 }
 
-                if (_relayConnectionStringOption.HasValue())
-                {
-                    _relayConnectionString = _relayConnectionStringOption.Value();
-
-                    if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(_relayConnectionString)))
-                    {
-                        _relayConnectionString = Environment.GetEnvironmentVariable(_relayConnectionString);
-                    }
-
-                    var rcsb = new RelayConnectionStringBuilder(_relayConnectionString);
-                    var tokenProvider = TokenProvider.CreateSharedAccessSignatureTokenProvider(rcsb.SharedAccessKeyName, rcsb.SharedAccessKey);
-                    _relayToken = (await tokenProvider.GetTokenAsync(rcsb.Endpoint.ToString(), TimeSpan.FromHours(1))).TokenString;
-                }
-
                 if (!_configOption.HasValue())
                 {
                     if (!_jobOption.HasValue())
@@ -468,24 +452,22 @@ namespace Microsoft.Crank.Controller
                         return -1;
                     }
 
-                    // We can't test endpoints when a relay is used
-                    if (String.IsNullOrEmpty(_relayConnectionString))
+                    foreach (var endpoint in service.Endpoints)
                     {
-                        foreach (var endpoint in service.Endpoints)
+                        try
                         {
-                            try
+                            using (var cts = new CancellationTokenSource(10000))
                             {
-                                using (var cts = new CancellationTokenSource(10000))
-                                {
-                                    var response = await _httpClient.GetAsync(endpoint, cts.Token);
-                                    response.EnsureSuccessStatusCode();
-                                }
+                                var response = await _httpClient.GetAsync(endpoint, cts.Token);
+                                
+                                // An Azure Relay would return an error status code without authentication
+                                // response.EnsureSuccessStatusCode();
                             }
-                            catch (Exception e)
-                            {
-                                Console.WriteLine($"The specified endpoint url '{endpoint}' for '{jobName}' is invalid or not responsive: \"{e.Message}\"");
-                                return -1;
-                            }
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine($"The specified endpoint url '{endpoint}' for '{jobName}' is invalid or not responsive: \"{e.Message}\"");
+                            return -1;
                         }
                     }
 
@@ -635,7 +617,12 @@ namespace Microsoft.Crank.Controller
 
                                 foreach (var jobConnection in jobs)
                                 {
-                                    jobConnection.ConfigureRelay(_relayToken);
+                                    var relayToken = await GetRelayTokenAsync(jobConnection.ServerUri);
+
+                                    if (!String.IsNullOrEmpty(relayToken))
+                                    {
+                                        jobConnection.ConfigureRelay(relayToken);
+                                    }
                                 }
 
                                 jobsByDependency[jobName] = jobs;
@@ -2617,6 +2604,57 @@ namespace Microsoft.Crank.Controller
             }
 
             return executionResult;
+        }
+
+        private static async Task<string> GetRelayTokenAsync(Uri endpointUri)
+        {
+            var connectionString = GetAzureRelayConnectionString();
+
+            if (String.IsNullOrEmpty(connectionString))
+            {
+                return null;
+            }
+
+            var rcsb = new RelayConnectionStringBuilder(connectionString);
+            var tokenProvider = TokenProvider.CreateSharedAccessSignatureTokenProvider(rcsb.SharedAccessKeyName, rcsb.SharedAccessKey);
+            return (await tokenProvider.GetTokenAsync(rcsb.Endpoint.ToString(), TimeSpan.FromHours(1))).TokenString;
+
+            string GetAzureRelayConnectionString()
+            {
+                // 1- Use argument if provided
+                // 2- Look for an ENV with the name of the hybrid connection
+                // 3- Look for an ENV with the name of the relay
+
+                if (_relayConnectionStringOption.HasValue())
+                {
+                    var relayConnectionString = _relayConnectionStringOption.Value();
+
+                    if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(relayConnectionString)))
+                    {
+                        return Environment.GetEnvironmentVariable(relayConnectionString);
+                    }
+                }
+
+                if (!endpointUri.Authority.EndsWith("servicebus.windows.net", StringComparison.OrdinalIgnoreCase))
+                {
+                    return null;
+                }
+
+                var rootVariable = $"{endpointUri.Authority.Replace(".", "_")}"; // aspnetperf_servicebus_windows_net
+                var entityVariable = $"{rootVariable}__{endpointUri.LocalPath}"; // aspnetperf_servicebus_windows_net__local
+
+                if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(entityVariable)))
+                {
+                    return Environment.GetEnvironmentVariable(entityVariable);
+                }
+
+                if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(rootVariable)))
+                {
+                    return Environment.GetEnvironmentVariable(entityVariable);
+                }
+
+                return null;
+            }
         }
     }
 }

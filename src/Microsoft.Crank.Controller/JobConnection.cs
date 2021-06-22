@@ -82,6 +82,8 @@ namespace Microsoft.Crank.Controller
 
         public string ServerJobUri => _serverJobUri;
 
+        public Uri ServerUri => _serverUri;
+
         public async Task<string> StartAsync(string jobName)
         {
             _jobName = jobName;
