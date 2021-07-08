@@ -1,0 +1,43 @@
+imports:
+  - ../../src/Microsoft.Crank.Jobs.Bombardier/bombardier.yml
+
+jobs:
+  server:
+    source:
+      localFolder: .
+      project: client.csproj
+    readyStateText: Application started.
+  mockserver:
+    source:
+      localFolder: mockserver
+      dockerFile: Dockerfile
+      dockerImageName: mockserver
+      dockerContextDirectory: .
+    port: 8080
+
+scenarios:
+  client:
+    mockserver:
+      job: mockserver
+    application:
+      job: server
+    load:
+      job: bombardier
+      variables:
+        serverPort: 5010
+        path: /
+
+profiles:
+  local:
+    variables:
+      serverUri: http://localhost
+    jobs: 
+      application:
+        endpoints: 
+          - http://localhost:5010
+      load:
+        endpoints: 
+          - http://localhost:5010
+      mockserver:
+        endpoints: 
+          - http://localhost:5010

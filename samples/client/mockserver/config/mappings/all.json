@@ -1,0 +1,16 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "urlPath": "/",
+        "method": "GET"
+      },
+      "response": {
+        "status": 200,
+        "body": "Hello World!",
+        "fixedDelayMilliseconds": 20
+      },
+      "priority": 10
+    }
+  ]
+}
