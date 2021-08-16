@@ -30,7 +30,9 @@ RUN apt-get update \
         curl \
         wget \
         # dotnet performance repo microbenchmark dependencies
-        libgdiplus 
+        libgdiplus \
+        # enable h3 support
+        libmsquic
 
 # Build and install h2load. Required as there isn't a way to distribute h2load as a single file to download
 RUN apt-get update \
