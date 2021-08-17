@@ -81,8 +81,7 @@ namespace Microsoft.Crank.Agent
         //private static readonly string _latestDesktopApiUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.win-x64/index.json";
         //private static readonly string _releaseMetadata = "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/releases-index.json";
 
-        // aka.ms links currently broken: https://aka.ms/dotnet/net6/dev/Sdk/productCommit-win-x64.txt
-        private static readonly string _latestSdkVersionUrl = "https://dotnetcli.blob.core.windows.net/dotnet/Sdk/main/latest.version";
+        private static readonly string _latestSdkVersionUrl = "https://aka.ms/dotnet/6.0/daily/productCommit-win-x64.txt";
         
         private static readonly string _aspnetSdkVersionUrl = "https://raw.githubusercontent.com/dotnet/aspnetcore/main/global.json";
         private static readonly string[] _runtimeFeedUrls = new string[] {
