@@ -1,5 +1,4 @@
-# FROM mcr.microsoft.com/dotnet/sdk:5.0 as build-env
-FROM mcr.microsoft.com/dotnet/sdk:5.0.201 as build-env
+FROM mcr.microsoft.com/dotnet/sdk:5.0 as build-env
 
 COPY . .
 
@@ -13,7 +12,7 @@ RUN dotnet publish -c Release src/Microsoft.Crank.Agent --output /app
 # Build runtime image
 # FROM mcr.microsoft.com/dotnet/aspnet:5.0
 # Use SDK image as it is required for the dotnet tools
-FROM mcr.microsoft.com/dotnet/sdk:5.0.201
+FROM mcr.microsoft.com/dotnet/sdk:5.0
 
 ARG CPUNAME=x86_64
 
@@ -31,9 +30,18 @@ RUN apt-get update \
         wget \
         # dotnet performance repo microbenchmark dependencies
         libgdiplus \
-        # enable h3 support
-        libmsquic
+        # libmsquic requirements
+        gnupg2 \
+        software-properties-common
 
+# Install HTTP/3 support
+
+RUN curl -sSL https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
+RUN apt-add-repository https://packages.microsoft.com/debian/10/prod
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    libmsquic
+    
 # Build and install h2load. Required as there isn't a way to distribute h2load as a single file to download
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
