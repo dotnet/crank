@@ -36,11 +36,9 @@ RUN apt-get update \
 
 # Install HTTP/3 support
 
-RUN curl -sSL https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
-RUN apt-add-repository https://packages.microsoft.com/debian/10/prod
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-    libmsquic
+RUN if [ "$(uname -m)" != "aarch64" ] ; then curl -sSL https://packages.microsoft.com/keys/microsoft.asc | apt-key add - ; fi
+RUN if [ "$(uname -m)" != "aarch64" ] ; then apt-add-repository https://packages.microsoft.com/debian/10/prod ; fi
+RUN if [ "$(uname -m)" != "aarch64" ] ; then apt-get update && apt-get install -y --no-install-recommends libmsquic ; fi
     
 # Build and install h2load. Required as there isn't a way to distribute h2load as a single file to download
 RUN apt-get update \
