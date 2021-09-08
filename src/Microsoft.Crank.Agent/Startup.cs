@@ -40,6 +40,7 @@ using System.Reflection.Metadata;
 using System.Security.Cryptography;
 using System.Globalization;
 using Microsoft.Azure.Relay;
+using Microsoft.AspNetCore.Hosting.Server;
 
 namespace Microsoft.Crank.Agent
 {
@@ -133,7 +134,8 @@ namespace Microsoft.Crank.Agent
 
         private static CommandOption
             _relayConnectionStringOption,
-            _relayPathOption
+            _relayPathOption,
+            _relayEnableHttpOption
             ;
 
         static Startup()
@@ -216,6 +218,7 @@ namespace Microsoft.Crank.Agent
                 CommandOptionType.SingleValue);
             _relayConnectionStringOption = app.Option("--relay", "Connection string or environment variable name of the Azure Relay Hybrid Connection to listen to. e.g., Endpoint=sb://mynamespace.servicebus.windows.net;...", CommandOptionType.SingleValue);
             _relayPathOption = app.Option("--relay-path", "The hybrid connection name used to bind this agent. If not set the --relay argument must contain 'EntityPath={name}'", CommandOptionType.SingleValue);
+            _relayEnableHttpOption = app.Option("--relay-enable-http", "Activates the HTTP port even if Azure Relay is used.", CommandOptionType.NoValue);
             var hardwareVersionOption = app.Option("--hardware-version", "Hardware version (e.g, D3V2, Z420, ...).  Required.",
                 CommandOptionType.SingleValue);
             var noCleanupOption = app.Option("--no-cleanup",
@@ -321,6 +324,27 @@ namespace Microsoft.Crank.Agent
                     options.UrlPrefixes.Add(rcsb.ToString());
                 });
 
+                if (_relayEnableHttpOption.HasValue())
+                {
+                    // Create an IServer instance that will handle both Azure Relay requests and standard HTTP ones.
+                    // MessagePump can't be used specifically as it's internal, so we need to recover it from the currently
+                    // registered services.
+
+                    var serverTypes = Array.Empty<Type>();
+
+                    builder.ConfigureServices(services =>
+                    {
+                        var descriptors = services.Where(x => x.Lifetime == ServiceLifetime.Singleton && typeof(IServer).IsAssignableFrom(x.ServiceType)).ToArray();
+
+                        foreach (var d in descriptors)
+                        {
+                            services.Remove(d);
+                            services.AddSingleton(d.ImplementationType);
+                        }
+
+                        services.AddSingleton<IServer>(s => new CompositeServer(descriptors.Select(d => s.GetService(d.ImplementationType) as IServer)));
+                    });
+                }
             }
 
             var host = builder.Build();
