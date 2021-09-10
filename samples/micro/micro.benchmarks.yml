@@ -4,9 +4,9 @@ jobs:
       localFolder: .
       project: micro.csproj
     variables:
-      filter: "*"
-      job: short
-    arguments: --job {{job}} --filter {{filter}} --memory
+      filterArg: "*"
+      jobArg: short
+    arguments: --job {{jobArg}} --filter {{filterArg}} --memory
     options:
       benchmarkDotNet: true
     

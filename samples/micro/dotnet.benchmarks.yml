@@ -2,12 +2,12 @@ jobs:
   dotnet:
     source:
       repository: https://github.com/dotnet/performance
-      branchOrCommit: master
+      branchOrCommit: main
       project: src/benchmarks/micro/MicroBenchmarks.csproj
     variables:
-      filter: "*"
-      job: short
-    arguments: --job {{job}} --filter {{filter}} --memory
+      filterArg: "*"
+      jobArg: short
+    arguments: --job {{jobArg}} --filter {{filterArg}} --memory
     framework: netcoreapp3.1
     options:
       benchmarkDotNet: true
@@ -18,13 +18,13 @@ scenarios:
     application:
       job: dotnet
       variables:
-        filter: "*LinqBenchmarks*"
+        filterArg: "*LinqBenchmarks*"
 
   Sockets:
     application:
       job: dotnet
       variables:
-        filter: "*SocketSendReceivePerfTest*"
+        filterArg: "*SocketSendReceivePerfTest*"
 
 profiles:
   local:

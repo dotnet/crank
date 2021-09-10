@@ -54,9 +54,9 @@ The following example is available at https://github.com/dotnet/crank/blob/main/
       localFolder: .
       project: micro.csproj
     variables:
-      filter: "*"
-      job: short
-    arguments: --job {{job}} --filter {{filter}} --memory
+      filterArg: "*"
+      jobArg: short
+    arguments: --job {{jobArg}} --filter {{filterArg}} --memory
     options:
       benchmarkDotNet: true
 ```
@@ -80,13 +80,13 @@ Custom arguments can be defined at the job level, or at the scenario level. For 
 
 ```yml
 variables:
-  filter: "*"
-  job: short
-arguments: --job {{job}} --filter {{filter}} --memory
+  filterArg: "*"
+  jobArg: short
+arguments: --job {{jobArg}} --filter {{filterArg}} --memory
 ```
 
 By doing this, each scenario can change the value of these variables.
-More information about the available command line arguments can be found [on the BenchmarDotNet website](https://benchmarkdotnet.org/articles/guides/console-args.html)
+More information about the available command line arguments can be found [on the BenchmarkDotNet website](https://benchmarkdotnet.org/articles/guides/console-args.html)
 
 ## Storing results locally
 
@@ -104,7 +104,7 @@ For instance to run the sockets micro-benchmarks, use this command:
 > crank --config /crank/samples/micro/dotnet.benchmarks.yml --scenario Sockets --profile local
 ```
 
-The file points directly to the GitHub repository, and defines a `filter` argument that will only use the expected classes. You can follow this example to target other benchmarks from this repository.
+The file points directly to the GitHub repository, and defines a `filterArg` argument that will only use the expected classes. You can follow this example to target other benchmarks from this repository.
 
 ## Conclusion
 
