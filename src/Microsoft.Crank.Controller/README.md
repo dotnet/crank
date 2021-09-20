@@ -37,7 +37,6 @@ Options:
   --chart-type [bar (default) | hex]                             Type of chart to render. Values are 'bar' (default) or 'hex'
   --chart-scale [off (default)| auto]                            Scale for chart. Values are 'off' (default) or 'auto'. When scale is off, the min value starts at 0.
   --script [name]                                                Execute a named script available in the configuration files. Can be used multiple times.
-  --relay <connection_string>                                    Connection string or environment variable name of the Azure Relay namespace used to access the Crank Agent endpoints. e.g., 'Endpoint=sb://mynamespace.servicebus.windows.net;...', 'MY_AZURE_RELAY_ENV';
 
   These options are specific to a Job service named [JOB]
 
@@ -82,7 +81,7 @@ Options:
   --[JOB].options.counterProviders <provider>                              The name of a performance counter provider from which to collect. e.g., System.Runtime, Microsoft-AspNetCore-Server-Kestrel, Microsoft.AspNetCore.Hosting, Microsoft.AspNetCore.Http.Connections, Grpc.AspNetCore.Server, Grpc.Net.client, Npgsql
   --[JOB].collectStartup <true|false>                                      Whether to include the startup phase in the traces, i.e after the application is launched and before it is marked as ready. For a web application it means before it is ready to accept requests.
   --[JOB].collect <true|false>                                             Whether to collect native traces. Uses PerfView on Windows and Perf/PerfCollect on Linux.
-  --[JOB].collectArguments <arguments>                                     Native traces arguments, default is "BufferSizeMB=1024;CircularMB=4096;TplEvents=None", other suggested values: "BufferSizeMB=1024;CircularMB=4096;ThreadTime", "BufferSizeMB=1024;CircularMB=4096;GcOnly"
+  --[JOB].collectArguments <arguments>                                     Native traces arguments, default is "BufferSizeMB=1024;CircularMB=4096;TplEvents=None;Providers=Microsoft-Diagnostics-DiagnosticSource:0:0;KernelEvents=default-NetworkTCPIP", other suggested values: "...;ThreadTime", "...;GcOnly"
   --[JOB].options.dumpType <full|heap|mini>                                The type of dump to collect.
   --[JOB].options.dumpOutput <filename>                                    The name of the dump file. Can be a file prefix (app will add *.DATE*.zip) , or a specific name and no DATE* will be added e.g., c:\dumps\mydump
   --[JOB].collectDependencies <true|false>                                 Whether to include the list of project dependencies in the results.
