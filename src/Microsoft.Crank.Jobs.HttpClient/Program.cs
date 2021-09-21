@@ -568,7 +568,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                         {
                             worker.Script.Invoke("response", responseMessage, !_running);
                         }
-                        catch (Exception ex)
+                        catch
                         {
                         }                        
                     }
