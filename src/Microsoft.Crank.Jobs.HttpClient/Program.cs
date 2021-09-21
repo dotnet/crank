@@ -15,6 +15,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Jint;
 using McMaster.Extensions.CommandLineUtils;
 using Microsoft.Crank.EventSources;
 
@@ -24,11 +25,16 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
     {
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
+        private static ScriptConsole _scriptConsole = new ScriptConsole();
 
         private static readonly object _synLock = new object();
+
         private static HttpMessageInvoker _httpMessageInvoker;
+        private static SocketsHttpHandler _httpHandler;
+
         private static bool _running;
         private static bool _measuring;
+        private static List<Worker> _workers = new List<Worker>();
 
         public static string ServerUrl { get; set; }
         public static int WarmupTimeSeconds { get; set; }
@@ -42,14 +48,17 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
         public static bool Quiet { get; set; }
         public static bool SendCookies { get; set; }
         public static string Format { get; set; }
-        public static bool Ignore { get; set; }
+        public static bool Local { get; set; }
         public static Timeline[] Timelines {  get; set; }
+        public static string Script {  get; set; }  
+
+
         static Program()
         {
             // Configuring the http client to trust the self-signed certificate
             _httpClientHandler = new HttpClientHandler();
             _httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-            _httpClientHandler.AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate;
+            _httpClientHandler.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
 
             _httpClient = new HttpClient(_httpClientHandler);
         }
@@ -71,7 +80,8 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
             var optionQuiet = app.Option("-q|--quiet", "When set, nothing is rendered on stsdout but the results.", CommandOptionType.NoValue);
             var optionCookies = app.Option("-c|--cookies", "When set, cookies are stored and sent back.", CommandOptionType.NoValue);
             var optionHar = app.Option("-h|--har <filename>", "A .har file representing the urls to request.", CommandOptionType.SingleValue);
-            var optionIgnore = app.Option("-i|--ignore", "Ignore requests outside of the main domain.", CommandOptionType.NoValue);
+            var optionScript = app.Option("-s|--script <filename>", "A .js script file altering the current client.", CommandOptionType.SingleValue);
+            var optionLocal = app.Option("-l|--local", "Ignore requests outside of the main domain.", CommandOptionType.NoValue);
 
             app.OnValidate(ctx =>
             {
@@ -89,7 +99,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
 
                 Quiet = optionQuiet.HasValue();
 
-                Ignore = optionIgnore.HasValue();
+                Local = optionLocal.HasValue();
 
                 Log("Http Client");
 
@@ -115,7 +125,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
 
                     if (!File.Exists(harFilename))
                     {
-                        Console.WriteLine($"HAR file not found: '{harFilename}'");
+                        Console.WriteLine($"HAR file not found: '{Path.GetFullPath(harFilename)}'");
                         return;
                     }
 
@@ -138,7 +148,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                         }
                     }
 
-                    if (Ignore)
+                    if (Local)
                     {
                         Timelines = Timelines.Where(x => String.Equals(x.Uri.Host, baseUri.Host, StringComparison.OrdinalIgnoreCase)).ToArray();
                     }
@@ -197,7 +207,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                             AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
                         };
 
-                        var httpClient = new System.Net.Http.HttpClient(httpClientHandler);
+                        var httpClient = new HttpClient(httpClientHandler);
                         var bytes = await httpClient.GetByteArrayAsync(CertPath);
                         Certificate = new X509Certificate2(bytes, CertPassword);
                     }
@@ -208,6 +218,33 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                     }
 
                     Log("Certificate Thumbprint: " + Certificate.Thumbprint);
+                }
+
+                if (optionScript.HasValue())
+                {
+                    var scriptFilename = optionScript.Value();
+
+                    if (scriptFilename.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Console.WriteLine($"Downloading script file {scriptFilename}");
+                        var tempFile = Path.GetTempFileName();
+
+                        using (var downloadStream = await _httpClient.GetStreamAsync(scriptFilename))
+                        using (var fileStream = File.Create(tempFile))
+                        {
+                            await downloadStream.CopyToAsync(fileStream);
+                        }
+
+                        scriptFilename = tempFile;
+                    }
+
+                    if (!File.Exists(scriptFilename))
+                    {
+                        Console.WriteLine($"Script file not found: '{Path.GetFullPath(scriptFilename)}'");
+                        return;
+                    }
+
+                    Script = File.ReadAllText(scriptFilename);
                 }
 
                 await RunAsync();
@@ -358,7 +395,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
             BenchmarksEventSource.Measure("httpclient/throughput;http/throughput", (double)result.ThroughputBps / 1024 / 1024);
         }
 
-        private static HttpMessageInvoker CreateHttpMessageInvoker()
+        private static Worker CreateWorker()
         {
             if (_httpMessageInvoker == null)
             {
@@ -366,22 +403,23 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                 {
                     if (_httpMessageInvoker == null)
                     {
-                        var httpHandler = new SocketsHttpHandler
+                        _httpHandler = new SocketsHttpHandler
                         {
                             // There should be only as many connections as Tasks concurrently, so there is no need
                             // to limit the max connections per server 
                             // httpHandler.MaxConnectionsPerServer = Connections;
                             AllowAutoRedirect = false,
                             UseProxy = false,
-                            AutomaticDecompression = System.Net.DecompressionMethods.None
+                            AutomaticDecompression = DecompressionMethods.None
                         };
+
                         // Accept any SSL certificate
-                        httpHandler.SslOptions.RemoteCertificateValidationCallback += (object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => true;
+                        _httpHandler.SslOptions.RemoteCertificateValidationCallback += (object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => true;
 
                         if (Certificate != null)
                         {
                             Log($"Using Cert");
-                            httpHandler.SslOptions.ClientCertificates = new X509CertificateCollection
+                            _httpHandler.SslOptions.ClientCertificates = new X509CertificateCollection
                             {
                                 Certificate
                             };
@@ -391,12 +429,23 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                             Log($"No cert specified.");
                         }
 
-                        _httpMessageInvoker = new HttpMessageInvoker(httpHandler);
+                        _httpMessageInvoker = new HttpMessageInvoker(_httpHandler);
                     }
                 }
             }
 
-            return _httpMessageInvoker;
+            var worker = new Worker
+            {
+                Handler = _httpHandler,
+                Invoker = _httpMessageInvoker,
+                Script = new Engine(new Options().AllowClr()).Execute(Script)
+            };
+
+            worker.Script.SetValue("console", _scriptConsole);
+
+            _workers.Add(worker);
+
+            return worker;
         }
 
         public static async Task<WorkerResult> DoWorkAsync()
@@ -404,7 +453,9 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
             // Store received cookies across domains and requests
             var cookieContainer = new CookieContainer();
 
-            var httpMessageInvoker = CreateHttpMessageInvoker();
+            var worker = CreateWorker();
+
+            worker.Script.Invoke("initialize", ServerUrl, Connections, WarmupTimeSeconds, ExecutionTimeSeconds, Headers, Version, Quiet);
 
             // Pre-create all requests for this thread
             var requests = new List<HttpRequestMessage>();
@@ -439,6 +490,8 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                 requests.Add(requestMessage);
             }
 
+            worker.Script.Invoke("start", worker.Handler, requests);
+
             // Counters local to this worker
             var counters = new int[5];
             var socketErrors = 0;
@@ -472,8 +525,13 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                     }
 
                     var start = sw.ElapsedTicks;
-                    using var responseMessage = await httpMessageInvoker.SendAsync(requestMessage, CancellationToken.None);
-                    
+
+                    worker.Script.Invoke("request", requestMessage);
+
+                    using var responseMessage = await _httpMessageInvoker.SendAsync(requestMessage, CancellationToken.None);
+
+                    worker.Script.Invoke("response", responseMessage);
+
                     if (_measuring)
                     {
                         if (measuringStart == 0)
@@ -502,16 +560,20 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                         await Task.Delay(delay);
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
                     if (_measuring)
                     {
                         socketErrors++;
                     }
+
+                    worker.Script.Invoke("error", ex);
                 }
             }
 
             var throughput = transferred / ((sw.ElapsedTicks - measuringStart) / Stopwatch.Frequency);
+
+            worker.Script.Invoke("stop", worker.Handler);
 
             return new WorkerResult
             {

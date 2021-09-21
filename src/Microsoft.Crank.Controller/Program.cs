@@ -36,8 +36,6 @@ namespace Microsoft.Crank.Controller
         private static string _tableName = "Benchmarks";
         private static string _sqlConnectionString = "";
 
-        private const string EventPipeOutputFile = "eventpipe.netperf";
-
         private const string DefaultBenchmarkDotNetArguments = "--inProcess --cli {{benchmarks-cli}} --join --exporters briefjson markdown";
 
         // Default to arguments which should be sufficient for collecting trace of default Plaintext run
