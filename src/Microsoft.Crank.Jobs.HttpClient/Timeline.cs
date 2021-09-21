@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Net.Http;
 
 namespace Microsoft.Crank.Jobs.HttpClientClient
 {
@@ -12,6 +13,8 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
         public Uri Uri { get; set; }
         public TimeSpan Delay { get; set; }
         public string Method { get; set; }
-        public Dictionary<string, string> Headers {  get; set; } = new Dictionary<string, string>();
+        public Dictionary<string, string> Headers { get; set; } = new Dictionary<string, string>();
+        public HttpContent HttpContent { get; set; }
+        public string MimeType { get; set; } 
     }
 }

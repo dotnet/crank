@@ -46,11 +46,12 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
         public static string CertPassword { get; set; }
         public static X509Certificate2 Certificate { get; set; }
         public static bool Quiet { get; set; }
-        public static bool SendCookies { get; set; }
+        public static bool SendCookies { get; set; } = true;
         public static string Format { get; set; }
         public static bool Local { get; set; }
         public static Timeline[] Timelines {  get; set; }
-        public static string Script {  get; set; }  
+        public static string Script { get; set; }  
+        public static bool NoHarDelay {  get; set; }
 
 
         static Program()
@@ -78,8 +79,9 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
             var optionCertPwd = app.Option("-p|--certpwd <password>", "The password for the cert pfx file.", CommandOptionType.SingleValue);
             var optionFormat = app.Option("-f|--format <format>", "The format of the output, e.g., text, json. Default is text.", CommandOptionType.SingleValue);
             var optionQuiet = app.Option("-q|--quiet", "When set, nothing is rendered on stsdout but the results.", CommandOptionType.NoValue);
-            var optionCookies = app.Option("-c|--cookies", "When set, cookies are stored and sent back.", CommandOptionType.NoValue);
+            var optionCookies = app.Option("-c|--cookies", "When set, cookies are ignored.", CommandOptionType.NoValue);
             var optionHar = app.Option("-h|--har <filename>", "A .har file representing the urls to request.", CommandOptionType.SingleValue);
+            var optionHarNoDelay = app.Option("--har-no-delay", "when set, delays between HAR requests are not followed.", CommandOptionType.NoValue);
             var optionScript = app.Option("-s|--script <filename>", "A .js script file altering the current client.", CommandOptionType.SingleValue);
             var optionLocal = app.Option("-l|--local", "Ignore requests outside of the main domain.", CommandOptionType.NoValue);
 
@@ -95,7 +97,9 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
 
             app.OnExecuteAsync(async cancellationToken =>
             {
-                SendCookies = optionCookies.HasValue();
+                NoHarDelay = optionHarNoDelay.HasValue();
+
+                SendCookies = !optionCookies.HasValue();
 
                 Quiet = optionQuiet.HasValue();
 
@@ -134,11 +138,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                     var baseUri = Timelines.First().Uri;
                     var serverUri = String.IsNullOrEmpty(ServerUrl) ? baseUri : new Uri(ServerUrl);
 
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine($"Subsituting '{baseUri.Host}' with '{serverUri}'");
-                    Console.ResetColor();
-
-                    // Substiture the base url with the one provided
+                    // Substitute the base url with the one provided
 
                     foreach (var timeline in Timelines)
                     {
@@ -477,12 +477,12 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
             {
                 var requestMessage = new HttpRequestMessage
                 {
-                    Method = HttpMethod.Get
+                    Method = new HttpMethod(timeline.Method),
+                    Content = timeline.HttpContent
                 };
 
                 foreach (var header in timeline.Headers)
                 {
-                    requestMessage.Headers.Remove(header.Key);
                     requestMessage.Headers.TryAddWithoutValidation(header.Key, header.Value);
                 }
 
@@ -529,7 +529,6 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
             while (_running)
             {
                 // Get next request
-                requestIndex++;
 
                 if (requestIndex > requests.Count - 1)
                 {
@@ -543,8 +542,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                     // Add cookies for this domain
                     if (SendCookies)
                     {
-                        requestMessage.Headers.Remove("Cookie");
-                        requestMessage.Headers.Add("Cookie", cookieContainer.GetCookieHeader(new Uri(requestMessage.RequestUri.AbsoluteUri)));
+                        requestMessage.Headers.TryAddWithoutValidation("Cookie", cookieContainer.GetCookieHeader(new Uri(requestMessage.RequestUri.AbsoluteUri)));
                     }
 
                     var start = sw.ElapsedTicks;
@@ -595,7 +593,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                     }
 
                     // Wait to the desired delay
-                    if (Timelines[requestIndex].Delay > TimeSpan.Zero)
+                    if (!NoHarDelay && Timelines[requestIndex].Delay > TimeSpan.Zero)
                     {
                         var delay = Timelines[requestIndex].Delay;
                         await Task.Delay(delay);
@@ -619,6 +617,10 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                             Log("An error occured while running a 'error' script: {0}", er.Message);
                         }
                     }
+                }
+                finally
+                {
+                    requestIndex++;
                 }
             }
 

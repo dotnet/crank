@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Text.Json;
 
 namespace Microsoft.Crank.Jobs.HttpClientClient
@@ -21,6 +22,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
 
                 var previousStartedDateTime = DateTime.MinValue;
                 var steps = new List<Timeline>();
+
                 foreach (var entryElement in entriesElement.EnumerateArray())
                 {
                     var startedDateTime = entryElement.GetProperty("startedDateTime").GetDateTime();
@@ -41,6 +43,11 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                         Method = requestElement.GetProperty("method").GetString(),
                         Headers = new Dictionary<string, string>(requestElement.GetProperty("headers").EnumerateArray().Select(x => new KeyValuePair<string, string>(x.GetProperty("name").GetString(), x.GetProperty("value").GetString())))
                     };
+
+                    if (requestElement.TryGetProperty("postData", out var postData))
+                    {
+                        step.HttpContent = new StringContent(postData.GetProperty("text").GetString(), System.Text.Encoding.UTF8, postData.GetProperty("mimeType").GetString());
+                    }
 
                     steps.Add(step);
                 }
