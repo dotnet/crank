@@ -4,7 +4,7 @@
 
 using System;
 
-namespace Microsoft.Crank.Jobs.HttpClient
+namespace Microsoft.Crank.Jobs.HttpClientClient
 {
     public class WorkerResult
     {

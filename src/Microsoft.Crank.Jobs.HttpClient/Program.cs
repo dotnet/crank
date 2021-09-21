@@ -4,7 +4,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -16,10 +18,13 @@ using System.Threading.Tasks;
 using McMaster.Extensions.CommandLineUtils;
 using Microsoft.Crank.EventSources;
 
-namespace Microsoft.Crank.Jobs.HttpClient
+namespace Microsoft.Crank.Jobs.HttpClientClient
 {
     class Program
     {
+        private static readonly HttpClient _httpClient;
+        private static readonly HttpClientHandler _httpClientHandler;
+
         private static readonly object _synLock = new object();
         private static HttpMessageInvoker _httpMessageInvoker;
         private static bool _running;
@@ -35,15 +40,26 @@ namespace Microsoft.Crank.Jobs.HttpClient
         public static string CertPassword { get; set; }
         public static X509Certificate2 Certificate { get; set; }
         public static bool Quiet { get; set; }
+        public static bool SendCookies { get; set; }
         public static string Format { get; set; }
+        public static bool Ignore { get; set; }
+        public static Timeline[] Timelines {  get; set; }
+        static Program()
+        {
+            // Configuring the http client to trust the self-signed certificate
+            _httpClientHandler = new HttpClientHandler();
+            _httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+            _httpClientHandler.AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate;
+
+            _httpClient = new HttpClient(_httpClientHandler);
+        }
 
         static async Task Main(string[] args)
         {
-
             var app = new CommandLineApplication();
 
             app.HelpOption("-h|--help");
-            var optionUrl = app.Option("-u|--url <URL>", "The server url to request", CommandOptionType.SingleValue).IsRequired();
+            var optionUrl = app.Option("-u|--url <URL>", "The server url to request. If --har is used, this becomes the new based url for the .HAR file.", CommandOptionType.SingleValue);
             var optionConnections = app.Option<int>("-c|--connections <N>", "Total number of HTTP connections to open. Default is 10.", CommandOptionType.SingleValue);
             var optionWarmup = app.Option<int>("-w|--warmup <N>", "Duration of the warmup in seconds. Default is 5.", CommandOptionType.SingleValue);
             var optionDuration = app.Option<int>("-d|--duration <N>", "Duration of the test in seconds. Default is 5.", CommandOptionType.SingleValue);
@@ -53,17 +69,88 @@ namespace Microsoft.Crank.Jobs.HttpClient
             var optionCertPwd = app.Option("-p|--certpwd <password>", "The password for the cert pfx file.", CommandOptionType.SingleValue);
             var optionFormat = app.Option("-f|--format <format>", "The format of the output, e.g., text, json. Default is text.", CommandOptionType.SingleValue);
             var optionQuiet = app.Option("-q|--quiet", "When set, nothing is rendered on stsdout but the results.", CommandOptionType.NoValue);
+            var optionCookies = app.Option("-c|--cookies", "When set, cookies are stored and sent back.", CommandOptionType.NoValue);
+            var optionHar = app.Option("-h|--har <filename>", "A .har file representing the urls to request.", CommandOptionType.SingleValue);
+            var optionIgnore = app.Option("-i|--ignore", "Ignore requests outside of the main domain.", CommandOptionType.NoValue);
+
+            app.OnValidate(ctx =>
+            {
+                if (!optionHar.HasValue() && !optionUrl.HasValue())
+                {
+                    return new ValidationResult($"The --{optionUrl.LongName} field is required.");
+                }
+
+                return ValidationResult.Success;
+            });
 
             app.OnExecuteAsync(async cancellationToken =>
             {
+                SendCookies = optionCookies.HasValue();
+
                 Quiet = optionQuiet.HasValue();
 
-                Log("Http Client");
-                Log($"args: {string.Join(" ", args)}");
+                Ignore = optionIgnore.HasValue();
 
-                Format = optionFormat.HasValue() ? optionFormat.Value() : "text";
+                Log("Http Client");
 
                 ServerUrl = optionUrl.Value();
+
+                if (optionHar.HasValue())
+                {
+                    var harFilename = optionHar.Value();
+
+                    if (harFilename.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Console.WriteLine($"Downloading har file {harFilename}");
+                        var tempFile = Path.GetTempFileName();
+
+                        using (var downloadStream = await _httpClient.GetStreamAsync(harFilename))
+                        using (var fileStream = File.Create(tempFile))
+                        {
+                            await downloadStream.CopyToAsync(fileStream);
+                        }
+
+                        harFilename = tempFile;
+                    }
+
+                    if (!File.Exists(harFilename))
+                    {
+                        Console.WriteLine($"HAR file not found: '{harFilename}'");
+                        return;
+                    }
+
+                    Timelines = TimelineFactory.FromHar(harFilename);
+
+                    var baseUri = Timelines.First().Uri;
+                    var serverUri = String.IsNullOrEmpty(ServerUrl) ? baseUri : new Uri(ServerUrl);
+
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"Subsituting '{baseUri.Host}' with '{serverUri}'");
+                    Console.ResetColor();
+
+                    // Substiture the base url with the one provided
+
+                    foreach (var timeline in Timelines)
+                    {
+                        if (baseUri.Host == timeline.Uri.Host || timeline.Uri.Host.EndsWith("." + baseUri.Host))
+                        {
+                            timeline.Uri = new UriBuilder(serverUri.Scheme, serverUri.Host, serverUri.Port, timeline.Uri.AbsolutePath, timeline.Uri.Query).Uri;
+                        }
+                    }
+
+                    if (Ignore)
+                    {
+                        Timelines = Timelines.Where(x => String.Equals(x.Uri.Host, baseUri.Host, StringComparison.OrdinalIgnoreCase)).ToArray();
+                    }
+                }
+                else
+                {
+                    Timelines = new[] { new Timeline { Method = "GET", Uri = new Uri(ServerUrl) } };
+                }
+
+                ServerUrl = optionUrl.Value();
+
+                Format = optionFormat.HasValue() ? optionFormat.Value() : "text";
 
                 WarmupTimeSeconds = optionWarmup.HasValue()
                     ? int.Parse(optionWarmup.Value())
@@ -314,25 +401,43 @@ namespace Microsoft.Crank.Jobs.HttpClient
 
         public static async Task<WorkerResult> DoWorkAsync()
         {
+            // Store received cookies across domains and requests
+            var cookieContainer = new CookieContainer();
+
             var httpMessageInvoker = CreateHttpMessageInvoker();
 
-            var requestMessage = new HttpRequestMessage
-            {
-                Method = HttpMethod.Get
-            };
+            // Pre-create all requests for this thread
+            var requests = new List<HttpRequestMessage>();
 
-            // Copy the request headers
-            foreach (var header in Headers)
+            foreach (var timeline in Timelines)
             {
-                var headerNameValue = header.Split(" ", 2, StringSplitOptions.RemoveEmptyEntries);
-                requestMessage.Headers.TryAddWithoutValidation(headerNameValue[0], headerNameValue[1]);
+                var requestMessage = new HttpRequestMessage
+                {
+                    Method = HttpMethod.Get
+                };
+
+                foreach (var header in timeline.Headers)
+                {
+                    requestMessage.Headers.Remove(header.Key);
+                    requestMessage.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                }
+
+                // Apply the command-line headers
+                foreach (var header in Headers)
+                {
+                    var headerNameValue = header.Split(" ", 2, StringSplitOptions.RemoveEmptyEntries);
+                    requestMessage.Headers.Remove(headerNameValue[0]);
+                    requestMessage.Headers.TryAddWithoutValidation(headerNameValue[0], headerNameValue[1]);
+                }
+
+                var uri = timeline.Uri;
+
+                requestMessage.Headers.Host = uri.Authority;
+                requestMessage.RequestUri = uri;
+                requestMessage.Version = Version;
+
+                requests.Add(requestMessage);
             }
-
-            var uri = new Uri(ServerUrl);
-
-            requestMessage.Headers.Host = uri.Authority;
-            requestMessage.RequestUri = uri;
-            requestMessage.Version = Version;
 
             // Counters local to this worker
             var counters = new int[5];
@@ -343,10 +448,29 @@ namespace Microsoft.Crank.Jobs.HttpClient
             var sw = new Stopwatch();
             sw.Start();
 
+            var requestIndex = 0;
+
             while (_running)
             {
+                // Get next request
+                requestIndex++;
+
+                if (requestIndex > requests.Count - 1)
+                {
+                    requestIndex = 0;
+                }
+
+                var requestMessage = requests[requestIndex];
+
                 try
                 {
+                    // Add cookies for this domain
+                    if (SendCookies)
+                    {
+                        requestMessage.Headers.Remove("Cookie");
+                        requestMessage.Headers.Add("Cookie", cookieContainer.GetCookieHeader(new Uri(requestMessage.RequestUri.AbsoluteUri)));
+                    }
+
                     var start = sw.ElapsedTicks;
                     using var responseMessage = await httpMessageInvoker.SendAsync(requestMessage, CancellationToken.None);
                     
@@ -369,6 +493,13 @@ namespace Microsoft.Crank.Jobs.HttpClient
                         }
 
                         counters[status / 100 - 1]++;
+                    }
+
+                    // Wait to the desired delay
+                    if (Timelines[requestIndex].Delay > TimeSpan.Zero)
+                    {
+                        var delay = Timelines[requestIndex].Delay;
+                        await Task.Delay(delay);
                     }
                 }
                 catch
