@@ -36,7 +36,6 @@ function request(request, warmup) {
     // request: System.Net.Http.HttpRequestMessage
     // warmup: bool
 
-    console.info(`request ${request.requestUri}`);
 }
 
 function response(response, warmup) {
@@ -45,7 +44,6 @@ function response(response, warmup) {
     // response: System.Net.Http.HttpResponseMessage
     // warmup: bool
 
-    console.warn(`response ${response.statusCode}`);
 }
 
 function error(exception) {

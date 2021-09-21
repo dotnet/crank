@@ -438,10 +438,13 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
             {
                 Handler = _httpHandler,
                 Invoker = _httpMessageInvoker,
-                Script = new Engine(new Options().AllowClr()).Execute(Script)
+                Script = String.IsNullOrWhiteSpace(Script) ? null : new Engine(new Options().AllowClr(typeof(HttpRequestMessage).Assembly)).Execute(Script)
             };
 
-            worker.Script.SetValue("console", _scriptConsole);
+            if (!String.IsNullOrWhiteSpace(Script))
+            {
+                worker.Script.SetValue("console", _scriptConsole);
+            }
 
             _workers.Add(worker);
 
@@ -455,7 +458,17 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
 
             var worker = CreateWorker();
 
-            worker.Script.Invoke("initialize", ServerUrl, Connections, WarmupTimeSeconds, ExecutionTimeSeconds, Headers, Version, Quiet);
+            if (!String.IsNullOrWhiteSpace(Script) && !worker.Script.GetValue("initialize").IsUndefined())
+            {
+                try
+                {
+                    worker.Script.Invoke("initialize", ServerUrl, Connections, WarmupTimeSeconds, ExecutionTimeSeconds, Headers, Version, Quiet);
+                }
+                catch (Exception ex)
+                {
+                    Log("An error occured while running a 'initialize' script: {0}", ex.Message);
+                }
+            }
 
             // Pre-create all requests for this thread
             var requests = new List<HttpRequestMessage>();
@@ -490,7 +503,17 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                 requests.Add(requestMessage);
             }
 
-            worker.Script.Invoke("start", worker.Handler, requests);
+            if (!String.IsNullOrWhiteSpace(Script) && !worker.Script.GetValue("start").IsUndefined())
+            {
+                try
+                {
+                    worker.Script.Invoke("start", worker.Handler, requests);
+                }
+                catch (Exception ex)
+                {
+                    Log("An error occured while running a 'start' script: {0}", ex.Message);
+                }
+            }
 
             // Counters local to this worker
             var counters = new int[5];
@@ -526,11 +549,29 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
 
                     var start = sw.ElapsedTicks;
 
-                    worker.Script.Invoke("request", requestMessage);
+                    if (!String.IsNullOrWhiteSpace(Script) && !worker.Script.GetValue("request").IsUndefined())
+                    {
+                        try
+                        {
+                            worker.Script.Invoke("request", requestMessage, !_running);
+                        }
+                        catch
+                        {
+                        }
+                    }
 
                     using var responseMessage = await _httpMessageInvoker.SendAsync(requestMessage, CancellationToken.None);
 
-                    worker.Script.Invoke("response", responseMessage);
+                    if (!String.IsNullOrWhiteSpace(Script) && !worker.Script.GetValue("response").IsUndefined())
+                    {
+                        try
+                        {
+                            worker.Script.Invoke("response", responseMessage, !_running);
+                        }
+                        catch (Exception ex)
+                        {
+                        }                        
+                    }
 
                     if (_measuring)
                     {
@@ -567,13 +608,33 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                         socketErrors++;
                     }
 
-                    worker.Script.Invoke("error", ex);
+                    if (!String.IsNullOrWhiteSpace(Script) && !worker.Script.GetValue("error").IsUndefined())
+                    {
+                        try
+                        {
+                            worker.Script.Invoke("error", ex);
+                        }
+                        catch (Exception er)
+                        {
+                            Log("An error occured while running a 'error' script: {0}", er.Message);
+                        }
+                    }
                 }
             }
 
             var throughput = transferred / ((sw.ElapsedTicks - measuringStart) / Stopwatch.Frequency);
 
-            worker.Script.Invoke("stop", worker.Handler);
+            if (!String.IsNullOrWhiteSpace(Script) && !worker.Script.GetValue("stop").IsUndefined())
+            {
+                try
+                {
+                    worker.Script.Invoke("stop", worker.Handler);
+                }
+                catch (Exception ex)
+                {
+                    Log("An error occured while running a 'stop' script: {0}", ex.Message);
+                }                
+            }
 
             return new WorkerResult
             {
