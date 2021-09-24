@@ -5,9 +5,9 @@
 using System;
 using System.Linq;
 
-namespace Microsoft.Crank.Controller
+namespace Microsoft.Crank.Jobs.HttpClientClient
 {
-    public class ScriptConsole
+    internal class ScriptConsole
     {
         public bool HasErrors { get; private set; }
 
