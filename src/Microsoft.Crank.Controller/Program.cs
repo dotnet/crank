@@ -1519,6 +1519,7 @@ namespace Microsoft.Crank.Controller
                     var engine =  new Engine();
                     
                     engine.SetValue("job", job);
+                    engine.SetValue("variables", configuration["Variables"] as JObject ?? new JObject());
                     engine.SetValue("console", _scriptConsole);
 
                     foreach(var script in job.OnConfigure)
