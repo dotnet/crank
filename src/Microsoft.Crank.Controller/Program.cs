@@ -1292,7 +1292,7 @@ namespace Microsoft.Crank.Controller
 
             foreach (var variableObject in variableObjects)
             {
-                if (variableObject == null)
+                if (variableObject == null || !(variableObject is JObject))
                 {
                     continue;
                 }
@@ -1410,31 +1410,8 @@ namespace Microsoft.Crank.Controller
 
                 var profile = (JObject)configuration["Profiles"][profileName];
                 
-                // Copy the profile variables to the jobs in this profile
-                // such that it will override what is in the source job.
-                // Otherwise the variables in the profile would not override
-                // the ones in the source profile as they would be patching
-                // the global variables.
-
-                var profileVariables = profile.GetValue("Variables", StringComparison.OrdinalIgnoreCase);
-                if (profileVariables is JObject variables)
-                {
-                    var profileJobs = profile.GetValue("Jobs", StringComparison.OrdinalIgnoreCase) as JObject ?? new JObject();
-
-                    foreach (var profileJobProperty in profileJobs.Properties())
-                    {
-                        var profileJob = (JObject)profileJobProperty.Value;
-
-                        var profileJobVariables = profileJob.GetValue("Variables", StringComparison.OrdinalIgnoreCase) as JObject;
-
-                        if (profileJobVariables == null)
-                        {
-                            profileJob.Add("Variables", profileJobVariables = new JObject());
-                        }
-
-                        PatchObject(profileJobVariables, variables);
-                    }
-                }
+                // Patch the configuration with each profile.
+                // This will update the global variables and also each scenario's job
 
                 PatchObject(configuration, profile);
             }
@@ -1481,12 +1458,13 @@ namespace Microsoft.Crank.Controller
 
             // Evaluate templates
 
+            var rootVariables = configuration["Variables"];
+
             foreach (JProperty property in configuration["Jobs"] ?? new JObject())
             {
                 var job = property.Value;
 
-                var rootVariables = configuration["Variables"] as JObject ?? new JObject();
-                var jobVariables = job["Variables"] as JObject ?? new JObject();
+                var jobVariables = job["Variables"];
 
                 var variables = MergeVariables(rootVariables, jobVariables, commandLineVariables);
 
@@ -1494,6 +1472,10 @@ namespace Microsoft.Crank.Controller
                 ApplyTemplates(variables, new TemplateContext { Model = variables.DeepClone() });
 
                 ApplyTemplates(job, new TemplateContext { Model = variables }.SetValue("job", job));
+
+                // Variable are merged again in the job such that all variables (root, job, command line) be
+                // available in scripts
+                job["Variables"] = MergeVariables(variables, job["Variables"]);
             }
 
             var result = configuration.ToObject<Configuration>();
@@ -1512,16 +1494,19 @@ namespace Microsoft.Crank.Controller
 
             var dependencies = result.Scenarios[scenarioName].Select(x => x.Key).ToArray();
 
+            // Share the same engine instance between all jobs so they can share some state
+            var engine = new Engine();
+
+            engine.SetValue("console", _scriptConsole);
+            engine.SetValue("configuration", configuration);
+
             foreach (var jobName in dependencies)
             {
                 var job = result.Jobs[jobName];
 
                 if (job.OnConfigure != null && job.OnConfigure.Any())
                 {
-                    var engine =  new Engine();
-                    
                     engine.SetValue("job", job);
-                    engine.SetValue("console", _scriptConsole);
 
                     foreach(var script in job.OnConfigure)
                     {
