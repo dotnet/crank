@@ -8,6 +8,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -23,6 +24,12 @@ namespace Microsoft.Crank.Jobs.Wrk2
 
         static async Task<int> Main(string[] args)
         {
+            if (Environment.OSVersion.Platform != PlatformID.Unix || RuntimeInformation.ProcessArchitecture != Architecture.X64)
+            {
+                Console.WriteLine($"Platform not supported: {Environment.OSVersion.Platform}/{RuntimeInformation.ProcessArchitecture}");
+                return -1;
+            }
+
             Console.WriteLine("WRK2 Client");
             Console.WriteLine("args: " + String.Join(' ', args));
 
