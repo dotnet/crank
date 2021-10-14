@@ -63,7 +63,7 @@ namespace Microsoft.Crank.Jobs.Wrk2
 
             args = argsList.Select(Quote).ToArray();
 
-            var baseArguments = String.Join(' ', args) + " --print r --format json";
+            var baseArguments = String.Join(' ', args) + "--format json";
 
             var process = new Process()
             {
