@@ -77,16 +77,18 @@ namespace Microsoft.Crank.Agent
         private static readonly string _perfviewUrl = $"https://github.com/Microsoft/perfview/releases/download/{PerfViewVersion}/PerfView.exe";
         private static readonly string _aspnet5FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
         private static readonly string _aspnet6FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
+        private static readonly string _aspnet7FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet7/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
 
         // Safe-keeping these urls
         //private static readonly string _latestRuntimeApiUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.linux-x64/index.json";
         //private static readonly string _latestDesktopApiUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.win-x64/index.json";
         //private static readonly string _releaseMetadata = "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/releases-index.json";
 
-        private static readonly string _latestSdkVersionUrl = "https://aka.ms/dotnet/6.0.1xx/daily/productCommit-win-x64.txt";
+        private static readonly string _latestSdkVersionUrl = "https://aka.ms/dotnet/7.0.1xx/daily/productCommit-win-x64.txt";
 
         private static readonly string _aspnetSdkVersionUrl = "https://raw.githubusercontent.com/dotnet/aspnetcore/main/global.json";
         private static readonly string[] _runtimeFeedUrls = new string[] {
+            "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet7/nuget/v3/flat2",
             "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2",
             "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2",
             "https://dotnetfeed.blob.core.windows.net/dotnet-core/flatcontainer",
@@ -2503,8 +2505,8 @@ namespace Microsoft.Crank.Agent
                 channel = job.Channel;
             }
 
-            // Until there is a "current" version of net6.0, use "edge"
-            if (targetFramework.Equals("net6.0"))
+            // Until there is a "current" version of net7.0, use "edge"
+            if (targetFramework.Equals("net7.0"))
             {
                 channel = "edge";
             }
@@ -2859,7 +2861,7 @@ namespace Microsoft.Crank.Agent
                     buildParameters += $"/p:MicrosoftNETPlatformLibrary=Microsoft.NETCore.App ";
                 }
             }
-            else if (targetFramework == "netcoreapp5.0" || targetFramework == "net5.0" || targetFramework == "net6.0")
+            else if (targetFramework == "net5.0" || targetFramework == "net6.0" || targetFramework == "net7.0")
             {
                 buildParameters += $"/p:MicrosoftNETCoreApp50PackageVersion={runtimeVersion} ";
                 buildParameters += $"/p:GenerateErrorForMissingTargetingPacks=false ";
@@ -3303,7 +3305,7 @@ namespace Microsoft.Crank.Agent
                     {
                         project.Root.Add(
                             new XElement("ItemGroup",
-                                new XAttribute("Condition", "$(TargetFramework) == 'netcoreapp3.0' or $(TargetFramework) == 'netcoreapp3.1' or $(TargetFramework) == 'netcoreapp5.0' or $(TargetFramework) == 'net5.0' or $(TargetFramework) == 'net6.0'"),
+                                new XAttribute("Condition", "$(TargetFramework) == 'netcoreapp3.0' or $(TargetFramework) == 'netcoreapp3.1' or $(TargetFramework) == 'net5.0' or $(TargetFramework) == 'net6.0' or $(TargetFramework) == 'net7.0'"),
                                 new XElement("FrameworkReference",
                                     new XAttribute("Update", "Microsoft.AspNetCore.App"),
                                     new XAttribute("RuntimeFrameworkVersion", "$(MicrosoftAspNetCoreAppPackageVersion)")
@@ -3319,7 +3321,7 @@ namespace Microsoft.Crank.Agent
                     {
                         project.Root.Add(
                             new XElement("ItemGroup",
-                                new XAttribute("Condition", "$(TargetFramework) == 'netcoreapp3.0' or $(TargetFramework) == 'netcoreapp3.1' or $(TargetFramework) == 'netcoreapp5.0' or $(TargetFramework) == 'net5.0' or $(TargetFramework) == 'net6.0'"),
+                                new XAttribute("Condition", "$(TargetFramework) == 'netcoreapp3.0' or $(TargetFramework) == 'netcoreapp3.1' or $(TargetFramework) == 'net5.0' or $(TargetFramework) == 'net6.0' or $(TargetFramework) == 'net7.0'"),
                                 new XElement("FrameworkReference",
                                     new XAttribute("Update", "Microsoft.AspNetCore.App"),
                                     new XAttribute("RuntimeFrameworkVersion", "$(MicrosoftAspNetCoreAppPackageVersion)")
@@ -3437,6 +3439,11 @@ namespace Microsoft.Crank.Agent
                 || String.Equals(aspNetCoreVersion, "Edge", StringComparison.OrdinalIgnoreCase))
             {
                 // aspnet runtime service releases are not published on feeds
+                if (versionPrefix == "7.0")
+                {
+                    aspNetCoreVersion = await GetFlatContainerVersion(_aspnet7FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
+                    Log.WriteLine($"ASP.NET: {aspNetCoreVersion} (Latest - From 7.0 feed)");
+                }
                 if (versionPrefix == "6.0")
                 {
                     aspNetCoreVersion = await GetFlatContainerVersion(_aspnet6FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
@@ -3882,10 +3889,9 @@ namespace Microsoft.Crank.Agent
 
                     break;
 
-                case "netcoreapp5.0":
                 case "net5.0":
 
-                    await DownloadFileAsync(String.Format(_aspNetCoreDependenciesUrl, "main/5.0/Versions.props"), aspNetCoreDependenciesPath, maxRetries: 5, timeout: 10);
+                    await DownloadFileAsync(String.Format(_aspNetCoreDependenciesUrl, "release/5.0/Versions.props"), aspNetCoreDependenciesPath, maxRetries: 5, timeout: 10);
                     latestRuntimeVersion = XDocument.Load(aspNetCoreDependenciesPath).Root
                         .Elements("PropertyGroup")
                         .Select(x => x.Element("MicrosoftNETCoreAppRuntimewinx64PackageVersion"))
@@ -3896,6 +3902,18 @@ namespace Microsoft.Crank.Agent
                     break;
 
                 case "net6.0":
+
+                    await DownloadFileAsync(String.Format(_aspNetCoreDependenciesUrl, "release/6.0/Versions.props"), aspNetCoreDependenciesPath, maxRetries: 5, timeout: 10);
+                    latestRuntimeVersion = XDocument.Load(aspNetCoreDependenciesPath).Root
+                        .Elements("PropertyGroup")
+                        .Select(x => x.Element("MicrosoftNETCoreAppRuntimewinx64PackageVersion"))
+                        .Where(x => x != null)
+                        .FirstOrDefault()
+                        .Value;
+
+                    break;
+
+                case "net7.0":
 
                     await DownloadFileAsync(String.Format(_aspNetCoreDependenciesUrl, "main/eng/Versions.props"), aspNetCoreDependenciesPath, maxRetries: 5, timeout: 10);
                     latestRuntimeVersion = XDocument.Load(aspNetCoreDependenciesPath).Root
@@ -3917,9 +3935,9 @@ namespace Microsoft.Crank.Agent
         /// </summary>
         private static async Task<(string Runtime, string Desktop, string AspNet, string Sdk)> GetCurrentVersions(string targetFramework)
         {
-            // There are currently no release for net6.0
+            // There are currently no release for net7.0
             // Remove once there is at least a preview and a "release-metadata" file
-            if (targetFramework.Equals("net6.0", StringComparison.OrdinalIgnoreCase))
+            if (targetFramework.Equals("net7.0", StringComparison.OrdinalIgnoreCase))
             {
                 return (null, null, null, null);
             }
@@ -5374,6 +5392,8 @@ namespace Microsoft.Crank.Agent
                 File.WriteAllText(rootNugetConfig, @"<?xml version=""1.0"" encoding=""utf-8""?>
 <configuration>
   <packageSources>
+    <add key=""benchmarks-dotnet7"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet7/nuget/v3/index.json"" />
+    <add key=""benchmarks-dotnet7-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet7-transport/nuget/v3/index.json"" />
     <add key=""benchmarks-dotnet6"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/index.json"" />
     <add key=""benchmarks-dotnet6-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6-transport/nuget/v3/index.json"" />
     <add key=""benchmarks-dotnet5"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/index.json"" />
