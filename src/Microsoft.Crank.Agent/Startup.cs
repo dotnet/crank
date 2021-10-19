@@ -2547,6 +2547,7 @@ namespace Microsoft.Crank.Agent
                 || aspNetCoreVersion.StartsWith("3.1") 
                 || aspNetCoreVersion.StartsWith("5.0")
                 || aspNetCoreVersion.StartsWith("6.0")
+                || aspNetCoreVersion.StartsWith("7.0")
                 ;
 
             var dotnetInstallStep = "";
