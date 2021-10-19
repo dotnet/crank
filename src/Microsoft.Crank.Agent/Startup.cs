@@ -4470,11 +4470,26 @@ namespace Microsoft.Crank.Agent
                 catch (EndOfStreamException)
                 {
                     Log.WriteLine($"[ERROR] Application stopped before an event pipe session could be created ({job.Service}:{job.Id})");
-                    await Task.Delay(retryDelay);
+                    return;
+                }
+                catch (TimeoutException)
+                {
+                    Log.WriteLine($"[ERROR] Event pipe session creation timed out. Application might be stopped ({job.Service}:{job.Id})");
+                    return;
                 }
                 catch (Exception e)
                 {
                     Log.WriteLine("[ERROR] DiagnosticsClient.StartEventPipeSession() -> " + e.ToString());
+
+                    if (job.State == JobState.Deleting
+                        || job.State == JobState.Deleted
+                        || job.State == JobState.Stopping
+                        || job.State == JobState.Stopped
+                        || job.State == JobState.Failed)
+                    {
+                        return;
+                    }
+ 
                     await Task.Delay(retryDelay);
                 }
 
