@@ -3445,7 +3445,7 @@ namespace Microsoft.Crank.Agent
                     aspNetCoreVersion = await GetFlatContainerVersion(_aspnet7FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
                     Log.WriteLine($"ASP.NET: {aspNetCoreVersion} (Latest - From 7.0 feed)");
                 }
-                if (versionPrefix == "6.0")
+                else if (versionPrefix == "6.0")
                 {
                     aspNetCoreVersion = await GetFlatContainerVersion(_aspnet6FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
                     Log.WriteLine($"ASP.NET: {aspNetCoreVersion} (Latest - From 6.0 feed)");
