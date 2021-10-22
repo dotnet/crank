@@ -71,7 +71,8 @@ namespace Microsoft.Crank.Controller
             _quietOption,
             _scriptOption,
             _excludeOption,
-            _excludeOrderOption
+            _excludeOrderOption,
+            _debugOption
             ;
 
         // The dynamic arguments that will alter the configurations
@@ -164,7 +165,8 @@ namespace Microsoft.Crank.Controller
             _quietOption = app.Option("--quiet", "Quiet output, only the results are displayed", CommandOptionType.NoValue);
             _excludeOption = app.Option("-x|--exclude", "Excludes the specified number of high and low results, e.g., 1, 1:0 (exclude the lowest), 0:3 (exclude the 3 highest)", CommandOptionType.SingleValue);
             _excludeOrderOption = app.Option("-xo|--exclude-order", "The result to use to detect the high and low results, e.g., 'load:wrk/rps/mean'", CommandOptionType.SingleValue);
-            
+            _debugOption = app.Option("-d|--debug", "Saves the final configuration to a file and skips the execution of the benchmark, e.g., '-d debug.json'", CommandOptionType.SingleValue);
+
             app.Command("compare", compareCmd =>
             {
                 compareCmd.Description = "Compares result files";
@@ -446,7 +448,12 @@ namespace Microsoft.Crank.Controller
                     if (!service.Endpoints.Any())
                     {
                         Console.WriteLine($"The service '{jobName}' is missing an endpoint to deploy on.");
-                        return -1;
+
+                        // Only display as a warning if in debug mode
+                        if (!_debugOption.HasValue())
+                        {
+                            return -1;
+                        }
                     }
 
                     foreach (var endpoint in service.Endpoints)
@@ -462,9 +469,21 @@ namespace Microsoft.Crank.Controller
                         catch (Exception e)
                         {
                             Console.WriteLine($"The specified endpoint url '{endpoint}' for '{jobName}' is invalid or not responsive: \"{e.Message}\"");
-                            return -1;
+
+                            // Only display as a warning if in debug mode
+                            if (!_debugOption.HasValue())
+                            {
+                                return -1;
+                            }
                         }
                     }
+                }
+
+                if (_debugOption.HasValue())
+                {
+                    File.WriteAllText(_debugOption.Value(), JsonConvert.SerializeObject(configuration, Formatting.Indented));
+                    Console.WriteLine($"Configuration saved in file {Path.GetFullPath(_debugOption.Value())}");
+                    return 0;
                 }
 
                 // Initialize database
@@ -1314,7 +1333,7 @@ namespace Microsoft.Crank.Controller
             IEnumerable<string> customJobs,
             IEnumerable<KeyValuePair<string, string>> arguments,
             JObject commandLineVariables,
-            IEnumerable<string> profiles,
+            IEnumerable<string> profileNames,
             IEnumerable<string> scripts,
             int interval
             )
@@ -1397,9 +1416,13 @@ namespace Microsoft.Crank.Controller
             // After that point we only modify the JObject representation of Configuration
             configuration = JObject.FromObject(configurationInstance);
 
-            // Apply profiles
-            foreach (var profileName in profiles)
+            // Apply the profiles to the configuration
+            // 1- The default values of the profile is applied to all jobs
+            // 2- The job specific values are applied accordingly to each named job
+
+            foreach (var profileName in profileNames)
             {
+                // Check the requested profile name exists
                 if (!configurationInstance.Profiles.ContainsKey(profileName))
                 {
                     var availableProfiles = String.Join("', '", configurationInstance.Profiles.Keys);
@@ -1407,11 +1430,24 @@ namespace Microsoft.Crank.Controller
                 }
 
                 var profile = (JObject)configuration["Profiles"][profileName];
-                
-                // Patch the configuration with each profile.
-                // This will update the global variables and also each scenario's job
 
-                PatchObject(configuration, profile);
+                // Patch all jobs with the profile's default values (Step 1)
+                var profileWithoutJob = (JObject) profile.DeepClone();
+                profileWithoutJob.Remove("jobs");
+                profileWithoutJob.Remove("Jobs");
+
+                foreach (JProperty jobProperty in configuration["Jobs"] ?? new JObject())
+                {
+                    PatchObject((JObject) jobProperty.Value, profileWithoutJob);
+                }
+
+                // Patch each specific job (Step 2)
+
+                var profileWithoutVariables = (JObject)profile.DeepClone();
+                profileWithoutVariables.Remove("variables");
+                profileWithoutVariables.Remove("Variables");
+
+                PatchObject(configuration, profileWithoutVariables);
             }
 
             // Apply custom arguments
@@ -1473,7 +1509,7 @@ namespace Microsoft.Crank.Controller
 
                 // Variable are merged again in the job such that all variables (root, job, command line) be
                 // available in scripts
-                job["Variables"] = MergeVariables(variables, job["Variables"]);
+                job["Variables"] = variables;
             }
 
             var result = configuration.ToObject<Configuration>();
@@ -1496,7 +1532,7 @@ namespace Microsoft.Crank.Controller
             var engine = new Engine();
 
             engine.SetValue("console", _scriptConsole);
-            engine.SetValue("configuration", configuration);
+            engine.SetValue("configuration", result);
 
             foreach (var jobName in dependencies)
             {

@@ -37,6 +37,7 @@ Options:
   --chart-type [bar (default) | hex]                             Type of chart to render. Values are 'bar' (default) or 'hex'
   --chart-scale [off (default)| auto]                            Scale for chart. Values are 'off' (default) or 'auto'. When scale is off, the min value starts at 0.
   --script [name]                                                Execute a named script available in the configuration files. Can be used multiple times.
+  --debug <filename>                                             Saves the final configuration to a file and skips the execution of the benchmark, e.g., '-d debug.json'
 
   These options are specific to a Job service named [JOB]
 
