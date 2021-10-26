@@ -2931,8 +2931,7 @@ namespace Microsoft.Crank.Agent
                 Log.WriteLine($"Working directory: {benchmarkedApp}");
                 Log.WriteLine($"Command line: {dotnetExecutable} {arguments}");
 
-                var stopwatch = new Stopwatch();
-                stopwatch.Start();
+                var stopwatch = Stopwatch.StartNew();
 
                 job.BuildLog.AddLine($"\nCommand:\ndotnet {arguments}");
 
@@ -2944,18 +2943,7 @@ namespace Microsoft.Crank.Agent
                     cancellationToken: cancellationToken
                     );
 
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    return null;
-                }
-
                 job.BuildLog.AddLine($"Exit code: {buildResults.ExitCode}");
-
-                if (buildResults.ExitCode != 0)
-                {
-                    job.Error = job.BuildLog.ToString();
-                    return null;
-                }
 
                 stopwatch.Stop();
 
@@ -2967,6 +2955,22 @@ namespace Microsoft.Crank.Agent
                     Timestamp = DateTime.UtcNow,
                     Value = stopwatch.ElapsedMilliseconds
                 });
+
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    Log.WriteLine(job.BuildLog.ToString(), false);
+                    job.ExitCode = -1;
+                    job.Error = job.BuildLog.ToString();
+                    return null;
+                }
+
+                if (buildResults.ExitCode != 0)
+                {
+                    Log.WriteLine(job.BuildLog.ToString(), false);
+                    job.ExitCode = buildResults.ExitCode;
+                    job.Error = job.BuildLog.ToString();
+                    return null;
+                }
 
                 Log.WriteLine($"Application published successfully in {job.BuildTime.TotalMilliseconds} ms");
 
