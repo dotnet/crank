@@ -519,7 +519,7 @@ SOFTWARE.
 
 -------------------------------------------------------------------
 
-Manatee.Json 13.0.2 - MIT
+Manatee.Json 13.0.5 - MIT
 
 Copyright (c) 2016 Little Crab Solutions (Greg Dennis)
 
