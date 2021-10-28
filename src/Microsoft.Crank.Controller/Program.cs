@@ -32,6 +32,7 @@ namespace Microsoft.Crank.Controller
     {
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
+        private static readonly FluidParser FluidParser = new FluidParser();
 
         private static string _tableName = "Benchmarks";
         private static string _sqlConnectionString = "";
@@ -96,10 +97,10 @@ namespace Microsoft.Crank.Controller
 
             _httpClient = new HttpClient(_httpClientHandler);
 
-            TemplateContext.GlobalMemberAccessStrategy.Register<JObject, object>((obj, name) => obj[name]);
-            FluidValue.SetTypeMapping<JObject>(o => new ObjectValue(o));
-            FluidValue.SetTypeMapping<JValue>(o => FluidValue.Create(((JValue)o).Value));
-            FluidValue.SetTypeMapping<DateTime>(o => new ObjectValue(o));
+            TemplateOptions.Default.MemberAccessStrategy.Register<JObject, object>((obj, name) => obj[name]);
+            TemplateOptions.Default.ValueConverters.Add(x => x is JObject o ? new ObjectValue(o) : null);
+            TemplateOptions.Default.ValueConverters.Add(x => x is JValue v ? v.Value : null);
+            TemplateOptions.Default.ValueConverters.Add(x => x is DateTime v ? new ObjectValue(v) : null);
         }
 
         private static char[] barChartChars = " ▁▂▃▄▅▆▇█".ToCharArray();
@@ -1652,7 +1653,7 @@ namespace Microsoft.Crank.Controller
 
                         if (template.Contains("{"))
                         {
-                            if (FluidTemplate.TryParse(template, out var tree))
+                            if (FluidParser.TryParse(template, out var tree))
                             {
                                 jValue.Value = tree.Render(templateContext);
                             }
