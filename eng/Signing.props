@@ -5,6 +5,8 @@
   -->
   <ItemGroup>
     <FileSignInfo Include="Fluid.dll" CertificateName="3PartySHA2" />
+    <FileSignInfo Include="Parlot.dll" CertificateName="3PartySHA2" />
+    <FileSignInfo Include="TimeZoneConverter.dll" CertificateName="3PartySHA2" />
     <FileSignInfo Include="Irony.dll" CertificateName="3PartySHA2" />
     <FileSignInfo Include="Manatee.Json.dll" CertificateName="3PartySHA2" />
     <FileSignInfo Include="Newtonsoft.Json.dll" CertificateName="3PartySHA2" />
