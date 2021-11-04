@@ -492,6 +492,9 @@ results: # creates results from measurements
 - name: kestrel-counter/connections-per-second
   measurement: kestrel-counter/connections-per-second
   description: Max Connections per second
+  format: n0
+  aggregate: max
+  reduce: max
 
 - name: kestrel-counter/total-connections
   measurement: kestrel-counter/total-connections
