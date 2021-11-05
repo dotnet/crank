@@ -30,7 +30,7 @@ jobs:
       serverPort: 5000
       serverPath: /
       customHeaders: [ ] # list of headers with the format: '<name1>: <value1>', e.g. [ 'content-type: application/json' ]
-    arguments: "-c {{connections}} {% if serverUri == blank %} {{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}} {% else %} {{serverUri}}:{{serverPort}}{{path}} {% endif %} --latency -d {{duration}}s -w {{warmup}}s -t {{threads}} {{headers[presetHeaders]}} {% for h in customHeaders %}{% assign s = h | split : ':' %}--header \"{{ s[0] }}: {{ s[1] | strip }}\" {% endfor %} {% if pipeline > 1 %} -s scripts/pipeline.lua -- {{ pipeline }} {% elsif script != blank  %} -s {{script}} -- {{scriptArguments}} {% endif %}"
+    arguments: "-c {{connections}} {% if serverUri == blank or serverUri == empty %} {{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}} {% else %} {{serverUri}}:{{serverPort}}{{path}} {% endif %} --latency -d {{duration}}s -w {{warmup}}s -t {{threads}} {{headers[presetHeaders]}} {% for h in customHeaders %}{% assign s = h | split : ':' %}--header \"{{ s[0] }}: {{ s[1] | strip }}\" {% endfor %} {% if pipeline > 1 %} -s scripts/pipeline.lua -- {{ pipeline }} {% elsif script != blank and script != empty %} -s {{script}} -- {{scriptArguments}} {% endif %}"
     options:
       requiredOperatingSystem: linux
     onConfigure:
