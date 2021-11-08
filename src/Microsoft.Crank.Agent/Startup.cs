@@ -62,7 +62,7 @@ namespace Microsoft.Crank.Agent
             Based on the target framework
          */
 
-        private static string DefaultTargetFramework = "net5.0";
+        private static string DefaultTargetFramework = "net6.0";
         private static string DefaultChannel = "current";
 
         private const string PerfViewVersion = "P2.0.68";
@@ -2489,6 +2489,7 @@ namespace Microsoft.Crank.Agent
             if (!String.IsNullOrEmpty(job.Framework))
             {
                 targetFramework = job.Framework;
+                Log.WriteLine($"Specific target framework: '{targetFramework}'");
             }
 
             // If no version is set for runtime, check project's default tfm
@@ -2817,13 +2818,13 @@ namespace Microsoft.Crank.Agent
                 $"/p:MicrosoftNETCoreAppPackageVersion={runtimeVersion} " +
                 $"/p:MicrosoftAspNetCoreAppPackageVersion={aspNetCoreVersion} " +
                 // The following properties could be removed in a future version
-                $"/p:BenchmarksNETStandardImplicitPackageVersion={aspNetCoreVersion} " +
-                $"/p:BenchmarksNETCoreAppImplicitPackageVersion={aspNetCoreVersion} " +
-                $"/p:BenchmarksRuntimeFrameworkVersion={runtimeVersion} " +
-                $"/p:BenchmarksTargetFramework={targetFramework} " +
-                $"/p:BenchmarksAspNetCoreVersion={aspNetCoreVersion} " +
-                $"/p:MicrosoftAspNetCoreAllPackageVersion={aspNetCoreVersion} " +
-                $"/p:NETCoreAppMaximumVersion=99.9 "; // Force the SDK to accept the TFM even if it's an unknown one. For instance using SDK 2.1 to build a netcoreapp2.2 TFM.
+                //$"/p:BenchmarksNETStandardImplicitPackageVersion={aspNetCoreVersion} " +
+                //$"/p:BenchmarksNETCoreAppImplicitPackageVersion={aspNetCoreVersion} " +
+                //$"/p:BenchmarksRuntimeFrameworkVersion={runtimeVersion} " +
+                //$"/p:BenchmarksTargetFramework={targetFramework} " +
+                //$"/p:BenchmarksAspNetCoreVersion={aspNetCoreVersion} " +
+                //$"/p:MicrosoftAspNetCoreAllPackageVersion={aspNetCoreVersion} " +
+                //$"/p:NETCoreAppMaximumVersion=99.9 "; // Force the SDK to accept the TFM even if it's an unknown one. For instance using SDK 2.1 to build a netcoreapp2.2 TFM.
 
             if (OperatingSystem == OperatingSystem.Windows)
             {
@@ -3255,6 +3256,10 @@ namespace Microsoft.Crank.Agent
                         Log.WriteLine($"Detected target framework: '{targetFramework}'");
                     }
                 }
+            }
+            else
+            {
+                Log.WriteLine($"Project file not found: '{projectFileName}'");
             }
 
             return targetFramework;
