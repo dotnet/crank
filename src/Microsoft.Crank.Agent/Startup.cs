@@ -2816,7 +2816,7 @@ namespace Microsoft.Crank.Agent
 
             var buildParameters =
                 $"/p:MicrosoftNETCoreAppPackageVersion={runtimeVersion} " +
-                $"/p:MicrosoftAspNetCoreAppPackageVersion={aspNetCoreVersion} " +
+                $"/p:MicrosoftAspNetCoreAppPackageVersion={aspNetCoreVersion} "
                 // The following properties could be removed in a future version
                 //$"/p:BenchmarksNETStandardImplicitPackageVersion={aspNetCoreVersion} " +
                 //$"/p:BenchmarksNETCoreAppImplicitPackageVersion={aspNetCoreVersion} " +
@@ -2825,6 +2825,7 @@ namespace Microsoft.Crank.Agent
                 //$"/p:BenchmarksAspNetCoreVersion={aspNetCoreVersion} " +
                 //$"/p:MicrosoftAspNetCoreAllPackageVersion={aspNetCoreVersion} " +
                 //$"/p:NETCoreAppMaximumVersion=99.9 "; // Force the SDK to accept the TFM even if it's an unknown one. For instance using SDK 2.1 to build a netcoreapp2.2 TFM.
+                ;
 
             if (OperatingSystem == OperatingSystem.Windows)
             {
