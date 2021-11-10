@@ -37,6 +37,7 @@ namespace hello
             {
                 endpoints.MapGet("/", async context =>
                 {
+                    await Task.Delay(100);
                     await context.Response.WriteAsync("Hello World!");
                 });
             });
