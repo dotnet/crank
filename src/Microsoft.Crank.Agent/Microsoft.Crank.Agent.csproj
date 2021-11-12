@@ -26,6 +26,11 @@
     <PackageReference Include="Mono.Cecil" Version="0.11.3" />
     <PackageReference Include="Mono.Posix.NETStandard" Version="1.0.0" />
     <PackageReference Include="NuGet.Versioning" Version="5.5.1" />
+    
+    <!-- Force version for Component Governance compliance -->
+    <PackageReference Include="System.Text.Encodings.Web" Version="4.5.1" >
+      <AllowExplicitReference>true</AllowExplicitReference>
+    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
