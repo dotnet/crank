@@ -165,7 +165,7 @@ namespace Microsoft.Crank.Controller
             _verboseOption = app.Option("-v|--verbose", "Verbose output", CommandOptionType.NoValue);
             _quietOption = app.Option("--quiet", "Quiet output, only the results are displayed", CommandOptionType.NoValue);
             _excludeOption = app.Option("-x|--exclude", "Excludes the specified number of high and low results, e.g., 1, 1:0 (exclude the lowest), 0:3 (exclude the 3 highest)", CommandOptionType.SingleValue);
-            _excludeOrderOption = app.Option("-xo|--exclude-order", "The result to use to detect the high and low results, e.g., 'load:wrk/rps/mean'", CommandOptionType.SingleValue);
+            _excludeOrderOption = app.Option("-xo|--exclude-order", "The result to use to detect the high and low results, e.g., 'load:http/rps/mean'", CommandOptionType.SingleValue);
             _debugOption = app.Option("-d|--debug", "Saves the final configuration to a file and skips the execution of the benchmark, e.g., '-d debug.json'", CommandOptionType.SingleValue);
 
             app.Command("compare", compareCmd =>
@@ -260,9 +260,15 @@ namespace Microsoft.Crank.Controller
                     + Convert.ToInt32(_excludeOrderOption.HasValue())
                     ;
 
-                if (excludeOptions > 0 && excludeOptions != 2)
+                if (_excludeOrderOption.HasValue() && !_excludeOption.HasValue())
                 {
-                    Console.WriteLine("All exclude options need to be set: --exclude, --exclude-order.");
+                    Console.WriteLine("--exclude [hi:low] needs to be set when using --exclude-order.");
+                    return -1;
+                }
+
+                if (_excludeOption.HasValue() && !_excludeOrderOption.HasValue())
+                {
+                    Console.WriteLine("--exclude can't be used without --exclude-order. e.g., --exclude-order load:http/rps/mean");
                     return -1;
                 }
 
@@ -280,9 +286,9 @@ namespace Microsoft.Crank.Controller
 
                     if (segments.Length == 1)
                     {
-                        if (!Int32.TryParse(segments[0], out excludeLow) || excludeLow < 1)
+                        if (!Int32.TryParse(segments[0], out excludeLow) || excludeLow < 0)
                         {
-                            Console.WriteLine($"Invalid value for --exclude <x> option. A positive integer was expected.");
+                            Console.WriteLine($"Invalid value for --exclude <x> option. An integer value greater or equal to 0 was expected.");
                             return -1;
                         }
 
@@ -290,22 +296,22 @@ namespace Microsoft.Crank.Controller
                     }
                     else if (segments.Length == 2)
                     {
-                        if (!Int32.TryParse(segments[0], out excludeLow) || excludeLow < 1)
+                        if (!Int32.TryParse(segments[0], out excludeLow) || excludeLow < 0)
                         {
-                            Console.WriteLine($"Invalid value for --exclude <low:high> option. A positive integer was expected as the lower value.");
+                            Console.WriteLine($"Invalid value for --exclude <low:high> option. An integer value greater or equal to 0 was expected.");
                             return -1;
                         }
 
-                        if (!Int32.TryParse(segments[1], out excludeHigh) || excludeHigh < 1)
+                        if (!Int32.TryParse(segments[1], out excludeHigh) || excludeHigh < 0)
                         {
-                            Console.WriteLine($"Invalid value for --exclude <low:high> option. A positive integer was expected as the higher value.");
+                            Console.WriteLine($"Invalid value for --exclude <low:high> option. An integer value greater or equal to 0 was expected.");
                             return -1;
                         }
                     }
 
                     if (iterations <= excludeLow + excludeHigh)
                     {
-                        Console.WriteLine($"Invalid value for --exclude option. Remaining benchmarks number is negative.");
+                        Console.WriteLine($"Invalid value for --exclude option. Can't exclude more results than the iterations.");
                         return -1;
                     }
 
@@ -313,7 +319,7 @@ namespace Microsoft.Crank.Controller
 
                     if (excludeOrder.Length != 2)
                     {
-                        Console.WriteLine("The option -xo|--exclude-order format is <job>:<result>, e.g., 'load:wrk/rps/mean'");
+                        Console.WriteLine("The option -xo|--exclude-order format is <job>:<result>, e.g., 'load:http/rps/mean'");
                         return -1;
                     }
 
@@ -885,9 +891,12 @@ namespace Microsoft.Crank.Controller
                     jobResults.Properties[segments[0]] = segments[1];
                 }
 
+                // Duplicate measurements with multiple keys
+                DuplicateMeasurementKeys(jobResults);
+
                 executionResult.JobResults = jobResults;
                 executionResults.Add(executionResult);
-
+                
                 // If last iteration, create average and display results
                 if (iterations > 1 && i == iterations)
                 {
@@ -899,21 +908,43 @@ namespace Microsoft.Crank.Controller
                         {
                             Log.WriteWarning($"A benchmark didn't contain the expected job '{exclude.Job}', the exclusion will be ignored.");
                         }
-                        else if (executionResults.Any(x => !x.JobResults.Jobs[exclude.Job].Results.ContainsKey(exclude.Result) ))
+                        else
                         {
-                            Log.WriteWarning($"A benchmark didn't contain the expected result ('{exclude.Result}'), the exclusion will be ignored.");
-                        } 
-                        else 
-                        {
-                            var orderedResults = executionResults.OrderBy(x => x.JobResults.Jobs[exclude.Job].Results[exclude.Result]);
-                            var includedResults = executionResults.Skip(exclude.Low).SkipLast(exclude.High);
-                            var excludedresults = executionResults.Except(includedResults);
+                            if (executionResults.Any(x => !x.JobResults.Jobs[exclude.Job].Results.ContainsKey(exclude.Result)))
+                            {
+                                Log.WriteWarning($"A benchmark didn't contain the expected result ('{exclude.Result}'), the iteration will be ignored.");
+                            }
 
-                            Console.WriteLine($"Excluded values: {string.Join(", ", excludedresults.Select(x => x.JobResults.Jobs[exclude.Job].Results[exclude.Result]))}");
-                            Console.WriteLine($"Remaining values: {string.Join(", ", includedResults.Select(x => x.JobResults.Jobs[exclude.Job].Results[exclude.Result]))}");
+                            // Keep the iterations with the results it can be ordered on
+                            var validResults = executionResults.Where(x => x.JobResults.Jobs[exclude.Job].Results.ContainsKey(exclude.Result)).ToArray();
 
-                            executionResults = includedResults.ToList();
-                        }                    
+                            var orderedResults = validResults.OrderBy(x => x.JobResults.Jobs[exclude.Job].Results[exclude.Result]).ToArray();
+                            var includedResults = orderedResults.Skip(exclude.Low).SkipLast(exclude.High).ToList();
+                            var excludedresults = validResults.Except(includedResults).ToArray();
+
+                            Console.WriteLine();
+                            Console.WriteLine($"Values of {exclude.Job}->{exclude.Result}:");
+                            Console.WriteLine();
+
+                            for (var iter = 0; iter < executionResults.Count; iter++)
+                            {
+                                var result = executionResults[iter];
+                                if (!result.JobResults.Jobs[exclude.Job].Results.ContainsKey(exclude.Result))
+                                {
+                                    Console.WriteLine($"{iter + 1}/{iterations}: No result - Skipped");
+                                }
+                                else if (includedResults.Contains(result))
+                                {
+                                    Console.WriteLine($"{iter + 1}/{iterations}: {result.JobResults.Jobs[exclude.Job].Results[exclude.Result]} - Included");
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"{iter + 1}/{iterations}: {result.JobResults.Jobs[exclude.Job].Results[exclude.Result]} - Excluded");
+                                }
+                            }
+
+                            executionResults = includedResults;
+                        }
                     }
 
                     // Compute averages
@@ -2101,6 +2132,43 @@ namespace Microsoft.Crank.Controller
             return jobResults;
         }
 
+        private static void DuplicateMeasurementKeys(JobResults jobResults)
+        {
+            // Remove metadata
+            foreach (var jobResult in jobResults.Jobs.Values)
+            {
+                // Duplicate multi key values (if the key contains ';') then it means the key is currently migrated 
+                // and it wants both keys to have the result for backward compatibility
+                foreach (var result in jobResult.Results.ToArray())
+                {
+                    if (result.Key.Contains(";"))
+                    {
+                        var keys = result.Key.Split(';', StringSplitOptions.RemoveEmptyEntries);
+
+                        foreach (var key in keys)
+                        {
+                            jobResult.Results[key] = result.Value;
+                        }
+
+                        jobResult.Results.Remove(result.Key);
+                    }
+                }
+
+                // Keep only one metadata such that results are not duplicated in the output
+                for (var i = 0; i< jobResult.Metadata.Length; i++)
+                {
+                    var metadata = jobResult.Metadata[i];
+
+                    if (metadata.Name.Contains(";"))
+                    {
+                        var keys = metadata.Name.Split(';', StringSplitOptions.RemoveEmptyEntries);
+
+                        metadata.Name = keys.Last();
+                    }
+                }
+            }
+        }
+
         private static void CleanMeasurements(JobResults jobResults)
         {
             // Remove metadata
@@ -2116,23 +2184,6 @@ namespace Microsoft.Crank.Controller
                 if (_excludeMeasurementsOption.HasValue())
                 {
                     jobResult.Measurements.Clear();
-                }
-
-                // Duplicate multi key values (if the key contains ';') then it means the key is currently migrated 
-                // and it wants both keys to have the result for backward compatibility
-                foreach (var result in jobResult.Results.ToArray())
-                {
-                    if (result.Key.Contains(";"))
-                    {
-                        var keys = result.Key.Split(';', StringSplitOptions.RemoveEmptyEntries);
-                        
-                        foreach (var key in keys)
-                        {
-                            jobResult.Results[key] = result.Value;
-                        }
-
-                        jobResult.Results.Remove(result.Key);
-                    }
                 }
             }
         }
