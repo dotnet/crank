@@ -136,7 +136,7 @@ namespace Microsoft.Crank.IntegrationTests
 
             var result = await ProcessUtil.RunAsync(
                 "dotnet", 
-                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --exclude 1 --exclude-order load:bombardier/rps/mean;http/rps/mean --iterations 3", 
+                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --exclude 1 --exclude-order load:http/rps/mean --iterations 3", 
                 workingDirectory: _crankTestsDirectory,
                 captureOutput: true,
                 timeout: TimeSpan.FromMinutes(5),
@@ -149,7 +149,7 @@ namespace Microsoft.Crank.IntegrationTests
             Assert.Contains("Iteration 1 of 3", result.StandardOutput);
             Assert.Contains("Iteration 2 of 3", result.StandardOutput);
             Assert.Contains("Iteration 3 of 3", result.StandardOutput);
-            Assert.Contains("Excluded values:", result.StandardOutput);
+            Assert.Contains("Values of load->http/rps/mean:", result.StandardOutput);
         }
         
         [Fact]
