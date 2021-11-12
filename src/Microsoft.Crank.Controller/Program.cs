@@ -2166,6 +2166,27 @@ namespace Microsoft.Crank.Controller
                         metadata.Name = keys.Last();
                     }
                 }
+
+                // Duplicate measurements
+                var measurementSets = jobResult.Measurements.ToArray();
+                jobResult.Measurements.Clear();
+
+                foreach (var measurementSet in measurementSets)
+                {
+                    jobResult.Measurements.Add(measurementSet.SelectMany(x =>
+                    {
+                        if (!x.Name.Contains(";"))
+                        {
+                            return new[] { x };
+                        }
+                        else
+                        {
+                            return x.Name.Split(';', StringSplitOptions.RemoveEmptyEntries).Select(
+                                key => new Measurement { Name = key, Timestamp = x.Timestamp, Value = x.Value }
+                                );
+                        }
+                    }).ToArray());
+                }
             }
         }
 
