@@ -51,6 +51,7 @@ namespace Microsoft.Crank.Controller
             _jobOption,
             _profileOption,
             _jsonOption,
+            _csvOption,
             _compareOption,
             _variableOption,
             _sqlConnectionStringOption,
@@ -143,6 +144,7 @@ namespace Microsoft.Crank.Controller
             _profileOption = app.Option("--profile", "Profile name", CommandOptionType.MultipleValue);
             _scriptOption = app.Option("--script", "Execute a named script available in the configuration files. Can be used multiple times.", CommandOptionType.MultipleValue);
             _jsonOption = app.Option("-j|--json", "Saves the results as json in the specified file.", CommandOptionType.SingleValue);
+            _csvOption = app.Option("--csv", "Saves the results as csv in the specified file.", CommandOptionType.SingleValue);
             _compareOption = app.Option("--compare", "An optional filename to compare the results to. Can be used multiple times.", CommandOptionType.MultipleValue);
             _variableOption = app.Option("--variable", "Variable", CommandOptionType.MultipleValue);
             _sqlConnectionStringOption = app.Option("--sql",
@@ -551,6 +553,10 @@ namespace Microsoft.Crank.Controller
                         if (_jsonOption.HasValue())
                         {
                             jobName = Path.GetFileNameWithoutExtension(_jsonOption.Value());
+                        }
+                        else if (_csvOption.HasValue())
+                        {
+                            jobName = Path.GetFileNameWithoutExtension(_csvOption.Value());
                         }
                     }
 
@@ -971,21 +977,117 @@ namespace Microsoft.Crank.Controller
 
                 if (_jsonOption.HasValue())
                 {
-                    var filename = _jsonOption.Value();
-                    
-                    var directory = Path.GetDirectoryName(filename);
-                    if (!String.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-                    {
-                        Directory.CreateDirectory(directory);
-                    }
-
                     // Skip saving the file if running with iterations and not the last run
                     if (i == iterations)
                     {
+                        var filename = _jsonOption.Value();
+                    
+                        var directory = Path.GetDirectoryName(filename);
+                        if (!String.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                        {
+                            Directory.CreateDirectory(directory);
+                        }
+
                         await File.WriteAllTextAsync(filename, JsonConvert.SerializeObject(executionResults.First(), Formatting.Indented, new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() }));
 
                         Log.Write("", notime: true);
                         Log.Write($"Results saved in '{new FileInfo(filename).FullName}'", notime: true);
+                    }
+                } 
+                
+                if (_csvOption.HasValue())
+                {
+                    // Skip saving the file if running with iterations and not the last run
+                    if (i == iterations)
+                    {
+                        var filename = _csvOption.Value();
+
+                        var directory = Path.GetDirectoryName(filename);
+                        if (!String.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                        {
+                            Directory.CreateDirectory(directory);
+                        }
+
+                        var result = executionResults.First();
+
+                        // Create the headers
+                        if (!File.Exists(filename))
+                        {
+                            using (var w = File.CreateText(filename))
+                            {
+                                await w.WriteLineAsync(String.Join(",", GetHeaders().Select(EscapeCsvValue)));
+                            }
+                        }
+
+                        await File.AppendAllTextAsync(filename, String.Join(",", GetValues().Select(EscapeCsvValue)) + Environment.NewLine);
+
+                        Log.Write("", notime: true);
+                        Log.Write($"Results saved in '{new FileInfo(filename).FullName}'", notime: true);
+
+
+                        IEnumerable<string> GetHeaders()
+                        {
+                            yield return "Session";
+                            yield return "DateTimeUtc";
+
+                            foreach (var job in result.JobResults.Jobs)
+                            {
+                                foreach (var m in job.Value.Metadata)
+                                {
+                                    // application.aspnetCoreVersion
+                                    yield return job.Key + "." + m.Name;
+                                }
+
+                                foreach (var e in job.Value.Environment)
+                                {
+                                    yield return job.Key + "." + e.Key;
+                                }
+                            }
+
+                            foreach (var p in result.JobResults.Properties)
+                            {
+                                yield return p.Key;
+                            }
+                        }
+
+                        IEnumerable<string> GetValues()
+                        {
+                            yield return session;
+                            yield return DateTime.UtcNow.ToString("s");
+
+                            foreach (var job in result.JobResults.Jobs)
+                            {
+                                foreach (var m in job.Value.Metadata)
+                                {
+                                    yield return job.Value.Results.ContainsKey(m.Name)
+                                        ? Convert.ToString(job.Value.Results[m.Name], System.Globalization.CultureInfo.InvariantCulture)
+                                        : ""
+                                        ;
+                                }
+
+                                foreach (var e in job.Value.Environment)
+                                {
+                                    yield return Convert.ToString(e.Value, System.Globalization.CultureInfo.InvariantCulture);
+                                }
+                            }
+
+                            foreach (var p in result.JobResults.Properties)
+                            {
+                                yield return Convert.ToString(p.Value, System.Globalization.CultureInfo.InvariantCulture);
+                            }
+                        }
+
+                        string EscapeCsvValue(string value)
+                        {
+                            if (value.Contains("\""))
+                            {
+                                return "\"" + value.Replace("\"", "\"\"") + "\"";
+                            }
+                            else
+                            {
+                                return "\"" + value + "\"";
+                            }
+                        }
                     }
                 }
 
