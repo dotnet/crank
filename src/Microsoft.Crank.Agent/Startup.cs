@@ -4206,6 +4206,12 @@ namespace Microsoft.Crank.Agent
                 executable = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), @"System32\inetsrv\w3wp.exe");
             }
 
+            // If the platform is Linux, make sure we can run the executable 
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                await ProcessUtil.RunAsync("chmod", $"+x {executable}", log: true);
+            }
+
             // The cgroup limits are set on the root group as .NET is reading these only, and not the ones that it would run inside
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && (job.MemoryLimitInBytes > 0 || job.CpuLimitRatio > 0 || !String.IsNullOrEmpty(job.CpuSet)))
