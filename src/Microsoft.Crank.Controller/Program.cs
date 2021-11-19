@@ -1534,10 +1534,10 @@ namespace Microsoft.Crank.Controller
                 configurationInstance.Jobs[jobName] = new Job();
             }
 
-            // Pee-configuration
+            // Pre-configuration
             foreach (var job in configurationInstance.Jobs)
             {
-                // Force all jobs as self-contained by default. This can be overrided by command line config.
+                // Force all jobs as self-contained by default. This can be overriden by command line config.
                 // This can't be done in ServerJob for backward compatibility
                 job.Value.SelfContained = true;
 
@@ -1563,12 +1563,14 @@ namespace Microsoft.Crank.Controller
                     throw new ControllerException($"Could not find a profile named '{profileName}'. Possible values: '{availableProfiles}'");
                 }
 
-                var profile = (JObject)configuration["Profiles"][profileName];
+                var profile = (JObject) configuration["Profiles"][profileName];
 
                 // Patch all jobs with the profile's default values (Step 1)
                 var profileWithoutJob = (JObject) profile.DeepClone();
-                profileWithoutJob.Remove("jobs");
+                profileWithoutJob.Remove("jobs"); // remove both pascal and camel case properties
                 profileWithoutJob.Remove("Jobs");
+                profileWithoutJob.Remove("agents"); // 'jobs' was renamed 'agents' when name mapping was introduced
+                profileWithoutJob.Remove("Agents");
 
                 foreach (JProperty jobProperty in configuration["Jobs"] ?? new JObject())
                 {
@@ -1577,11 +1579,63 @@ namespace Microsoft.Crank.Controller
 
                 // Patch each specific job (Step 2)
 
-                var profileWithoutVariables = (JObject)profile.DeepClone();
-                profileWithoutVariables.Remove("variables");
-                profileWithoutVariables.Remove("Variables");
+                ;
 
-                PatchObject(configuration, profileWithoutVariables);
+                foreach (var serviceEntry in configurationInstance.Scenarios[scenarioName])
+                {
+                    var serviceName = serviceEntry.Key;
+
+                    var service = configuration["Jobs"][serviceName] as JObject;
+
+                    if (service == null)
+                    {
+                        throw new ControllerException($"Could not find a service named '{serviceName}' while applying profiles");
+                    }
+
+                    // Apply profile on each service:
+                    // 1- if a service has an agent property use it to match an agent name or its aliases
+                    // 2- otherwise use the service name to match an agent name or its aliases
+
+                    string agentName = null;
+
+                    if (!String.IsNullOrEmpty(serviceEntry.Value.Agent))
+                    {
+                        agentName = serviceEntry.Value.Agent;
+                    }
+                    else
+                    {
+                        agentName = serviceName;
+                    }
+
+                    var agents = (profile["agents"] ?? profile["jobs"]) as JObject;
+
+
+                    // Seek the definition for this profile and agent
+                    var profileAgent = agents.Properties().FirstOrDefault(x =>
+                    {
+                        if (x.Name == agentName)
+                        {
+                            return true;
+                        }
+
+                        if (x.Value is JObject v
+                            && v.TryGetValue("aliases", out var aliases)
+                            && aliases is JArray aliasesArray
+                            && aliasesArray.Values().Select(a => a.Value<string>()).Contains(agentName))
+                        {
+                            return true;
+                        }
+
+                        return false;
+                    })?.Value as JObject;
+
+                    if (profileAgent == null)
+                    {
+                        throw new ControllerException($"Could not find an agent named '{agentName}'.");
+                    }
+
+                    PatchObject(service, profileAgent);
+                }
             }
 
             // Apply custom arguments

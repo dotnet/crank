@@ -42,6 +42,9 @@ namespace Microsoft.Crank.Controller
     public class Scenario
     {
         public string Job { get; set; }
+
+        /// The name of the service defined in a profile.
+        public string Agent { get; set; }
     }
 
     public class CounterList
