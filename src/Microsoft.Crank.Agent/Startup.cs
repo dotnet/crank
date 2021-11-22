@@ -2552,6 +2552,7 @@ namespace Microsoft.Crank.Agent
                 ;
 
             var dotnetInstallStep = "";
+            string dotnetFeed = "";
 
             try
             {
@@ -2565,14 +2566,25 @@ namespace Microsoft.Crank.Agent
                         Log.WriteLine($"Installing {dotnetInstallStep} ...");
 
                         // Install latest SDK version (and associated runtime)
-                        await ProcessUtil.RetryOnExceptionAsync(3, () => ProcessUtil.RunAsync("powershell", $"-NoProfile -ExecutionPolicy unrestricted [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; .\\dotnet-install.ps1 -Version {sdkVersion} -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome}",
-                        log: false,
-                        workingDirectory: _dotnetInstallPath,
-                        environmentVariables: env,
-                                cancellationToken: cancellationToken),
-                            cancellationToken);
 
-                        _installedSdks.Add(sdkVersion);
+                        dotnetFeed = GetAzureFeedForVersion(sdkVersion);
+
+                        if (!await CheckPackageExistsAsync(PackageTypes.Sdk, sdkVersion))
+                        {
+                            throw new InvalidOperationException();
+                        }
+
+                        ProcessResult result = await ProcessUtil.RunAsync("powershell", $"-NoProfile -ExecutionPolicy unrestricted [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; .\\dotnet-install.ps1 -Version {sdkVersion} -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome} -AzureFeed {dotnetFeed}",
+                            log: false,
+                            throwOnError: false, 
+                            workingDirectory: _dotnetInstallPath,
+                            environmentVariables: env,
+                            cancellationToken: cancellationToken);
+
+                        if (result.ExitCode != 0)
+                        {
+                            throw new InvalidOperationException(); 
+                        }
                     }
 
                     if (!_installedDotnetRuntimes.Contains(runtimeVersion))
@@ -2581,14 +2593,25 @@ namespace Microsoft.Crank.Agent
                         Log.WriteLine($"Installing {dotnetInstallStep} ...");
 
                         // Install runtimes required for this scenario
-                        await ProcessUtil.RetryOnExceptionAsync(3, () => ProcessUtil.RunAsync("powershell", $"-NoProfile -ExecutionPolicy unrestricted [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; .\\dotnet-install.ps1 -Version {runtimeVersion} -Runtime dotnet -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome}",
-                        log: false,
-                        workingDirectory: _dotnetInstallPath,
-                        environmentVariables: env,
-                                cancellationToken: cancellationToken),
-                            cancellationToken);
 
-                        _installedDotnetRuntimes.Add(runtimeVersion);
+                        dotnetFeed = GetAzureFeedForVersion(runtimeVersion);
+
+                        if (!await CheckPackageExistsAsync(PackageTypes.NetCoreApp, runtimeVersion))
+                        {
+                            throw new InvalidOperationException();
+                        }
+
+                        ProcessResult result = await ProcessUtil.RunAsync("powershell", $"-NoProfile -ExecutionPolicy unrestricted [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; .\\dotnet-install.ps1 -Version {runtimeVersion} -Runtime dotnet -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome} -AzureFeed {dotnetFeed}",
+                                log: false,
+                                throwOnError: false, 
+                                workingDirectory: _dotnetInstallPath,
+                                environmentVariables: env,
+                                cancellationToken: cancellationToken);
+
+                        if (result.ExitCode != 0)
+                        {
+                            throw new InvalidOperationException();
+                        }
                     }
 
                     try
@@ -2605,14 +2628,24 @@ namespace Microsoft.Crank.Agent
                                 dotnetInstallStep = $"Desktop runtime '{desktopVersion}'";
                                 Log.WriteLine($"Installing {dotnetInstallStep} ...");
 
-                                await ProcessUtil.RetryOnExceptionAsync(3, () => ProcessUtil.RunAsync("powershell", $"-NoProfile -ExecutionPolicy unrestricted [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; .\\dotnet-install.ps1 -Version {desktopVersion} -Runtime windowsdesktop -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome}",
-                                log: false,
-                                workingDirectory: _dotnetInstallPath,
-                                environmentVariables: env,
-                                    cancellationToken: cancellationToken),
-                                cancellationToken);
+                                dotnetFeed = GetAzureFeedForVersion(desktopVersion);
 
-                                _installedDesktopRuntimes.Add(desktopVersion);
+                                if (!await CheckPackageExistsAsync(PackageTypes.WindowsDesktop, desktopVersion))
+                                {
+                                    throw new InvalidOperationException();
+                                }
+
+                                ProcessResult result = await ProcessUtil.RunAsync("powershell", $"-NoProfile -ExecutionPolicy unrestricted [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; .\\dotnet-install.ps1 -Version {desktopVersion} -Runtime windowsdesktop -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome} -AzureFeed {dotnetFeed}",
+                                        log: false,
+                                        throwOnError: false, 
+                                        workingDirectory: _dotnetInstallPath,
+                                        environmentVariables: env,
+                                        cancellationToken: cancellationToken);
+
+                                if (result.ExitCode != 0)
+                                {
+                                    throw new InvalidOperationException();
+                                }
                             }
                             else
                             {
@@ -2640,14 +2673,25 @@ namespace Microsoft.Crank.Agent
                         Log.WriteLine($"Installing {dotnetInstallStep} ...");
 
                         // Install aspnet runtime required for this scenario
-                        await ProcessUtil.RetryOnExceptionAsync(3, () => ProcessUtil.RunAsync("powershell", $"-NoProfile -ExecutionPolicy unrestricted [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; .\\dotnet-install.ps1 -Version {aspNetCoreVersion} -Runtime aspnetcore -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome}",
-                        log: false,
-                        workingDirectory: _dotnetInstallPath,
-                        environmentVariables: env,
-                                cancellationToken: cancellationToken),
-                            cancellationToken);
 
-                        _installedAspNetRuntimes.Add(aspNetCoreVersion);
+                        dotnetFeed = GetAzureFeedForVersion(aspNetCoreVersion);
+
+                        if (!await CheckPackageExistsAsync(PackageTypes.AspNetCore, aspNetCoreVersion))
+                        {
+                            throw new InvalidOperationException();
+                        }
+
+                        ProcessResult result = await ProcessUtil.RunAsync("powershell", $"-NoProfile -ExecutionPolicy unrestricted [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; .\\dotnet-install.ps1 -Version {aspNetCoreVersion} -Runtime aspnetcore -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome} -AzureFeed {dotnetFeed}",
+                                log: false,
+                                throwOnError: false, 
+                                workingDirectory: _dotnetInstallPath,
+                                environmentVariables: env,
+                                cancellationToken: cancellationToken);
+
+                        if (result.ExitCode != 0)
+                        {
+                            throw new InvalidOperationException();
+                        }
                     }
                 }
                 else
@@ -2658,14 +2702,25 @@ namespace Microsoft.Crank.Agent
                         Log.WriteLine($"Installing {dotnetInstallStep} ...");
 
                         // Install latest SDK version (and associated runtime)
-                        await ProcessUtil.RetryOnExceptionAsync(3, () => ProcessUtil.RunAsync("/usr/bin/env", $"bash dotnet-install.sh --version {sdkVersion} --no-path --skip-non-versioned-files --install-dir {dotnetHome}",
-                        log: false,
-                        workingDirectory: _dotnetInstallPath,
-                        environmentVariables: env,
-                                cancellationToken: cancellationToken),
-                            cancellationToken);
 
-                        _installedSdks.Add(sdkVersion);
+                        dotnetFeed = GetAzureFeedForVersion(sdkVersion);
+
+                        if (!await CheckPackageExistsAsync(PackageTypes.Sdk, sdkVersion))
+                        {
+                            throw new InvalidOperationException();
+                        }
+
+                        ProcessResult result = await ProcessUtil.RunAsync("/usr/bin/env", $"bash dotnet-install.sh --version {sdkVersion} --no-path --skip-non-versioned-files --install-dir {dotnetHome} -AzureFeed {dotnetFeed}",
+                                log: false,
+                                throwOnError: false, 
+                                workingDirectory: _dotnetInstallPath,
+                                environmentVariables: env,
+                                cancellationToken: cancellationToken);
+
+                        if (result.ExitCode != 0)
+                        {
+                            throw new InvalidOperationException();
+                        }
                     }
 
                     if (!_installedDotnetRuntimes.Contains(runtimeVersion))
@@ -2674,14 +2729,24 @@ namespace Microsoft.Crank.Agent
                         Log.WriteLine($"Installing {dotnetInstallStep} ...");
 
                         // Install required runtime
-                        await ProcessUtil.RetryOnExceptionAsync(3, () => ProcessUtil.RunAsync("/usr/bin/env", $"bash dotnet-install.sh --version {runtimeVersion} --runtime dotnet --no-path --skip-non-versioned-files --install-dir {dotnetHome}",
-                        log: false,
-                        workingDirectory: _dotnetInstallPath,
-                        environmentVariables: env,
-                                cancellationToken: cancellationToken),
-                            cancellationToken);
 
-                        _installedDotnetRuntimes.Add(runtimeVersion);
+                        dotnetFeed = GetAzureFeedForVersion(runtimeVersion);
+
+                        if (!await CheckPackageExistsAsync(PackageTypes.NetCoreApp, runtimeVersion))
+                        {
+                            throw new InvalidOperationException();
+                        }
+
+                        ProcessResult result = await ProcessUtil.RunAsync("/usr/bin/env", $"bash dotnet-install.sh --version {runtimeVersion} --runtime dotnet --no-path --skip-non-versioned-files --install-dir {dotnetHome} -AzureFeed {dotnetFeed}",
+                                log: false,
+                                throwOnError: false,
+                                environmentVariables: env,
+                                cancellationToken: cancellationToken);
+
+                        if (result.ExitCode != 0)
+                        {
+                            throw new InvalidOperationException();
+                        }
                     }
 
                     // The aspnet core runtime is only available for >= 2.1, in 2.0 the dlls are contained in the runtime store
@@ -2691,14 +2756,25 @@ namespace Microsoft.Crank.Agent
                         Log.WriteLine($"Installing {dotnetInstallStep} ...");
 
                         // Install required runtime
-                        await ProcessUtil.RetryOnExceptionAsync(3, () => ProcessUtil.RunAsync("/usr/bin/env", $"bash dotnet-install.sh --version {aspNetCoreVersion} --runtime aspnetcore --no-path --skip-non-versioned-files --install-dir {dotnetHome}",
-                        log: false,
-                        workingDirectory: _dotnetInstallPath,
-                        environmentVariables: env,
-                                cancellationToken: cancellationToken),
-                            cancellationToken);
 
-                        _installedAspNetRuntimes.Add(aspNetCoreVersion);
+                        dotnetFeed = GetAzureFeedForVersion(aspNetCoreVersion);
+
+                        if (!await CheckPackageExistsAsync(PackageTypes.AspNetCore, aspNetCoreVersion))
+                        {
+                            throw new InvalidOperationException();
+                        }
+
+                        ProcessResult result = await ProcessUtil.RunAsync("/usr/bin/env", $"bash dotnet-install.sh --version {aspNetCoreVersion} --runtime aspnetcore --no-path --skip-non-versioned-files --install-dir {dotnetHome} -AzureFeed {dotnetFeed}",
+                                log: false,
+                                throwOnError: false, 
+                                workingDirectory: _dotnetInstallPath,
+                                environmentVariables: env,
+                                cancellationToken: cancellationToken);
+
+                        if (result.ExitCode != 0)
+                        {
+                            throw new InvalidOperationException();
+                        }
                     }
                 }
             }
@@ -5143,6 +5219,54 @@ namespace Microsoft.Crank.Agent
             return null;
         }
 
+        public static string GetAzureFeedForVersion(string version)
+        {
+            return version.StartsWith("7.0")
+                ? "https://dotnetbuilds.azureedge.net/public" // since 7.0, nightly builds are on this feed
+                : "https://dotnetcli.azureedge.net/dotnet" // this is the default dotnet-install feed
+                ;
+        }
+
+        private static async Task<bool> CheckPackageExistsAsync(PackageTypes runtime, string version)
+        {
+            // packageIndexUrl -> https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/[packageName]/index.json
+            // e.g., https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json
+            // actual package url -> https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/[packageName]/[version]/[packageName].[version].nupkg
+
+            // https://dotnetcli.blob.core.windows.net/dotnet
+            // https://dotnetcli.blob.core.windows.net/dotnet/Runtime/main/latest.version
+            // aspnetcore: https://dotnetcli.azureedge.net/dotnet/aspnetcore/Runtime/6.0.0-preview.5.21220.5/aspnetcore-runtime-6.0.0-preview.5.21220.5-win-x64.zip
+            // dotnet: https://dotnetcli.azureedge.net/dotnet/Runtime/6.0.0-preview.5.21220.8/dotnet-runtime-6.0.0-preview.5.21220.8-win-x64.zip
+
+            var urlPattern = runtime switch
+            {
+                PackageTypes.Sdk => "{3}/Sdk/{0}/dotnet-sdk-{0}-{1}.{2}",
+                PackageTypes.AspNetCore => "{3}/aspnetcore/Runtime/{0}/aspnetcore-runtime-{0}-{1}.{2}",
+                PackageTypes.NetCoreApp => "{3}/Runtime/{0}/dotnet-runtime-{0}-{1}.{2}",
+                PackageTypes.WindowsDesktop => "{3}/Runtime/{0}/windowsdesktop-runtime-{0}-{1}.{2}",
+                _ => throw new InvalidOperationException()
+            };
+                
+            var extension = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? "zip"
+                : "tar.gz"
+                ;
+
+            var dotnetFeed = GetAzureFeedForVersion(version);
+
+            var download_link = String.Format(urlPattern, version, GetPlatformMoniker(), extension, dotnetFeed);
+
+            Log.WriteLine($"Checking package: {download_link}");
+
+            var httpMessage = new HttpRequestMessage(HttpMethod.Get, download_link);
+            httpMessage.Headers.IfModifiedSince = DateTime.Now;
+
+            using var response = await _httpClient.SendAsync(httpMessage);
+
+            // If the file exists, it will return a 304, otherwise a 404
+            return response.StatusCode == HttpStatusCode.NotModified;
+        }
+
         private static async Task<string> GetFlatContainerVersion(string packageIndexUrl, string versionPrefix, bool checkDotnetInstallUrl = false)
         {
             var root = JObject.Parse(await DownloadContentAsync(packageIndexUrl));
@@ -5164,47 +5288,22 @@ namespace Microsoft.Crank.Agent
                 return latest.FirstOrDefault()?.OriginalVersion;
             }
 
+            var runtimeType = packageIndexUrl.Contains("Microsoft.AspNetCore.App.Runtime", StringComparison.OrdinalIgnoreCase)
+                ? PackageTypes.AspNetCore
+                : PackageTypes.NetCoreApp
+                ;
+
             foreach (var nugetVersion in latest.Take(3))
             {
                 var version = nugetVersion.OriginalVersion;
 
-                // packageIndexUrl -> https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/[packageName]/index.json
-                // e.g., https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json
-                // actual package url -> https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/[packageName]/[version]/[packageName].[version].nupkg
-
-                // https://dotnetcli.blob.core.windows.net/dotnet
-                // https://dotnetcli.blob.core.windows.net/dotnet/Runtime/main/latest.version
-                // aspnetcore: https://dotnetcli.azureedge.net/dotnet/aspnetcore/Runtime/6.0.0-preview.5.21220.5/aspnetcore-runtime-6.0.0-preview.5.21220.5-win-x64.zip
-                // dotnet: https://dotnetcli.azureedge.net/dotnet/Runtime/6.0.0-preview.5.21220.8/dotnet-runtime-6.0.0-preview.5.21220.8-win-x64.zip
-
-
-                var urlPattern = packageIndexUrl.Contains("Microsoft.AspNetCore.App.Runtime", StringComparison.OrdinalIgnoreCase) 
-                    ? "https://dotnetcli.azureedge.net/dotnet/aspnetcore/Runtime/{0}/aspnetcore-runtime-{0}-{1}.{2}"
-                    : "https://dotnetcli.azureedge.net/dotnet/Runtime/{0}/dotnet-runtime-{0}-{1}.{2}"
-                    ;
-
-                var extension = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                    ? "zip"
-                    : "tar.gz"
-                    ;
-
-                var download_link = String.Format(urlPattern, version, GetPlatformMoniker(), extension);
-
-                Log.WriteLine($"Checking package: {download_link}");
-
-                var httpMessage = new HttpRequestMessage(HttpMethod.Get, download_link);
-                httpMessage.Headers.IfModifiedSince = DateTime.Now;
-
-                var response = await _httpClient.SendAsync(httpMessage);
-
-                // If the file exists, it will return a 304, otherwise a 404
-                if (response.StatusCode == HttpStatusCode.NotModified)
-                {
+                if (await CheckPackageExistsAsync(runtimeType, version))
+                { 
                     return version;
                 }
                 else
                 {
-                    Log.WriteLine($"Package not available: {download_link}, status code: {response.StatusCode}");
+                    Log.WriteLine($"Package not available: {runtimeType} version {version}");
                 }
             }
 
