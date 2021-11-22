@@ -128,7 +128,7 @@ namespace Microsoft.Crank.Controller
 
             var app = new CommandLineApplication()
             {
-                Name = "Crank",
+                Name = "crank",
                 FullName = "Crank Benchmarks Controller",
                 ExtendedHelpText = Documentation.Content,
                 Description = "The Crank controller orchestrates benchmark jobs on Crank agents.",

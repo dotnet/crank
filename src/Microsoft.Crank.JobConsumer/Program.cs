@@ -35,7 +35,7 @@ namespace Microsoft.Crank.JobConsumer
             app.HelpOption("-h|--help");
             var jobsPath = app.Option("-j|--jobs-path <PATH>", "The path where jobs are created", CommandOptionType.SingleValue).IsRequired();
             var repoPath = app.Option("-r|--repo-path <PATH>", "The path to the repo being benchmarked", CommandOptionType.SingleValue).IsRequired();
-            var driverPath = app.Option("-d|--driver <PATH>", "The BenchmarksDriver assembly file path", CommandOptionType.SingleValue).IsRequired();
+            var driverPath = app.Option("-d|--driver <PATH>", "The controller assembly file path", CommandOptionType.SingleValue).IsRequired();
             var serverUrl = app.Option("-s|--server <URL>", "The server url", CommandOptionType.SingleValue).IsRequired();
             var clientUrl = app.Option("-c|--client <URL>", "The client url", CommandOptionType.SingleValue).IsRequired();
 
