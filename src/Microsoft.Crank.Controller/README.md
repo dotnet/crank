@@ -3,7 +3,7 @@
 ## Usage
 
 ```
-Usage: BenchmarksDriver [options]
+Usage: crank [options]
 
 Options:
   -?|-h|--help                                          Show help information

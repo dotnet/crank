@@ -6,41 +6,39 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Tracing;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.Xml.XPath;
-using Microsoft.Crank.Models;
 using BenchmarksServer;
 using McMaster.Extensions.CommandLineUtils;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.Azure.Relay;
+using Microsoft.Crank.Models;
+using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.Diagnostics.Tools.Trace;
 using Microsoft.Diagnostics.Tracing;
-using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using NuGet.Versioning;
 using Repository;
 using OperatingSystem = Microsoft.Crank.Models.OperatingSystem;
-using NuGet.Versioning;
-using System.Net;
-using System.Reflection.PortableExecutable;
-using System.Reflection.Metadata;
-using System.Security.Cryptography;
-using System.Globalization;
-using Microsoft.Azure.Relay;
-using Microsoft.AspNetCore.Hosting.Server;
 
 namespace Microsoft.Crank.Agent
 {
@@ -200,9 +198,9 @@ namespace Microsoft.Crank.Agent
 
             var app = new CommandLineApplication()
             {
-                Name = "BenchmarksServer",
-                FullName = "ASP.NET Benchmark Server",
-                Description = "REST APIs to run ASP.NET benchmark server",
+                Name = "crank-agent",
+                FullName = "Crank Benchmarks Agent",
+                Description = "The Crank agent runs jobs sent from Crank controllers.",
                 OptionsComparison = StringComparison.OrdinalIgnoreCase
             };
 
@@ -214,14 +212,14 @@ namespace Microsoft.Crank.Agent
                 CommandOptionType.SingleValue);
             var dockerHostnameOption = app.Option("-nd|--docker-hostname", $"Hostname for benchmark server when running Docker on a different hostname.",
                 CommandOptionType.SingleValue);
-            var hardwareOption = app.Option("--hardware", "Hardware (Cloud or Physical).  Required.",
+            var hardwareOption = app.Option("--hardware", "Hardware (Cloud or Physical).",
                 CommandOptionType.SingleValue);
             var dotnethomeOption = app.Option("--dotnethome", "Folder to reuse for sdk and runtime installs.",
                 CommandOptionType.SingleValue);
             _relayConnectionStringOption = app.Option("--relay", "Connection string or environment variable name of the Azure Relay Hybrid Connection to listen to. e.g., Endpoint=sb://mynamespace.servicebus.windows.net;...", CommandOptionType.SingleValue);
             _relayPathOption = app.Option("--relay-path", "The hybrid connection name used to bind this agent. If not set the --relay argument must contain 'EntityPath={name}'", CommandOptionType.SingleValue);
             _relayEnableHttpOption = app.Option("--relay-enable-http", "Activates the HTTP port even if Azure Relay is used.", CommandOptionType.NoValue);
-            var hardwareVersionOption = app.Option("--hardware-version", "Hardware version (e.g, D3V2, Z420, ...).  Required.",
+            var hardwareVersionOption = app.Option("--hardware-version", "Hardware version (e.g, D3V2, Z420, ...).",
                 CommandOptionType.SingleValue);
             var noCleanupOption = app.Option("--no-cleanup",
                 "Don't kill processes or delete temp directories.", CommandOptionType.NoValue);
