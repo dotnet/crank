@@ -1029,6 +1029,7 @@ namespace Microsoft.Crank.Controller
                         {
                             yield return "Session";
                             yield return "DateTimeUtc";
+                            yield return "Description";
 
                             foreach (var job in result.JobResults.Jobs)
                             {
@@ -1054,6 +1055,7 @@ namespace Microsoft.Crank.Controller
                         {
                             yield return session;
                             yield return DateTime.UtcNow.ToString("s");
+                            yield return _descriptionOption.Value();
 
                             foreach (var job in result.JobResults.Jobs)
                             {
