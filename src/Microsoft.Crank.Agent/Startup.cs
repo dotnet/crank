@@ -21,7 +21,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.Xml.XPath;
-using BenchmarksServer;
 using McMaster.Extensions.CommandLineUtils;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -38,6 +37,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NuGet.Versioning;
 using Repository;
+using Vanara.PInvoke;
 using OperatingSystem = Microsoft.Crank.Models.OperatingSystem;
 
 namespace Microsoft.Crank.Agent
@@ -60,8 +60,8 @@ namespace Microsoft.Crank.Agent
             Based on the target framework
          */
 
-        private static string DefaultTargetFramework = "net6.0";
-        private static string DefaultChannel = "current";
+        private static readonly string DefaultTargetFramework = "net6.0";
+        private static readonly string DefaultChannel = "current";
 
         private const string PerfViewVersion = "P2.0.68";
 
@@ -93,11 +93,11 @@ namespace Microsoft.Crank.Agent
             "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-public/nuget/v3/flat2" };
 
         // Cached lists of SDKs and runtimes already installed
-        private static readonly HashSet<string> _installedAspNetRuntimes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        private static readonly HashSet<string> _installedDotnetRuntimes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        private static readonly HashSet<string> _installedDesktopRuntimes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        private static readonly HashSet<string> _ignoredDesktopRuntimes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        private static readonly HashSet<string> _installedSdks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private static readonly HashSet<string> _installedAspNetRuntimes = new(StringComparer.OrdinalIgnoreCase);
+        private static readonly HashSet<string> _installedDotnetRuntimes = new(StringComparer.OrdinalIgnoreCase);
+        private static readonly HashSet<string> _installedDesktopRuntimes = new(StringComparer.OrdinalIgnoreCase);
+        private static readonly HashSet<string> _ignoredDesktopRuntimes = new(StringComparer.OrdinalIgnoreCase);
+        private static readonly HashSet<string> _installedSdks = new(StringComparer.OrdinalIgnoreCase);
 
         private const string _defaultUrl = "http://*:5010";
         private static readonly string _defaultHostname = Dns.GetHostName();
@@ -114,7 +114,8 @@ namespace Microsoft.Crank.Agent
         private static string _dotnethome;
         private static bool _cleanup = true;
         private static Process perfCollectProcess;
-        private static object _synLock = new object();
+        private static readonly object v = new();
+        private static readonly object _synLock = v;
 
         private static Task dotnetTraceTask;
         private static ManualResetEvent dotnetTraceManualReset;
@@ -122,7 +123,9 @@ namespace Microsoft.Crank.Agent
         public static OperatingSystem OperatingSystem { get; }
         public static Hardware Hardware { get; private set; }
         public static string HardwareVersion { get; private set; }
-        public static TimeSpan DriverTimeout = TimeSpan.FromSeconds(10);
+
+        private static readonly TimeSpan timeSpan = TimeSpan.FromSeconds(10);
+        public static TimeSpan DriverTimeout = timeSpan;
         public static TimeSpan StartTimeout = TimeSpan.FromMinutes(3);
         public static TimeSpan DefaultBuildTimeout = TimeSpan.FromMinutes(10);
         public static TimeSpan DeletedTimeout = TimeSpan.FromHours(18);
@@ -4467,21 +4470,60 @@ namespace Microsoft.Crank.Agent
             // Don't wait for the counters to be ready as it could get stuck and block the agent
             var _ = StartCountersAsync(job, context);
 
-            if (job.MemoryLimitInBytes > 0)
+            if ((job.MemoryLimitInBytes > 0 || !String.IsNullOrWhiteSpace(job.CpuSet)) && RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                {
-                    Log.WriteLine($"Creating job object with memory limits: {job.MemoryLimitInBytes}");
+                var safeProcess = Kernel32.OpenProcess(ACCESS_MASK.MAXIMUM_ALLOWED, false, (uint)process.Id);
 
-                    var manager = new ChildProcessManager(job.MemoryLimitInBytes);
-                    manager.AddProcess(process);
+                if (job.MemoryLimitInBytes > 0)
+                {
+                    Log.WriteLine($"Creating Job Object with memory limits: {job.MemoryLimitInBytes / 1024 / 1024:n0} MB");
+
+                    var hJob = Kernel32.CreateJobObject(null, job.RunId);
+                    var bi = Kernel32.QueryInformationJobObject<Kernel32.JOBOBJECT_EXTENDED_LIMIT_INFORMATION>(hJob, Kernel32.JOBOBJECTINFOCLASS.JobObjectExtendedLimitInformation);
+                    bi.BasicLimitInformation.LimitFlags |= Kernel32.JOBOBJECT_LIMIT_FLAGS.JOB_OBJECT_LIMIT_JOB_MEMORY;
+                    bi.JobMemoryLimit = job.MemoryLimitInBytes;
+
+                    Kernel32.SetInformationJobObject(hJob, Kernel32.JOBOBJECTINFOCLASS.JobObjectExtendedLimitInformation, bi);
+                    Kernel32.AssignProcessToJobObject(hJob, safeProcess);
 
                     process.Exited += (sender, e) =>
                     {
                         Log.WriteLine("Releasing job object");
-                        manager.Dispose();
+                        Kernel32.TerminateJobObject(hJob, 0);
+                        safeProcess.Dispose();
                     };
                 }
+
+                if (!String.IsNullOrWhiteSpace(job.CpuSet))
+                {
+                    var cpuSet = new List<int>();
+
+                    var ranges = job.CpuSet.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var r in ranges)
+                    {
+                        var bounds = r.Split('-', 2);
+
+                        if (r.Length == 1)
+                        {
+                            cpuSet.Add(int.Parse(bounds[0]));
+                        }
+                        else
+                        {
+                            for (var i = int.Parse(bounds[0]); i<= int.Parse(bounds[1]); i++)
+                            {
+                                cpuSet.Add(i);
+                            }                            
+                        }
+                    }
+
+                    var ssi = Kernel32.GetSystemCpuSetInformation(safeProcess).ToArray();
+                    var cpuSets = cpuSet.Select(i => ssi[i].CpuSet.Id).ToArray();
+
+                    Log.WriteLine($"Limiting CpuSet ids: {String.Join(',', cpuSets)}");
+
+                    var result = Kernel32.SetProcessDefaultCpuSets(safeProcess, cpuSets, (uint)cpuSets.Length);
+                }              
+                
             }
 
             // We try to detect an endpoint is ready if we are running in IIS (no console logs)

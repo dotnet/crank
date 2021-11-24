@@ -29,9 +29,9 @@ namespace Microsoft.Crank.Agent
             bool log = false,
             Action<int> onStart = null,
             Action<int> onStop = null,
-            CancellationToken cancellationToken = default(CancellationToken),
             bool captureOutput = false,
-            bool captureError = false
+            bool captureError = false,
+            CancellationToken cancellationToken = default
         )
         {
             var logWorkingDirectory = workingDirectory ?? Directory.GetCurrentDirectory();
@@ -137,7 +137,7 @@ namespace Microsoft.Crank.Agent
             var cancelledTcs = new TaskCompletionSource<object>();
             await using var _ = cancellationToken.Register(() => cancelledTcs.TrySetResult(null));
 
-            var result = await Task.WhenAny(processLifetimeTask.Task, cancelledTcs.Task, Task.Delay(timeout.HasValue ? (int)timeout.Value.TotalMilliseconds : -1));
+            var result = await Task.WhenAny(processLifetimeTask.Task, cancelledTcs.Task, Task.Delay(timeout.HasValue ? (int)timeout.Value.TotalMilliseconds : -1, cancellationToken));
 
             if (result != processLifetimeTask.Task)
             {
