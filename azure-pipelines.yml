@@ -128,38 +128,39 @@ stages:
             artifactName: $(Agent.Os)_$(Agent.JobName) TestResults
             artifactType: Container
             parallel: true
+      
+      # Tests on macOS are unreliable
+      # - job: macOS
+      #   displayName: 'macOS 10.15'
+      #   pool:
+      #     vmImage: macOS-1015
+      #   variables:
+      #   - name: _SignType
+      #     value: none
 
-      - job: macOS
-        displayName: 'macOS 10.15'
-        pool:
-          vmImage: macOS-1015
-        variables:
-        - name: _SignType
-          value: none
-
-        - ${{ if and(eq(variables['System.TeamProject'], 'internal'), notin(variables['Build.Reason'], 'PullRequest')) }}:
-          - name: _OfficialBuildArgs
-            value: -p:OfficialBuildId=$(Build.BuildNumber)
-        # else
-        - ${{ if or(eq(variables['System.TeamProject'], 'public'), in(variables['Build.Reason'], 'PullRequest')) }}:
-          - name: _OfficialBuildArgs
-            value: ''
-        steps:
-        - checkout: self
-          clean: true
-        - script: eng/common/cibuild.sh
-            --configuration $(_BuildConfig)
-            --prepareMachine
-          displayName: Build
-        - task: PublishBuildArtifacts@1
-          displayName: Upload TestResults
-          condition: always()
-          continueOnError: true
-          inputs:
-            pathtoPublish: artifacts/TestResults/$(_BuildConfig)/
-            artifactName: $(Agent.Os)_$(Agent.JobName) TestResults
-            artifactType: Container
-            parallel: true
+      #   - ${{ if and(eq(variables['System.TeamProject'], 'internal'), notin(variables['Build.Reason'], 'PullRequest')) }}:
+      #     - name: _OfficialBuildArgs
+      #       value: -p:OfficialBuildId=$(Build.BuildNumber)
+      #   # else
+      #   - ${{ if or(eq(variables['System.TeamProject'], 'public'), in(variables['Build.Reason'], 'PullRequest')) }}:
+      #     - name: _OfficialBuildArgs
+      #       value: ''
+      #   steps:
+      #   - checkout: self
+      #     clean: true
+      #   - script: eng/common/cibuild.sh
+      #       --configuration $(_BuildConfig)
+      #       --prepareMachine
+      #     displayName: Build
+      #   - task: PublishBuildArtifacts@1
+      #     displayName: Upload TestResults
+      #     condition: always()
+      #     continueOnError: true
+      #     inputs:
+      #       pathtoPublish: artifacts/TestResults/$(_BuildConfig)/
+      #       artifactName: $(Agent.Os)_$(Agent.JobName) TestResults
+      #       artifactType: Container
+      #       parallel: true
 
 - ${{ if and(ne(variables['System.TeamProject'], 'public'), notin(variables['Build.Reason'], 'PullRequest')) }}:
   - template: eng\common\templates\post-build\post-build.yml
