@@ -19,5 +19,8 @@
     <FileSignInfo Include="Mono.Cecil.Mdb.dll" CertificateName="3PartySHA2" />
     <FileSignInfo Include="Mono.Cecil.Pdb.dll" CertificateName="3PartySHA2" />
     <FileSignInfo Include="Mono.Cecil.Rocks.dll" CertificateName="3PartySHA2" />
+    <FileSignInfo Include="Vanara.Core.dll" CertificateName="3PartySHA2" />
+    <FileSignInfo Include="Vanara.PInvoke.Kernel32.dll" CertificateName="3PartySHA2" />
+    <FileSignInfo Include="Vanara.PInvoke.Shared.dll" CertificateName="3PartySHA2" />
   </ItemGroup>
 </Project>

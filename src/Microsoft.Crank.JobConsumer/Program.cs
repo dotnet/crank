@@ -106,7 +106,7 @@ namespace Microsoft.Crank.JobConsumer
                             }
                         }
 
-                        await Task.Delay(1000);
+                        await Task.Delay(1000, cancellationToken);
                         continue;
                     }
 
@@ -407,7 +407,7 @@ namespace Microsoft.Crank.JobConsumer
         private static async Task<bool> WaitForCompleteJsonFile(FileInfo nextFile)
         {
             // Wait up to 5 seconds for the Json file to be fully parsable.
-            for (int i = 0; i < 5; i++)
+            for (var i = 0; i < 5; i++)
             {
                 try
                 {
@@ -476,7 +476,7 @@ namespace Microsoft.Crank.JobConsumer
 
             if (!string.IsNullOrWhiteSpace(buildInstructions.ExtraDriverArgs))
             {
-                argumentsBuilder.Append(" ");
+                argumentsBuilder.Append(' ');
                 argumentsBuilder.Append(buildInstructions.ExtraDriverArgs);
             }
 
