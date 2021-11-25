@@ -124,8 +124,7 @@ namespace Microsoft.Crank.Agent
         public static Hardware Hardware { get; private set; }
         public static string HardwareVersion { get; private set; }
 
-        private static readonly TimeSpan timeSpan = TimeSpan.FromSeconds(10);
-        public static TimeSpan DriverTimeout = timeSpan;
+        public static TimeSpan DriverTimeout = TimeSpan.FromSeconds(10);
         public static TimeSpan StartTimeout = TimeSpan.FromMinutes(3);
         public static TimeSpan DefaultBuildTimeout = TimeSpan.FromMinutes(10);
         public static TimeSpan DeletedTimeout = TimeSpan.FromHours(18);
@@ -228,6 +227,8 @@ namespace Microsoft.Crank.Agent
                 "Don't kill processes or delete temp directories.", CommandOptionType.NoValue);
             var buildPathOption = app.Option("--build-path", "The path where applications are built.", CommandOptionType.SingleValue);
             var buildTimeoutOption = app.Option("--build-timeout", "Maximum duration of build task in minutes. Default 10 minutes.",
+                CommandOptionType.SingleValue);
+            var controllerTimeoutOption = app.Option("--controller-timeout", "Maximum duration until the controller is deemed unresponsive. Default 10 seconds (00:00:10).",
                 CommandOptionType.SingleValue);
 
             app.OnExecute(() =>
@@ -519,6 +520,11 @@ namespace Microsoft.Crank.Agent
 
                         foreach (var job in group.Keys)
                         {
+                            if (job.State == JobState.Deleted)
+                            {
+                                continue;
+                            }
+
                             var context = group[job];
 
                             Log.WriteLine($"Processing job '{job.Service}' ({job.Id}) in state {job.State}");
@@ -1072,7 +1078,7 @@ namespace Microsoft.Crank.Agent
                                                                 }
                                                             }
 
-                                                            if (takeMeasurement && trackProcess != null)
+                                                            if (takeMeasurement && trackProcess != null && !trackProcess.HasExited)
                                                             {
                                                                 var newCPUTime = OperatingSystem == OperatingSystem.OSX
                                                                     ? TimeSpan.Zero
@@ -1303,7 +1309,7 @@ namespace Microsoft.Crank.Agent
                                     {
                                         context.CountersCompletionSource.SetResult(true);
 
-                                        Task.WaitAny(new Task[] { context.CountersTask }, 5000);
+                                        Task.WaitAny(new Task[] { context.CountersTask }, 10000);
 
                                         if (!context.CountersTask.IsCompleted)
                                         {
@@ -1344,7 +1350,7 @@ namespace Microsoft.Crank.Agent
                                     job.DumpFile = Path.GetTempFileName();
 
                                     var dumper = new Dumper();
-                                    dumper.Collect(job.ProcessId, job.DumpFile, job.DumpType);
+                                    dumper.Collect(job.ChildProcessId > 0 ? job.ChildProcessId : job.ProcessId, job.DumpFile, job.DumpType);
                                 }
 
                                 Log.WriteLine($"Stopping heartbeat ({job.Service}:{job.Id})");
@@ -4776,11 +4782,25 @@ namespace Microsoft.Crank.Agent
                 if (context.CountersCompletionSource.Task.IsCompleted)
                 {
                     Log.WriteLine($"Reason: counters are being stopped");
-                } 
+                }
 
-                // It also interrupts the source.Process() blocking operation
-                context.EventPipeSession.Stop();
-                Log.WriteLine($"Event pipe session stopped ({job.Service}:{job.Id})");
+                try
+                {
+                    context.EventPipeSession.Dispose();
+
+                    // It also interrupts the source.Process() blocking operation
+                    //await context.EventPipeSession.StopAsync(default(CancellationToken));
+
+                    Log.WriteLine($"Event pipe session stopped ({job.Service}:{job.Id})");
+                }
+                catch (ServerNotAvailableException)
+                {
+                    Log.WriteLine($"Event pipe session interupted, application has already exited ({job.Service}:{job.Id})");
+                }
+                catch (Exception e)
+                {
+                    Log.WriteLine($"Event pipe session failed stopping ({job.Service}:{job.Id}): {e}");
+                }
             });
 
             context.CountersTask = Task.WhenAll(streamTask, stopTask);

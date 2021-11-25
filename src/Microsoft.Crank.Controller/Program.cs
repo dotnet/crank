@@ -1120,9 +1120,14 @@ namespace Microsoft.Crank.Controller
                 return true;
             }
 
+            bool IsLastIteration()
+            {
+                return i >= iterations;
+            }
+
             bool SpanShouldKeepJobRunning(string jobName)
             {
-                if (IsRepeatOver())
+                if (IsRepeatOver() || IsLastIteration())
                 {
                     return false;
                 }

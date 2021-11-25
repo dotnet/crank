@@ -44,7 +44,7 @@ stages:
       enableTelemetry: true
       mergeTestResults: true
       jobs:
-      - ${{ if and(eq(variables['System.TeamProject'], 'internal'), notin(variables['Build.Reason'], 'PullRequest')) }}:
+      # - ${{ if and(eq(variables['System.TeamProject'], 'internal'), notin(variables['Build.Reason'], 'PullRequest')) }}:
         - job: Windows
           pool:
             ${{ if eq(variables['System.TeamProject'], 'public') }}:
