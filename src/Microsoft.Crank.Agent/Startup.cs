@@ -2592,6 +2592,8 @@ namespace Microsoft.Crank.Agent
                         {
                             throw new InvalidOperationException(); 
                         }
+
+                        _installedSdks.Add(sdkVersion);
                     }
 
                     if (!_installedDotnetRuntimes.Contains(runtimeVersion))
@@ -2619,6 +2621,8 @@ namespace Microsoft.Crank.Agent
                         {
                             throw new InvalidOperationException();
                         }
+
+                        _installedDotnetRuntimes.Add(runtimeVersion);
                     }
 
                     try
@@ -2653,6 +2657,8 @@ namespace Microsoft.Crank.Agent
                                 {
                                     throw new InvalidOperationException();
                                 }
+
+                                _installedDesktopRuntimes.Add(desktopVersion);
                             }
                             else
                             {
@@ -2699,6 +2705,8 @@ namespace Microsoft.Crank.Agent
                         {
                             throw new InvalidOperationException();
                         }
+
+                        _installedAspNetRuntimes.Add(aspNetCoreVersion);
                     }
                 }
                 else
@@ -2728,6 +2736,8 @@ namespace Microsoft.Crank.Agent
                         {
                             throw new InvalidOperationException();
                         }
+
+                        _installedSdks.Add(sdkVersion);
                     }
 
                     if (!_installedDotnetRuntimes.Contains(runtimeVersion))
@@ -2755,6 +2765,8 @@ namespace Microsoft.Crank.Agent
                         {
                             throw new InvalidOperationException();
                         }
+
+                        _installedDotnetRuntimes.Add(runtimeVersion);
                     }
 
                     // The aspnet core runtime is only available for >= 2.1, in 2.0 the dlls are contained in the runtime store
@@ -2783,6 +2795,8 @@ namespace Microsoft.Crank.Agent
                         {
                             throw new InvalidOperationException();
                         }
+
+                        _installedAspNetRuntimes.Add(aspNetCoreVersion);
                     }
                 }
             }
@@ -5319,7 +5333,7 @@ namespace Microsoft.Crank.Agent
 
             Log.WriteLine($"Checking package: {download_link}");
 
-            var httpMessage = new HttpRequestMessage(HttpMethod.Get, download_link);
+            var httpMessage = new HttpRequestMessage(HttpMethod.Head, download_link);
             httpMessage.Headers.IfModifiedSince = DateTime.Now;
 
             using var response = await _httpClient.SendAsync(httpMessage);
