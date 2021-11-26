@@ -40,7 +40,6 @@ namespace Microsoft.Crank.IntegrationTests
                 workingDirectory: _crankAgentDirectory,
                 captureOutput: true,
                 throwOnError: false,
-                timeout: TimeSpan.FromMinutes(5),
                 cancellationToken: _stopAgentCts.Token,
                 outputDataReceived: t => 
                 { 
