@@ -228,8 +228,6 @@ namespace Microsoft.Crank.Agent
             var buildPathOption = app.Option("--build-path", "The path where applications are built.", CommandOptionType.SingleValue);
             var buildTimeoutOption = app.Option("--build-timeout", "Maximum duration of build task in minutes. Default 10 minutes.",
                 CommandOptionType.SingleValue);
-            var controllerTimeoutOption = app.Option("--controller-timeout", "Maximum duration until the controller is deemed unresponsive. Default 10 seconds (00:00:10).",
-                CommandOptionType.SingleValue);
 
             app.OnExecute(() =>
             {
