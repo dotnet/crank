@@ -124,8 +124,7 @@ namespace Microsoft.Crank.Agent
         public static Hardware Hardware { get; private set; }
         public static string HardwareVersion { get; private set; }
 
-        private static readonly TimeSpan timeSpan = TimeSpan.FromSeconds(10);
-        public static TimeSpan DriverTimeout = timeSpan;
+        public static TimeSpan DriverTimeout = TimeSpan.FromSeconds(10);
         public static TimeSpan StartTimeout = TimeSpan.FromMinutes(3);
         public static TimeSpan DefaultBuildTimeout = TimeSpan.FromMinutes(10);
         public static TimeSpan DeletedTimeout = TimeSpan.FromHours(18);
@@ -519,6 +518,11 @@ namespace Microsoft.Crank.Agent
 
                         foreach (var job in group.Keys)
                         {
+                            if (job.State == JobState.Deleted)
+                            {
+                                continue;
+                            }
+
                             var context = group[job];
 
                             Log.WriteLine($"Processing job '{job.Service}' ({job.Id}) in state {job.State}");
@@ -1072,7 +1076,7 @@ namespace Microsoft.Crank.Agent
                                                                 }
                                                             }
 
-                                                            if (takeMeasurement && trackProcess != null)
+                                                            if (takeMeasurement && trackProcess != null && !trackProcess.HasExited)
                                                             {
                                                                 var newCPUTime = OperatingSystem == OperatingSystem.OSX
                                                                     ? TimeSpan.Zero
@@ -1303,7 +1307,7 @@ namespace Microsoft.Crank.Agent
                                     {
                                         context.CountersCompletionSource.SetResult(true);
 
-                                        Task.WaitAny(new Task[] { context.CountersTask }, 5000);
+                                        Task.WaitAny(new Task[] { context.CountersTask }, 10000);
 
                                         if (!context.CountersTask.IsCompleted)
                                         {
@@ -1344,7 +1348,7 @@ namespace Microsoft.Crank.Agent
                                     job.DumpFile = Path.GetTempFileName();
 
                                     var dumper = new Dumper();
-                                    dumper.Collect(job.ProcessId, job.DumpFile, job.DumpType);
+                                    dumper.Collect(job.ChildProcessId > 0 ? job.ChildProcessId : job.ProcessId, job.DumpFile, job.DumpType);
                                 }
 
                                 Log.WriteLine($"Stopping heartbeat ({job.Service}:{job.Id})");
@@ -2586,6 +2590,8 @@ namespace Microsoft.Crank.Agent
                         {
                             throw new InvalidOperationException(); 
                         }
+
+                        _installedSdks.Add(sdkVersion);
                     }
 
                     if (!_installedDotnetRuntimes.Contains(runtimeVersion))
@@ -2613,6 +2619,8 @@ namespace Microsoft.Crank.Agent
                         {
                             throw new InvalidOperationException();
                         }
+
+                        _installedDotnetRuntimes.Add(runtimeVersion);
                     }
 
                     try
@@ -2647,6 +2655,8 @@ namespace Microsoft.Crank.Agent
                                 {
                                     throw new InvalidOperationException();
                                 }
+
+                                _installedDesktopRuntimes.Add(desktopVersion);
                             }
                             else
                             {
@@ -2693,6 +2703,8 @@ namespace Microsoft.Crank.Agent
                         {
                             throw new InvalidOperationException();
                         }
+
+                        _installedAspNetRuntimes.Add(aspNetCoreVersion);
                     }
                 }
                 else
@@ -2722,6 +2734,8 @@ namespace Microsoft.Crank.Agent
                         {
                             throw new InvalidOperationException();
                         }
+
+                        _installedSdks.Add(sdkVersion);
                     }
 
                     if (!_installedDotnetRuntimes.Contains(runtimeVersion))
@@ -2749,6 +2763,8 @@ namespace Microsoft.Crank.Agent
                         {
                             throw new InvalidOperationException();
                         }
+
+                        _installedDotnetRuntimes.Add(runtimeVersion);
                     }
 
                     // The aspnet core runtime is only available for >= 2.1, in 2.0 the dlls are contained in the runtime store
@@ -2777,6 +2793,8 @@ namespace Microsoft.Crank.Agent
                         {
                             throw new InvalidOperationException();
                         }
+
+                        _installedAspNetRuntimes.Add(aspNetCoreVersion);
                     }
                 }
             }
@@ -4776,11 +4794,25 @@ namespace Microsoft.Crank.Agent
                 if (context.CountersCompletionSource.Task.IsCompleted)
                 {
                     Log.WriteLine($"Reason: counters are being stopped");
-                } 
+                }
 
-                // It also interrupts the source.Process() blocking operation
-                context.EventPipeSession.Stop();
-                Log.WriteLine($"Event pipe session stopped ({job.Service}:{job.Id})");
+                try
+                {
+                    context.EventPipeSession.Dispose();
+
+                    // It also interrupts the source.Process() blocking operation
+                    //await context.EventPipeSession.StopAsync(default(CancellationToken));
+
+                    Log.WriteLine($"Event pipe session stopped ({job.Service}:{job.Id})");
+                }
+                catch (ServerNotAvailableException)
+                {
+                    Log.WriteLine($"Event pipe session interupted, application has already exited ({job.Service}:{job.Id})");
+                }
+                catch (Exception e)
+                {
+                    Log.WriteLine($"Event pipe session failed stopping ({job.Service}:{job.Id}): {e}");
+                }
             });
 
             context.CountersTask = Task.WhenAll(streamTask, stopTask);
@@ -5299,7 +5331,7 @@ namespace Microsoft.Crank.Agent
 
             Log.WriteLine($"Checking package: {download_link}");
 
-            var httpMessage = new HttpRequestMessage(HttpMethod.Get, download_link);
+            var httpMessage = new HttpRequestMessage(HttpMethod.Head, download_link);
             httpMessage.Headers.IfModifiedSince = DateTime.Now;
 
             using var response = await _httpClient.SendAsync(httpMessage);

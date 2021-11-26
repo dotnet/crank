@@ -829,12 +829,13 @@ namespace Microsoft.Crank.Controller
                         continue;
                     }
 
+
                     var jobs = jobsByDependency[jobName];
 
                     if (!service.WaitForExit)
                     {
                         // Unless the jobs can't be stopped
-                        if (!SpanShouldKeepJobRunning(jobName))
+                        if (!SpanShouldKeepJobRunning(jobName) || IsLastIteration())
                         {
                             await Task.WhenAll(jobs.Select(job => job.StopAsync()));
                         }
@@ -842,7 +843,7 @@ namespace Microsoft.Crank.Controller
                         await Task.WhenAll(jobs.Select(job => job.TryUpdateJobAsync()));
 
                         // Unless the jobs can't be stopped
-                        if (!SpanShouldKeepJobRunning(jobName))
+                        if (!SpanShouldKeepJobRunning(jobName) || IsLastIteration())
                         {
                             await Task.WhenAll(jobs.Select(job => job.DownloadDumpAsync()));
 
@@ -1120,9 +1121,14 @@ namespace Microsoft.Crank.Controller
                 return true;
             }
 
+            bool IsLastIteration()
+            {
+                return i >= iterations;
+            }
+
             bool SpanShouldKeepJobRunning(string jobName)
             {
-                if (IsRepeatOver())
+                if (IsRepeatOver() || IsRepeatOver())
                 {
                     return false;
                 }
