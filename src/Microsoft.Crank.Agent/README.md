@@ -23,4 +23,20 @@ Options:
   --no-cleanup           Don't kill processes or delete temp directories.
   --build-path           The path where applications are built.
   --build-timeout        Maximum duration of build task in minutes. Default 10 minutes.
+  --service              Enables Crank.Agent to run as a windows service
 ```
+
+## Running Crank.Agent as a service
+
+At the moment, only windows service is supported.
+
+Deploy the agent as a dotnet tool (or published), and register the windows service with
+
+```
+SC CREATE "CrankAgentService" binpath= "X:\abosulte_path\crank-agent.exe --url http://exposed-URL:5010 --service"
+```
+
+You also should add the `--dotnethome` and `--build-path` parameters, in order to reuse sdk, and have a dedicated workspace for building and compiling.
+
+The windows service must run with an account having rights on all the folders.
+You also need to allow the exposed port on your windows firewall.
