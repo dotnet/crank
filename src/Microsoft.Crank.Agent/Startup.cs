@@ -4500,9 +4500,6 @@ namespace Microsoft.Crank.Agent
                 RunAndTrace();
             }
 
-            // Don't wait for the counters to be ready as it could get stuck and block the agent
-            var _ = StartCountersAsync(job, context);
-
             if ((job.MemoryLimitInBytes > 0 || !String.IsNullOrWhiteSpace(job.CpuSet)) && RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 var safeProcess = Kernel32.OpenProcess(ACCESS_MASK.MAXIMUM_ALLOWED, false, (uint)process.Id);
@@ -4574,6 +4571,9 @@ namespace Microsoft.Crank.Agent
             {
                 if (MarkAsRunning(hostname, job, stopwatch))
                 {
+                    // Don't wait for the counters to be ready as it could get stuck and block the agent
+                    var _ = StartCountersAsync(job, context);
+
                     if (!job.CollectStartup)
                     {
                         if (job.Collect)
@@ -4813,10 +4813,8 @@ namespace Microsoft.Crank.Agent
 
                 try
                 {
-                    context.EventPipeSession.Dispose();
-
                     // It also interrupts the source.Process() blocking operation
-                    //await context.EventPipeSession.StopAsync(default(CancellationToken));
+                    await context.EventPipeSession.StopAsync(default);
 
                     Log.WriteLine($"Event pipe session stopped ({job.Service}:{job.Id})");
                 }
@@ -4827,6 +4825,11 @@ namespace Microsoft.Crank.Agent
                 catch (Exception e)
                 {
                     Log.WriteLine($"Event pipe session failed stopping ({job.Service}:{job.Id}): {e}");
+                }
+                finally
+                {
+                    context.EventPipeSession.Dispose();
+                    context.EventPipeSession = null;
                 }
             });
 
