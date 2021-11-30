@@ -4798,10 +4798,8 @@ namespace Microsoft.Crank.Agent
 
                 try
                 {
-                    context.EventPipeSession.Dispose();
-
                     // It also interrupts the source.Process() blocking operation
-                    //await context.EventPipeSession.StopAsync(default(CancellationToken));
+                    await context.EventPipeSession.StopAsync(default);
 
                     Log.WriteLine($"Event pipe session stopped ({job.Service}:{job.Id})");
                 }
@@ -4812,6 +4810,11 @@ namespace Microsoft.Crank.Agent
                 catch (Exception e)
                 {
                     Log.WriteLine($"Event pipe session failed stopping ({job.Service}:{job.Id}): {e}");
+                }
+                finally
+                {
+                    context.EventPipeSession.Dispose();
+                    context.EventPipeSession = null;
                 }
             });
 
