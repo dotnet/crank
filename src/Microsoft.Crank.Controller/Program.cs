@@ -1699,9 +1699,9 @@ namespace Microsoft.Crank.Controller
                 var variables = MergeVariables(rootVariables, jobVariables, commandLineVariables);
 
                 // Apply templates on variables first
-                ApplyTemplates(variables, new TemplateContext { Model = variables.DeepClone() });
+                ApplyTemplates(variables, new TemplateContext(variables.DeepClone()));
 
-                ApplyTemplates(job, new TemplateContext { Model = variables }.SetValue("job", job));
+                ApplyTemplates(job, new TemplateContext(variables).SetValue("job", job));
 
                 // Variable are merged again in the job such that all variables (root, job, command line) be
                 // available in scripts

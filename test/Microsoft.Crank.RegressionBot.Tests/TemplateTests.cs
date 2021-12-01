@@ -48,7 +48,7 @@ namespace Microsoft.Crank.RegressionBot.Tests
 
             Assert.True(parseIsSuccessful, String.Join("\n", errors));
 
-            var context = new TemplateContext { Model = report };
+            var context = new TemplateContext(report);
 
             var body = await fluidTemplate.RenderAsync(context);
 
