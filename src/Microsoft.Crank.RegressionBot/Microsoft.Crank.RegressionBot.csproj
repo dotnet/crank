@@ -18,7 +18,7 @@
     <PackageReference Include="YamlDotNet" Version="8.1.2" />
     <PackageReference Include="Manatee.Json" Version="13.0.5" /> 
     <PackageReference Include="System.Linq.Async" Version="4.1.1" />
-    <PackageReference Include="Fluid.Core" Version="2.1.4" />
+    <PackageReference Include="Fluid.Core" Version="2.2.6" />
     <PackageReference Include="MessagePack" Version="2.2.85" />
 
     <!-- Force version for Component Governance compliance -->
