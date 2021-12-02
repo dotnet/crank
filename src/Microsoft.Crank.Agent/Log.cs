@@ -8,30 +8,73 @@ namespace Microsoft.Crank.Agent
 {
     public static class Log
     {
-        public static void WriteLine(string message, bool timestamp = true)
+        public static void Info(string message, bool timestamp = true)
         {
-            var time = DateTime.Now.ToString("hh:mm:ss.fff");
             if (timestamp)
             {
-                Console.WriteLine($"[{time}] {message}");
+                if (Startup.Logger == null)
+                {
+                    Console.WriteLine($"[{DateTime.Now:hh:mm:ss.fff}] {message}");
+                }
+                else
+                {
+                    Startup.Logger.Information(message);
+                }
             }
             else
             {
-                Console.WriteLine($"{message}");
+                if (Startup.Logger == null)
+                {
+                    Console.WriteLine($"{message}");
+                }
+                else
+                {
+                    Startup.Logger.Information(message);
+                }
             }
         }
 
-        public static void Write(string message, bool timestamp = true)
+        public static void Error(Exception e, string message = null)
         {
-            var time = DateTime.Now.ToString("hh:mm:ss.fff");
-            if (timestamp)
+            if (Startup.Logger == null)
             {
-                Console.Write($"[{time}] {message}");
+                if (string.IsNullOrEmpty(message))
+                {
+                    Console.WriteLine($"[{DateTime.Now:hh:mm:ss.fff}] {e.Message}");
+                }
+                else
+                {
+                    Console.WriteLine($"[{DateTime.Now:hh:mm:ss.fff}] {message} {e.Message}");
+                }
             }
             else
             {
-                Console.Write($"{message}");
+                Startup.Logger.Error(e, message);
             }
         }
+        public static void Error(string message)
+        {
+            if (Startup.Logger == null)
+            {
+                Console.WriteLine($"[{DateTime.Now:hh:mm:ss.fff}] {message}");
+            }
+            else
+            {
+                Startup.Logger.Error(message);
+            }
+        }
+
+        public static void Warning(string message)
+        {
+            if (Startup.Logger == null)
+            {
+                Console.WriteLine($"[{DateTime.Now:hh:mm:ss.fff}] {message}");
+            }
+            else
+            {
+                Startup.Logger.Warning(message);
+            }
+        }
+
     }
 }

@@ -38,7 +38,7 @@ namespace Microsoft.Crank.Agent
 
             if (log)
             {
-                Log.WriteLine($"[{logWorkingDirectory}] {filename} {arguments}");
+                Log.Info($"[{logWorkingDirectory}] {filename} {arguments}");
             }
 
             using var process = new Process()
@@ -85,7 +85,7 @@ namespace Microsoft.Crank.Agent
 
                     if (log)
                     {
-                        Log.WriteLine(e.Data);
+                        Log.Info(e.Data);
                     }
                 }
             };
@@ -105,7 +105,7 @@ namespace Microsoft.Crank.Agent
                         outputDataReceived.Invoke(e.Data);
                     }
 
-                    Log.WriteLine("[STDERR] " + e.Data);
+                    Log.Info("[STDERR] " + e.Data);
                 }
             };
 
@@ -185,7 +185,7 @@ namespace Microsoft.Crank.Agent
                         throw;
                     }
 
-                    Log.WriteLine($"Attempt {attempts} failed: {e.Message}");
+                    Log.Info($"Attempt {attempts} failed: {e.Message}");
                 }
             } while (true);
         }

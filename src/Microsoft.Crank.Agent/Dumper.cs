@@ -41,7 +41,7 @@ namespace Microsoft.Crank.Agent
                         break;
                 }
 
-                Log.WriteLine($"Writing {dumpTypeMessage} to {outputFilePath}");
+                Log.Info($"Writing {dumpTypeMessage} to {outputFilePath}");
 
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
@@ -82,11 +82,11 @@ namespace Microsoft.Crank.Agent
                  ex is NotSupportedException ||
                  ex is DiagnosticsClientException)
             {
-                Log.WriteLine($"{ex.Message}");
+                Log.Error(ex);
                 return 1;
             }
 
-            Log.WriteLine($"Dump complete");
+            Log.Info($"Dump complete");
             return 0;
         }
     }
