@@ -23,5 +23,7 @@
     <FileSignInfo Include="Vanara.Core.resources.dll" CertificateName="3PartySHA2" />
     <FileSignInfo Include="Vanara.PInvoke.Kernel32.dll" CertificateName="3PartySHA2" />
     <FileSignInfo Include="Vanara.PInvoke.Shared.dll" CertificateName="3PartySHA2" />
+    <FileSignInfo Include="Serilog.dll" CertificateName="3PartySHA2" />
+    <FileSignInfo Include="Serilog.AspNetCore.dll" CertificateName="3PartySHA2" />
   </ItemGroup>
 </Project>
