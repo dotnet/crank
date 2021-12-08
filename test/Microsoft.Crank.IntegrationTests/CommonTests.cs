@@ -88,7 +88,7 @@ namespace Microsoft.Crank.IntegrationTests
             
             Assert.Contains("a default script", result.StandardOutput);
             Assert.NotEmpty(results.RootElement.GetProperty("jobResults").GetProperty("properties").GetProperty("time").GetString());
-            Assert.NotEmpty(results.RootElement.GetProperty("jobResults").GetProperty("jobs").GetProperty("application").GetProperty("results").GetProperty("my/result").GetString());
+            Assert.Equal(123, results.RootElement.GetProperty("jobResults").GetProperty("jobs").GetProperty("application").GetProperty("results").GetProperty("my/result").GetInt32());
         }
 
         [Fact]
