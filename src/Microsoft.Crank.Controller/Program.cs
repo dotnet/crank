@@ -873,6 +873,11 @@ namespace Microsoft.Crank.Controller
 
                 var jobResults = await CreateJobResultsAsync(configuration, dependencies, jobsByDependency);
 
+                // Duplicate measurements with multiple keys
+                DuplicateMeasurementKeys(jobResults);
+
+                ExecuteResultsScripts(configuration, jobResults);
+
                 // Display results
                 foreach (var jobName in dependencies)
                 {
@@ -897,9 +902,6 @@ namespace Microsoft.Crank.Controller
 
                     jobResults.Properties[segments[0]] = segments[1];
                 }
-
-                // Duplicate measurements with multiple keys
-                DuplicateMeasurementKeys(jobResults);
 
                 executionResult.JobResults = jobResults;
                 executionResults.Add(executionResult);
@@ -1249,6 +1251,10 @@ namespace Microsoft.Crank.Controller
             {
                 var jobResults = await CreateJobResultsAsync(configuration, dependencies, jobsByDependency);
 
+                DuplicateMeasurementKeys(jobResults);
+
+                ExecuteResultsScripts(configuration, jobResults);
+
                 // Assign custom properties
 
                 foreach (var property in _propertyOption.Values)
@@ -1379,6 +1385,10 @@ namespace Microsoft.Crank.Controller
                     NormalizeResults(new[] { job });
 
                     var jobResults = await CreateJobResultsAsync(configuration, dependencies, new Dictionary<string, List<JobConnection>> { [jobName] = new List<JobConnection> { job } });
+
+                    DuplicateMeasurementKeys(jobResults);
+
+                    ExecuteResultsScripts(configuration, jobResults);
 
                     if (!service.Options.DiscardResults)
                     {
@@ -2148,6 +2158,43 @@ namespace Microsoft.Crank.Controller
             }
         }
 
+        private static void ExecuteResultsScripts(Configuration configuration, JobResults results)
+        {
+            // Initializes the JS engine to compute results
+
+            var engine = new Engine();
+
+            engine.SetValue("benchmarks", results);
+            engine.SetValue("console", _scriptConsole);
+
+
+            // Apply scripts
+
+            // When scripts are executed, the metadata and measurements are still available.
+            // The metadata is taken from the first job connection, while the measurements
+            // of any job connection (multi endpoint job) are taken.
+            // The "measurements" property is an array of arrays of measurements.
+            // The "results" property contains all measures that are already aggregated and reduced.
+            // The "benchmarks" property contains all jobs by name
+
+            // Run scripts for OnResultsCreated
+            foreach (var script in configuration.OnResultsCreated)
+            {
+                if (!String.IsNullOrWhiteSpace(script))
+                {
+                    engine.Execute(script);
+                }
+            }
+
+            // Run custom scripts after the results are computed
+            foreach (var scriptName in _scriptOption.Values)
+            {
+                var scriptContent = configuration.Scripts[scriptName];
+
+                engine.Execute(scriptContent);
+            }
+        }
+
         private static async Task<JobResults> CreateJobResultsAsync(Configuration configuration, string[] dependencies, Dictionary<string, List<JobConnection>> jobsByDependency)
         {            
             var jobResults = new JobResults();
@@ -2274,23 +2321,6 @@ namespace Microsoft.Crank.Controller
                 }
 
                 jobResult.Environment = await jobConnections.First().GetInfoAsync();
-            }
-
-            // Apply scripts
-
-            // When scripts are executed, the metadata and measurements are still available.
-            // The metadata is taken from the first job connection, while the measurements
-            // of any job connection (multi endpoint job) are taken.
-            // The "measurements" property is an array of arrays of measurements.
-            // The "results" property contains all measures that are already aggregated and reduced.
-             
-            
-            // Run custom scripts after the results are computed
-            foreach (var scriptName in _scriptOption.Values)
-            {
-                var scriptContent = configuration.Scripts[scriptName];
-
-                engine.Execute(scriptContent);
             }
 
             return jobResults;

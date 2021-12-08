@@ -21,6 +21,7 @@ namespace Microsoft.Crank.Models
         public List<Measurement[]> Measurements { get; set; } = new List<Measurement[]>();
         public Dictionary<string, object> Environment { get; set; } = new Dictionary<string, object>();
     }
+
     public class ResultMetadata
     {
         public string Name { get; set; }
