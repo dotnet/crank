@@ -38,7 +38,7 @@ By running a benchmark with the `--config percentile.config.yml` the text _hi th
 
 ## Named scripts
 
-Named scripts are defined in the `scripts` section of a configuration file. They are opt-in, meaning that contrary to _default scripts_ and _post-porcessing scripts_ they won't be executed
+Named scripts are defined in the `scripts` section of a configuration file. They are opt-in, meaning that contrary to _global scripts_ and _post-processing scripts_ they won't be executed
 automatically once the configuration file is loaded.
 
 The following configuration snippet demonstrates how to add a custom property to the `properties` element of the results:
