@@ -847,7 +847,7 @@ results: # creates results from measurements
   aggregate: max
   reduce: max
 
-defaultScripts:
+onResultsCreating:
   - |
     function max(values) {
       return Math.max(...values);
