@@ -29,14 +29,20 @@ namespace Microsoft.Crank.Controller
         public List<string> DefaultScripts { get; set; } = new List<string>();
 
         /// <summary>
-        ///  List of named script sections that can be executed in a run
+        /// .NET counters that are available during a benchmark.
         /// </summary>
         public List<CounterList> Counters { get; set; } = new List<CounterList>();
 
         /// <summary>
-        ///  List of named script sections that can be executed in a run
+        /// Computed results definitions.
         /// </summary>
         public List<Result> Results { get; set; } = new List<Result>();
+
+        /// <summary>
+        /// Scripts to run when the results are computed.
+        /// </summary>
+        public List<string> OnResultsCreated { get; set; } = new List<string>();
+
     }
 
     public class Scenario
