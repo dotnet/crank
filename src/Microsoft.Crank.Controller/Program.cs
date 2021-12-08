@@ -873,11 +873,6 @@ namespace Microsoft.Crank.Controller
 
                 var jobResults = await CreateJobResultsAsync(configuration, dependencies, jobsByDependency);
 
-                // Duplicate measurements with multiple keys
-                DuplicateMeasurementKeys(jobResults);
-
-                ExecuteResultsScripts(configuration, jobResults);
-
                 // Display results
                 foreach (var jobName in dependencies)
                 {
@@ -1251,10 +1246,6 @@ namespace Microsoft.Crank.Controller
             {
                 var jobResults = await CreateJobResultsAsync(configuration, dependencies, jobsByDependency);
 
-                DuplicateMeasurementKeys(jobResults);
-
-                ExecuteResultsScripts(configuration, jobResults);
-
                 // Assign custom properties
 
                 foreach (var property in _propertyOption.Values)
@@ -1385,10 +1376,6 @@ namespace Microsoft.Crank.Controller
                     NormalizeResults(new[] { job });
 
                     var jobResults = await CreateJobResultsAsync(configuration, dependencies, new Dictionary<string, List<JobConnection>> { [jobName] = new List<JobConnection> { job } });
-
-                    DuplicateMeasurementKeys(jobResults);
-
-                    ExecuteResultsScripts(configuration, jobResults);
 
                     if (!service.Options.DiscardResults)
                     {
@@ -2158,43 +2145,6 @@ namespace Microsoft.Crank.Controller
             }
         }
 
-        private static void ExecuteResultsScripts(Configuration configuration, JobResults results)
-        {
-            // Initializes the JS engine to compute results
-
-            var engine = new Engine();
-
-            engine.SetValue("benchmarks", results);
-            engine.SetValue("console", _scriptConsole);
-
-
-            // Apply scripts
-
-            // When scripts are executed, the metadata and measurements are still available.
-            // The metadata is taken from the first job connection, while the measurements
-            // of any job connection (multi endpoint job) are taken.
-            // The "measurements" property is an array of arrays of measurements.
-            // The "results" property contains all measures that are already aggregated and reduced.
-            // The "benchmarks" property contains all jobs by name
-
-            // Run scripts for OnResultsCreated
-            foreach (var script in configuration.OnResultsCreated)
-            {
-                if (!String.IsNullOrWhiteSpace(script))
-                {
-                    engine.Execute(script);
-                }
-            }
-
-            // Run custom scripts after the results are computed
-            foreach (var scriptName in _scriptOption.Values)
-            {
-                var scriptContent = configuration.Scripts[scriptName];
-
-                engine.Execute(scriptContent);
-            }
-        }
-
         private static async Task<JobResults> CreateJobResultsAsync(Configuration configuration, string[] dependencies, Dictionary<string, List<JobConnection>> jobsByDependency)
         {            
             var jobResults = new JobResults();
@@ -2219,13 +2169,28 @@ namespace Microsoft.Crank.Controller
             }                
 
             // Import default scripts sections
-            foreach (var script in configuration.DefaultScripts)
+            foreach (var script in configuration.OnResultsCreating)
             {
                 if (!String.IsNullOrWhiteSpace(script))
                 {
                     engine.Execute(script);
                 }
             }
+
+#pragma warning disable CS0618 // Type or member is obsolete
+            if (configuration.DefaultScripts != null && configuration.DefaultScripts.Any())
+            {
+                Log.WriteWarning($"WARNING: 'defaultScripts' has been deprecated, in the future please use 'onResultsCreating'.");
+
+                foreach (var script in configuration.OnResultsCreating)
+                {
+                    if (!String.IsNullOrWhiteSpace(script))
+                    {
+                        engine.Execute(script);
+                    }
+                }
+            }
+#pragma warning restore CS0618 // Type or member is obsolete
 
             foreach (var jobName in dependencies)
             {
@@ -2321,6 +2286,36 @@ namespace Microsoft.Crank.Controller
                 }
 
                 jobResult.Environment = await jobConnections.First().GetInfoAsync();
+            }
+
+            // Duplicate measurements with multiple keys
+            DuplicateMeasurementKeys(jobResults);
+
+
+            // Apply scripts
+
+            // When scripts are executed, the metadata and measurements are still available.
+            // The metadata is taken from the first job connection, while the measurements
+            // of any job connection (multi endpoint job) are taken.
+            // The "measurements" property is an array of arrays of measurements.
+            // The "results" property contains all measures that are already aggregated and reduced.
+            // The "benchmarks" property contains all jobs by name
+
+            // Run scripts for OnResultsCreated
+            foreach (var script in configuration.OnResultsCreated)
+            {
+                if (!String.IsNullOrWhiteSpace(script))
+                {
+                    engine.Execute(script);
+                }
+            }
+
+            // Run custom scripts after the results are computed
+            foreach (var scriptName in _scriptOption.Values)
+            {
+                var scriptContent = configuration.Scripts[scriptName];
+
+                engine.Execute(scriptContent);
             }
 
             return jobResults;

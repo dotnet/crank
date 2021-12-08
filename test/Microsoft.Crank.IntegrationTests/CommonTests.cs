@@ -81,11 +81,14 @@ namespace Microsoft.Crank.IntegrationTests
             );
 
             Assert.Equal(0, result.ExitCode);
-                
+            Assert.Contains("Custom result (s)", result.StandardOutput);
+            Assert.Contains("123.00", result.StandardOutput);
+
             var results = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(_crankTestsDirectory, "results.json")));
             
             Assert.Contains("a default script", result.StandardOutput);
             Assert.NotEmpty(results.RootElement.GetProperty("jobResults").GetProperty("properties").GetProperty("time").GetString());
+            Assert.Equal(123.0, results.RootElement.GetProperty("jobResults").GetProperty("jobs").GetProperty("application").GetProperty("results").GetProperty("my/result").GetDouble());
         }
 
         [Fact]

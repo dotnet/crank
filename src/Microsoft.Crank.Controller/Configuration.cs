@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using System;
 using System.Collections.Generic;
 using Microsoft.Crank.Models;
 
@@ -26,7 +27,14 @@ namespace Microsoft.Crank.Controller
         /// Scripts which are loaded automatically when the configuration file is included.
         /// It's a collection such that multiple configuration files can be merged without overwriting the scripts. 
         /// </summary>
+        [Obsolete("Use OnResultsCreating instead")]
         public List<string> DefaultScripts { get; set; } = new List<string>();
+
+        /// <summary>
+        /// Scripts which are loaded automatically when the configuration file is included.
+        /// It's a collection such that multiple configuration files can be merged without overwriting the scripts. 
+        /// </summary>
+        public List<string> OnResultsCreating { get; set; } = new List<string>();
 
         /// <summary>
         /// .NET counters that are available during a benchmark.
