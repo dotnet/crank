@@ -784,30 +784,25 @@ namespace Microsoft.Crank.RegressionBot
 
                                 var hasRecovered = false;
 
+                                // It has recovered if the difference between the first measurement and the current one 
+                                // are within the threashold boundaries, or if the value is better (opposite sign).
+
                                 switch (probe.Unit)
                                 {
                                     case ThresholdUnits.StDev:
                                         // factor of standard deviation
-                                        hasRecovered = Math.Sign(nextValue) == Math.Sign(value4)
-                                            ? Math.Abs(nextValue) < probe.Threshold * standardDeviation
-                                            : Math.Abs(nextValue) >= probe.Threshold * standardDeviation
-                                            ;
+                                        hasRecovered = Math.Abs(nextValue) < probe.Threshold * standardDeviation || Math.Sign(nextValue) != Math.Sign(value4);
 
                                         break;
                                     case ThresholdUnits.Percent:
                                         // percentage of the average of values
-                                        hasRecovered = Math.Sign(nextValue) == Math.Sign(value4)
-                                            ? Math.Abs(nextValue) < average * (probe.Threshold / 100)
-                                            : Math.Abs(nextValue) >= average * (probe.Threshold / 100)
-                                            ;
+                                        hasRecovered = Math.Abs(nextValue) < average * (probe.Threshold / 100) || Math.Sign(nextValue) != Math.Sign(value4);
+                                        ;
 
                                         break;                            
                                     case ThresholdUnits.Absolute:
                                         // absolute deviation
-                                        hasRecovered = Math.Sign(nextValue) == Math.Sign(value4)
-                                            ? Math.Abs(nextValue) < probe.Threshold
-                                            : Math.Abs(nextValue) >= probe.Threshold
-                                            ;
+                                        hasRecovered = Math.Abs(nextValue) < probe.Threshold || Math.Sign(nextValue) != Math.Sign(value4);
 
                                         break;
                                     default:
