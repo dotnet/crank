@@ -8,6 +8,9 @@ using System.Threading.Tasks;
 using Microsoft.Crank.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
+using System.Net.Http;
+using System.Text;
+using System.Net;
 
 namespace Microsoft.Crank.Controller.Serializers
 {
@@ -130,6 +133,88 @@ namespace Microsoft.Crank.Controller.Serializers
                 }
             }
         }
+ public static Task WriteJobResultsToEsAsync(
+                 JobResults jobResults,
+                 string elasticSearchUrl,
+                 string indexName,
+                 string session,
+                 string scenario,
+                 string description
+                 )
+      {
+          var utcNow = DateTime.UtcNow;
+          return RetryOnExceptionAsync(5, () =>
+               WriteResultsToEs(
+                  utcNow,
+                  elasticSearchUrl,
+                  indexName,
+                  session,
+                  scenario,
+                  description,
+                  jobResults
+                  )
+              , 5000);
+      }
+
+      public static async Task InitializeElasticSearchAsync(string elasticSearchUrl, string indexName)
+      {
+          var mappingQuery =
+              @"{""settings"": {""number_of_shards"": 1},""mappings"": { ""dynamic"": false, 
+              ""properties"": {
+              ""DateTimeUtc"": { ""type"": ""date"" },
+              ""Session"": { ""type"": ""keyword"" },
+              ""Scenario"": { ""type"": ""keyword"" },
+              ""Description"": { ""type"": ""keyword"" },
+              ""Document"": { ""type"": ""nested"" }}}}";
+
+          await RetryOnExceptionAsync(5, () => InitializeDatabaseInternalAsync(elasticSearchUrl,indexName, mappingQuery), 5000);
+
+          static async Task InitializeDatabaseInternalAsync(string elasticSearchUrl,string indexName, string mappingQuery)
+          {
+              using (var httpClient = new HttpClient())
+              {
+                  HttpResponseMessage hrm = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Head, $"{elasticSearchUrl}/{indexName.ToLower()}"));
+                  if (hrm.StatusCode == HttpStatusCode.NotFound)
+                  {
+                      hrm = await httpClient.PutAsync($"{elasticSearchUrl}/{indexName.ToLower()}", new StringContent(mappingQuery, Encoding.UTF8, "application/json"));
+                      if (hrm.StatusCode != HttpStatusCode.OK)
+                      {
+                          throw new System.Exception(await hrm.Content.ReadAsStringAsync());
+                      }
+                  }
+              }
+          }
+      }
+
+      private static async Task WriteResultsToEs(
+          DateTime utcNow,
+          string elasticSearchUrl,
+          string indexName,
+          string session,
+          string scenario,
+          string description,
+          JobResults jobResults
+          )
+      {
+          var result = new
+          {
+              DateTimeUtc = utcNow,
+              Session = session,
+              Scenario = scenario,
+              Description = description,
+              Document = jobResults
+          };
+
+          using (var httpClient = new HttpClient())
+          {
+              var item = JsonConvert.SerializeObject(result, Formatting.None, new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() });
+              HttpResponseMessage hrm = httpClient.PostAsync(elasticSearchUrl+"/"+indexName.ToLower() + "/_doc/" + session, new StringContent(item.ToString(), Encoding.UTF8, "application/json")).Result;
+              if (!hrm.IsSuccessStatusCode)
+              {
+                  throw new Exception(hrm.RequestMessage?.ToString());
+              }
+          }
+      }
 
         private async static Task RetryOnExceptionAsync(int retries, Func<Task> operation, int milliSecondsDelay = 0)
         {

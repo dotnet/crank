@@ -36,7 +36,8 @@ namespace Microsoft.Crank.Controller
 
         private static string _tableName = "Benchmarks";
         private static string _sqlConnectionString = "";
-
+ private static string _indexName = "Benchmarks";
+       private static string _elasticSearchUrl = "";
         private const string DefaultBenchmarkDotNetArguments = "--inProcess --cli {{benchmarks-cli}} --join --exporters briefjson markdown";
 
         // Default to arguments which should be sufficient for collecting trace of default Plaintext run
@@ -56,6 +57,8 @@ namespace Microsoft.Crank.Controller
             _variableOption,
             _sqlConnectionStringOption,
             _sqlTableOption,
+            _elastiSearchUrlOption,
+           _elasticSearchIndexOption,
             _sessionOption,
             _descriptionOption,
             _propertyOption,
@@ -151,7 +154,10 @@ namespace Microsoft.Crank.Controller
                 "Connection string of the SQL Server Database to store results in", CommandOptionType.SingleValue);
             _sqlTableOption = app.Option("--table",
                 "Table name of the SQL Database to store results in", CommandOptionType.SingleValue);
-            _sessionOption = app.Option("--session", "A logical identifier to group related jobs.", CommandOptionType.SingleValue);
+           _elastiSearchUrlOption = app.Option("--es",
+           "Elasticsearch server url to store results in", CommandOptionType.SingleValue);
+            _elasticSearchIndexOption = app.Option("--index",
+                    "Index name of the Elasticsearch server to store results in", CommandOptionType.SingleValue); _sessionOption = app.Option("--session", "A logical identifier to group related jobs.", CommandOptionType.SingleValue);
             _descriptionOption = app.Option("--description", "A string describing the job.", CommandOptionType.SingleValue);
             _propertyOption = app.Option("-p|--property", "Some custom key/value that will be added to the results, .e.g. --property arch=arm --property os=linux", CommandOptionType.MultipleValue);
             _excludeMeasurementsOption = app.Option("--no-measurements", "Remove all measurements from the stored results. For instance, all samples of a measure won't be stored, only the final value.", CommandOptionType.SingleOrNoValue);
@@ -357,6 +363,26 @@ namespace Microsoft.Crank.Controller
                     }
                 }
 
+if (_elasticSearchIndexOption.HasValue())
+               {
+                   _indexName = _elasticSearchIndexOption.Value();
+
+                   if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(_indexName)))
+                   {
+                       _indexName = Environment.GetEnvironmentVariable(_indexName);
+                   }
+               }
+
+               if (_elastiSearchUrlOption.HasValue())
+               {
+                   _elasticSearchUrl = _elastiSearchUrlOption.Value();
+
+                   if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(_elasticSearchUrl)))
+                   {
+                       _elasticSearchUrl = Environment.GetEnvironmentVariable(_elasticSearchUrl);
+                   }
+               }
+
                 if (!_configOption.HasValue())
                 {
                     if (!_jobOption.HasValue())
@@ -499,6 +525,12 @@ namespace Microsoft.Crank.Controller
                 if (!String.IsNullOrWhiteSpace(_sqlConnectionString))
                 {
                     await JobSerializer.InitializeDatabaseAsync(_sqlConnectionString, _tableName);
+                }
+
+                // Initialize elasticsearch index
+               if (!String.IsNullOrWhiteSpace(_elasticSearchUrl))
+                {
+                    await JobSerializer.InitializeElasticSearchAsync(_elasticSearchUrl, _indexName);
                 }
 
                 #pragma warning disable CS4014
@@ -1102,6 +1134,15 @@ namespace Microsoft.Crank.Controller
                     }
                 }
 
+ if (!String.IsNullOrEmpty(_elasticSearchUrl))
+                {
+                    // Skip storing results if running with iterations and not the last run
+                    if (i == iterations)
+                   {
+                       await JobSerializer.WriteJobResultsToEsAsync(executionResult.JobResults, _elasticSearchUrl, _indexName, session, _scenarioOption.Value(), _descriptionOption.Value());
+                    }
+                }
+
                 i = i + 1;
             }
             while (!IsRepeatOver());
@@ -1283,6 +1324,13 @@ namespace Microsoft.Crank.Controller
                     
                     await JobSerializer.WriteJobResultsToSqlAsync(executionResult.JobResults, _sqlConnectionString, _tableName, session, _scenarioOption.Value(), String.Join(" ", _descriptionOption.Value(), fullName));
                 }
+                 if (!String.IsNullOrEmpty(_elasticSearchUrl))
+                {
+                    var executionResult = new ExecutionResult();
+                    executionResult.JobResults = jobResults;
+
+                    await JobSerializer.WriteJobResultsToEsAsync(executionResult.JobResults, _elasticSearchUrl, _indexName, session, _scenarioOption.Value(), String.Join(" ", _descriptionOption.Value(), fullName));
+               }
             }
 
             return new ExecutionResult
@@ -1416,6 +1464,11 @@ namespace Microsoft.Crank.Controller
                     if (!String.IsNullOrEmpty(_sqlConnectionString))
                     {
                         await JobSerializer.WriteJobResultsToSqlAsync(jobResults, _sqlConnectionString, _tableName, session, _scenarioOption.Value(), _descriptionOption.Value());
+                    }
+
+                    if (!String.IsNullOrEmpty(_elasticSearchUrl))
+                    {
+                        await JobSerializer.WriteJobResultsToEsAsync(jobResults, _elasticSearchUrl, _indexName, session, _scenarioOption.Value(), _descriptionOption.Value());
                     }
                 }
 
