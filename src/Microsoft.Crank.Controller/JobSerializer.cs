@@ -208,7 +208,7 @@ namespace Microsoft.Crank.Controller.Serializers
           using (var httpClient = new HttpClient())
           {
               var item = JsonConvert.SerializeObject(result, Formatting.None, new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() });
-              HttpResponseMessage hrm = httpClient.PostAsync(elasticSearchUrl+"/"+indexName.ToLower() + "/_doc/" + session, new StringContent(item.ToString(), Encoding.UTF8, "application/json")).Result;
+              HttpResponseMessage hrm = await httpClient.PostAsync(elasticSearchUrl+"/"+indexName.ToLower() + "/_doc/" + session, new StringContent(item.ToString(), Encoding.UTF8, "application/json"));
               if (!hrm.IsSuccessStatusCode)
               {
                   throw new Exception(hrm.RequestMessage?.ToString());
