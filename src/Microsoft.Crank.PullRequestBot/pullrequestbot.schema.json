@@ -1,0 +1,6 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://microsoft.com/dotnet/crank/pullrequestbot",
+  "type": "object",
+  "title": "Crank Pull Request Bot JSON Schema"
+}

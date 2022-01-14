@@ -4,11 +4,12 @@
 
 using Octokit;
 
-namespace Microsoft.Crank.JobProducer
+namespace Microsoft.Crank.PullRequestBot
 {
-    public class PRBenchmarkRequest
+    public class Command
     {
         public PullRequest PullRequest { get; set; }
-        public string ScenarioName { get; set; }
+        public string Scenario { get; set; }
+        public string Environment { get; set; }
     }
 }

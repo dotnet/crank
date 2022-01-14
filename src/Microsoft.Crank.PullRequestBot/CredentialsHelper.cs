@@ -9,12 +9,12 @@ using System.Threading.Tasks;
 using Microsoft.IdentityModel.Tokens;
 using Octokit;
 
-namespace Microsoft.Crank.RegressionBot
+namespace Microsoft.Crank.PullRequestBot
 {
     public class GitHubHelper
     {
         private static GitHubClient _githubClient;
-        static ProductHeaderValue ClientHeader = new ProductHeaderValue("crank-regression-bot");
+        static ProductHeaderValue ClientHeader = new ProductHeaderValue("crank-pullrequest-bot");
         static Credentials _credentials;
 
         static readonly TimeSpan GitHubJwtTimeout = TimeSpan.FromMinutes(5);
