@@ -421,14 +421,12 @@ namespace Microsoft.Crank.PullRequestBot
 
         private static async Task<string> RunBenchmark(Command command)
         {
-            _configuration.Build = "echo fake build";
-
             var WORKSPACE = "/temp";
 
             var scenario = _configuration.Benchmarks.First(x => x.Name == command.Scenario);
             var environment = _configuration.Environments.First(x => x.Name == command.Environment);
 
-            var cloneUrl = "https://github.com/pranavkm/aspnetcore.git"; // command.PullRequest.Head.Repository.CloneUrl
+            var cloneUrl = "https://github.com/dotnet/aspnetcore.git"; // command.PullRequest.Base.Repository.CloneUrl
             var folder = $"aspnetcore"; // command.PullRequest.Base.Repository.Name
             var baseBranch = "main"; // command.PullRequest.Base.Ref
             var prid = 39463; // command.PullRequest.Id
@@ -447,6 +445,7 @@ git clone --recursive {cloneUrl} {WORKSPACE}/{folder}
 cd {WORKSPACE}/{folder}
 git checkout {baseBranch}
 {_configuration.Build}
+
 crank {_configuration.Defaults} {scenario.Value} {environment.Value} --json ""{WORKSPACE}/base.json""
 
 cd {WORKSPACE}/{folder}
@@ -455,18 +454,18 @@ git config --global user.name ""user""
 git config --global user.email ""user@company.com""
 git merge FETCH_HEAD
 { _configuration.Build}
+
 crank {_configuration.Defaults} {scenario.Value} {environment.Value} --json ""{WORKSPACE}/head.json""
 
-crank compare base.json head.json >> results.txt
 ";
 
             File.WriteAllText("script.cmd", script);
 
             await ProcessUtil.RunAsync("cmd.exe", "/c script.cmd", log: true);
 
-            var result = File.ReadAllText($"{WORKSPACE}/results.txt");
-
-            return result;
+            var result = await ProcessUtil.RunAsync("crank", $"compare {WORKSPACE}/base.json {WORKSPACE}/head.json", log: true);
+            
+            return result.StandardOutput;
         }
     }
 }

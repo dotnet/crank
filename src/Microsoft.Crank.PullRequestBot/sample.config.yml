@@ -28,17 +28,19 @@ repository: aspnetcore
 
 # multi-line script used to build the project
 build: |
-    cd /temp
+    echo FAKE BUILD
     # ./src/Servers/Kestrel/build.sh -c release
 
 # default arguments that are always used on crank commands
-defaults: --config https://github.com/aspnet/Benchmarks/blob/main/build/azure.profile.yml?raw=true --relay AZURE_RELAY --application.framework net7.0 --application.options.outputFiles ./artifacts/bin/Microsoft.AspNetCore.Server.Kestrel/release/net7.0/
+# defaults: --config https://github.com/aspnet/Benchmarks/blob/main/build/azure.profile.yml?raw=true --relay AZURE_RELAY --application.framework net7.0 --application.options.outputFiles ./artifacts/bin/Microsoft.AspNetCore.Server.Kestrel/release/net7.0/
+defaults: --variable duration=2 --variable warmup=0 --config https://github.com/aspnet/Benchmarks/blob/main/build/azure.profile.yml?raw=true --application.framework net7.0 # --application.options.outputFiles ./artifacts/bin/Microsoft.AspNetCore.Server.Kestrel/release/net7.0/
 
 # the first value is the default if none is specified
 environments:
     - name: aspnet-perf-lin
       description: INTEL/Linux 12 Cores
-      value: --profile aspnet-perf-lin-relay
+      #value: --profile aspnet-perf-lin-relay
+      value: --profile aspnet-perf-lin
 
     - name: aspnet-perf-win
       description: INTEL/Windows 12 Cores
