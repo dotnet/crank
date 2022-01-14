@@ -25,6 +25,7 @@ using Manatee.Json.Schema;
 using Manatee.Json;
 using Jint;
 using System.Security.Cryptography;
+using Microsoft.Azure.Relay;
 
 namespace Microsoft.Crank.Controller
 {
@@ -56,6 +57,7 @@ namespace Microsoft.Crank.Controller
             _variableOption,
             _sqlConnectionStringOption,
             _sqlTableOption,
+            _relayConnectionStringOption,
             _sessionOption,
             _descriptionOption,
             _propertyOption,
@@ -148,8 +150,11 @@ namespace Microsoft.Crank.Controller
             _compareOption = app.Option("--compare", "An optional filename to compare the results to. Can be used multiple times.", CommandOptionType.MultipleValue);
             _variableOption = app.Option("--variable", "Variable", CommandOptionType.MultipleValue);
             _sqlConnectionStringOption = app.Option("--sql",
-                "Connection string of the SQL Server Database to store results in", CommandOptionType.SingleValue);
+                "Connection string or environment variable name of the SQL Server Database to store results in.", CommandOptionType.SingleValue);
             _sqlTableOption = app.Option("--table",
+                "Table name or environment variable name of the SQL table to store results in.", CommandOptionType.SingleValue);
+            _relayConnectionStringOption = app.Option("--relay", "Connection string or environment variable name of the Azure Relay namespace used to access the Crank Agent endpoints. e.g., 'Endpoint=sb://mynamespace.servicebus.windows.net;...', 'MY_AZURE_RELAY_ENV'", CommandOptionType.SingleValue);
+            _sessionOption = app.Option("--table",
                 "Table name of the SQL Database to store results in", CommandOptionType.SingleValue);
             _sessionOption = app.Option("--session", "A logical identifier to group related jobs.", CommandOptionType.SingleValue);
             _descriptionOption = app.Option("--description", "A string describing the job.", CommandOptionType.SingleValue);
@@ -472,7 +477,11 @@ namespace Microsoft.Crank.Controller
                             using (var cts = new CancellationTokenSource(10000))
                             {
                                 var response = await _httpClient.GetAsync(endpoint, cts.Token);
-                                response.EnsureSuccessStatusCode();
+                                
+                                if (!_relayConnectionStringOption.HasValue())
+                                {
+                                    response.EnsureSuccessStatusCode();
+                                }
                             }
                         }
                         catch (Exception e)
@@ -639,6 +648,16 @@ namespace Microsoft.Crank.Controller
                             else
                             {
                                 jobs = service.Endpoints.Select(endpoint => new JobConnection(service, new Uri(endpoint))).ToList();
+
+                                foreach (var jobConnection in jobs)
+                                {
+                                    var relayToken = await GetRelayTokenAsync(jobConnection.ServerUri);
+
+                                    if (!String.IsNullOrEmpty(relayToken))
+                                    {
+                                        jobConnection.ConfigureRelay(relayToken);
+                                    }
+                                }
 
                                 jobsByDependency[jobName] = jobs;
 
@@ -2870,6 +2889,61 @@ namespace Microsoft.Crank.Controller
             }
 
             return executionResult;
+        }
+
+        private static async Task<string> GetRelayTokenAsync(Uri endpointUri)
+        {
+            var connectionString = GetAzureRelayConnectionString();
+
+            if (String.IsNullOrEmpty(connectionString))
+            {
+                return null;
+            }
+
+            var rcsb = new RelayConnectionStringBuilder(connectionString);
+            var tokenProvider = TokenProvider.CreateSharedAccessSignatureTokenProvider(rcsb.SharedAccessKeyName, rcsb.SharedAccessKey);
+            return (await tokenProvider.GetTokenAsync(rcsb.Endpoint.ToString(), TimeSpan.FromHours(1))).TokenString;
+
+            string GetAzureRelayConnectionString()
+            {
+                // 1- Use argument if provided
+                // 2- Look for an ENV with the name of the hybrid connection
+                // 3- Look for an ENV with the name of the relay
+
+                if (_relayConnectionStringOption.HasValue())
+                {
+                    var relayConnectionString = _relayConnectionStringOption.Value();
+
+                    if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(relayConnectionString)))
+                    {
+                        return Environment.GetEnvironmentVariable(relayConnectionString);
+                    }
+                    else
+                    {
+                        return relayConnectionString;
+                    }
+                }
+
+                if (!endpointUri.Authority.EndsWith("servicebus.windows.net", StringComparison.OrdinalIgnoreCase))
+                {
+                    return null;
+                }
+
+                var rootVariable = $"{endpointUri.Authority.Replace(".", "_")}"; // aspnetperf_servicebus_windows_net
+                var entityVariable = $"{rootVariable}__{endpointUri.LocalPath}"; // aspnetperf_servicebus_windows_net__local
+
+                if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(entityVariable)))
+                {
+                    return Environment.GetEnvironmentVariable(entityVariable);
+                }
+
+                if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(rootVariable)))
+                {
+                    return Environment.GetEnvironmentVariable(entityVariable);
+                }
+
+                return null;
+            }
         }
     }
 }
