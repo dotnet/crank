@@ -15,6 +15,17 @@ namespace Microsoft.Crank.PullRequestBot
 {
     public static class ProcessUtil
     {
+        public static string GetScriptHost()
+        {
+            return Environment.OSVersion.Platform switch
+            {
+                PlatformID.Unix => "bash",
+                PlatformID.Win32NT => "cmd.exe",
+                PlatformID.MacOSX => "bash",
+                _ => throw new NotImplementedException()
+            };
+        }
+
         [DllImport("libc", SetLastError = true, EntryPoint = "kill")]
         private static extern int sys_kill(int pid, int sig);
 

@@ -9,7 +9,8 @@ namespace Microsoft.Crank.PullRequestBot
     public class Command
     {
         public PullRequest PullRequest { get; set; }
-        public string Scenario { get; set; }
-        public string Environment { get; set; }
+        public string[] Benchmarks { get; set; }
+        public string[] Profiles { get; set; }
+        public string[] Builds { get; set; }
     }
 }

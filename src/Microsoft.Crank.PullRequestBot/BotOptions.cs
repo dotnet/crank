@@ -8,9 +8,13 @@ namespace Microsoft.Crank.PullRequestBot
 {
     public class BotOptions
     {
-        public long RepositoryId { get; set; }
+        public string Benchmarks { get; set; } = "";
+        public string Profiles { get; set; } = "";
+        public string Components { get; set; } = "";
+        public string PullRequest { get; set; }
+        public string Repository { get; set; }
+        public bool PublishResults { get; set; } = false;
         public string AccessToken { get; set; }
-        public string Username { get; set; }
         public string AppKey { get; set; }
         public string AppId { get; set; }
         public long InstallId { get; set; }
@@ -21,19 +25,13 @@ namespace Microsoft.Crank.PullRequestBot
 
         public void Validate()
         {
-            return;
-
             if (!Debug)
             {
-                if (RepositoryId == 0)
+                if (String.IsNullOrEmpty(Repository) && String.IsNullOrEmpty(PullRequest))
                 {
-                    throw new ArgumentException("RepositoryId argument is missing or invalid");
+                    throw new ArgumentException("--repository or --pull-request is required");
                 }
 
-                if (String.IsNullOrEmpty(AccessToken) && String.IsNullOrEmpty(AppKey))
-                {
-                    throw new ArgumentException("AccessToken or GitHubAppKey is required");
-                }
                 else if (!String.IsNullOrEmpty(AppKey))
                 {
                     if(String.IsNullOrEmpty(AppId))
@@ -46,14 +44,6 @@ namespace Microsoft.Crank.PullRequestBot
                         throw new ArgumentException("GitHubInstallationId argument is missing");
                     }
                 }
-                else
-                {
-                    if (String.IsNullOrEmpty(Username))
-                    {
-                        throw new ArgumentException("Username argument is missing");
-                    }
-                }
-
             }
         }
     }

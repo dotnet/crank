@@ -1,56 +1,37 @@
-  #base: |
-  #  git checkout $GITHUB_BASE_REF
-  #  echo "Building BASE"
-  #  ./src/Servers/Kestrel/build.sh -c release
-  #  crank $CRANK_CONFIGS --profile $CRANK_PROFILE --relay AZURE_RELAY --json "$GITHUB_WORKSPACE/base.json" $CRANK_ARGUMENTS
-
-  #head: |    
-  #  git fetch origin pull/${{ github.event.issue.number }}/head
-  #  git config --global user.name "user"
-  #  git config --global user.email "user@company.com"
-  #  git merge FETCH_HEAD
-  #  echo "Building HEAD"
-  #  ./src/Servers/Kestrel/build.sh -c release
-  #  crank $CRANK_CONFIGS --profile $CRANK_PROFILE --json "$GITHUB_WORKSPACE/head.json" $CRANK_ARGUMENTS
-    
-  #  cd $GITHUB_WORKSPACE
-  #  echo "Arguments:"$'\n```\n'$"$CRANK_ARGUMENTS"$'\n```\n' >> results.txt
-  #  echo "Results:"$'\n```\n' >> results.txt
-  #  crank compare base.json head.json >> results.txt
-  #  echo $'\n```\n' >> results.txt
-  #  cat results.txt
-
-# GitHub organization
-organization: dotnet
-
-# security group
-repository: aspnetcore
-
 # multi-line script used to build the project
-build: |
-    echo FAKE BUILD
-    # ./src/Servers/Kestrel/build.sh -c release
+builds:
+    kestrel: 
+        script: |
+            # echo FAKE KESTREL BUILD
+            ./src/Servers/Kestrel/build.cmd -c release -NoBuildNative -NoBuildJava  -NoBuildNodeJs
+        arguments:
+            --application.options.outputFiles ./artifacts/bin/Microsoft.AspNetCore.Server.Kestrel/release/net7.0/
+    mvc: 
+        script: |
+            echo FAKE MVC BUILD
+            # ./src/Servers/Kestrel/build.sh -c release
+        arguments: 
+            --application.options.outputFiles ./artifacts/bin/Microsoft.AspNetCore.MVC/release/net7.0/
 
 # default arguments that are always used on crank commands
 # defaults: --config https://github.com/aspnet/Benchmarks/blob/main/build/azure.profile.yml?raw=true --relay AZURE_RELAY --application.framework net7.0 --application.options.outputFiles ./artifacts/bin/Microsoft.AspNetCore.Server.Kestrel/release/net7.0/
 defaults: --variable duration=2 --variable warmup=0 --config https://github.com/aspnet/Benchmarks/blob/main/build/azure.profile.yml?raw=true --application.framework net7.0 # --application.options.outputFiles ./artifacts/bin/Microsoft.AspNetCore.Server.Kestrel/release/net7.0/
 
 # the first value is the default if none is specified
-environments:
-    - name: aspnet-perf-lin
-      description: INTEL/Linux 12 Cores
-      #value: --profile aspnet-perf-lin-relay
-      value: --profile aspnet-perf-lin
+profiles:
+    aspnet-perf-lin:
+        description: INTEL/Linux 12 Cores
+        arguments: --profile aspnet-perf-lin
 
-    - name: aspnet-perf-win
-      description: INTEL/Windows 12 Cores
-      value: --profile aspnet-perf-win-relay
+    aspnet-perf-win:
+        description: INTEL/Windows 12 Cores
+        arguments: --profile aspnet-perf-win-relay
 
 benchmarks:
-    - name: plaintext
+    plaintext:
       description: TechEmpower Plaintext Scenario - ASP.NET Middleware
-      value: --config https://raw.githubusercontent.com/aspnet/Benchmarks/main/scenarios/plaintext.benchmarks.yml --scenario plaintext
+      arguments: --config https://raw.githubusercontent.com/aspnet/Benchmarks/main/scenarios/plaintext.benchmarks.yml --scenario plaintext
 
-    - name: json
+    json:
       description: TechEmpower JSON Scenario - ASP.NET Middleware
-      value: --config https://raw.githubusercontent.com/aspnet/Benchmarks/main/scenarios/json.benchmarks.yml --scenario json
+      arguments: --config https://raw.githubusercontent.com/aspnet/Benchmarks/main/scenarios/json.benchmarks.yml --scenario json

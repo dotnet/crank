@@ -8,18 +8,24 @@ namespace Microsoft.Crank.PullRequestBot
 {
     public class Configuration
     {
-        public string Organization { get; set; }
-        public string Repository { get; set; }
-        public string Build { get; set; }
         public string Defaults { get; set; }
-        public List<NameValue> Environments { get; set; } = new List<NameValue>();
-        public List<NameValue> Benchmarks { get; set; } = new List<NameValue>();
+        public Dictionary<string, Build> Builds { get; set; } = new ();
+        public Dictionary<string, Profile> Profiles { get; set; } = new ();
+        public Dictionary<string, Benchmark> Benchmarks { get; set; } = new ();
     }
 
-    public class NameValue
+    public class Profile
+    {
+        public string Description { get; set; }
+        public string Arguments { get; set; }
+    }
+
+    public class Benchmark
     {
         public string Name { get; set; }
         public string Description { get; set; }
-        public string Value { get; set; }
+        public string Arguments { get; set; }
     }
+
+    public record struct Build(string Script, string Arguments);
 }

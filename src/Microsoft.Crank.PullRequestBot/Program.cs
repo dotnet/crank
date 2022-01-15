@@ -11,7 +11,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
-using System.Threading;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Manatee.Json;
 using Manatee.Json.Schema;
@@ -24,14 +24,15 @@ namespace Microsoft.Crank.PullRequestBot
 {
     public class Program
     {
-        private static GitHubClient _githubClient;
+        private static GitHubClient _githubClient = GitHubHelper.CreateClient(Credentials.Anonymous);
+
         private static Configuration _configuration;
         private static BotOptions _options;
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
 
         // Any comment made by this bot should contain the thumbprint to detect benchmark commands have already been processed 
-        private const string Thumbprint = "<!-- pullrequestbotbreadcrumb -->";
+        private const string Thumbprint = "<!-- pullrequestthumbprint -->";
 
         private const string BenchmarkCommand = "/benchmark";
 
@@ -61,15 +62,27 @@ namespace Microsoft.Crank.PullRequestBot
             // Create a root command with some options
             var rootCommand = new RootCommand
             {
-                new Option<long>(
-                    "--repository-id",
-                    description: "The GitHub repository id. Tip: The repository id can be found using this endpoint: https://api.github.com/repos/dotnet/aspnetcore"),
+                new Option<string>(
+                    "--benchmarks",
+                    "The benchmarks to run."),
+                new Option<string>(
+                    "--profiles",
+                    "The profiles to run the benchmarks one."),
+                new Option<string>(
+                    "--components",
+                    "The components to build."),
+                new Option<string>(
+                    "--repository",
+                    "The repository for which pull-request comments should be scanned, e.g., https://github.com/dotnet/aspnetcore, dotnet/aspnetcore"),
+                new Option<string>(
+                    "--pull-request",
+                    "The Pull Request url or id to benchmark, e.g., https://github.com/dotnet/aspnetcore/pull/39527, 39527"),
+                new Option<string>(
+                    "--publish-results",
+                    "Publishes the results on the original PR."),
                 new Option<string>(
                     "--access-token",
                     "The GitHub account access token. (Secured)"),
-                new Option<string>(
-                    "--username",
-                    "The GitHub account username. e.g., 'pr-benchmarks[bot]'"){ IsRequired = true },
                 new Option<string>(
                     "--app-key",
                     "The GitHub application key. (Secured)"),
@@ -125,35 +138,135 @@ namespace Microsoft.Crank.PullRequestBot
 
             _configuration = await LoadConfigurationAsync(_options.Config);
 
-            await RunBenchmark(new Command { Environment = "aspnet-perf-lin", Scenario = "plaintext" });
+            string owner = null, name = null;
 
-            return 0;
-
-            Console.WriteLine($"Scanning for benchmark requests in {_configuration.Organization}/{_configuration.Repository}.");
-
-            await foreach (var command in GetPullRequestCommands())
+            if (options.Repository != null)
             {
-                var pr = command.PullRequest;
+                var segments = options.Repository.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
-                try
+                if (segments.Length < 2)
                 {
-                    Console.WriteLine($"Requesting {command.Scenario} benchmark for PR #{pr.Number}.");
-
-                    await _githubClient.Issue.Comment.Create(_configuration.Organization, _configuration.Repository, pr.Number, ApplyThumbprint($"Benchmark started for __{command.Scenario}__ on __{command.Environment}__"));
-
-                    var result = await RunBenchmark(command);
-
-                    await _githubClient.Issue.Comment.Create(_configuration.Organization, _configuration.Repository, pr.Number, ApplyThumbprint(result));
+                    throw new ArgumentException("Invalid argument --repository");
                 }
-                catch (Exception ex)
+
+                name = segments[segments.Length - 1];
+                owner = segments[segments.Length - 2];
+
+                if (name.EndsWith(".git"))
                 {
-                    var errorCommentText = $"Failed to benchmark PR #{pr.Number}. Skipping... Details:\n```\n{ex}\n```";
-                    Console.WriteLine($"Benchmark error comment: {errorCommentText}");
-                    await _githubClient.Issue.Comment.Create(_configuration.Organization, _configuration.Repository, pr.Number, ApplyThumbprint(errorCommentText));
+                    name = name.Substring(0, name.Length - 4);
                 }
             }
 
-            Console.WriteLine($"Done scanning for benchmark requests.");
+            if (options.PullRequest != null)
+            {
+                int value;
+
+                // https://github.com/dotnet/aspnetcore/pull/39527
+                var match = Regex.Match(options.PullRequest, @".*/github.com/([\w-]+)/([\w-]+)/pull/(\d+)");
+
+                if (match.Success)
+                {
+                    owner = match.Groups[1].Value;
+                    name = match.Groups[2].Value;
+
+                    value = int.Parse(match.Groups[3].Value);
+                }
+                else if (!int.TryParse(options.PullRequest, out value))
+                {
+                    Console.WriteLine("Invalid pull-request argument");
+
+                    return 1;
+                }
+
+                if (owner == null || name == null)
+                {
+                    throw new ArgumentException("Missing repository information");
+                }
+
+                PullRequest pr;
+
+                try
+                {
+                    pr = await _githubClient.PullRequest.Get(owner, name, value);
+                }
+                catch (NotFoundException)
+                {
+                    Console.WriteLine("Pull request not found");
+
+                    return -1;
+                }
+
+                var benchmarkNames = options.Benchmarks.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                var profileNames = options.Profiles.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                var buildNames = options.Components.Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+                if (!ArgumentsValid(benchmarkNames, profileNames, buildNames, out var help))
+                {
+                    Console.WriteLine(ApplyThumbprint(help));
+
+                    return -1;
+                }
+
+                var command = new Command { PullRequest = pr, Benchmarks = benchmarkNames, Profiles = profileNames, Builds = buildNames };
+
+                var results = await RunBenchmark(command);
+
+                if (options.PublishResults)
+                {
+                    var text = new StringBuilder();
+
+                    foreach (var result in results)
+                    {
+                        text.AppendLine($"<details><summary>{result.Benchmark} - {result.Profile}</summary>\n```\n{result.Output}\n```\n</details>");
+                    }
+
+                    if (_githubClient.Credentials == Credentials.Anonymous)
+                    {
+                        _githubClient = GitHubHelper.CreateClient(await GitHubHelper.GetCredentialsFromStore());
+                    }
+
+                    var issueComment = await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint(text.ToString()));
+
+                    Console.WriteLine($"Results published at {issueComment.HtmlUrl}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Scanning for benchmark requests in {owner}/{name}.");
+
+                await foreach (var command in GetPullRequestCommands(owner, name))
+                {
+                    var pr = command.PullRequest;
+
+                    try
+                    {
+                        await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint($"Benchmark started for __{String.Join(", ", command.Benchmarks)}__ on __{String.Join(", ", command.Profiles)}__ with __{String.Join(", ", command.Builds)}"));
+
+                        var results = await RunBenchmark(command);
+
+                        if (options.PublishResults)
+                        {
+                            var text = new StringBuilder();
+
+                            foreach (var result in results)
+                            {
+                                text.AppendLine($"<details><summary>{result.Benchmark} - {result.Profile}</summary>\n```\n{result.Output}\n```\n</details>");
+                            }
+
+                            await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint(text.ToString()));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        var errorCommentText = $"Failed to benchmark PR #{command.PullRequest.Number}. Skipping... Details:\n```\n{ex}\n```";
+                        Console.WriteLine($"Benchmark error comment: {errorCommentText}");
+                        await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint(errorCommentText));
+                    }
+                }
+
+                Console.WriteLine($"Done scanning for benchmark requests.");
+            }
 
             return 0;
         }
@@ -163,7 +276,7 @@ namespace Microsoft.Crank.PullRequestBot
             return text + "\n\n" + Thumbprint;
         }
 
-        private static async IAsyncEnumerable<Command> GetPullRequestCommands()
+        private static async IAsyncEnumerable<Command> GetPullRequestCommands(string owner, string name)
         {
             var prRequest = new PullRequestRequest()
             {
@@ -172,7 +285,7 @@ namespace Microsoft.Crank.PullRequestBot
                 SortProperty = PullRequestSort.Updated,
             };
 
-            var prs = await _githubClient.PullRequest.GetAllForRepository(_configuration.Organization, _configuration.Repository, prRequest);
+            var prs = await _githubClient.PullRequest.GetAllForRepository(owner, name, prRequest);
 
             foreach (var pr in prs)
             {
@@ -181,7 +294,7 @@ namespace Microsoft.Crank.PullRequestBot
                     break;
                 }
 
-                var comments = await _githubClient.Issue.Comment.GetAllForIssue(_configuration.Organization, _configuration.Repository, pr.Number);
+                var comments = await _githubClient.Issue.Comment.GetAllForIssue(owner, name, pr.Number);
 
                 for (var i = comments.Count - 1; i >= 0; i--)
                 {
@@ -192,46 +305,28 @@ namespace Microsoft.Crank.PullRequestBot
                         break;
                     }
 
-                    if (comment.Body.StartsWith(BenchmarkCommand) && await _githubClient.Organization.Member.CheckMember(_configuration.Organization, comment.User.Login))
+                    if (comment.Body.StartsWith(BenchmarkCommand) && await _githubClient.Organization.Member.CheckMember(owner, comment.User.Login))
                     {
                         var arguments = comment.Body.Substring(BenchmarkCommand.Length).Trim()
-                            .Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                            .Split(' ', 3, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-                        var scenarioName = arguments.Length > 0 ? arguments[0] : null;
-                        var environmentName = arguments.Length > 1 ? arguments[1] : null;
+                        var benchmarkNames = (arguments.Length > 0 ? arguments[0] : "").Split(',', StringSplitOptions.RemoveEmptyEntries);
+                        var profileNames = (arguments.Length > 1 ? arguments[1] : "").Split(',', StringSplitOptions.RemoveEmptyEntries);
+                        var buildNames = (arguments.Length > 2 ? arguments[2] : "").Split(',', StringSplitOptions.RemoveEmptyEntries);
 
-                        if ((scenarioName != null && _configuration.Benchmarks.FirstOrDefault(x => x.Name == scenarioName) == null)
-                            || (environmentName != null && _configuration.Environments.FirstOrDefault(x => x.Name == environmentName) == null))
+                        if (!ArgumentsValid(benchmarkNames, profileNames, buildNames, out var help))
                         {
-                            // Render help
-
-                            var text =
-                                "Crank - Pull Request Bot\n" +
-                                "\n" +
-                                "/benchmark [<scenario> [<environment>]]\n"
-                                ;
-
-                            text += $"\nScenarios: \n";
-                            foreach (var entry in _configuration.Benchmarks)
-                            {
-                                text += $"`{entry.Name}`: {entry.Description}\n";
-                            }
-
-                            text += $"\nEnvironments: \n";
-                            foreach (var entry in _configuration.Environments)
-                            {
-                                text += $"`{entry.Name}`: {entry.Description}\n";
-                            }
-
-                            await _githubClient.Issue.Comment.Create(_configuration.Organization, _configuration.Repository, pr.Number, ApplyThumbprint(text));
+                            await _githubClient.Issue.Comment.Create(owner, name, pr.Number, ApplyThumbprint(help));
 
                             yield break;
                         }
 
+                        // Default command values
                         yield return new Command
                         {
-                            Scenario = scenarioName ?? _configuration.Benchmarks.First().Name,
-                            Environment = environmentName ?? _configuration.Environments.First().Name,
+                            Benchmarks = benchmarkNames.Any() ? benchmarkNames : new[] { _configuration.Benchmarks.First().Key },
+                            Profiles = profileNames.Any() ? profileNames : new[] { _configuration.Profiles.First().Key },
+                            Builds = profileNames.Any() ? profileNames : new[] { _configuration.Builds.First().Key },
                             PullRequest = pr,
                         };
                     }
@@ -246,6 +341,45 @@ namespace Microsoft.Crank.PullRequestBot
                     }
                 }
             }
+        }
+
+        public static bool ArgumentsValid(string[] benchmarkNames, string[] profileNames, string[] buildNames, out string help)
+        {
+            if ((!benchmarkNames.Any() || benchmarkNames.Any(x => !_configuration.Benchmarks.ContainsKey(x)))
+                    || (!profileNames.Any() || profileNames.Any(x => !_configuration.Profiles.ContainsKey(x)))
+                    || (!buildNames.Any() || buildNames.Any(x => !_configuration.Builds.ContainsKey(x))))
+            {
+                // Render help
+
+                help =
+                    "Crank - Pull Request Bot\n" +
+                    "\n" +
+                    "/benchmark <benchmarks> <profiles> <components>\n"
+                    ;
+
+                help += $"\nBenchmarks: \n";
+                foreach (var entry in _configuration.Benchmarks)
+                {
+                    help += $"- {entry.Key}: {entry.Value.Description}\n";
+                }
+
+                help += $"\nProfiles: \n";
+                foreach (var entry in _configuration.Profiles)
+                {
+                    help += $"- {entry.Key}: {entry.Value.Description}\n";
+                }
+
+                help += $"\nComponents: \n";
+                foreach (var entry in _configuration.Builds)
+                {
+                    help += $"- {entry.Key}\n";
+                }
+
+                return false;
+            }
+
+            help = "";
+            return true;
         }
 
         public static async Task<Configuration> LoadConfigurationAsync(string configurationFilenameOrUrl)
@@ -419,21 +553,31 @@ namespace Microsoft.Crank.PullRequestBot
             }
         }
 
-        private static async Task<string> RunBenchmark(Command command)
+        private static async Task<IEnumerable<Result>> RunBenchmark(Command command)
         {
+            var results = new List<Result>();
+
+            var runs = command.Profiles.SelectMany(x => command.Benchmarks.Select(y => new Run(x, y)));
+
             var WORKSPACE = "/temp";
 
-            var scenario = _configuration.Benchmarks.First(x => x.Name == command.Scenario);
-            var environment = _configuration.Environments.First(x => x.Name == command.Environment);
+            foreach (var run in runs)
+            {
+                File.Delete($"{WORKSPACE}/base.json");
+                File.Delete($"{WORKSPACE}/head.json");
 
-            var cloneUrl = "https://github.com/dotnet/aspnetcore.git"; // command.PullRequest.Base.Repository.CloneUrl
-            var folder = $"aspnetcore"; // command.PullRequest.Base.Repository.Name
-            var baseBranch = "main"; // command.PullRequest.Base.Ref
-            var prid = 39463; // command.PullRequest.Id
+                var benchmark = _configuration.Benchmarks[run.Benchmark];
+                var profile = _configuration.Profiles[run.Profile];
+                var buildScript = String.Join(Environment.NewLine, command.Builds.Select(b => _configuration.Builds[b].Script));
+                var buildArguments = String.Join(" ", command.Builds.Select(b => _configuration.Builds[b].Arguments));
+                var cloneUrl = command.PullRequest.Base.Repository.CloneUrl; // "https://github.com/dotnet/aspnetcore.git";
+                var folder = command.PullRequest.Base.Repository.Name; // $"aspnetcore"; // 
+                var baseBranch = command.PullRequest.Base.Ref; // "main"; // 
+                var prid = command.PullRequest.Id; // 39463; // 
 
-            await ProcessUtil.RunAsync("cmd.exe", "/c ");
+                await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), "/c ");
 
-            var script = $@"
+                var script = $@"
 dotnet tool install Microsoft.Crank.Controller --version ""0.2.0-*"" --global
 
 cd {WORKSPACE}
@@ -444,28 +588,34 @@ git clone --recursive {cloneUrl} {WORKSPACE}/{folder}
 
 cd {WORKSPACE}/{folder}
 git checkout {baseBranch}
-{_configuration.Build}
+{buildScript}
 
-crank {_configuration.Defaults} {scenario.Value} {environment.Value} --json ""{WORKSPACE}/base.json""
+crank {_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{WORKSPACE}/base.json""
 
 cd {WORKSPACE}/{folder}
 git fetch origin pull/{prid}/head
 git config --global user.name ""user""
 git config --global user.email ""user@company.com""
 git merge FETCH_HEAD
-{ _configuration.Build}
+{buildScript}
 
-crank {_configuration.Defaults} {scenario.Value} {environment.Value} --json ""{WORKSPACE}/head.json""
+crank {_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{WORKSPACE}/head.json""
 
 ";
 
-            File.WriteAllText("script.cmd", script);
+                File.WriteAllText("script.cmd", script);
 
-            await ProcessUtil.RunAsync("cmd.exe", "/c script.cmd", log: true);
+                await ProcessUtil.RunAsync("cmd.exe", "/c script.cmd", log: true);
 
-            var result = await ProcessUtil.RunAsync("crank", $"compare {WORKSPACE}/base.json {WORKSPACE}/head.json", log: true);
-            
-            return result.StandardOutput;
+                var result = await ProcessUtil.RunAsync("crank", $"compare {WORKSPACE}/base.json {WORKSPACE}/head.json", log: true, captureOutput: true);
+
+                results.Add(new Result(run.Profile, run.Benchmark, result.StandardOutput));
+            }
+
+            return results;
         }
     }
+
+    public record class Run(string Profile, string Benchmark);
+    public record class Result(string Profile, string Benchmark, string Output);
 }
