@@ -332,6 +332,8 @@ namespace Microsoft.Crank.PullRequestBot
 
                     if (comment.Body.StartsWith(BenchmarkCommand))
                     {
+                        await UpdateAuthenticatedClient();
+
                         if (await _githubClient.Repository.Collaborator.IsCollaborator(pr.Base.Repository.Id, comment.User.Login))
                         {
                             var arguments = comment.Body.Substring(BenchmarkCommand.Length).Trim()
@@ -343,8 +345,6 @@ namespace Microsoft.Crank.PullRequestBot
 
                             if (!ArgumentsValid(benchmarkNames, profileNames, buildNames, markdown: true, out var help))
                             {
-                                await UpdateAuthenticatedClient();
-
                                 await _githubClient.Issue.Comment.Create(owner, name, pr.Number, ApplyThumbprint(help));
 
                                 yield break;
@@ -616,7 +616,7 @@ namespace Microsoft.Crank.PullRequestBot
 
                 // Compute a unique clone folder name
                 var counter = 1;
-                while (File.Exists(Path.Combine(workspace, folder))) { folder = command.PullRequest.Base.Repository.Name + counter++; }
+                while (Directory.Exists(Path.Combine(workspace, folder))) { folder = command.PullRequest.Base.Repository.Name + counter++; }
 
                 var cloneFolder = Path.Combine(workspace, folder);
 
