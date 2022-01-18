@@ -600,12 +600,12 @@ namespace Microsoft.Crank.PullRequestBot
 
             var runs = command.Profiles.SelectMany(x => command.Benchmarks.Select(y => new Run(x, y)));
 
-            var WORKSPACE = _options.Workspace;
+            var workspace = _options.Workspace;
 
             foreach (var run in runs)
             {
-                File.Delete($"{WORKSPACE}/base.json");
-                File.Delete($"{WORKSPACE}/head.json");
+                File.Delete($"{workspace}/base.json");
+                File.Delete($"{workspace}/head.json");
 
                 var benchmark = _configuration.Benchmarks[run.Benchmark];
                 var profile = _configuration.Profiles[run.Profile];
@@ -616,44 +616,59 @@ namespace Microsoft.Crank.PullRequestBot
                 var baseBranch = command.PullRequest.Base.Ref; // "main"; // 
                 var prNumber = command.PullRequest.Number; // 39463;
 
+                // Compute a unique clone folder name
+                var counter = 1;
+                while (File.Exists(Path.Combine(workspace, folder))) { folder = command.PullRequest.Base.Repository.Name + counter++; }
+
+                var cloneFolder = Path.Combine(workspace, folder);
+
                 await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), "/c ");
 
                 var script = $@"
 dotnet tool install Microsoft.Crank.Controller --version ""0.2.0-*"" --global
 
-cd {WORKSPACE}
+cd {workspace}
 
-{ProcessUtil.GetEnvironmentCommand("rmdir /s /q", "rm -rf", "rm -rf")} {folder}
+git clone --recursive {cloneUrl} {cloneFolder}
 
-git clone --recursive {cloneUrl} {WORKSPACE}/{folder}
-
-cd {WORKSPACE}/{folder}
+cd {cloneFolder}
 git checkout {baseBranch}
 {buildScript}
 
-crank {_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{WORKSPACE}/base.json""
+crank {_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{workspace}/base.json""
 
-cd {WORKSPACE}/{folder}
+cd {cloneFolder}
 git fetch origin pull/{prNumber}/head
 git config --global user.name ""user""
 git config --global user.email ""user@company.com""
 git merge FETCH_HEAD
 {buildScript}
 
-crank {_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{WORKSPACE}/head.json""
+crank {_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{workspace}/head.json""
 
 ";
-                var scriptFilename = Path.GetTempFileName();
+                var scriptFilename = Path.Combine(Path.GetTempPath(), "benchmark" + ProcessUtil.GetEnvironmentCommand(".cmd", ".sh"));
 
                 File.WriteAllText(scriptFilename, script);
 
                 await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), $"/c {scriptFilename}", log: true);
 
-                var result = await ProcessUtil.RunAsync("crank", $"compare {WORKSPACE}/base.json {WORKSPACE}/head.json", log: true, captureOutput: true);
+                var result = await ProcessUtil.RunAsync("crank", $"compare {workspace}/base.json {workspace}/head.json", log: true, captureOutput: true);
 
                 File.Delete(scriptFilename);
 
                 results.Add(new Result(run.Profile, run.Benchmark, result.StandardOutput));
+
+                // Clean clone
+                try
+                {
+                    Directory.Delete(cloneFolder);
+                }
+                catch
+                {
+                    // Fail to delete the clone folder, continue
+                    Console.WriteLine($"Failed to clean {cloneFolder}. Ignoring...");
+                }
             }
 
             return results;

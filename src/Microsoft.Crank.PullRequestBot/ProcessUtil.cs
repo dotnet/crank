@@ -15,13 +15,13 @@ namespace Microsoft.Crank.PullRequestBot
 {
     public static class ProcessUtil
     {
-        public static string GetEnvironmentCommand(string window, string unix, string macos)
+        public static string GetEnvironmentCommand(string window, string unix, string macos = null)
         {
             return Environment.OSVersion.Platform switch
             {
                 PlatformID.Unix => unix,
                 PlatformID.Win32NT => window,
-                PlatformID.MacOSX => macos,
+                PlatformID.MacOSX => macos ?? unix,
                 _ => throw new NotImplementedException()
             };
         }
