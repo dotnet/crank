@@ -26,7 +26,7 @@ profiles:
 
     aspnet-perf-win:
         description: INTEL/Windows 12 Cores
-        arguments: --profile aspnet-perf-win-relay
+        arguments: --profile aspnet-perf-win
 
 benchmarks:
     plaintext:

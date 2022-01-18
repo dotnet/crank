@@ -332,10 +332,6 @@ namespace Microsoft.Crank.PullRequestBot
 
                     if (comment.Body.StartsWith(BenchmarkCommand))
                     {
-                        await UpdateAuthenticatedClient();
-
-                        // If owner is an organization, user must be a member, otherwise user must be owner
-                        // await _githubClient.Organization.Member.CheckMember(owner, comment.User.Login) 
                         if (await _githubClient.Repository.Collaborator.IsCollaborator(pr.Base.Repository.Id, comment.User.Login))
                         {
                             var arguments = comment.Body.Substring(BenchmarkCommand.Length).Trim()
@@ -347,6 +343,8 @@ namespace Microsoft.Crank.PullRequestBot
 
                             if (!ArgumentsValid(benchmarkNames, profileNames, buildNames, markdown: true, out var help))
                             {
+                                await UpdateAuthenticatedClient();
+
                                 await _githubClient.Issue.Comment.Create(owner, name, pr.Number, ApplyThumbprint(help));
 
                                 yield break;
@@ -651,24 +649,29 @@ crank {_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {build
 
                 File.WriteAllText(scriptFilename, script);
 
-                await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), $"/c {scriptFilename}", log: true);
-
-                var result = await ProcessUtil.RunAsync("crank", $"compare {workspace}/base.json {workspace}/head.json", log: true, captureOutput: true);
-
-                File.Delete(scriptFilename);
-
-                results.Add(new Result(run.Profile, run.Benchmark, result.StandardOutput));
-
-                // Clean clone
                 try
                 {
-                    Directory.Delete(cloneFolder);
+                    await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), $"/c {scriptFilename}", log: true);
+
+                    var result = await ProcessUtil.RunAsync("crank", $"compare {workspace}/base.json {workspace}/head.json", log: true, captureOutput: true);
+
+                    File.Delete(scriptFilename);
+
+                    results.Add(new Result(run.Profile, run.Benchmark, result.StandardOutput));
                 }
-                catch
+                finally
                 {
-                    // Fail to delete the clone folder, continue
-                    Console.WriteLine($"Failed to clean {cloneFolder}. Ignoring...");
-                }
+                    // Clean git clones
+                    try
+                    {
+                        Directory.Delete(cloneFolder);
+                    }
+                    catch
+                    {
+                        // Fail to delete the clone folder, continue
+                        Console.WriteLine($"Failed to clean {cloneFolder}. Ignoring...");
+                    }
+                }                
             }
 
             return results;
