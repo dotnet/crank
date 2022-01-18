@@ -3,11 +3,14 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.IO;
 
 namespace Microsoft.Crank.PullRequestBot
 {
     public class BotOptions
     {
+        public string Workspace { get; set; } = Path.GetTempPath();
+        public int Limit { get; set; } = 0;
         public string Benchmarks { get; set; } = "";
         public string Profiles { get; set; } = "";
         public string Components { get; set; } = "";

@@ -15,6 +15,17 @@ namespace Microsoft.Crank.PullRequestBot
 {
     public static class ProcessUtil
     {
+        public static string GetEnvironmentCommand(string window, string unix, string macos)
+        {
+            return Environment.OSVersion.Platform switch
+            {
+                PlatformID.Unix => unix,
+                PlatformID.Win32NT => window,
+                PlatformID.MacOSX => macos,
+                _ => throw new NotImplementedException()
+            };
+        }
+
         public static string GetScriptHost()
         {
             return Environment.OSVersion.Platform switch

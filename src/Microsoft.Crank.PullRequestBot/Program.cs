@@ -63,6 +63,9 @@ namespace Microsoft.Crank.PullRequestBot
             var rootCommand = new RootCommand
             {
                 new Option<string>(
+                    "--workspace",
+                    "The folder used to clone the repository. Defaut is temp folder."),
+                new Option<string>(
                     "--benchmarks",
                     "The benchmarks to run."),
                 new Option<string>(
@@ -71,6 +74,9 @@ namespace Microsoft.Crank.PullRequestBot
                 new Option<string>(
                     "--components",
                     "The components to build."),
+                new Option<int>(
+                    "--limit",
+                    "The maximum number of commands to execute. 0 for unlimited."),
                 new Option<string>(
                     "--repository",
                     "The repository for which pull-request comments should be scanned, e.g., https://github.com/dotnet/aspnetcore, dotnet/aspnetcore"),
@@ -201,7 +207,7 @@ namespace Microsoft.Crank.PullRequestBot
                 var profileNames = options.Profiles.Split(',', StringSplitOptions.RemoveEmptyEntries);
                 var buildNames = options.Components.Split(',', StringSplitOptions.RemoveEmptyEntries);
 
-                if (!ArgumentsValid(benchmarkNames, profileNames, buildNames, out var help))
+                if (!ArgumentsValid(benchmarkNames, profileNames, buildNames, markdown:false, out var help))
                 {
                     Console.WriteLine(ApplyThumbprint(help));
 
@@ -218,13 +224,10 @@ namespace Microsoft.Crank.PullRequestBot
 
                     foreach (var result in results)
                     {
-                        text.AppendLine($"<details><summary>{result.Benchmark} - {result.Profile}</summary>\n```\n{result.Output}\n```\n</details>");
+                        text.AppendLine(FormatResult(result));
                     }
 
-                    if (_githubClient.Credentials == Credentials.Anonymous)
-                    {
-                        _githubClient = GitHubHelper.CreateClient(await GitHubHelper.GetCredentialsFromStore());
-                    }
+                    await UpdateAuthenticatedClient();
 
                     var issueComment = await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint(text.ToString()));
 
@@ -235,13 +238,22 @@ namespace Microsoft.Crank.PullRequestBot
             {
                 Console.WriteLine($"Scanning for benchmark requests in {owner}/{name}.");
 
+                var count = 0;
+
                 await foreach (var command in GetPullRequestCommands(owner, name))
                 {
+                    if (options.Limit > 0 && count > options.Limit)
+                    {
+                        break;
+                    }
+
+                    count++;
+
                     var pr = command.PullRequest;
 
                     try
                     {
-                        await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint($"Benchmark started for __{String.Join(", ", command.Benchmarks)}__ on __{String.Join(", ", command.Profiles)}__ with __{String.Join(", ", command.Builds)}"));
+                        await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint($"Benchmark started for __{String.Join(", ", command.Benchmarks)}__ on __{String.Join(", ", command.Profiles)}__ with __{String.Join(", ", command.Builds)}__"));
 
                         var results = await RunBenchmark(command);
 
@@ -251,7 +263,7 @@ namespace Microsoft.Crank.PullRequestBot
 
                             foreach (var result in results)
                             {
-                                text.AppendLine($"<details><summary>{result.Benchmark} - {result.Profile}</summary>\n```\n{result.Output}\n```\n</details>");
+                                text.AppendLine(FormatResult(result));
                             }
 
                             await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint(text.ToString()));
@@ -269,6 +281,19 @@ namespace Microsoft.Crank.PullRequestBot
             }
 
             return 0;
+        }
+
+        private static string FormatResult(Result result)
+        {
+            return $"<details>\n<summary>{result.Benchmark} - {result.Profile}</summary>\n<p>\n\n{result.Output}\n</p>\n</details>";
+        }
+
+        private static async Task UpdateAuthenticatedClient()
+        {
+            if (_githubClient.Credentials == Credentials.Anonymous)
+            {
+                _githubClient = GitHubHelper.CreateClient(await GitHubHelper.GetCredentialsFromStore());
+            }
         }
 
         private static string ApplyThumbprint(string text)
@@ -305,30 +330,41 @@ namespace Microsoft.Crank.PullRequestBot
                         break;
                     }
 
-                    if (comment.Body.StartsWith(BenchmarkCommand) && await _githubClient.Organization.Member.CheckMember(owner, comment.User.Login))
+                    if (comment.Body.StartsWith(BenchmarkCommand))
                     {
-                        var arguments = comment.Body.Substring(BenchmarkCommand.Length).Trim()
-                            .Split(' ', 3, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                        await UpdateAuthenticatedClient();
 
-                        var benchmarkNames = (arguments.Length > 0 ? arguments[0] : "").Split(',', StringSplitOptions.RemoveEmptyEntries);
-                        var profileNames = (arguments.Length > 1 ? arguments[1] : "").Split(',', StringSplitOptions.RemoveEmptyEntries);
-                        var buildNames = (arguments.Length > 2 ? arguments[2] : "").Split(',', StringSplitOptions.RemoveEmptyEntries);
-
-                        if (!ArgumentsValid(benchmarkNames, profileNames, buildNames, out var help))
+                        // If owner is an organization, user must be a member, otherwise user must be owner
+                        // await _githubClient.Organization.Member.CheckMember(owner, comment.User.Login) 
+                        if (await _githubClient.Repository.Collaborator.IsCollaborator(pr.Base.Repository.Id, comment.User.Login))
                         {
-                            await _githubClient.Issue.Comment.Create(owner, name, pr.Number, ApplyThumbprint(help));
+                            var arguments = comment.Body.Substring(BenchmarkCommand.Length).Trim()
+                                .Split(' ', 3, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-                            yield break;
+                            var benchmarkNames = (arguments.Length > 0 ? arguments[0] : "").Split(',', StringSplitOptions.RemoveEmptyEntries);
+                            var profileNames = (arguments.Length > 1 ? arguments[1] : "").Split(',', StringSplitOptions.RemoveEmptyEntries);
+                            var buildNames = (arguments.Length > 2 ? arguments[2] : "").Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+                            if (!ArgumentsValid(benchmarkNames, profileNames, buildNames, markdown: true, out var help))
+                            {
+                                await _githubClient.Issue.Comment.Create(owner, name, pr.Number, ApplyThumbprint(help));
+
+                                yield break;
+                            }
+
+                            // Default command values
+                            yield return new Command
+                            {
+                                Benchmarks = benchmarkNames.Any() ? benchmarkNames : new[] { _configuration.Benchmarks.First().Key },
+                                Profiles = profileNames.Any() ? profileNames : new[] { _configuration.Profiles.First().Key },
+                                Builds = buildNames.Any() ? buildNames : new[] { _configuration.Builds.First().Key },
+                                PullRequest = pr,
+                            };
                         }
-
-                        // Default command values
-                        yield return new Command
+                        else
                         {
-                            Benchmarks = benchmarkNames.Any() ? benchmarkNames : new[] { _configuration.Benchmarks.First().Key },
-                            Profiles = profileNames.Any() ? profileNames : new[] { _configuration.Profiles.First().Key },
-                            Builds = profileNames.Any() ? profileNames : new[] { _configuration.Builds.First().Key },
-                            PullRequest = pr,
-                        };
+                            Console.WriteLine($"The user '{comment.User.Login}' is not allowed to perform this action.");
+                        }
                     }
                     else if (comment.Body.Contains(Thumbprint))
                     {
@@ -343,7 +379,7 @@ namespace Microsoft.Crank.PullRequestBot
             }
         }
 
-        public static bool ArgumentsValid(string[] benchmarkNames, string[] profileNames, string[] buildNames, out string help)
+        public static bool ArgumentsValid(string[] benchmarkNames, string[] profileNames, string[] buildNames, bool markdown, out string help)
         {
             if ((!benchmarkNames.Any() || benchmarkNames.Any(x => !_configuration.Benchmarks.ContainsKey(x)))
                     || (!profileNames.Any() || profileNames.Any(x => !_configuration.Profiles.ContainsKey(x)))
@@ -354,25 +390,30 @@ namespace Microsoft.Crank.PullRequestBot
                 help =
                     "Crank - Pull Request Bot\n" +
                     "\n" +
-                    "/benchmark <benchmarks> <profiles> <components>\n"
+                    "`/benchmark <benchmarks[,...]> <profiles[,...]> <components,[...]>`\n"
                     ;
 
                 help += $"\nBenchmarks: \n";
                 foreach (var entry in _configuration.Benchmarks)
                 {
-                    help += $"- {entry.Key}: {entry.Value.Description}\n";
+                    help += $"- `{entry.Key}`: {entry.Value.Description}\n";
                 }
 
                 help += $"\nProfiles: \n";
                 foreach (var entry in _configuration.Profiles)
                 {
-                    help += $"- {entry.Key}: {entry.Value.Description}\n";
+                    help += $"- `{entry.Key}`: {entry.Value.Description}\n";
                 }
 
                 help += $"\nComponents: \n";
                 foreach (var entry in _configuration.Builds)
                 {
-                    help += $"- {entry.Key}\n";
+                    help += $"- `{entry.Key}`\n";
+                }
+
+                if (!markdown)
+                {
+                    help = help.Replace("`", "");
                 }
 
                 return false;
@@ -559,7 +600,7 @@ namespace Microsoft.Crank.PullRequestBot
 
             var runs = command.Profiles.SelectMany(x => command.Benchmarks.Select(y => new Run(x, y)));
 
-            var WORKSPACE = "/temp";
+            var WORKSPACE = _options.Workspace;
 
             foreach (var run in runs)
             {
@@ -573,7 +614,7 @@ namespace Microsoft.Crank.PullRequestBot
                 var cloneUrl = command.PullRequest.Base.Repository.CloneUrl; // "https://github.com/dotnet/aspnetcore.git";
                 var folder = command.PullRequest.Base.Repository.Name; // $"aspnetcore"; // 
                 var baseBranch = command.PullRequest.Base.Ref; // "main"; // 
-                var prid = command.PullRequest.Id; // 39463; // 
+                var prNumber = command.PullRequest.Number; // 39463;
 
                 await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), "/c ");
 
@@ -582,7 +623,7 @@ dotnet tool install Microsoft.Crank.Controller --version ""0.2.0-*"" --global
 
 cd {WORKSPACE}
 
-rmdir /s /q {folder}
+{ProcessUtil.GetEnvironmentCommand("rmdir /s /q", "rm -rf", "rm -rf")} {folder}
 
 git clone --recursive {cloneUrl} {WORKSPACE}/{folder}
 
@@ -593,7 +634,7 @@ git checkout {baseBranch}
 crank {_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{WORKSPACE}/base.json""
 
 cd {WORKSPACE}/{folder}
-git fetch origin pull/{prid}/head
+git fetch origin pull/{prNumber}/head
 git config --global user.name ""user""
 git config --global user.email ""user@company.com""
 git merge FETCH_HEAD
@@ -602,12 +643,15 @@ git merge FETCH_HEAD
 crank {_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{WORKSPACE}/head.json""
 
 ";
+                var scriptFilename = Path.GetTempFileName();
 
-                File.WriteAllText("script.cmd", script);
+                File.WriteAllText(scriptFilename, script);
 
-                await ProcessUtil.RunAsync("cmd.exe", "/c script.cmd", log: true);
+                await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), $"/c {scriptFilename}", log: true);
 
                 var result = await ProcessUtil.RunAsync("crank", $"compare {WORKSPACE}/base.json {WORKSPACE}/head.json", log: true, captureOutput: true);
+
+                File.Delete(scriptFilename);
 
                 results.Add(new Result(run.Profile, run.Benchmark, result.StandardOutput));
             }
