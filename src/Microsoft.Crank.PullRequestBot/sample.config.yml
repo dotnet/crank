@@ -2,7 +2,7 @@
 builds:
     kestrel: 
         script: |
-            call ./src/Servers/Kestrel/build.cmd -noBuildJava -noBuildNodeJs -c release
+            call ./src/Servers/Kestrel/build.cmd -noBuildJava -noBuildNodeJs -c release /p:BuildIisNativeProjects=false
             REM call ./.dotnet/dotnet.exe build-server shutdown 
             REM call taskkill /F /IM dotnet.exe # also kills main process in dotnet.exe
 
