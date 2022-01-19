@@ -18,6 +18,21 @@ namespace Microsoft.Crank.PullRequestBot
 
         static readonly TimeSpan GitHubJwtTimeout = TimeSpan.FromMinutes(5);
 
+        public static async Task<Credentials> GetCredentialsAsync(BotOptions options)
+        {
+            if (!String.IsNullOrEmpty(options.AppKey))
+            {
+                return await GetCredentialsForAppAsync(options);
+            }
+            else if (!String.IsNullOrEmpty(options.AccessToken))
+            {
+                return GetCredentialsForUser(options);
+            }
+            else
+            {
+                return await GetCredentialsFromStore();
+            }
+        }
         public static Credentials GetCredentialsForUser(BotOptions options)
         {
             return new Credentials(options.AccessToken);

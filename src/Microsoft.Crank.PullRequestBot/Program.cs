@@ -227,7 +227,7 @@ namespace Microsoft.Crank.PullRequestBot
                         text.AppendLine(FormatResult(result));
                     }
 
-                    await UpdateAuthenticatedClient();
+                    await UpgradeAuthenticatedClient();
 
                     var issueComment = await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint(text.ToString()));
 
@@ -288,11 +288,11 @@ namespace Microsoft.Crank.PullRequestBot
             return $"<details>\n<summary>{result.Benchmark} - {result.Profile}</summary>\n<p>\n\n{result.Output}\n</p>\n</details>";
         }
 
-        private static async Task UpdateAuthenticatedClient()
+        private static async Task UpgradeAuthenticatedClient()
         {
             if (_githubClient.Credentials == Credentials.Anonymous)
             {
-                _githubClient = GitHubHelper.CreateClient(await GitHubHelper.GetCredentialsFromStore());
+                _githubClient = GitHubHelper.CreateClient(await GitHubHelper.GetCredentialsAsync(_options));
             }
         }
 
@@ -332,7 +332,7 @@ namespace Microsoft.Crank.PullRequestBot
 
                     if (comment.Body.StartsWith(BenchmarkCommand))
                     {
-                        await UpdateAuthenticatedClient();
+                        await UpgradeAuthenticatedClient();
 
                         if (await _githubClient.Repository.Collaborator.IsCollaborator(pr.Base.Repository.Id, comment.User.Login))
                         {
