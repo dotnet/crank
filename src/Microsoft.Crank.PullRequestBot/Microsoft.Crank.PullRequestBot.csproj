@@ -10,7 +10,7 @@
     <OutputType>Exe</OutputType>
     <Authors>Microsoft</Authors>
     <PackageId>Microsoft.Crank.PullRequestBot</PackageId>
-    <LangVersion>latest</LangVersion>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
