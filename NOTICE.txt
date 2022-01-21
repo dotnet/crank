@@ -278,7 +278,7 @@ SOFTWARE.
 
 -------------------------------------------------------------------
 
-Octokit 0.36.0 - MIT
+Octokit 0.48.0 - MIT
 
 Copyright (c) 2017 GitHub, Inc.
 
