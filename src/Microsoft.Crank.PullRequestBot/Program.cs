@@ -37,7 +37,6 @@ namespace Microsoft.Crank.PullRequestBot
         private const string BenchmarkCommand = "/benchmark";
 
         private static readonly DateTime CommentCutoffDate = DateTime.Now.AddHours(-24);
-        private static readonly TimeSpan BenchmarkTimeout = TimeSpan.FromMinutes(30);
 
         static Program()
         {
@@ -55,7 +54,7 @@ namespace Microsoft.Crank.PullRequestBot
             {
                 if (args[i].StartsWith("env:", StringComparison.OrdinalIgnoreCase))
                 {
-                    args[i] = Environment.GetEnvironmentVariable(args[i].Substring(4));
+                    args[i] = Environment.GetEnvironmentVariable(args[i][4..]);
                 }
             }
 
@@ -100,13 +99,7 @@ namespace Microsoft.Crank.PullRequestBot
                     "The GitHub installation id."),
                 new Option<string>(
                     "--config",
-                    "The path to a configuration file.") { IsRequired = true },
-                new Option<bool>(
-                    "--verbose",
-                    "When used, detailed logs are displayed."),
-                new Option<bool>(
-                    "--read-only",
-                    "When used, nothing is written on GitHub."),
+                    "The path to a configuration file.") { IsRequired = true }
             };
 
             rootCommand.Description = "Crank Pull Requests Bot";
@@ -155,12 +148,12 @@ namespace Microsoft.Crank.PullRequestBot
                     throw new ArgumentException("Invalid argument --repository");
                 }
 
-                name = segments[segments.Length - 1];
-                owner = segments[segments.Length - 2];
+                name = segments[^1];
+                owner = segments[^2];
 
                 if (name.EndsWith(".git"))
                 {
-                    name = name.Substring(0, name.Length - 4);
+                    name = name[0..^4];
                 }
             }
 
@@ -209,12 +202,12 @@ namespace Microsoft.Crank.PullRequestBot
 
                 if (!ArgumentsValid(benchmarkNames, profileNames, buildNames, markdown:false, out var help))
                 {
-                    Console.WriteLine(ApplyThumbprint(help));
+                    Console.WriteLine(help);
 
                     return -1;
                 }
 
-                var command = new Command { PullRequest = pr, Benchmarks = benchmarkNames, Profiles = profileNames, Builds = buildNames };
+                var command = new Command { PullRequest = pr, Benchmarks = benchmarkNames, Profiles = profileNames, Components = buildNames };
 
                 var results = await RunBenchmark(command);
 
@@ -253,7 +246,7 @@ namespace Microsoft.Crank.PullRequestBot
 
                     try
                     {
-                        await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint($"Benchmark started for __{String.Join(", ", command.Benchmarks)}__ on __{String.Join(", ", command.Profiles)}__ with __{String.Join(", ", command.Builds)}__"));
+                        await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint($"Benchmark started for __{String.Join(", ", command.Benchmarks)}__ on __{String.Join(", ", command.Profiles)}__ with __{String.Join(", ", command.Components)}__"));
 
                         var results = await RunBenchmark(command);
 
@@ -336,7 +329,7 @@ namespace Microsoft.Crank.PullRequestBot
 
                         if (await _githubClient.Repository.Collaborator.IsCollaborator(pr.Base.Repository.Id, comment.User.Login))
                         {
-                            var arguments = comment.Body.Substring(BenchmarkCommand.Length).Trim()
+                            var arguments = comment.Body[BenchmarkCommand.Length..].Trim()
                                 .Split(' ', 3, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
                             var benchmarkNames = (arguments.Length > 0 ? arguments[0] : "").Split(',', StringSplitOptions.RemoveEmptyEntries);
@@ -355,7 +348,7 @@ namespace Microsoft.Crank.PullRequestBot
                             {
                                 Benchmarks = benchmarkNames.Any() ? benchmarkNames : new[] { _configuration.Benchmarks.First().Key },
                                 Profiles = profileNames.Any() ? profileNames : new[] { _configuration.Profiles.First().Key },
-                                Builds = buildNames.Any() ? buildNames : new[] { _configuration.Builds.First().Key },
+                                Components = buildNames.Any() ? buildNames : new[] { _configuration.Components.First().Key },
                                 PullRequest = pr,
                             };
                         }
@@ -381,7 +374,7 @@ namespace Microsoft.Crank.PullRequestBot
         {
             if ((!benchmarkNames.Any() || benchmarkNames.Any(x => !_configuration.Benchmarks.ContainsKey(x)))
                     || (!profileNames.Any() || profileNames.Any(x => !_configuration.Profiles.ContainsKey(x)))
-                    || (!buildNames.Any() || buildNames.Any(x => !_configuration.Builds.ContainsKey(x))))
+                    || (!buildNames.Any() || buildNames.Any(x => !_configuration.Components.ContainsKey(x))))
             {
                 // Render help
 
@@ -404,7 +397,7 @@ namespace Microsoft.Crank.PullRequestBot
                 }
 
                 help += $"\nComponents: \n";
-                foreach (var entry in _configuration.Builds)
+                foreach (var entry in _configuration.Components)
                 {
                     help += $"- `{entry.Key}`\n";
                 }
@@ -455,7 +448,7 @@ namespace Microsoft.Crank.PullRequestBot
                     var questionMarkIndex = configurationFilenameOrUrl.IndexOf("?");
                     if (questionMarkIndex != -1)
                     {
-                        var filename = configurationFilenameOrUrl.Substring(0, questionMarkIndex);
+                        var filename = configurationFilenameOrUrl[..questionMarkIndex];
                         configurationExtension = Path.GetExtension(filename);
                     }
                     else
@@ -537,61 +530,6 @@ namespace Microsoft.Crank.PullRequestBot
             }
         }
 
-        private static void RunCommand(string command, TimeSpan timeout)
-        {
-            Console.WriteLine($"Running command: '{command}'");
-
-            var outputBuilder = new StringBuilder();
-
-            var splitCommand = command.Split(' ', 2);
-            var fileName = splitCommand[0];
-            var arguments = splitCommand.Length == 2 ? splitCommand[1] : string.Empty;
-
-            using var process = new System.Diagnostics.Process()
-            {
-                StartInfo =
-                {
-                    FileName = fileName,
-                    Arguments = arguments,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                },
-            };
-
-
-            process.OutputDataReceived += (_, e) =>
-            {
-                if (e.Data != null)
-                {
-                    outputBuilder.AppendLine($"stdout: {e.Data}");
-                    Console.WriteLine(e.Data);
-                }
-            };
-
-            process.ErrorDataReceived += (_, e) =>
-            {
-                if (e.Data != null)
-                {
-                    outputBuilder.AppendLine($"stderr: {e.Data}");
-                    Console.Error.WriteLine(e.Data);
-                }
-            };
-
-
-            process.Start();
-
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-
-            process.WaitForExit();
-
-            if (process.ExitCode != 0)
-            {
-                throw new Exception($"Process '{fileName} {arguments}' exited with exit code '{process.ExitCode}' and the following output:\n\n{outputBuilder}");
-            }
-        }
-
         private static async Task<IEnumerable<Result>> RunBenchmark(Command command)
         {
             var results = new List<Result>();
@@ -607,8 +545,8 @@ namespace Microsoft.Crank.PullRequestBot
 
                 var benchmark = _configuration.Benchmarks[run.Benchmark];
                 var profile = _configuration.Profiles[run.Profile];
-                var buildScript = String.Join(Environment.NewLine, command.Builds.Select(b => _configuration.Builds[b].Script));
-                var buildArguments = String.Join(" ", command.Builds.Select(b => _configuration.Builds[b].Arguments));
+                var buildScript = String.Join(Environment.NewLine, command.Components.Select(b => _configuration.Components[b].Script));
+                var buildArguments = String.Join(" ", command.Components.Select(b => _configuration.Components[b].Arguments));
                 var cloneUrl = command.PullRequest.Base.Repository.CloneUrl; // "https://github.com/dotnet/aspnetcore.git";
                 var folder = command.PullRequest.Base.Repository.Name; // $"aspnetcore"; // 
                 var baseBranch = command.PullRequest.Base.Ref; // "main"; // 

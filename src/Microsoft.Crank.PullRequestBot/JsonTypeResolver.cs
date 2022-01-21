@@ -17,12 +17,12 @@ namespace Microsoft.Crank.PullRequestBot
         {
             if (nodeEvent is Scalar scalar && scalar.IsPlainImplicit)
             {
-                if (decimal.TryParse(scalar.Value, NumberStyles.Any, CultureInfo.InvariantCulture, out var value))
+                if (decimal.TryParse(scalar.Value, NumberStyles.Any, CultureInfo.InvariantCulture, out _))
                 {
                     currentType = typeof(decimal);
                     return true;
                 }
-                else if (bool.TryParse(scalar.Value, out var b))
+                else if (bool.TryParse(scalar.Value, out _))
                 {
                     currentType = typeof(bool);
                     return true;

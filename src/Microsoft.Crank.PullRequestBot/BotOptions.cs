@@ -23,8 +23,6 @@ namespace Microsoft.Crank.PullRequestBot
         public long InstallId { get; set; }
         public string Config { get; set; }
         public bool Debug { get; set; }
-        public bool Verbose { get; set; }
-        public bool ReadOnly { get; set; }
 
         public void Validate()
         {

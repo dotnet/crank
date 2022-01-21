@@ -1,5 +1,5 @@
 # multi-line script used to build the project
-builds:
+components:
     kestrel: 
         script: |
             call ./src/Servers/Kestrel/build.cmd -noBuildJava -noBuildNodeJs -c release -noBuildNative /p:BuildIisNativeProjects=false

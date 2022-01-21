@@ -40,4 +40,6 @@
     </PackageReference>
     
   </ItemGroup>
+
+  <ProjectExtensions><VisualStudio><UserProperties sample_1config_1json__JsonSchema="pullrequestbot.schema.json" /></VisualStudio></ProjectExtensions>
 </Project>
