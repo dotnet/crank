@@ -1,0 +1,34 @@
+{
+  "$schema": "./pullrequestbot.schema.json",
+  "defaults": "--config https://github.com/aspnet/Benchmarks/blob/main/build/azure.profile.yml?raw=true --application.framework net7.0 ", // --relay AZURE_RELAY
+  "components": {
+    "kestrel": {
+      "script": "call ./src/Servers/Kestrel/build.cmd -noBuildJava -noBuildNodeJs -c release -noBuildNative /p:BuildIisNativeProjects=false",
+      "arguments": "--application.options.outputFiles ./artifacts/bin/Microsoft.AspNetCore.Server.Kestrel/release/net7.0/"
+    },
+    "mvc": {
+      "script": "REM Build MVC",
+      "arguments": ""
+    }
+  },
+  "profiles": {
+    "aspnet-perf-lin": {
+      "description": "INTEL/Linux 12 Cores",
+      "arguments": "--profile aspnet-perf-lin"
+    },
+    "aspnet-perf-win": {
+      "description": "INTEL/Windows 12 Cores",
+      "arguments": "--profile aspnet-perf-win"
+    }
+  },
+  "benchmarks": {
+    "plaintext": {
+      "description": "TechEmpower Plaintext Scenario - ASP.NET Middleware",
+      "arguments": "--config https://raw.githubusercontent.com/aspnet/Benchmarks/main/scenarios/plaintext.benchmarks.yml --scenario plaintext"
+    },
+    "json": {
+      "description": "TechEmpower JSON Scenario - ASP.NET Middleware",
+      "arguments": "--config https://raw.githubusercontent.com/aspnet/Benchmarks/main/scenarios/json.benchmarks.yml --scenario json"
+    }
+  }
+}

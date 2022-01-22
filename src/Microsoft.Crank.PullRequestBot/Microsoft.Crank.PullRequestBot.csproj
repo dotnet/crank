@@ -1,0 +1,45 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <Description>Runs benchmarks out of GitHub pull-requests.</Description>
+    <ToolCommandName>crank-pr</ToolCommandName>
+    <AssemblyName>crank-pr</AssemblyName>
+    <PackAsTool>true</PackAsTool>
+    <IsPackable>true</IsPackable>
+    <OutputType>Exe</OutputType>
+    <Authors>Microsoft</Authors>
+    <PackageId>Microsoft.Crank.PullRequestBot</PackageId>
+    <LangVersion>preview</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="pullrequestbot.schema.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="pullrequestbot.schema.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" Version="2.0.0-beta1.20427.1" />
+    <PackageReference Include="Octokit" Version="0.48.0" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="5.6.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="$(JsonNetVersion)" />
+    <PackageReference Include="YamlDotNet" Version="8.1.2" />
+    <PackageReference Include="Manatee.Json" Version="13.0.5" />
+
+    <!-- Force version for Component Governance compliance -->
+    <PackageReference Include="System.Net.Http" Version="4.3.4">
+      <AllowExplicitReference>true</AllowExplicitReference>
+    </PackageReference>
+    <PackageReference Include="System.Text.Encodings.Web" Version="4.5.1">
+      <AllowExplicitReference>true</AllowExplicitReference>
+    </PackageReference>
+    
+  </ItemGroup>
+
+  <ProjectExtensions><VisualStudio><UserProperties sample_1config_1json__JsonSchema="pullrequestbot.schema.json" /></VisualStudio></ProjectExtensions>
+</Project>

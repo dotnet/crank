@@ -8,20 +8,34 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Threading.Tasks;
 using Microsoft.IdentityModel.Tokens;
 using Octokit;
+using System.Text.RegularExpressions;
 
-namespace Microsoft.Crank.RegressionBot
+namespace Microsoft.Crank.PullRequestBot
 {
     public class GitHubHelper
     {
-        private static GitHubClient _githubClient;
-        static ProductHeaderValue ClientHeader = new ProductHeaderValue("crank-regression-bot");
-        static Credentials _credentials;
+        static ProductHeaderValue ClientHeader = new ProductHeaderValue("crank-pullrequest-bot");
 
         static readonly TimeSpan GitHubJwtTimeout = TimeSpan.FromMinutes(5);
 
+        public static async Task<Credentials> GetCredentialsAsync(BotOptions options)
+        {
+            if (!String.IsNullOrEmpty(options.AppKey))
+            {
+                return await GetCredentialsForAppAsync(options);
+            }
+            else if (!String.IsNullOrEmpty(options.AccessToken))
+            {
+                return GetCredentialsForUser(options);
+            }
+            else
+            {
+                return await GetCredentialsFromStore();
+            }
+        }
         public static Credentials GetCredentialsForUser(BotOptions options)
         {
-            return _credentials = new Credentials(options.AccessToken);
+            return new Credentials(options.AccessToken);
         }
 
         private static RsaSecurityKey GetRsaSecurityKeyFromPemKey(string keyText)
@@ -56,18 +70,36 @@ namespace Microsoft.Crank.RegressionBot
             };
 
             var installationToken = await initClient.GitHubApps.CreateInstallationToken(options.InstallId);
-            return _credentials = new Credentials(installationToken.Token, AuthenticationType.Bearer);
+            return new Credentials(installationToken.Token, AuthenticationType.Bearer);
         }
 
-        public static GitHubClient GetClient()
+        public static async Task<Credentials> GetCredentialsFromStore()
         {
-            if (_githubClient == null)
+            // echo url=https://github.com/git/git.git | git credential fill
+
+            // protocol=https
+            // host=github.com
+            // username=Personal Access Token
+            // password=abcd
+
+            var presult = await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), "/c echo url=https://github.com/git/git.git | git credential fill", captureOutput: true);
+
+            var match = Regex.Match(presult.StandardOutput, "password=(.*)");
+
+            if (match.Success)
             {
-                _githubClient = new GitHubClient(ClientHeader);
-                _githubClient.Credentials = _credentials;
+                return new Credentials(match.Groups[1].Value.Trim());
             }
 
-            return _githubClient;
+            return null;
+        }
+
+        public static GitHubClient CreateClient(Credentials credentials)
+        {
+            var githubClient = new GitHubClient(ClientHeader);
+            githubClient.Credentials = credentials;
+
+            return githubClient;
         }
     }
 }
