@@ -79,8 +79,8 @@ namespace Microsoft.Crank.PullRequestBot
 
             // protocol=https
             // host=github.com
-            // username=Personal Access Token
-            // password=abcd
+            // username=[PLACEHOLDER] # actual value is "Personal Access Token"
+            // password=[PLACEHOLDER]
 
             var presult = await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), "/c echo url=https://github.com/git/git.git | git credential fill", captureOutput: true);
 
