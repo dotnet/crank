@@ -154,8 +154,6 @@ namespace Microsoft.Crank.Controller
             _sqlTableOption = app.Option("--table",
                 "Table name or environment variable name of the SQL table to store results in.", CommandOptionType.SingleValue);
             _relayConnectionStringOption = app.Option("--relay", "Connection string or environment variable name of the Azure Relay namespace used to access the Crank Agent endpoints. e.g., 'Endpoint=sb://mynamespace.servicebus.windows.net;...', 'MY_AZURE_RELAY_ENV'", CommandOptionType.SingleValue);
-            _sessionOption = app.Option("--table",
-                "Table name of the SQL Database to store results in", CommandOptionType.SingleValue);
             _sessionOption = app.Option("--session", "A logical identifier to group related jobs.", CommandOptionType.SingleValue);
             _descriptionOption = app.Option("--description", "A string describing the job.", CommandOptionType.SingleValue);
             _propertyOption = app.Option("-p|--property", "Some custom key/value that will be added to the results, .e.g. --property arch=arm --property os=linux", CommandOptionType.MultipleValue);
