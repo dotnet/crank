@@ -562,45 +562,27 @@ namespace Microsoft.Crank.PullRequestBot
 
                 var cloneFolder = Path.Combine(workspace, folder);
 
-                await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), "/c ");
+                await ProcessUtil.RunAsync("git", $"clone --recursive {cloneUrl} {cloneFolder} -b {baseBranch}", workingDirectory: workspace, log: true);
 
-                var script = $@"
-echo Workspace: {workspace}
-echo Source: {cloneFolder}
-cd {workspace}
-
-git clone --recursive {cloneUrl} {cloneFolder}
-
-cd {cloneFolder}
-git checkout {baseBranch}
-
-cd {cloneFolder}
-{buildScript}
-
-{dotnetTools}crank {_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{workspace}base.json""
-
-cd {cloneFolder}
-git fetch origin pull/{prNumber}/head
-git config --global user.name ""user""
-git config --global user.email ""user@company.com""
-git merge FETCH_HEAD
-cd {cloneFolder}
-{buildScript}
-
-{dotnetTools}crank {_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{workspace}head.json""
-
-";
-                var scriptFilename = Path.Combine(Path.GetTempPath(), "benchmark" + ProcessUtil.GetEnvironmentCommand(".cmd", ".sh"));
-
-                File.WriteAllText(scriptFilename, script);
+                var scriptFilename = Path.Combine(workspace, "build" + ProcessUtil.GetEnvironmentCommand(".cmd", ".sh"));
+                File.WriteAllText(scriptFilename, buildScript);
 
                 try
                 {
+
                     await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), $"/c {scriptFilename}", log: true);
+                    await ProcessUtil.RunAsync(Path.Combine(dotnetTools, "crank"), $@"{_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{workspace}base.json""", workingDirectory: cloneFolder, log: true);
+
+                    await ProcessUtil.RunAsync("git", $@"fetch origin pull/{prNumber}/head", workingDirectory: cloneFolder, log: true);
+                    await ProcessUtil.RunAsync("git", $@"config --global user.name ""user""", workingDirectory: cloneFolder, log: true);
+                    await ProcessUtil.RunAsync("git", $@"config --global user.email ""user@company.com""", workingDirectory: cloneFolder, log: true);
+                    await ProcessUtil.RunAsync("git", $@"merge FETCH_HEAD", workingDirectory: cloneFolder, log: true);
+
+
+                    await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), $"/c {scriptFilename}", log: true);
+                    await ProcessUtil.RunAsync(Path.Combine(dotnetTools, "crank"), $@"{_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{workspace}base.json""", workingDirectory: cloneFolder, log: true);
 
                     var result = await ProcessUtil.RunAsync("crank", $"compare {workspace}base.json {workspace}head.json", log: true, captureOutput: true);
-
-                    File.Delete(scriptFilename);
 
                     results.Add(new Result(run.Profile, run.Benchmark, result.StandardOutput));
                 }
