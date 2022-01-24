@@ -554,6 +554,7 @@ namespace Microsoft.Crank.PullRequestBot
                 var folder = command.PullRequest.Base.Repository.Name; // $"aspnetcore"; // 
                 var baseBranch = command.PullRequest.Base.Ref; // "main"; // 
                 var prNumber = command.PullRequest.Number; // 39463;
+                var dotnetTools = Path.Combine(Environment.GetEnvironmentVariable("USERPROFILE"), ".dotnet", "tools");
 
                 // Compute a unique clone folder name
                 var counter = 1;
@@ -576,7 +577,7 @@ git checkout {baseBranch}
 cd {cloneFolder}
 {buildScript}
 
-call ""$env:USERPROFILE\.dotnet\tools\crank"" {_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{workspace}base.json""
+{dotnetTools}crank {_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{workspace}base.json""
 
 cd {cloneFolder}
 git fetch origin pull/{prNumber}/head
@@ -586,7 +587,7 @@ git merge FETCH_HEAD
 cd {cloneFolder}
 {buildScript}
 
-call ""$env:USERPROFILE\.dotnet\tools\crank"" {_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{workspace}head.json""
+{dotnetTools}crank {_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{workspace}head.json""
 
 ";
                 var scriptFilename = Path.Combine(Path.GetTempPath(), "benchmark" + ProcessUtil.GetEnvironmentCommand(".cmd", ".sh"));
