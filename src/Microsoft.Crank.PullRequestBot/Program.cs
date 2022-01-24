@@ -548,7 +548,6 @@ namespace Microsoft.Crank.PullRequestBot
 
                 var benchmark = _configuration.Benchmarks[run.Benchmark];
                 var profile = _configuration.Profiles[run.Profile];
-                var buildScript = String.Join(Environment.NewLine, command.Components.Select(b => _configuration.Components[b].Script));
                 var buildArguments = String.Join(" ", command.Components.Select(b => _configuration.Components[b].Arguments));
                 var cloneUrl = command.PullRequest.Base.Repository.CloneUrl; // "https://github.com/dotnet/aspnetcore.git";
                 var folder = command.PullRequest.Base.Repository.Name; // $"aspnetcore"; // 
@@ -562,15 +561,14 @@ namespace Microsoft.Crank.PullRequestBot
 
                 var cloneFolder = Path.Combine(workspace, folder);
 
-                await ProcessUtil.RunAsync("git", $"clone --recursive {cloneUrl} {cloneFolder} -b {baseBranch}", workingDirectory: workspace, log: true);
-
-                var scriptFilename = Path.Combine(workspace, "build" + ProcessUtil.GetEnvironmentCommand(".cmd", ".sh"));
-                File.WriteAllText(scriptFilename, buildScript);
+                var buildCommands = command.Components.SelectMany(b => _configuration.Components[b].Script.Split(new [] { '\r', '\n'}, StringSplitOptions.RemoveEmptyEntries));
 
                 try
                 {
+                    await ProcessUtil.RunAsync("git", $"clone --recursive {cloneUrl} {cloneFolder} -b {baseBranch}", workingDirectory: workspace, log: true);
 
-                    await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), $"/c {scriptFilename}", log: true);
+                    foreach (var c in buildCommands) await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), $"/c {c}", workingDirectory: cloneFolder, log: true);
+
                     await ProcessUtil.RunAsync(Path.Combine(dotnetTools, "crank"), $@"{_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{workspace}base.json""", workingDirectory: cloneFolder, log: true);
 
                     await ProcessUtil.RunAsync("git", $@"fetch origin pull/{prNumber}/head", workingDirectory: cloneFolder, log: true);
@@ -579,7 +577,7 @@ namespace Microsoft.Crank.PullRequestBot
                     await ProcessUtil.RunAsync("git", $@"merge FETCH_HEAD", workingDirectory: cloneFolder, log: true);
 
 
-                    await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), $"/c {scriptFilename}", log: true);
+                    foreach (var c in buildCommands) await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), $"/c {c}", workingDirectory: cloneFolder, log: true);
                     await ProcessUtil.RunAsync(Path.Combine(dotnetTools, "crank"), $@"{_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{workspace}base.json""", workingDirectory: cloneFolder, log: true);
 
                     var result = await ProcessUtil.RunAsync("crank", $"compare {workspace}base.json {workspace}head.json", log: true, captureOutput: true);
