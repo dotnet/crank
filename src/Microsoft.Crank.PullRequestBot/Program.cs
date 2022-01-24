@@ -554,7 +554,7 @@ namespace Microsoft.Crank.PullRequestBot
                 var folder = command.PullRequest.Base.Repository.Name; // $"aspnetcore"; // 
                 var baseBranch = command.PullRequest.Base.Ref; // "main"; // 
                 var prNumber = command.PullRequest.Number; // 39463;
-                var dotnetTools = Path.Combine(Environment.GetEnvironmentVariable("USERPROFILE"), ".dotnet", "tools");
+                var dotnetTools = Path.Combine(Environment.GetEnvironmentVariable("USERPROFILE"), ".dotnet", "tools") + Path.DirectorySeparatorChar;
 
                 // Compute a unique clone folder name
                 var counter = 1;
