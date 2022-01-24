@@ -623,6 +623,29 @@ cd {cloneFolder}
         }
     }
 
-    public record class Run(string Profile, string Benchmark);
-    public record class Result(string Profile, string Benchmark, string Output);
+    public class Run
+    {
+        public Run(string profile, string benchmark)
+        {
+            Profile = profile;
+            Benchmark = benchmark;
+        }
+
+        public string Profile { get; set; }
+        public string Benchmark { get; set; }
+    }
+
+    public class Result
+    {
+        public Result(string profile, string benchmark, string output)
+        {
+            Profile = profile;
+            Benchmark = benchmark;
+            Output = output;
+        }
+
+        public string Profile { get; set; }
+        public string Benchmark { get; set; }
+        public string Output { get; set; }
+    }
 }
