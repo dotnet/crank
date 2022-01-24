@@ -538,10 +538,13 @@ namespace Microsoft.Crank.PullRequestBot
 
             var workspace = _options.Workspace;
 
+            // Workspace ends with path separator
+            workspace = workspace.TrimEnd('\\', '/') + Path.PathSeparator;
+
             foreach (var run in runs)
             {
-                File.Delete($"{workspace}/base.json");
-                File.Delete($"{workspace}/head.json");
+                File.Delete(Path.Combine(workspace, "base.json"));
+                File.Delete(Path.Combine(workspace, "head.json"));
 
                 var benchmark = _configuration.Benchmarks[run.Benchmark];
                 var profile = _configuration.Profiles[run.Profile];
@@ -561,8 +564,8 @@ namespace Microsoft.Crank.PullRequestBot
                 await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), "/c ");
 
                 var script = $@"
-dotnet tool install Microsoft.Crank.Controller --version ""0.2.0-*"" --global
-
+echo Workspace: {workspace}
+echo Source: {cloneFolder}
 cd {workspace}
 
 git clone --recursive {cloneUrl} {cloneFolder}
@@ -571,7 +574,7 @@ cd {cloneFolder}
 git checkout {baseBranch}
 {buildScript}
 
-crank {_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{workspace}/base.json""
+crank {_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{workspace}base.json""
 
 cd {cloneFolder}
 git fetch origin pull/{prNumber}/head
@@ -580,7 +583,7 @@ git config --global user.email ""user@company.com""
 git merge FETCH_HEAD
 {buildScript}
 
-crank {_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{workspace}/head.json""
+crank {_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{workspace}head.json""
 
 ";
                 var scriptFilename = Path.Combine(Path.GetTempPath(), "benchmark" + ProcessUtil.GetEnvironmentCommand(".cmd", ".sh"));
@@ -591,7 +594,7 @@ crank {_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {build
                 {
                     await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), $"/c {scriptFilename}", log: true);
 
-                    var result = await ProcessUtil.RunAsync("crank", $"compare {workspace}/base.json {workspace}/head.json", log: true, captureOutput: true);
+                    var result = await ProcessUtil.RunAsync("crank", $"compare {workspace}base.json {workspace}head.json", log: true, captureOutput: true);
 
                     File.Delete(scriptFilename);
 
