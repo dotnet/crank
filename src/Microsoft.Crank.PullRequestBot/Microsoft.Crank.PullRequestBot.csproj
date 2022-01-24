@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <Description>Runs benchmarks out of GitHub pull-requests.</Description>
     <ToolCommandName>crank-pr</ToolCommandName>
     <AssemblyName>crank-pr</AssemblyName>
@@ -10,7 +10,7 @@
     <OutputType>Exe</OutputType>
     <Authors>Microsoft</Authors>
     <PackageId>Microsoft.Crank.PullRequestBot</PackageId>
-    <LangVersion>preview</LangVersion>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
