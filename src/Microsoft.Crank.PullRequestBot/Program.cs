@@ -574,7 +574,7 @@ cd {cloneFolder}
 git checkout {baseBranch}
 {buildScript}
 
-crank {_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{workspace}base.json""
+. ""$env:USERPROFILE\.dotnet\tools\crank"" {_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{workspace}base.json""
 
 cd {cloneFolder}
 git fetch origin pull/{prNumber}/head
@@ -583,7 +583,7 @@ git config --global user.email ""user@company.com""
 git merge FETCH_HEAD
 {buildScript}
 
-crank {_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{workspace}head.json""
+. ""$env:USERPROFILE\.dotnet\tools\crank"" {_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{workspace}head.json""
 
 ";
                 var scriptFilename = Path.Combine(Path.GetTempPath(), "benchmark" + ProcessUtil.GetEnvironmentCommand(".cmd", ".sh"));
