@@ -539,7 +539,7 @@ namespace Microsoft.Crank.PullRequestBot
             var workspace = _options.Workspace;
 
             // Workspace ends with path separator
-            workspace = workspace.TrimEnd('\\', '/') + Path.PathSeparator;
+            workspace = workspace.TrimEnd('\\', '/') + Path.DirectorySeparatorChar;
 
             foreach (var run in runs)
             {
