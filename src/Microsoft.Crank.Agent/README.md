@@ -28,15 +28,25 @@ Options:
 
 ## Running Crank.Agent as a service
 
-At the moment, only windows service is supported.
+At the moment, only Windows service is supported.
 
 Deploy the agent as a dotnet tool (or published), and register the windows service with
 
 ```
-SC CREATE "CrankAgentService" binpath= "X:\abosulte_path\crank-agent.exe --url http://exposed-URL:5010 --service"
+dotnet tool install -g Microsoft.Crank.Agent --version "0.2.0-*" 
+sc.exe create "CrankAgentService" binpath= "%USERPROFILE%\crank-agent.exe --url http://*:5001 --service"
 ```
 
 You also should add the `--dotnethome` and `--build-path` parameters, in order to reuse sdk, and have a dedicated workspace for building and compiling.
 
 The windows service must run with an account having rights on all the folders.
-You also need to allow the exposed port on your windows firewall.
+You may also need to allow the exposed port on your Windows firewall.
+
+## Removing the service
+
+To delete the service, use these commands:
+
+```
+sc.exe stop "CrankAgentService"
+sc.exe delete "CrankAgentService"
+```
