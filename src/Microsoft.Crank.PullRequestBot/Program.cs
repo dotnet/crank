@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.CommandLine;
 using System.CommandLine.Invocation;
+using System.CommandLine.Parsing;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -200,7 +201,7 @@ namespace Microsoft.Crank.PullRequestBot
                 var profileNames = options.Profiles.Split(',', StringSplitOptions.RemoveEmptyEntries);
                 var buildNames = options.Components.Split(',', StringSplitOptions.RemoveEmptyEntries);
 
-                if (!ArgumentsValid(benchmarkNames, profileNames, buildNames, markdown:false, out var help))
+                if (!ArgumentsValid(benchmarkNames, profileNames, buildNames, markdown: false, out var help))
                 {
                     Console.WriteLine(help);
 
@@ -561,31 +562,41 @@ namespace Microsoft.Crank.PullRequestBot
 
                 var cloneFolder = Path.Combine(workspace, folder);
 
-                var buildCommands = command.Components.SelectMany(b => _configuration.Components[b].Script.Split(new [] { '\r', '\n'}, StringSplitOptions.RemoveEmptyEntries));
+                var buildCommands = command.Components.SelectMany(b => _configuration.Components[b].Script.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries));
 
                 try
                 {
                     await ProcessUtil.RunAsync("git", $"clone --recursive {cloneUrl} {cloneFolder} -b {baseBranch}", workingDirectory: workspace, log: true);
 
+                    // Build base
                     foreach (var c in buildCommands) await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), $"/c {c}", workingDirectory: cloneFolder, log: true);
 
-                    await ProcessUtil.RunAsync(Path.Combine(dotnetTools, "crank"), $@"{_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{workspace}base.json""", workingDirectory: cloneFolder, log: true);
+                    Directory.SetCurrentDirectory(cloneFolder);
+                    RunCrank(_configuration.Defaults, benchmark.Arguments, profile.Arguments, buildArguments, $@"--json ""{workspace}base.json""");
 
                     await ProcessUtil.RunAsync("git", $@"fetch origin pull/{prNumber}/head", workingDirectory: cloneFolder, log: true);
                     await ProcessUtil.RunAsync("git", $@"config --global user.name ""user""", workingDirectory: cloneFolder, log: true);
                     await ProcessUtil.RunAsync("git", $@"config --global user.email ""user@company.com""", workingDirectory: cloneFolder, log: true);
                     await ProcessUtil.RunAsync("git", $@"merge FETCH_HEAD", workingDirectory: cloneFolder, log: true);
 
-
+                    // Build head
                     foreach (var c in buildCommands) await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), $"/c {c}", workingDirectory: cloneFolder, log: true);
-                    await ProcessUtil.RunAsync(Path.Combine(dotnetTools, "crank"), $@"{_configuration.Defaults} {benchmark.Arguments} {profile.Arguments} {buildArguments} --json ""{workspace}base.json""", workingDirectory: cloneFolder, log: true);
 
-                    var result = await ProcessUtil.RunAsync("crank", $"compare {workspace}base.json {workspace}head.json", log: true, captureOutput: true);
+                    Directory.SetCurrentDirectory(cloneFolder);
+                    RunCrank(_configuration.Defaults, benchmark.Arguments, profile.Arguments, buildArguments, $@"--json ""{workspace}head.json""");
 
-                    results.Add(new Result(run.Profile, run.Benchmark, result.StandardOutput));
+                    // Compare benchmarks
+                    var result = RunCrank($"compare", $"{workspace}base.json", $"{workspace}head.json");
+
+                    results.Add(new Result(run.Profile, run.Benchmark, result));
                 }
                 finally
                 {
+                    // Stop dotnet process
+
+                    await ProcessUtil.RunAsync(@".\.dotnet\dotnet.exe", "build-server shutdown", log: true, throwOnError: false);
+                    await ProcessUtil.RunAsync(@"taskkill", "/F /IM dotnet.exe", log: true, throwOnError: false);
+
                     // Clean git clones
                     try
                     {
@@ -596,10 +607,32 @@ namespace Microsoft.Crank.PullRequestBot
                         // Fail to delete the clone folder, continue
                         Console.WriteLine($"Failed to clean {cloneFolder}. Ignoring...");
                     }
-                }                
+                }
             }
 
             return results;
+        }
+
+        private static string RunCrank(params string[] args)
+        {
+            args = args.SelectMany(c => CommandLineStringSplitter.Instance.Split(c)).ToArray();
+
+            Console.WriteLine($"crank {String.Join(' ', args)}");
+
+            using var sw = new StringWriter();
+            var consoleOut = Console.Out;
+            try
+            {
+                Console.SetOut(sw);
+                Crank.Controller.Program.Main(args);
+            }
+            finally
+            {
+                Console.SetOut(consoleOut);
+            }
+
+            Console.WriteLine(sw.ToString());
+            return sw.ToString();
         }
     }
 
