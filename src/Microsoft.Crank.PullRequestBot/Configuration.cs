@@ -9,9 +9,9 @@ namespace Microsoft.Crank.PullRequestBot
     public class Configuration
     {
         public string Defaults { get; set; }
-        public Dictionary<string, Build> Components { get; set; } = new ();
-        public Dictionary<string, Profile> Profiles { get; set; } = new ();
-        public Dictionary<string, Benchmark> Benchmarks { get; set; } = new ();
+        public Dictionary<string, Build> Components { get; set; } = new Dictionary<string, Build>();
+        public Dictionary<string, Profile> Profiles { get; set; } = new Dictionary<string, Profile>();
+        public Dictionary<string, Benchmark> Benchmarks { get; set; } = new Dictionary<string, Benchmark>();
     }
 
     public class Profile
@@ -27,5 +27,9 @@ namespace Microsoft.Crank.PullRequestBot
         public string Arguments { get; set; }
     }
 
-    public record struct Build(string Script, string Arguments);
+    public class Build
+    {
+        public string Script { get; set; }
+        public string Arguments { get; set; }
+    }
 }
