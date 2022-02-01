@@ -185,7 +185,7 @@ namespace Microsoft.Crank.Controller
             });
 
             // Store arguments before the dynamic ones are removed
-            var commandLineArguments = String.Join(' ', args.Where(x => !String.IsNullOrWhiteSpace(x)));
+            var commandLineArguments = String.Join(' ', args.Where(x => !String.IsNullOrWhiteSpace(x)).Select(x => x.StartsWith('-') ? x : '"' + x + '"'));
 
             // Extract dynamic arguments
             for (var i = 0; i < args.Length; i++)
