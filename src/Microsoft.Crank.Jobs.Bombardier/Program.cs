@@ -221,11 +221,11 @@ namespace Microsoft.Crank.Jobs.Bombardier
                 BenchmarksEventSource.Register("bombardier/requests;http/requests", Operations.Max, Operations.Sum, "Requests", "Total number of requests", "n0");
                 BenchmarksEventSource.Register("bombardier/badresponses;http/requests/badresponses", Operations.Max, Operations.Sum, "Bad responses", "Non-2xx or 3xx responses", "n0");
 
-                BenchmarksEventSource.Register("bombardier/latency/50;http/latency/50", Operations.Max, Operations.Max, "Latency 50th (ms)", "Latency 50th (us)", "n2");
-                BenchmarksEventSource.Register("bombardier/latency/75;http/latency/75", Operations.Max, Operations.Max, "Latency 75th (ms)", "Latency 75th (us)", "n2");
-                BenchmarksEventSource.Register("bombardier/latency/90;http/latency/90", Operations.Max, Operations.Max, "Latency 90th (ms)", "Latency 90th (us)", "n2");
-                BenchmarksEventSource.Register("bombardier/latency/90;http/latency/95", Operations.Max, Operations.Max, "Latency 95th (ms)", "Latency 95th (us)", "n2");
-                BenchmarksEventSource.Register("bombardier/latency/99;http/latency/99", Operations.Max, Operations.Max, "Latency 99th (ms)", "Latency 99th (us)", "n2");
+                BenchmarksEventSource.Register("bombardier/latency/50;http/latency/50", Operations.Max, Operations.Max, "Latency 50th (us)", "Latency 50th (us)", "n0");
+                BenchmarksEventSource.Register("bombardier/latency/75;http/latency/75", Operations.Max, Operations.Max, "Latency 75th (us)", "Latency 75th (us)", "n0");
+                BenchmarksEventSource.Register("bombardier/latency/90;http/latency/90", Operations.Max, Operations.Max, "Latency 90th (us)", "Latency 90th (us)", "n0");
+                BenchmarksEventSource.Register("bombardier/latency/90;http/latency/95", Operations.Max, Operations.Max, "Latency 95th (us)", "Latency 95th (us)", "n0");
+                BenchmarksEventSource.Register("bombardier/latency/99;http/latency/99", Operations.Max, Operations.Max, "Latency 99th (us)", "Latency 99th (us)", "n0");
 
                 BenchmarksEventSource.Register("bombardier/latency/mean;http/latency/mean", Operations.Max, Operations.Avg, "Mean latency (us)", "Mean latency (us)", "n0");
                 BenchmarksEventSource.Register("bombardier/latency/max;http/latency/max", Operations.Max, Operations.Max, "Max latency (us)", "Max latency (us)", "n0");
@@ -266,7 +266,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
                 var bytesPerSecond = document["result"]["bytesRead"].Value<long>() / document["result"]["timeTakenSeconds"].Value<double>();
 
                 // B/s to MB/s
-                BenchmarksEventSource.Measure("bombardier/throughput", bytesPerSecond / 1024 / 1024);
+                BenchmarksEventSource.Measure("bombardier/throughput;http/throughput", bytesPerSecond / 1024 / 1024);
             }
             else
             {
