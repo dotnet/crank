@@ -266,7 +266,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
                 var bytesPerSecond = document["result"]["bytesRead"].Value<long>() / document["result"]["timeTakenSeconds"].Value<double>();
 
                 // B/s to MB/s
-                BenchmarksEventSource.Measure("bombardier/throughput", bytesPerSecond / 1024 / 1024);
+                BenchmarksEventSource.Measure("bombardier/throughput;http/throughput", bytesPerSecond / 1024 / 1024);
             }
             else
             {
