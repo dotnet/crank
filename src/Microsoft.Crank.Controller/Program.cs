@@ -26,6 +26,7 @@ using Manatee.Json;
 using Jint;
 using System.Security.Cryptography;
 using Microsoft.Azure.Relay;
+using Esprima.Ast;
 
 namespace Microsoft.Crank.Controller
 {
@@ -1050,8 +1051,11 @@ namespace Microsoft.Crank.Controller
                             {
                                 foreach (var m in job.Value.Metadata)
                                 {
-                                    // application.aspnetCoreVersion
-                                    yield return job.Key + "." + m.Name;
+                                    if (CanSaveMetata(configuration.Jobs[job.Key], m))
+                                    {
+                                        // application.aspnetCoreVersion
+                                        yield return job.Key + "." + m.Name;
+                                    }
                                 }
 
                                 foreach (var e in job.Value.Environment)
@@ -1066,6 +1070,26 @@ namespace Microsoft.Crank.Controller
                             }
                         }
 
+                        bool CanSaveMetata(Job job, ResultMetadata metadata)
+                        {
+                            // Properties from dotnet counters should not be added if they are not part of the included providers
+
+                            var isCounter = false;
+                            var isImportedCounter = false;
+
+                            foreach (var counters in configuration.Counters)
+                            {
+                                if (counters.Values.Any(y => y.Measurement == metadata.Name))
+                                {
+                                    isCounter = true;
+                                    isImportedCounter = job.Options.CounterProviders.Contains(counters.Provider);
+                                    break;
+                                }
+                            }
+
+                            return !isCounter || isImportedCounter;
+                        }
+
                         IEnumerable<string> GetValues()
                         {
                             yield return session;
@@ -1076,10 +1100,13 @@ namespace Microsoft.Crank.Controller
                             {
                                 foreach (var m in job.Value.Metadata)
                                 {
-                                    yield return job.Value.Results.ContainsKey(m.Name)
+                                    if (CanSaveMetata(configuration.Jobs[job.Key], m))
+                                    {
+                                        yield return job.Value.Results.ContainsKey(m.Name)
                                         ? Convert.ToString(job.Value.Results[m.Name], System.Globalization.CultureInfo.InvariantCulture)
                                         : ""
                                         ;
+                                    }
                                 }
 
                                 foreach (var e in job.Value.Environment)
@@ -1096,6 +1123,11 @@ namespace Microsoft.Crank.Controller
 
                         string EscapeCsvValue(string value)
                         {
+                            if (String.IsNullOrEmpty(value))
+                            {
+                                return "";
+                            }
+                            
                             if (value.Contains("\""))
                             {
                                 return "\"" + value.Replace("\"", "\"\"") + "\"";
