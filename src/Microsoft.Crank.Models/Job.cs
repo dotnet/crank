@@ -127,7 +127,7 @@ namespace Microsoft.Crank.Models
         public int MeasurementsIntervalSec { get; set; } = 1;
         
         /// <summary>
-        /// The list of performance counter providers to be collected. Defaults to <c>System.Runtime</c>.
+        /// The list of performance counter providers to be collected.
         /// </summary>
         public List<DotnetCounter> Counters { get; set; } = new List<DotnetCounter>();
         public string BasePath { get; set; }
