@@ -2066,12 +2066,12 @@ namespace Microsoft.Crank.Agent
 
             if (job.CpuLimitRatio > 0)
             {
-                environmentArguments += $"--cpu-quota=\"{Math.Floor(job.CpuLimitRatio * _defaultDockerCfsPeriod)}\"";
+                environmentArguments += $"--cpu-quota=\"{Math.Floor(job.CpuLimitRatio * _defaultDockerCfsPeriod)}\" ";
             }
 
             if (job.MemoryLimitInBytes > 0)
             {
-                environmentArguments += $"--memory=\"{job.MemoryLimitInBytes}b\"";
+                environmentArguments += $"--memory=\"{job.MemoryLimitInBytes}b\" ";
             }
 
             var command = OperatingSystem == OperatingSystem.Linux
