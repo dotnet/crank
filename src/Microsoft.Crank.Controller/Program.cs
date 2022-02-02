@@ -26,7 +26,6 @@ using Manatee.Json;
 using Jint;
 using System.Security.Cryptography;
 using Microsoft.Azure.Relay;
-using Esprima.Ast;
 
 namespace Microsoft.Crank.Controller
 {
@@ -2330,14 +2329,15 @@ namespace Microsoft.Crank.Controller
                         // is the result is from a counter ?
                         if (counters.Values.Any(y => y.Measurement == name))
                         {
+                            isCounter = true;
+
                             // yes, then check if it is part of the ones tracked, or skip this result
                             isImportedCounter = jobOptions.CounterProviders.Contains(counters.Provider);
                             break;
                         }
                     }
 
-                    return !isCounter || isImportedCounter;
-
+                    return isCounter && !isImportedCounter;
                 }
             }
 
