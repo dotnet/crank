@@ -55,9 +55,9 @@ namespace Microsoft.Crank.IntegrationTests
             // Wait either for the message of the agent to stop
             await Task.WhenAny(agentReadyTcs.Task, _agent);
 
-            if (!agentReadyTcs.Task.IsCompleted)
+            if (_agent.IsCompleted)
             {
-                Assert.True(false, "Agent could not start");
+                Assert.True(false, $"Agent exited with exit code {_agent.Result.ExitCode}");
             }
 
             _output.AppendLine($"[AGT] Started agent");
