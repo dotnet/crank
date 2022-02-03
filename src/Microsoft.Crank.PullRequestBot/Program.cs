@@ -36,6 +36,8 @@ namespace Microsoft.Crank.PullRequestBot
         private const string Thumbprint = "<!-- pullrequestthumbprint -->";
 
         private const string BenchmarkCommand = "/benchmark";
+        private const string BaseFilename = "base.json";
+        private const string HeadFilename = "pr.json";
 
         private static readonly DateTime CommentCutoffDate = DateTime.Now.AddHours(-24);
 
@@ -267,7 +269,7 @@ namespace Microsoft.Crank.PullRequestBot
                     {
                         var errorCommentText = $"Failed to benchmark PR #{command.PullRequest.Number}. Skipping... Details:\n```\n{ex}\n```";
                         Console.WriteLine($"Benchmark error comment: {errorCommentText}");
-                        await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint(errorCommentText));
+                        await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint("An error occured, please check the logs"));
                     }
                 }
 
@@ -355,7 +357,11 @@ namespace Microsoft.Crank.PullRequestBot
                         }
                         else
                         {
-                            Console.WriteLine($"The user '{comment.User.Login}' is not allowed to perform this action.");
+                            var message = $"The user @{comment.User.Login} is not allowed to perform this action.";
+
+                            Console.WriteLine();
+
+                            await _githubClient.Issue.Comment.Create(owner, name, pr.Number, ApplyThumbprint(message));
                         }
                     }
                     else if (comment.Body.Contains(Thumbprint))
@@ -544,8 +550,8 @@ namespace Microsoft.Crank.PullRequestBot
 
             foreach (var run in runs)
             {
-                File.Delete(Path.Combine(workspace, "base.json"));
-                File.Delete(Path.Combine(workspace, "head.json"));
+                File.Delete(Path.Combine(workspace, BaseFilename));
+                File.Delete(Path.Combine(workspace, HeadFilename));
 
                 var benchmark = _configuration.Benchmarks[run.Benchmark];
                 var profile = _configuration.Profiles[run.Profile];
@@ -554,7 +560,6 @@ namespace Microsoft.Crank.PullRequestBot
                 var folder = command.PullRequest.Base.Repository.Name; // $"aspnetcore"; // 
                 var baseBranch = command.PullRequest.Base.Ref; // "main"; // 
                 var prNumber = command.PullRequest.Number; // 39463;
-                var dotnetTools = Path.Combine(Environment.GetEnvironmentVariable("USERPROFILE"), ".dotnet", "tools") + Path.DirectorySeparatorChar;
 
                 // Compute a unique clone folder name
                 var counter = 1;
@@ -572,30 +577,39 @@ namespace Microsoft.Crank.PullRequestBot
                     foreach (var c in buildCommands) await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), $"/c {c}", workingDirectory: cloneFolder, log: true);
 
                     Directory.SetCurrentDirectory(cloneFolder);
-                    RunCrank(_configuration.Defaults, benchmark.Arguments, profile.Arguments, buildArguments, $@"--json ""{workspace}base.json""");
+                    RunCrank(_configuration.Defaults, benchmark.Arguments, profile.Arguments, buildArguments, $@"--json ""{workspace}{BaseFilename}""");
 
                     await ProcessUtil.RunAsync("git", $@"fetch origin pull/{prNumber}/head", workingDirectory: cloneFolder, log: true);
-                    await ProcessUtil.RunAsync("git", $@"config --global user.name ""user""", workingDirectory: cloneFolder, log: true);
-                    await ProcessUtil.RunAsync("git", $@"config --global user.email ""user@company.com""", workingDirectory: cloneFolder, log: true);
+                    await ProcessUtil.RunAsync("git", $@"config user.name ""user""", workingDirectory: cloneFolder, log: true);
+                    await ProcessUtil.RunAsync("git", $@"config user.email ""user@company.com""", workingDirectory: cloneFolder, log: true);
                     await ProcessUtil.RunAsync("git", $@"merge FETCH_HEAD", workingDirectory: cloneFolder, log: true);
 
                     // Build head
                     foreach (var c in buildCommands) await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), $"/c {c}", workingDirectory: cloneFolder, log: true);
 
                     Directory.SetCurrentDirectory(cloneFolder);
-                    RunCrank(_configuration.Defaults, benchmark.Arguments, profile.Arguments, buildArguments, $@"--json ""{workspace}head.json""");
+                    RunCrank(_configuration.Defaults, benchmark.Arguments, profile.Arguments, buildArguments, $@"--json ""{workspace}{HeadFilename}""");
 
                     // Compare benchmarks
-                    var result = RunCrank($"compare", $"{workspace}base.json", $"{workspace}head.json");
+                    var result = RunCrank($"compare", $"{workspace}{BaseFilename}", $"{workspace}{HeadFilename}");
 
                     results.Add(new Result(run.Profile, run.Benchmark, result));
                 }
                 finally
                 {
                     // Stop dotnet process
+                    // This assumes dotnet is part of the PATH, which might not work based on the host
 
-                    await ProcessUtil.RunAsync(@".\.dotnet\dotnet.exe", "build-server shutdown", log: true, throwOnError: false);
-                    await ProcessUtil.RunAsync(@"taskkill", "/F /IM dotnet.exe", log: true, throwOnError: false);
+                    await ProcessUtil.RunAsync(@"dotnet", "build-server shutdown", log: true, throwOnError: false);
+
+                    if (Environment.OSVersion.Platform == PlatformID.Unix)
+                    {
+                        await ProcessUtil.RunAsync("sh", "-c \"pkill dotnet || true\"", log: true, throwOnError: false);
+                    }
+                    else if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+                    {
+                        await ProcessUtil.RunAsync(@"taskkill", "/F /IM dotnet.exe", log: true, throwOnError: false);
+                    }
 
                     // Clean git clones
                     try
