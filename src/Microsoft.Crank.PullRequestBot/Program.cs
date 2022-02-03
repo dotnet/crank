@@ -359,7 +359,7 @@ namespace Microsoft.Crank.PullRequestBot
                         {
                             var message = $"The user @{comment.User.Login} is not allowed to perform this action.";
 
-                            Console.WriteLine();
+                            Console.WriteLine(message);
 
                             await _githubClient.Issue.Comment.Create(owner, name, pr.Number, ApplyThumbprint(message));
                         }
