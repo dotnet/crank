@@ -374,15 +374,24 @@ namespace Microsoft.Crank.Agent
 
             var host = builder.Build();
 
-            var hostTask = _runAsService.HasValue()
-                ? Task.Run(() =>
+            Task hostTask;
+            if (_runAsService.HasValue())
+            {
+                hostTask = Task.Run(() =>
                 {
                     if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                     {
                         host.RunAsService();
                     }
-                })
-                : host.RunAsync();
+                });
+            }
+            else
+            {
+                // Make sure the server is started before accepting new jobs
+                await host.StartAsync();
+                hostTask = host.WaitForShutdownAsync();
+            }
+
 
             _processJobsCts = new CancellationTokenSource();
             _processJobsTask = ProcessJobs(hostname, dockerHostname, _processJobsCts.Token);
