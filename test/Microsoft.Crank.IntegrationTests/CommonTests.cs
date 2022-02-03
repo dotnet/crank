@@ -25,6 +25,14 @@ namespace Microsoft.Crank.IntegrationTests
             _crankDirectory = Path.GetDirectoryName(typeof(CommonTests).Assembly.Location).Replace("Microsoft.Crank.IntegrationTests", "Microsoft.Crank.Controller");
             _crankTestsDirectory = Path.GetDirectoryName(typeof(CommonTests).Assembly.Location);
             _output.WriteLine($"[TEST] Running tests in {_crankDirectory}");
+
+            // Check if the agent is started
+            if (!_agent.IsReady())
+            {
+                // Dispose() will not be called, flush the agent output now
+                _output.WriteLine(_agent.FlushOutput());
+                Assert.True(false, "Agent failed to start");
+            }
         }
 
         [Fact]
