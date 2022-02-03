@@ -504,7 +504,7 @@ namespace Microsoft.Crank.PullRequestBot
                         if (!validationResults.IsValid)
                         {
                             // Create a json debug file with the schema
-                            localconfiguration.AddFirst(new JProperty("$schema", "https://raw.githubusercontent.com/dotnet/crank/main/src/Microsoft.Crank.RegressionBot/regressionbot.schema.json"));
+                            localconfiguration.AddFirst(new JProperty("$schema", "https://raw.githubusercontent.com/dotnet/crank/main/src/Microsoft.Crank.PullRequestBot/pullrequestbot.schema.json"));
 
                             var debugFilename = Path.Combine(Path.GetTempPath(), "configuration.debug.json");
                             File.WriteAllText(debugFilename, localconfiguration.ToString(Formatting.Indented));
