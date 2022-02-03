@@ -224,7 +224,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
                 BenchmarksEventSource.Register("bombardier/latency/50;http/latency/50", Operations.Max, Operations.Max, "Latency 50th (us)", "Latency 50th (us)", "n0");
                 BenchmarksEventSource.Register("bombardier/latency/75;http/latency/75", Operations.Max, Operations.Max, "Latency 75th (us)", "Latency 75th (us)", "n0");
                 BenchmarksEventSource.Register("bombardier/latency/90;http/latency/90", Operations.Max, Operations.Max, "Latency 90th (us)", "Latency 90th (us)", "n0");
-                BenchmarksEventSource.Register("bombardier/latency/90;http/latency/95", Operations.Max, Operations.Max, "Latency 95th (us)", "Latency 95th (us)", "n0");
+                BenchmarksEventSource.Register("bombardier/latency/95;http/latency/95", Operations.Max, Operations.Max, "Latency 95th (us)", "Latency 95th (us)", "n0");
                 BenchmarksEventSource.Register("bombardier/latency/99;http/latency/99", Operations.Max, Operations.Max, "Latency 99th (us)", "Latency 99th (us)", "n0");
 
                 BenchmarksEventSource.Register("bombardier/latency/mean;http/latency/mean", Operations.Max, Operations.Avg, "Mean latency (us)", "Mean latency (us)", "n0");
