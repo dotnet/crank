@@ -950,6 +950,10 @@ namespace Microsoft.Crank.Agent
                                                             if (takeMeasurement)
                                                             {
                                                                 // Get docker stats
+                                                                // docker stats takes two seconds to return the results because it needs to collect data twice (rate is 1/s) to compute CPU usage
+                                                                // This makes the rate of measurements 1 every 3s and reduces the number of data points send to the controller
+                                                                // Hence dotnet process based jobs are sending 3 times more information
+
                                                                 var result = ProcessUtil.RunAsync("docker", "container stats --no-stream --format \"{{.CPUPerc}}-{{.MemUsage}}\" " + dockerContainerId,
                                                                         log: false, throwOnError: false, captureOutput: true, captureError: true).GetAwaiter().GetResult();
 
@@ -2054,6 +2058,21 @@ namespace Microsoft.Crank.Agent
 
             // Delete container if the same name already exists
             // await ProcessUtil.RunAsync("docker", $"rm {imageName}", throwOnError: false);
+
+            if (!String.IsNullOrWhiteSpace(job.CpuSet))
+            {
+                environmentArguments += $"--cpuset-cpus=\"{job.CpuSet}\" ";
+            }
+
+            if (job.CpuLimitRatio > 0)
+            {
+                environmentArguments += $"--cpu-quota=\"{Math.Floor(job.CpuLimitRatio * _defaultDockerCfsPeriod)}\" ";
+            }
+
+            if (job.MemoryLimitInBytes > 0)
+            {
+                environmentArguments += $"--memory=\"{job.MemoryLimitInBytes}b\" ";
+            }
 
             var command = OperatingSystem == OperatingSystem.Linux
                 ? $"run -d {environmentArguments} {job.Arguments} --label benchmarks --name {containerName} --privileged --network host {imageName} {source.DockerCommand}"
