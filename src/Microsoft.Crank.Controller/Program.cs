@@ -1077,9 +1077,9 @@ namespace Microsoft.Crank.Controller
                                 foreach (var m in job.Value.Metadata)
                                 {
                                     yield return job.Value.Results.ContainsKey(m.Name)
-                                        ? Convert.ToString(job.Value.Results[m.Name], System.Globalization.CultureInfo.InvariantCulture)
-                                        : ""
-                                        ;
+                                    ? Convert.ToString(job.Value.Results[m.Name], System.Globalization.CultureInfo.InvariantCulture)
+                                    : ""
+                                    ;
                                 }
 
                                 foreach (var e in job.Value.Environment)
@@ -1096,6 +1096,11 @@ namespace Microsoft.Crank.Controller
 
                         string EscapeCsvValue(string value)
                         {
+                            if (String.IsNullOrEmpty(value))
+                            {
+                                return "";
+                            }
+                            
                             if (value.Contains("\""))
                             {
                                 return "\"" + value.Replace("\"", "\"\"") + "\"";
@@ -2240,10 +2245,18 @@ namespace Microsoft.Crank.Controller
                         Reduce = x.Reduce.ToString().ToLowerInvariant()
                         }
                     )).GroupBy(x => x.Name).ToDictionary(x => x.Key, x => x.Last());
-                
+
+                var jobOptions = jobConnections.First().Job.Options;
+
                 // Update any result definition with the ones in the configuration
                 foreach (var result in configuration.Results)
                 {
+                    // If the result is from a dotnet counter, only add it if the counter was requested
+                    if (IsUnusedDotnetCounter(result.Name, jobOptions))
+                    {
+                        continue;
+                    }
+
                     resultDefinitions.TryGetValue(result.Name, out var existing);
 
                     if (existing == null)
@@ -2303,6 +2316,29 @@ namespace Microsoft.Crank.Controller
                 }
 
                 jobResult.Environment = await jobConnections.First().GetInfoAsync();
+
+                bool IsUnusedDotnetCounter(string name, Models.Options jobOptions)
+                {
+                    // Properties from dotnet counters should not be added if they are not part of the included providers
+
+                    var isCounter = false;
+                    var isImportedCounter = false;
+
+                    foreach (var counters in configuration.Counters)
+                    {
+                        // is the result is from a counter ?
+                        if (counters.Values.Any(y => y.Measurement == name))
+                        {
+                            isCounter = true;
+
+                            // yes, then check if it is part of the ones tracked, or skip this result
+                            isImportedCounter = jobOptions.CounterProviders.Contains(counters.Provider);
+                            break;
+                        }
+                    }
+
+                    return isCounter && !isImportedCounter;
+                }
             }
 
             // Duplicate measurements with multiple keys
