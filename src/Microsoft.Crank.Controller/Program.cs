@@ -795,6 +795,10 @@ namespace Microsoft.Crank.Controller
 
                                     await Task.WhenAll(jobs.Select(job => job.DownloadTraceAsync()));
 
+                                    await Task.WhenAll(jobs.Select(job => job.DownloadBuildLogAsync()));
+
+                                    await Task.WhenAll(jobs.Select(job => job.DownloadOutputAsync()));
+
                                     await Task.WhenAll(jobs.Select(job => job.DownloadAssetsAsync(jobName)));
 
                                     await Task.WhenAll(jobs.Select(job => job.DeleteAsync()));
@@ -863,6 +867,10 @@ namespace Microsoft.Crank.Controller
                         if (!SpanShouldKeepJobRunning(jobName) || IsLastIteration())
                         {
                             await Task.WhenAll(jobs.Select(job => job.DownloadDumpAsync()));
+
+                            await Task.WhenAll(jobs.Select(job => job.DownloadBuildLogAsync()));
+
+                            await Task.WhenAll(jobs.Select(job => job.DownloadOutputAsync()));
 
                             await Task.WhenAll(jobs.Select(job => job.DownloadTraceAsync()));
 
@@ -1224,6 +1232,10 @@ namespace Microsoft.Crank.Controller
                 Log.WriteError(job.Job.Error, notime: true);
             }
 
+            await job.DownloadBuildLogAsync();
+
+            await job.DownloadOutputAsync();
+
             await job.DownloadDumpAsync();
 
             await job.DownloadTraceAsync();
@@ -1450,6 +1462,10 @@ namespace Microsoft.Crank.Controller
             await job.StopAsync();
 
             await job.TryUpdateJobAsync();
+
+            await job.DownloadBuildLogAsync();
+
+            await job.DownloadOutputAsync();
 
             await job.DownloadDumpAsync();
 
