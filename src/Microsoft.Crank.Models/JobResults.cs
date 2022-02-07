@@ -39,7 +39,12 @@ namespace Microsoft.Crank.Models
 
     public class BenchmarkStatistics
     {
+        public double Min { get; set; }
         public double Mean { get; set; }
+        public double Median { get; set; }
+        public double Max { get; set; }
+        public double StandardError { get; set; }
+        public double StandardDeviation { get; set; }
     }
 
     public class BenchmarkMemory

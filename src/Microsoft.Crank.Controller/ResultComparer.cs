@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using Microsoft.Crank.Models;
@@ -209,7 +210,13 @@ namespace Microsoft.Crank.Controller
                     {
                         Name = benchmark.FullName,
                         MeanNanoseconds = benchmark.Statistics.Mean,
-                        AllocatedBytes = benchmark.Memory?.BytesAllocatedPerOperation
+                        StandardErrorNanoseconds = benchmark.Statistics.StandardError,
+                        StandardDeviationNanoseconds = benchmark.Statistics.StandardDeviation,
+                        MedianNanoseconds = benchmark.Statistics.Median,
+                        Gen0 = benchmark.Memory?.Gen0Collections ?? 0,
+                        Gen1 = benchmark.Memory?.Gen1Collections ?? 0,
+                        Gen2 = benchmark.Memory?.Gen2Collections ?? 0,
+                        AllocatedBytes = benchmark.Memory?.BytesAllocatedPerOperation ?? 0
                     });
                 }
             }
@@ -262,10 +269,16 @@ namespace Microsoft.Crank.Controller
 
                 var benchmarks = summaries[firstBenchmark.Name];
 
-                // TODO Convert rows to the best unit of measure for the smallest value (ns, us, ms, etc.)
-                // TODO What other rows are useful to add?
-                AddRow(table, "Mean (ns)", summary => summary.MeanNanoseconds, "n4", benchmarks);
-                AddRow(table, "Allocated (bytes)", summary => summary.AllocatedBytes, "n0", benchmarks);
+                AddRow(table, "Mean", summary => summary.MeanNanoseconds, UnitType.Time, benchmarks);
+                AddRow(table, "Error", summary => summary.StandardErrorNanoseconds, UnitType.Time, benchmarks);
+                AddRow(table, "StdDev", summary => summary.StandardDeviationNanoseconds, UnitType.Time, benchmarks);
+                AddRow(table, "Median", summary => summary.MedianNanoseconds, UnitType.Time, benchmarks);
+
+                AddRow(table, "Gen 0", summary => summary.Gen0, UnitType.Dimensionless, benchmarks, skipIfAllZeroes: true);
+                AddRow(table, "Gen 1", summary => summary.Gen1, UnitType.Dimensionless, benchmarks, skipIfAllZeroes: true);
+                AddRow(table, "Gen 2", summary => summary.Gen2, UnitType.Dimensionless, benchmarks, skipIfAllZeroes: true);
+
+                AddRow(table, "Allocated", summary => summary.AllocatedBytes, UnitType.Size, benchmarks, skipIfAllZeroes: true);
 
                 table.Render(Console.Out);
 
@@ -276,20 +289,44 @@ namespace Microsoft.Crank.Controller
                 ResultTable table,
                 string name,
                 Func<BenchmarkSummary, object> valueFactory,
-                string valueFormat,
-                List<BenchmarkSummary> summaries)
+                UnitType unitType,
+                List<BenchmarkSummary> summaries,
+                bool skipIfAllZeroes = false)
             {
+                var rawValues = summaries
+                    .Select(summary => valueFactory(summary))
+                    .Select(value => Convert.ToDouble(value))
+                    .ToArray();
+
+                if (skipIfAllZeroes && rawValues.All(value => value == 0))
+                {
+                    return;
+                }
+
+                var precision = unitType == UnitType.Dimensionless ? 0 : PrecisionHelper.GetPrecision(rawValues);
+                var sizeUnit = unitType == UnitType.Size ? SizeUnit.GetBestSizeUnit(rawValues) : null;
+                var timeUnit = unitType == UnitType.Time ? TimeUnit.GetBestTimeUnit(rawValues) : null;
+
+                var units = unitType switch
+                {
+                    UnitType.Size => $" ({sizeUnit.Name})",
+                    UnitType.Time => $" ({timeUnit.Name})",
+                    _ => string.Empty
+                };
+
+                var rowLabel = $"{name}{units}";
+
                 var row = table.AddRow();
                 var cell = new Cell();
-                cell.Elements.Add(new CellElement() { Text = name, Alignment = CellTextAlignment.Left });
+                cell.Elements.Add(new CellElement() { Text = rowLabel, Alignment = CellTextAlignment.Left });
                 row.Add(cell);
 
                 var baseline = summaries[0];
 
-                foreach (var summary in summaries)
+                for (var i = 0; i < summaries.Count; i++)
                 {
-                    var measure = Convert.ToDouble(valueFactory(summary));
-                    var previous = Convert.ToDouble(valueFactory(baseline));
+                    var measure = rawValues[i];
+                    var previous = rawValues[0];
 
                     var improvement = measure == 0
                     ? 0
@@ -297,14 +334,21 @@ namespace Microsoft.Crank.Controller
 
                     row.Add(cell = new Cell());
 
+                    var formattedValue = unitType switch
+                    {
+                        UnitType.Size => new SizeValue((long)measure).ToString(sizeUnit),
+                        UnitType.Time => new TimeInterval(measure).ToString(timeUnit),
+                        _ => measure.ToString("N" + precision, CultureInfo.InvariantCulture)
+                    };
+
                     cell.Elements.Add(new CellElement
                     {
-                        Text = measure.ToString(valueFormat),
+                        Text = formattedValue,
                         Alignment = CellTextAlignment.Right
                     });
 
                     // Don't render % on baseline job
-                    if (summary != baseline)
+                    if (summaries[i] != baseline)
                     {
                         row.Add(cell = new Cell());
 
@@ -326,7 +370,197 @@ namespace Microsoft.Crank.Controller
         {
             public string Name { get; set; }
             public double MeanNanoseconds { get; set; }
-            public long? AllocatedBytes { get; set; }
+            public double StandardErrorNanoseconds { get; set; }
+            public double StandardDeviationNanoseconds { get; set; }
+            public double MedianNanoseconds { get; set; }
+            public int Gen0 { get; set; }
+            public int Gen1 { get; set; }
+            public int Gen2 { get; set; }
+            public long AllocatedBytes { get; set; }
+        }
+
+        // The types below are based on BenchmarkDotNet's DisplayPrecisionManager, SizeUnit and SizeValue types,
+        // and perfolizer's TimeInterval and TimeUnit types.
+
+        private enum UnitType
+        {
+            Dimensionless,
+            Time,
+            Size
+        }
+
+        private sealed class PrecisionHelper
+        {
+            private const int MinPrecision = 1;
+            private const int MaxPrecision = 4;
+
+            internal static int GetPrecision(IList<double> values)
+            {
+                if (values.Count == 0)
+                {
+                    return MinPrecision;
+                }
+
+                var oneNanosecond = 1e-9;
+
+                var allValuesAreZeros = values.All(value => Math.Abs(value) < oneNanosecond);
+                if (allValuesAreZeros)
+                {
+                    return MinPrecision;
+                }
+
+                var minValue = values.Any() ? values.Min(value => Math.Abs(value)) : 0;
+
+                if (double.IsNaN(minValue) || double.IsInfinity(minValue))
+                {
+                    return MinPrecision;
+                }
+
+                if (minValue < 1 - oneNanosecond)
+                {
+                    return MaxPrecision;
+                }
+
+                return Clamp((int)Math.Truncate(-Math.Log10(minValue)) + 3, MinPrecision, MaxPrecision);
+            }
+
+            private static int Clamp(int value, int min, int max) => Math.Min(Math.Max(value, min), max);
+        }
+
+        private sealed class SizeUnit
+        {
+            public string Name { get; }
+            public string Description { get; }
+            public long ByteAmount { get; }
+
+            public SizeUnit(string name, string description, long byteAmount)
+            {
+                Name = name;
+                Description = description;
+                ByteAmount = byteAmount;
+            }
+
+            private const long BytesInKiloByte = 1024L;
+
+            public static readonly SizeUnit B = new SizeUnit("B", "Byte", 1L);
+            public static readonly SizeUnit KB = new SizeUnit("KB", "Kilobyte", BytesInKiloByte);
+            public static readonly SizeUnit MB = new SizeUnit("MB", "Megabyte", BytesInKiloByte * BytesInKiloByte);
+            public static readonly SizeUnit GB = new SizeUnit("GB", "Gigabyte", BytesInKiloByte * BytesInKiloByte * BytesInKiloByte);
+            public static readonly SizeUnit TB = new SizeUnit("TB", "Terabyte", BytesInKiloByte * BytesInKiloByte * BytesInKiloByte * BytesInKiloByte);
+            public static readonly SizeUnit[] All = { B, KB, MB, GB, TB };
+
+            public static SizeUnit GetBestSizeUnit(params double[] values)
+            {
+                if (!values.Any())
+                {
+                    return B;
+                }
+
+                var minValue = values.Min();
+
+                foreach (var sizeUnit in All)
+                {
+                    if (minValue < sizeUnit.ByteAmount * BytesInKiloByte)
+                    {
+                        return sizeUnit;
+                    }
+                }
+
+                return All.Last();
+            }
+
+            public static double Convert(long value, SizeUnit from, SizeUnit to)
+                => value * (double)from.ByteAmount / (to ?? GetBestSizeUnit(value)).ByteAmount;
+        }
+
+        private readonly struct SizeValue
+        {
+            public long Bytes { get; }
+
+            public SizeValue(long bytes) => Bytes = bytes;
+
+            public SizeValue(long bytes, SizeUnit unit) : this(bytes * unit.ByteAmount) { }
+
+            public static readonly SizeValue B = new SizeValue(1, SizeUnit.B);
+            public static readonly SizeValue KB = new SizeValue(1, SizeUnit.KB);
+            public static readonly SizeValue MB = new SizeValue(1, SizeUnit.MB);
+            public static readonly SizeValue GB = new SizeValue(1, SizeUnit.GB);
+            public static readonly SizeValue TB = new SizeValue(1, SizeUnit.TB);
+
+            public string ToString(SizeUnit sizeUnit)
+            {
+                var unitValue = SizeUnit.Convert(Bytes, SizeUnit.B, sizeUnit);
+                return unitValue.ToString("0.##", CultureInfo.InvariantCulture);
+            }
+        }
+
+        private sealed class TimeUnit
+        {
+            public string Name { get; }
+
+            public string Description { get; }
+            public long NanosecondAmount { get; }
+
+            private TimeUnit(string name, string description, long nanosecondAmount)
+            {
+                Name = name;
+                Description = description;
+                NanosecondAmount = nanosecondAmount;
+            }
+
+            public static readonly TimeUnit Nanosecond = new TimeUnit("ns", "Nanosecond", 1);
+            public static readonly TimeUnit Microsecond = new TimeUnit("\u03BCs", "Microsecond", 1000);
+            public static readonly TimeUnit Millisecond = new TimeUnit("ms", "Millisecond", 1000 * 1000);
+            public static readonly TimeUnit Second = new TimeUnit("s", "Second", 1000 * 1000 * 1000);
+            public static readonly TimeUnit Minute = new TimeUnit("m", "Minute", Second.NanosecondAmount * 60);
+            public static readonly TimeUnit Hour = new TimeUnit("h", "Hour", Minute.NanosecondAmount * 60);
+            public static readonly TimeUnit Day = new TimeUnit("d", "Day", Hour.NanosecondAmount * 24);
+            public static readonly TimeUnit[] All = { Nanosecond, Microsecond, Millisecond, Second, Minute, Hour, Day };
+
+            public static TimeUnit GetBestTimeUnit(params double[] values)
+            {
+                if (values.Length == 0)
+                {
+                    return Nanosecond;
+                }
+
+                var minValue = values.Min();
+
+                foreach (var timeUnit in All)
+                {
+                    if (minValue < timeUnit.NanosecondAmount * 1000)
+                    {
+                        return timeUnit;
+                    }
+                }
+
+                return All.Last();
+            }
+
+            public static double Convert(double value, TimeUnit from, TimeUnit to) =>
+                value * from.NanosecondAmount / (to ?? GetBestTimeUnit(value)).NanosecondAmount;
+        }
+
+        private readonly struct TimeInterval
+        {
+            public double Nanoseconds { get; }
+
+            public TimeInterval(double nanoseconds) => Nanoseconds = nanoseconds;
+            public TimeInterval(double value, TimeUnit unit) : this(value * unit.NanosecondAmount) { }
+
+            public static readonly TimeInterval Nanosecond = new TimeInterval(1, TimeUnit.Nanosecond);
+            public static readonly TimeInterval Microsecond = new TimeInterval(1, TimeUnit.Microsecond);
+            public static readonly TimeInterval Millisecond = new TimeInterval(1, TimeUnit.Millisecond);
+            public static readonly TimeInterval Second = new TimeInterval(1, TimeUnit.Second);
+            public static readonly TimeInterval Minute = new TimeInterval(1, TimeUnit.Minute);
+            public static readonly TimeInterval Hour = new TimeInterval(1, TimeUnit.Hour);
+            public static readonly TimeInterval Day = new TimeInterval(1, TimeUnit.Day);
+
+            public string ToString(TimeUnit timeUnit)
+            {
+                var unitValue = TimeUnit.Convert(Nanoseconds, TimeUnit.Nanosecond, timeUnit);
+                return unitValue.ToString("N4", CultureInfo.InvariantCulture);
+            }
         }
     }
 }
