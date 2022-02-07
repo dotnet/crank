@@ -380,7 +380,8 @@ namespace Microsoft.Crank.Controller
         }
 
         // The types below are based on BenchmarkDotNet's DisplayPrecisionManager, SizeUnit and SizeValue types,
-        // and perfolizer's TimeInterval and TimeUnit types.
+        // and perfolizer's TimeInterval and TimeUnit types. It would be preferable to reference BenchmarkDotNet
+        // directly to allow use of these types directly when formatting the results from the JSON files.
 
         private enum UnitType
         {
