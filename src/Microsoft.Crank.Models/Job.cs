@@ -19,7 +19,9 @@ namespace Microsoft.Crank.Models
         // 2: Introduced Measurements/Metadata
         // 3: Output value not serialized
         // 4: Simplified rest endpoints
-        public int ServerVersion { get; set; } = 4;
+        // 5: Support for gzipped uploads
+
+        public int ServerVersion { get; set; } = 5;
 
         public int Id { get; set; }
 

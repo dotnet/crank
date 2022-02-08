@@ -370,14 +370,21 @@ namespace Microsoft.Crank.Agent.Controllers
         {
             var destinationFilename = Request.Headers["destinationFilename"].ToString();
 
-            Log.Info($"Uploading build files");
+            Log.Info($"Uploading build file {destinationFilename}");
 
             var job = _jobs.Find(id);
             var tempFilename = Path.GetTempFileName();
 
-            using (var fs = System.IO.File.Create(tempFilename))
+            using var outputFileStream = System.IO.File.Create(tempFilename);
+
+            if (Request.Headers.TryGetValue("Content-Encoding", out var encoding) && encoding.Contains("gzip"))
             {
-                await Request.Body.CopyToAsync(fs, Request.HttpContext.RequestAborted);
+                using var decompressor = new GZipStream(Request.Body, CompressionMode.Decompress);
+                await decompressor.CopyToAsync(outputFileStream, Request.HttpContext.RequestAborted);
+            }
+            else
+            {
+                await Request.Body.CopyToAsync(outputFileStream, Request.HttpContext.RequestAborted);
             }
 
             job.BuildAttachments.Add(new Attachment
