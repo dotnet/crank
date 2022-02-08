@@ -17,13 +17,13 @@ namespace Microsoft.Crank.RegressionBot.Tests
     {
         static TemplateTests()
         {
-            TemplateContext.GlobalMemberAccessStrategy.Register<BenchmarksResult>();
-            TemplateContext.GlobalMemberAccessStrategy.Register<DependencyChange>();
-            TemplateContext.GlobalMemberAccessStrategy.Register<Report>();
-            TemplateContext.GlobalMemberAccessStrategy.Register<Regression>();
-            TemplateContext.GlobalMemberAccessStrategy.Register<JObject, object>((obj, name) => obj[name]);
-            FluidValue.SetTypeMapping<JObject>(o => new ObjectValue(o));
-            FluidValue.SetTypeMapping<JValue>(o => FluidValue.Create(o.Value));
+            TemplateOptions.Default.MemberAccessStrategy.Register<BenchmarksResult>();
+            TemplateOptions.Default.MemberAccessStrategy.Register<DependencyChange>();
+            TemplateOptions.Default.MemberAccessStrategy.Register<Report>();
+            TemplateOptions.Default.MemberAccessStrategy.Register<Regression>();
+            TemplateOptions.Default.MemberAccessStrategy.Register<JObject, object>((obj, name) => obj[name]);
+            TemplateOptions.Default.ValueConverters.Add(x => x is JObject o ? new ObjectValue(o) : null);
+            TemplateOptions.Default.ValueConverters.Add(x => x is JValue v ? v.Value : null);
         }
 
         private readonly ITestOutputHelper _output;
@@ -44,11 +44,11 @@ namespace Microsoft.Crank.RegressionBot.Tests
 
             var template = File.ReadAllText(templatename);
 
-            var parseIsSuccessful = FluidTemplate.TryParse(template, out var fluidTemplate, out var errors);
+            var parseIsSuccessful = new FluidParser().TryParse(template, out var fluidTemplate, out var errors);
 
             Assert.True(parseIsSuccessful, String.Join("\n", errors));
 
-            var context = new TemplateContext { Model = report };
+            var context = new TemplateContext(report);
 
             var body = await fluidTemplate.RenderAsync(context);
 

@@ -293,9 +293,9 @@ namespace Microsoft.Crank.Wrk
                 if (parseLatency)
                 {
                     BenchmarksEventSource.Register("wrk/latency/50;http/latency/50", Operations.Max, Operations.Max, "Latency 50th (ms)", "Latency 50th (ms)", "n2");
-                    BenchmarksEventSource.Register("wrk/latency/75;http/latency/75", Operations.Max, Operations.Max, "Latency 75th (ms)", "Latency 50th (ms)", "n2");
-                    BenchmarksEventSource.Register("wrk/latency/90;http/latency/90", Operations.Max, Operations.Max, "Latency 90th (ms)", "Latency 50th (ms)", "n2");
-                    BenchmarksEventSource.Register("wrk/latency/99;http/latency/99", Operations.Max, Operations.Max, "Latency 99th (ms)", "Latency 50th (ms)", "n2");
+                    BenchmarksEventSource.Register("wrk/latency/75;http/latency/75", Operations.Max, Operations.Max, "Latency 75th (ms)", "Latency 75th (ms)", "n2");
+                    BenchmarksEventSource.Register("wrk/latency/90;http/latency/90", Operations.Max, Operations.Max, "Latency 90th (ms)", "Latency 90th (ms)", "n2");
+                    BenchmarksEventSource.Register("wrk/latency/99;http/latency/99", Operations.Max, Operations.Max, "Latency 99th (ms)", "Latency 99th (ms)", "n2");
 
                     BenchmarksEventSource.Measure("wrk/latency/50;http/latency/50", ReadLatency(Regex.Match(output, string.Format(LatencyPattern, "50%"))));
                     BenchmarksEventSource.Measure("wrk/latency/75;http/latency/75", ReadLatency(Regex.Match(output, string.Format(LatencyPattern, "75%"))));

@@ -44,41 +44,77 @@ stages:
       enableTelemetry: true
       mergeTestResults: true
       jobs:
-      - ${{ if and(eq(variables['System.TeamProject'], 'internal'), notin(variables['Build.Reason'], 'PullRequest')) }}:
-        - job: Windows
-          pool:
-            ${{ if eq(variables['System.TeamProject'], 'public') }}:
-              name: NetCorePublic-Pool
-              queue: BuildPool.Server.Amd64.VS2019.Open
-            ${{ if ne(variables['System.TeamProject'], 'public') }}:
-              name: NetCoreInternal-Pool
-              queue: BuildPool.Server.Amd64.VS2019
-          variables:
-            
+      # - ${{ if and(eq(variables['System.TeamProject'], 'internal'), notin(variables['Build.Reason'], 'PullRequest')) }}:
+      - job: Windows
+        pool:
+          ${{ if eq(variables['System.TeamProject'], 'public') }}:
+            name: NetCore1ESPool-Public
+            demands: ImageOverride -equals Build.Server.Amd64.VS2019.Open
+          ${{ if eq(variables['System.TeamProject'], 'internal') }}:
+            name: NetCore1ESPool-Internal
+            demands: ImageOverride -equals Build.Server.Amd64.VS2019
+        variables:
+          
 
-          # Only enable publishing in official builds.
-          - ${{ if and(ne(variables['System.TeamProject'], 'public'), notin(variables['Build.Reason'], 'PullRequest')) }}:
-            # Publish-Build-Assets provides: MaestroAccessToken, BotAccount-dotnet-maestro-bot-PAT
-            - group: Publish-Build-Assets
-            - name: _OfficialBuildArgs
-              value: /p:DotNetSignType=$(_SignType)
-                    /p:TeamName=$(_TeamName)
-                    /p:DotNetPublishUsingPipelines=$(_PublishUsingPipelines)
-                    /p:OfficialBuildId=$(BUILD.BUILDNUMBER)
-            - name: _SignType
-              value: real
-          # else
-          - ${{ if or(eq(variables['System.TeamProject'], 'public'), in(variables['Build.Reason'], 'PullRequest')) }}:
-            - name: _OfficialBuildArgs
-              value: ''
-            - name: _SignType
-              value: test
-                  
+        # Only enable publishing in official builds.
+        - ${{ if and(ne(variables['System.TeamProject'], 'public'), notin(variables['Build.Reason'], 'PullRequest')) }}:
+          # Publish-Build-Assets provides: MaestroAccessToken, BotAccount-dotnet-maestro-bot-PAT
+          - group: Publish-Build-Assets
+          - name: _OfficialBuildArgs
+            value: /p:DotNetSignType=$(_SignType)
+                  /p:TeamName=$(_TeamName)
+                  /p:DotNetPublishUsingPipelines=$(_PublishUsingPipelines)
+                  /p:OfficialBuildId=$(BUILD.BUILDNUMBER)
+          - name: _SignType
+            value: real
+        # else
+        - ${{ if or(eq(variables['System.TeamProject'], 'public'), in(variables['Build.Reason'], 'PullRequest')) }}:
+          - name: _OfficialBuildArgs
+            value: ''
+          - name: _SignType
+            value: test
+                
+        steps:
+        - checkout: self
+          clean: true
+        - script: eng\common\cibuild.cmd -configuration $(_BuildConfig) -prepareMachine $(_OfficialBuildArgs)
+          displayName: Build and Publish
+        - task: PublishBuildArtifacts@1
+          displayName: Upload TestResults
+          condition: always()
+          continueOnError: true
+          inputs:
+            pathtoPublish: artifacts/TestResults/$(_BuildConfig)/
+            artifactName: $(Agent.Os)_$(Agent.JobName) TestResults
+            artifactType: Container
+            parallel: true
+        - task: PublishBuildArtifacts@1
+          displayName: Upload package artifacts
+          condition: and(succeeded(), eq(variables['system.pullrequest.isfork'], false), eq(variables['_BuildConfig'], 'Release'))
+          inputs:
+            pathtoPublish: artifacts/packages/
+            artifactName: artifacts
+            artifactType: Container
+            parallel: true
+
+      - ${{ if or(eq(variables['System.TeamProject'], 'public'), in(variables['Build.Reason'], 'PullRequest')) }}:
+        - job: Ubuntu
+          displayName: 'Ubuntu 20.04'
+          pool:
+            vmImage: ubuntu-latest
+          variables:
+          - name: _SignType
+            value: none
+          - name: _OfficialBuildArgs
+            value: ''
+
           steps:
           - checkout: self
             clean: true
-          - script: eng\common\cibuild.cmd -configuration $(_BuildConfig) -prepareMachine $(_OfficialBuildArgs)
-            displayName: Build and Publish
+          - script: eng/common/cibuild.sh
+              --configuration $(_BuildConfig)
+              --prepareMachine
+            displayName: Build
           - task: PublishBuildArtifacts@1
             displayName: Upload TestResults
             condition: always()
@@ -88,78 +124,39 @@ stages:
               artifactName: $(Agent.Os)_$(Agent.JobName) TestResults
               artifactType: Container
               parallel: true
-          - task: PublishBuildArtifacts@1
-            displayName: Upload package artifacts
-            condition: and(succeeded(), eq(variables['system.pullrequest.isfork'], false), eq(variables['_BuildConfig'], 'Release'))
-            inputs:
-              pathtoPublish: artifacts/packages/
-              artifactName: artifacts
-              artifactType: Container
-              parallel: true
+      
+      # Tests on macOS are unreliable
+      # - job: macOS
+      #   displayName: 'macOS 10.15'
+      #   pool:
+      #     vmImage: macOS-1015
+      #   variables:
+      #   - name: _SignType
+      #     value: none
 
-      - job: Ubuntu
-        displayName: 'Ubuntu 20.04'
-        pool:
-          vmImage: ubuntu-latest
-        variables:
-        - name: _SignType
-          value: none
-          
-        - ${{ if and(eq(variables['System.TeamProject'], 'internal'), notin(variables['Build.Reason'], 'PullRequest')) }}:
-          - name: _OfficialBuildArgs
-            value: -p:OfficialBuildId=$(Build.BuildNumber)
-        # else
-        - ${{ if or(eq(variables['System.TeamProject'], 'public'), in(variables['Build.Reason'], 'PullRequest')) }}:
-          - name: _OfficialBuildArgs
-            value: ''
-        steps:
-        - checkout: self
-          clean: true
-        - script: eng/common/cibuild.sh
-            --configuration $(_BuildConfig)
-            --prepareMachine
-          displayName: Build
-        - task: PublishBuildArtifacts@1
-          displayName: Upload TestResults
-          condition: always()
-          continueOnError: true
-          inputs:
-            pathtoPublish: artifacts/TestResults/$(_BuildConfig)/
-            artifactName: $(Agent.Os)_$(Agent.JobName) TestResults
-            artifactType: Container
-            parallel: true
-
-      - job: macOS_10_14
-        displayName: 'macOS 10.14'
-        pool:
-          vmImage: macOS-10.14
-        variables:
-        - name: _SignType
-          value: none
-
-        - ${{ if and(eq(variables['System.TeamProject'], 'internal'), notin(variables['Build.Reason'], 'PullRequest')) }}:
-          - name: _OfficialBuildArgs
-            value: -p:OfficialBuildId=$(Build.BuildNumber)
-        # else
-        - ${{ if or(eq(variables['System.TeamProject'], 'public'), in(variables['Build.Reason'], 'PullRequest')) }}:
-          - name: _OfficialBuildArgs
-            value: ''
-        steps:
-        - checkout: self
-          clean: true
-        - script: eng/common/cibuild.sh
-            --configuration $(_BuildConfig)
-            --prepareMachine
-          displayName: Build
-        - task: PublishBuildArtifacts@1
-          displayName: Upload TestResults
-          condition: always()
-          continueOnError: true
-          inputs:
-            pathtoPublish: artifacts/TestResults/$(_BuildConfig)/
-            artifactName: $(Agent.Os)_$(Agent.JobName) TestResults
-            artifactType: Container
-            parallel: true
+      #   - ${{ if and(eq(variables['System.TeamProject'], 'internal'), notin(variables['Build.Reason'], 'PullRequest')) }}:
+      #     - name: _OfficialBuildArgs
+      #       value: -p:OfficialBuildId=$(Build.BuildNumber)
+      #   # else
+      #   - ${{ if or(eq(variables['System.TeamProject'], 'public'), in(variables['Build.Reason'], 'PullRequest')) }}:
+      #     - name: _OfficialBuildArgs
+      #       value: ''
+      #   steps:
+      #   - checkout: self
+      #     clean: true
+      #   - script: eng/common/cibuild.sh
+      #       --configuration $(_BuildConfig)
+      #       --prepareMachine
+      #     displayName: Build
+      #   - task: PublishBuildArtifacts@1
+      #     displayName: Upload TestResults
+      #     condition: always()
+      #     continueOnError: true
+      #     inputs:
+      #       pathtoPublish: artifacts/TestResults/$(_BuildConfig)/
+      #       artifactName: $(Agent.Os)_$(Agent.JobName) TestResults
+      #       artifactType: Container
+      #       parallel: true
 
 - ${{ if and(ne(variables['System.TeamProject'], 'public'), notin(variables['Build.Reason'], 'PullRequest')) }}:
   - template: eng\common\templates\post-build\post-build.yml
@@ -169,6 +166,7 @@ stages:
       enableSymbolValidation: false
       # It's a private repo in github so this won't pass until we create an internal mirror
       enableSourceLinkValidation: false
+      publishingInfraVersion: 3
       # This is to enable SDL runs part of Post-Build Validation Stage
       SDLValidationParameters:
         enable: true

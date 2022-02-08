@@ -25,6 +25,14 @@ namespace Microsoft.Crank.IntegrationTests
             _crankDirectory = Path.GetDirectoryName(typeof(CommonTests).Assembly.Location).Replace("Microsoft.Crank.IntegrationTests", "Microsoft.Crank.Controller");
             _crankTestsDirectory = Path.GetDirectoryName(typeof(CommonTests).Assembly.Location);
             _output.WriteLine($"[TEST] Running tests in {_crankDirectory}");
+
+            // Check if the agent is started
+            if (!_agent.IsReady())
+            {
+                // Dispose() will not be called, flush the agent output now
+                _output.WriteLine(_agent.FlushOutput());
+                Assert.True(false, "Agent failed to start");
+            }
         }
 
         [Fact]
@@ -81,11 +89,14 @@ namespace Microsoft.Crank.IntegrationTests
             );
 
             Assert.Equal(0, result.ExitCode);
-                
+            Assert.Contains("Custom result (s)", result.StandardOutput);
+            Assert.Contains("123.00", result.StandardOutput);
+
             var results = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(_crankTestsDirectory, "results.json")));
             
             Assert.Contains("a default script", result.StandardOutput);
             Assert.NotEmpty(results.RootElement.GetProperty("jobResults").GetProperty("properties").GetProperty("time").GetString());
+            Assert.Equal(123.0, results.RootElement.GetProperty("jobResults").GetProperty("jobs").GetProperty("application").GetProperty("results").GetProperty("my/result").GetDouble());
         }
 
         [Fact]
@@ -136,7 +147,7 @@ namespace Microsoft.Crank.IntegrationTests
 
             var result = await ProcessUtil.RunAsync(
                 "dotnet", 
-                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --exclude 1 --exclude-order load:bombardier/rps/mean;http/rps/mean --iterations 3", 
+                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --exclude 1 --exclude-order load:http/rps/mean --iterations 3", 
                 workingDirectory: _crankTestsDirectory,
                 captureOutput: true,
                 timeout: TimeSpan.FromMinutes(5),
@@ -149,7 +160,7 @@ namespace Microsoft.Crank.IntegrationTests
             Assert.Contains("Iteration 1 of 3", result.StandardOutput);
             Assert.Contains("Iteration 2 of 3", result.StandardOutput);
             Assert.Contains("Iteration 3 of 3", result.StandardOutput);
-            Assert.Contains("Excluded values:", result.StandardOutput);
+            Assert.Contains("Values of load->http/rps/mean:", result.StandardOutput);
         }
         
         [Fact]

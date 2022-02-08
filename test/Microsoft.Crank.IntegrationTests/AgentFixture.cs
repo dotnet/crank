@@ -40,7 +40,6 @@ namespace Microsoft.Crank.IntegrationTests
                 workingDirectory: _crankAgentDirectory,
                 captureOutput: true,
                 throwOnError: false,
-                timeout: TimeSpan.FromMinutes(5),
                 cancellationToken: _stopAgentCts.Token,
                 outputDataReceived: t => 
                 { 
@@ -56,13 +55,18 @@ namespace Microsoft.Crank.IntegrationTests
             // Wait either for the message of the agent to stop
             await Task.WhenAny(agentReadyTcs.Task, _agent);
 
-            if (!agentReadyTcs.Task.IsCompleted)
+            if (_agent.IsCompleted)
             {
-                Assert.True(false, "Agent could not start");
+                _output.AppendLine($"[AGT] Agent exited with exit code {_agent.Result.ExitCode}");
+            }
+            else
+            {
+                _output.AppendLine($"[AGT] Started agent");
             }
 
-            _output.AppendLine($"[AGT] Started agent");
         }
+
+        public bool IsReady() => _agent != null && !_agent.IsCompleted;
 
         public async Task DisposeAsync()
         {

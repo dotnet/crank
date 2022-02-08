@@ -29,16 +29,16 @@ namespace Microsoft.Crank.Agent
             bool log = false,
             Action<int> onStart = null,
             Action<int> onStop = null,
-            CancellationToken cancellationToken = default(CancellationToken),
             bool captureOutput = false,
-            bool captureError = false
+            bool captureError = false,
+            CancellationToken cancellationToken = default
         )
         {
             var logWorkingDirectory = workingDirectory ?? Directory.GetCurrentDirectory();
 
             if (log)
             {
-                Log.WriteLine($"[{logWorkingDirectory}] {filename} {arguments}");
+                Log.Info($"[{logWorkingDirectory}] {filename} {arguments}");
             }
 
             using var process = new Process()
@@ -85,7 +85,7 @@ namespace Microsoft.Crank.Agent
 
                     if (log)
                     {
-                        Log.WriteLine(e.Data);
+                        Log.Info(e.Data);
                     }
                 }
             };
@@ -105,7 +105,7 @@ namespace Microsoft.Crank.Agent
                         outputDataReceived.Invoke(e.Data);
                     }
 
-                    Log.WriteLine("[STDERR] " + e.Data);
+                    Log.Info("[STDERR] " + e.Data);
                 }
             };
 
@@ -137,7 +137,7 @@ namespace Microsoft.Crank.Agent
             var cancelledTcs = new TaskCompletionSource<object>();
             await using var _ = cancellationToken.Register(() => cancelledTcs.TrySetResult(null));
 
-            var result = await Task.WhenAny(processLifetimeTask.Task, cancelledTcs.Task, Task.Delay(timeout.HasValue ? (int)timeout.Value.TotalMilliseconds : -1));
+            var result = await Task.WhenAny(processLifetimeTask.Task, cancelledTcs.Task, Task.Delay(timeout.HasValue ? (int)timeout.Value.TotalMilliseconds : -1, cancellationToken));
 
             if (result != processLifetimeTask.Task)
             {
@@ -185,7 +185,7 @@ namespace Microsoft.Crank.Agent
                         throw;
                     }
 
-                    Log.WriteLine($"Attempt {attempts} failed: {e.Message}");
+                    Log.Info($"Attempt {attempts} failed: {e.Message}");
                 }
             } while (true);
         }

@@ -61,12 +61,16 @@ internal class Documentation
   --[JOB].collectStartup <true|false>                           Whether to include the startup phase in the traces, i.e after the application is launched and before it is marked 
                                                                 as ready. For a web application it means before it is ready to accept requests.
   --[JOB].collect <true|false>                                  Whether to collect native traces. Uses PerfView on Windows and Perf/PerfCollect on Linux.
-  --[JOB].collectArguments <arguments>                          Native traces arguments, default is ""BufferSizeMB=1024;CircularMB=4096;TplEvents=None;Providers=Microsoft-Diagnostics-DiagnosticSource:0:0;KernelEvents=default-NetworkTCPIP"", other suggested values: 
-                                                                ""...;ThreadTime"", ""...;GcOnly""
+  --[JOB].collectArguments <arguments>                          Native traces arguments, default is ""BufferSizeMB=1024;CircularMB=4096;TplEvents=None;Providers=Microsoft-Diagnostics-DiagnosticSource:0:0;KernelEvents=default+ThreadTime-NetworkTCPIP"", other suggested values: 
+                                                                ""...;GcOnly""
   --[JOB].options.dumpType <full|heap|mini>                     The type of dump to collect.
   --[JOB].options.dumpOutput <filename>                         The name of the dump file. Can be a file prefix (app will add *.DATE*.zip) , or a specific name and no DATE* will 
                                                                 be added e.g., c:\dumps\mydump
   --[JOB].collectDependencies <true|false>                      Whether to include the list of project dependencies in the results.
+  --[JOB].options.downloadOutput <true|false>                   Whether to download the job output
+  --[JOB].options.downloadOutputOutput <filename>               The name of the output file. Can be a file prefix (app will add *.DATE*.log) , or a specific name and no DATE* will be added e.g., c:\outputs\myoutput
+  --[JOB].options.downloadBuildLog <true|false>                 Whether to download the build log
+  --[JOB].options.downloadBuildLogOutput <filename>             The name of the build log file. Can be a file prefix (app will add *.DATE*.log) , or a specific name and no DATE* will be added e.g., c:\builds\mybuild
 
   ## Environment
 

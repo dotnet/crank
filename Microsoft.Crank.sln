@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.29009.5
+# Visual Studio Version 17
+VisualStudioVersion = 17.1.31911.260
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}"
 EndProject
@@ -13,7 +13,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{E07EF419-FB9D-4A20-AD4B-C02C13636BA8}"
 	ProjectSection(SolutionItems) = preProject
-		build\dependencies.props = build\dependencies.props
+		eng\dependencies.props = eng\dependencies.props
 		Directory.Build.props = Directory.Build.props
 		Directory.Build.targets = Directory.Build.targets
 	EndProjectSection
@@ -21,10 +21,6 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Crank.Agent", "src\Microsoft.Crank.Agent\Microsoft.Crank.Agent.csproj", "{CBA92981-0FF1-49B7-8632-136FC2FA8419}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Crank.Controller", "src\Microsoft.Crank.Controller\Microsoft.Crank.Controller.csproj", "{ADFAD247-96AC-493A-8E45-3C4356A948D1}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Crank.JobConsumer", "src\Microsoft.Crank.JobConsumer\Microsoft.Crank.JobConsumer.csproj", "{1BD732C3-9CE3-4678-BC40-7CD1750DBA07}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Crank.JobProducer", "src\Microsoft.Crank.JobProducer\Microsoft.Crank.JobProducer.csproj", "{0DA30FA0-2E37-46C7-9FCA-7C874FF85665}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Crank.Jobs.Bombardier", "src\Microsoft.Crank.Jobs.Bombardier\Microsoft.Crank.Jobs.Bombardier.csproj", "{7C3BA60E-87F2-4C10-9DAB-0CFD1E6AFFE8}"
 EndProject
@@ -52,6 +48,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Crank.Jobs.HttpCl
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Crank.Jobs.H2Load", "src\Microsoft.Crank.Jobs.H2Load\Microsoft.Crank.Jobs.H2Load.csproj", "{C45AB9D7-5346-4610-8D44-C6F6B31BEC2D}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Crank.PullRequestBot", "src\Microsoft.Crank.PullRequestBot\Microsoft.Crank.PullRequestBot.csproj", "{A2B9140B-46E5-451D-9246-ECA019487F5C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -66,14 +64,6 @@ Global
 		{ADFAD247-96AC-493A-8E45-3C4356A948D1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{ADFAD247-96AC-493A-8E45-3C4356A948D1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{ADFAD247-96AC-493A-8E45-3C4356A948D1}.Release|Any CPU.Build.0 = Release|Any CPU
-		{1BD732C3-9CE3-4678-BC40-7CD1750DBA07}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{1BD732C3-9CE3-4678-BC40-7CD1750DBA07}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{1BD732C3-9CE3-4678-BC40-7CD1750DBA07}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{1BD732C3-9CE3-4678-BC40-7CD1750DBA07}.Release|Any CPU.Build.0 = Release|Any CPU
-		{0DA30FA0-2E37-46C7-9FCA-7C874FF85665}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{0DA30FA0-2E37-46C7-9FCA-7C874FF85665}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{0DA30FA0-2E37-46C7-9FCA-7C874FF85665}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{0DA30FA0-2E37-46C7-9FCA-7C874FF85665}.Release|Any CPU.Build.0 = Release|Any CPU
 		{7C3BA60E-87F2-4C10-9DAB-0CFD1E6AFFE8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{7C3BA60E-87F2-4C10-9DAB-0CFD1E6AFFE8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7C3BA60E-87F2-4C10-9DAB-0CFD1E6AFFE8}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -122,6 +112,10 @@ Global
 		{C45AB9D7-5346-4610-8D44-C6F6B31BEC2D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C45AB9D7-5346-4610-8D44-C6F6B31BEC2D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C45AB9D7-5346-4610-8D44-C6F6B31BEC2D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A2B9140B-46E5-451D-9246-ECA019487F5C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A2B9140B-46E5-451D-9246-ECA019487F5C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A2B9140B-46E5-451D-9246-ECA019487F5C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A2B9140B-46E5-451D-9246-ECA019487F5C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -129,8 +123,6 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{CBA92981-0FF1-49B7-8632-136FC2FA8419} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
 		{ADFAD247-96AC-493A-8E45-3C4356A948D1} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
-		{1BD732C3-9CE3-4678-BC40-7CD1750DBA07} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
-		{0DA30FA0-2E37-46C7-9FCA-7C874FF85665} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
 		{7C3BA60E-87F2-4C10-9DAB-0CFD1E6AFFE8} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
 		{D7A46B09-B1F2-4131-9B5C-2FC5A2FA18E6} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
 		{3ED3A04B-14F1-489E-ACD4-ED164CED7C18} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
@@ -143,6 +135,7 @@ Global
 		{2C9E2686-6C86-4D32-B57E-EDC8047EB8B8} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
 		{7BAB625A-3338-4BF1-BD0C-D5ECCAC254B5} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
 		{C45AB9D7-5346-4610-8D44-C6F6B31BEC2D} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
+		{A2B9140B-46E5-451D-9246-ECA019487F5C} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {C48AD7EE-82B1-4307-A869-3FC14AC9B21F}

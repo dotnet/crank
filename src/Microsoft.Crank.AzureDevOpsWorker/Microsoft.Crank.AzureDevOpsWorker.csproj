@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFrameworks>net5.0;net6.0</TargetFrameworks>
     <Description>Execute crank jobs added to an Azure Service Bus queue by Azure DevOps.</Description>
     <ToolCommandName>crank-azdo</ToolCommandName>
     <AssemblyName>crank-azdo</AssemblyName>
@@ -16,6 +16,11 @@
     <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="3.0.0" />
     <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.0.0" />
     <PackageReference Include="Jint" Version="3.0.0-beta-1914" />
+    
+    <!-- Force version for Component Governance compliance -->
+    <PackageReference Include="System.Text.Encodings.Web" Version="4.5.1" >
+      <AllowExplicitReference>true</AllowExplicitReference>
+    </PackageReference>
   </ItemGroup>
   
   <ItemGroup>

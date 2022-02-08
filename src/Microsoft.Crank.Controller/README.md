@@ -3,7 +3,7 @@
 ## Usage
 
 ```
-Usage: BenchmarksDriver [options]
+Usage: crank [options]
 
 Options:
   -?|-h|--help                                          Show help information
@@ -22,7 +22,8 @@ Options:
   
   --sql                                                          Connection string or environment variable name of the SQL Server Database to store results in.
   --table                                                        Table or environment variable name of the SQL Database to store results in.
-  --json <filename>                                              Store the results as json ins the specified file.
+  --json <filename>                                              Store the results as json in the specified file.
+  --csv <filename>                                               Store or append the results as csv in the specified file.
   --no-metadata                                                  Don't record metadata in the stored document.
   --no-measurements                                              Don't record measurements in the stored document.
 
@@ -32,12 +33,13 @@ Options:
   --span <HH:mm:ss>                                              The duration while the job is repeated.
   --auto-flush                                                   Runs a single long-running job and flushes measurements automatically.
   -x|--exclude                                                   Excludes the specified number of high and low results, e.g., 1, 1:0 (exclude the lowest), 0:3 (exclude the 3 highest)
-  -xo|--exclude-order                                            The result to use to detect the high and low results, e.g., 'load:wrk/rps/mean'
+  -xo|--exclude-order                                            The result to use to detect the high and low results, e.g., 'load:http/rps/mean'
   --chart                                                        Renders a chart for multi-value results.
   --chart-type [bar (default) | hex]                             Type of chart to render. Values are 'bar' (default) or 'hex'
   --chart-scale [off (default)| auto]                            Scale for chart. Values are 'off' (default) or 'auto'. When scale is off, the min value starts at 0.
   --script [name]                                                Execute a named script available in the configuration files. Can be used multiple times.
   --debug <filename>                                             Saves the final configuration to a file and skips the execution of the benchmark, e.g., '-d debug.json'
+  --relay <connection_string>                                    Connection string or environment variable name of the Azure Relay namespace used to access the Crank Agent endpoints. e.g., 'Endpoint=sb://mynamespace.servicebus.windows.net;...', 'MY_AZURE_RELAY_ENV';
 
   These options are specific to a Job service named [JOB]
 
@@ -82,10 +84,14 @@ Options:
   --[JOB].options.counterProviders <provider>                              The name of a performance counter provider from which to collect. e.g., System.Runtime, Microsoft-AspNetCore-Server-Kestrel, Microsoft.AspNetCore.Hosting, Microsoft.AspNetCore.Http.Connections, Grpc.AspNetCore.Server, Grpc.Net.client, Npgsql
   --[JOB].collectStartup <true|false>                                      Whether to include the startup phase in the traces, i.e after the application is launched and before it is marked as ready. For a web application it means before it is ready to accept requests.
   --[JOB].collect <true|false>                                             Whether to collect native traces. Uses PerfView on Windows and Perf/PerfCollect on Linux.
-  --[JOB].collectArguments <arguments>                                     Native traces arguments, default is "BufferSizeMB=1024;CircularMB=4096;TplEvents=None;Providers=Microsoft-Diagnostics-DiagnosticSource:0:0;KernelEvents=default-NetworkTCPIP", other suggested values: "...;ThreadTime", "...;GcOnly"
+  --[JOB].collectArguments <arguments>                                     Native traces arguments, default is "BufferSizeMB=1024;CircularMB=4096;TplEvents=None;Providers=Microsoft-Diagnostics-DiagnosticSource:0:0;KernelEvents=default+ThreadTime-NetworkTCPIP", other suggested values: "...;GcOnly"
   --[JOB].options.dumpType <full|heap|mini>                                The type of dump to collect.
   --[JOB].options.dumpOutput <filename>                                    The name of the dump file. Can be a file prefix (app will add *.DATE*.zip) , or a specific name and no DATE* will be added e.g., c:\dumps\mydump
   --[JOB].collectDependencies <true|false>                                 Whether to include the list of project dependencies in the results.
+  --[JOB].options.downloadOutput <true|false>                              Whether to download the job output
+  --[JOB].options.downloadOutputOutput <filename>                          The name of the output file. Can be a file prefix (app will add *.DATE*.log) , or a specific name and no DATE* will be added e.g., c:\outputs\myoutput
+  --[JOB].options.downloadBuildLog <true|false>                            Whether to download the build log
+  --[JOB].options.downloadBuildLogOutput <filename>                        The name of the build log file. Can be a file prefix (app will add *.DATE*.log) , or a specific name and no DATE* will be added e.g., c:\builds\mybuild
 
   ## Environment
 
