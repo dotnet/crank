@@ -248,60 +248,74 @@ namespace Microsoft.Crank.Controller
             // Map the full names to their simplified name
             var simplifiedNames = nameSegments.ToDictionary(key => key.Key, value => string.Join(".", value.Value));
 
+            var anyAllocations = summaries.Values
+                .SelectMany(list => list)
+                .Select(summary => summary.AllocatedBytes)
+                .Any(allocatedBytes => allocatedBytes > 0);
+
+            // Name + baseline mean (firstBenchmarks) + (other benchmarks' mean * 2 (value + ratio)) +
+            // baseline allocations + (other benchmarks' mean * 2 (value + ratio))
+            var otherCount = allNames.Count() - 1;
+            var table = new ResultTable(1 + 1 + (anyAllocations ? 1 : 0) + (otherCount * (anyAllocations ? 4 : 2)));
+
+            var firstName = allNames.First();
+
+            table.Headers.Add("benchmark");
+            table.Headers.Add($"mean ({firstName})");
+
+            foreach (var name in allNames.Skip(1))
+            {
+                table.Headers.Add($"mean ({name})");
+                table.Headers.Add("ratio");
+            }
+
+            if (anyAllocations)
+            {
+                table.Headers.Add($"allocated ({firstName})");
+
+                foreach (var name in allNames.Skip(1))
+                {
+                    table.Headers.Add($"allocated ({name})");
+                    table.Headers.Add("ratio");
+                }
+            }
+
             foreach (var benchmark in summaries.Values)
             {
                 var firstBenchmark = benchmark.First();
                 var simplifiedName = simplifiedNames[firstBenchmark.Name];
 
-                Console.WriteLine();
-
-                // Description + baseline benchmark (firstBenchmarks) + other benchmarks * 2 (value + percentage) 
-                var table = new ResultTable(1 + 1 + ((allNames.Count() - 1) * 2));
-
-                table.Headers.Add(simplifiedName);
-                table.Headers.Add(allNames.First());
-
-                foreach (var name in allNames.Skip(1))
-                {
-                    table.Headers.Add(name);
-                    table.Headers.Add(""); // Percentage
-                }
-
                 var benchmarks = summaries[firstBenchmark.Name];
 
-                AddRow(table, "Mean", summary => summary.MeanNanoseconds, UnitType.Time, benchmarks);
-                AddRow(table, "Error", summary => summary.StandardErrorNanoseconds, UnitType.Time, benchmarks);
-                AddRow(table, "StdDev", summary => summary.StandardDeviationNanoseconds, UnitType.Time, benchmarks);
-                AddRow(table, "Median", summary => summary.MedianNanoseconds, UnitType.Time, benchmarks);
+                var row = table.AddRow();
+                var cell = new Cell();
+                cell.Elements.Add(new CellElement() { Text = simplifiedName, Alignment = CellTextAlignment.Left });
+                row.Add(cell);
 
-                AddRow(table, "Gen 0", summary => summary.Gen0, UnitType.Dimensionless, benchmarks, skipIfAllZeroes: true);
-                AddRow(table, "Gen 1", summary => summary.Gen1, UnitType.Dimensionless, benchmarks, skipIfAllZeroes: true);
-                AddRow(table, "Gen 2", summary => summary.Gen2, UnitType.Dimensionless, benchmarks, skipIfAllZeroes: true);
+                AddCells(row, summary => summary.MeanNanoseconds, UnitType.Time, benchmarks);
 
-                AddRow(table, "Allocated", summary => summary.AllocatedBytes, UnitType.Size, benchmarks, skipIfAllZeroes: true);
-
-                table.Render(Console.Out);
-
-                Console.WriteLine();
+                if (anyAllocations)
+                {
+                    AddCells(row, summary => summary.AllocatedBytes, UnitType.Size, benchmarks);
+                }
             }
 
-            void AddRow(
-                ResultTable table,
-                string name,
+            Console.WriteLine("```md"); // Format as a GitHub-flavored Markdown table
+
+            table.Render(Console.Out);
+
+            Console.WriteLine("```");
+
+            void AddCells(
+                List<Cell> row,
                 Func<BenchmarkSummary, object> valueFactory,
                 UnitType unitType,
-                List<BenchmarkSummary> summaries,
-                bool skipIfAllZeroes = false)
+                List<BenchmarkSummary> summaries)
             {
                 var rawValues = summaries
                     .Select(summary => valueFactory(summary))
                     .Select(value => Convert.ToDouble(value))
                     .ToArray();
-
-                if (skipIfAllZeroes && rawValues.All(value => value == 0))
-                {
-                    return;
-                }
 
                 var precision = unitType == UnitType.Dimensionless ? 0 : PrecisionHelper.GetPrecision(rawValues);
                 var sizeUnit = unitType == UnitType.Size ? SizeUnit.GetBestSizeUnit(rawValues) : null;
@@ -309,17 +323,10 @@ namespace Microsoft.Crank.Controller
 
                 var units = unitType switch
                 {
-                    UnitType.Size => $" ({sizeUnit.Name})",
-                    UnitType.Time => $" ({timeUnit.Name})",
+                    UnitType.Size => sizeUnit.Name,
+                    UnitType.Time => timeUnit.Name,
                     _ => string.Empty
                 };
-
-                var rowLabel = $"{name}{units}";
-
-                var row = table.AddRow();
-                var cell = new Cell();
-                cell.Elements.Add(new CellElement() { Text = rowLabel, Alignment = CellTextAlignment.Left });
-                row.Add(cell);
 
                 var baseline = summaries[0];
 
@@ -328,11 +335,9 @@ namespace Microsoft.Crank.Controller
                     var measure = rawValues[i];
                     var previous = rawValues[0];
 
-                    var improvement = measure == 0
+                    var ratio = measure == 0
                     ? 0
-                    : (measure - previous) / previous * 100;
-
-                    row.Add(cell = new Cell());
+                    : measure / previous;
 
                     var formattedValue = unitType switch
                     {
@@ -341,23 +346,24 @@ namespace Microsoft.Crank.Controller
                         _ => measure.ToString("N" + precision, CultureInfo.InvariantCulture)
                     };
 
+                    var cell = new Cell();
                     cell.Elements.Add(new CellElement
                     {
-                        Text = formattedValue,
+                        Text = $"{formattedValue} {units}",
                         Alignment = CellTextAlignment.Right
                     });
+                    row.Add(cell);
 
-                    // Don't render % on baseline job
+                    // Don't render the ratio on baseline benchmark
                     if (summaries[i] != baseline)
                     {
                         row.Add(cell = new Cell());
 
                         if (measure != 0)
                         {
-                            var sign = improvement > 0 ? "+" : string.Empty;
                             cell.Elements.Add(new CellElement
                             {
-                                Text = $"{sign}{improvement:n2}%",
+                                Text = ratio.ToString("N2", CultureInfo.InvariantCulture),
                                 Alignment = CellTextAlignment.Right
                             });
                         }
