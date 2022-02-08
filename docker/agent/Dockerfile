@@ -47,7 +47,7 @@ RUN apt-get update \
         libc-ares-dev libjemalloc-dev libsystemd-dev \
         python python3-dev python-setuptools
 
-# 
+# If nghttp2 build fail just ignore it
 ENV NGHTTP2_VERSION 1.46.0
 RUN cd /tmp \
     && curl -L "https://github.com/nghttp2/nghttp2/releases/download/v${NGHTTP2_VERSION}/nghttp2-${NGHTTP2_VERSION}.tar.gz" -o "nghttp2-${NGHTTP2_VERSION}.tar.gz" \
