@@ -317,7 +317,7 @@ namespace Microsoft.Crank.Controller
                     .Select(value => Convert.ToDouble(value))
                     .ToArray();
 
-                var precision = unitType == UnitType.Dimensionless ? 0 : PrecisionHelper.GetPrecision(rawValues);
+                var precision = PrecisionHelper.GetPrecision(rawValues);
                 var sizeUnit = unitType == UnitType.Size ? SizeUnit.GetBestSizeUnit(rawValues) : null;
                 var timeUnit = unitType == UnitType.Time ? TimeUnit.GetBestTimeUnit(rawValues) : null;
 
@@ -342,7 +342,7 @@ namespace Microsoft.Crank.Controller
                     var formattedValue = unitType switch
                     {
                         UnitType.Size => new SizeValue((long)measure).ToString(sizeUnit),
-                        UnitType.Time => new TimeInterval(measure).ToString(timeUnit),
+                        UnitType.Time => new TimeInterval(measure).ToString(timeUnit, precision),
                         _ => measure.ToString("N" + precision, CultureInfo.InvariantCulture)
                     };
 
@@ -563,10 +563,11 @@ namespace Microsoft.Crank.Controller
             public static readonly TimeInterval Hour = new TimeInterval(1, TimeUnit.Hour);
             public static readonly TimeInterval Day = new TimeInterval(1, TimeUnit.Day);
 
-            public string ToString(TimeUnit timeUnit)
+            public string ToString(TimeUnit timeUnit, int precision)
             {
+                var provider = CultureInfo.InvariantCulture;
                 var unitValue = TimeUnit.Convert(Nanoseconds, TimeUnit.Nanosecond, timeUnit);
-                return unitValue.ToString("N4", CultureInfo.InvariantCulture);
+                return unitValue.ToString("N" + precision.ToString(provider), provider);
             }
         }
     }
