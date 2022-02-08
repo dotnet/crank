@@ -3680,7 +3680,15 @@ namespace Microsoft.Crank.Agent
                     // Create the "sdk" property if it doesn't exist
                     globalObject.TryAdd("sdk", new JObject());
 
+                    // "sdk": {
+                    //    "version": "6.0.101",
+                    //    "allowPrerelease": true,
+                    //    "rollForward": "disable"
+                    // }
+
                     globalObject["sdk"]["version"] = new JValue(sdkVersion);
+                    globalObject["sdk"]["allowPrerelease"] = true;
+                    globalObject["sdk"]["rollForward"] = "disable";
 
                     File.WriteAllText(globalJsonFilename, globalObject.ToString());
                 }
