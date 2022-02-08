@@ -23,6 +23,7 @@ namespace Microsoft.Crank.PullRequestBot
         public long InstallId { get; set; }
         public string Config { get; set; }
         public bool Debug { get; set; }
+        public Uri GitHubBaseUrl { get; set; }
 
         public void Validate()
         {

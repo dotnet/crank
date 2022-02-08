@@ -100,6 +100,9 @@ namespace Microsoft.Crank.PullRequestBot
                 new Option<long>(
                     "--install-id",
                     "The GitHub installation id."),
+                new Option<Uri>(
+                    "--github-base-url",
+                    "The base URL GitHub if using GitHub Enterprise, e.g., https://github.local"),
                 new Option<string>(
                     "--config",
                     "The path to a configuration file.") { IsRequired = true }
@@ -136,11 +139,18 @@ namespace Microsoft.Crank.PullRequestBot
                 return 1;
             }
 
+            if (_options.GitHubBaseUrl != null)
+            {
+                // GitHub Enterprise may require the client to be authenticated,
+                // rather than just use a different base address for the API.
+                await UpgradeAuthenticatedClient();
+            }
+
             // Load configuration files
 
             _configuration = await LoadConfigurationAsync(_options.Config);
 
-            string owner = null, name = null;
+            string host = "github.com", owner = null, name = null;
 
             if (options.Repository != null)
             {
@@ -149,6 +159,11 @@ namespace Microsoft.Crank.PullRequestBot
                 if (segments.Length < 2)
                 {
                     throw new ArgumentException("Invalid argument --repository");
+                }
+
+                if (segments.Length >= 4)
+                {
+                    host = segments[1];
                 }
 
                 name = segments[^1];
@@ -165,7 +180,7 @@ namespace Microsoft.Crank.PullRequestBot
                 int value;
 
                 // https://github.com/dotnet/aspnetcore/pull/39527
-                var match = Regex.Match(options.PullRequest, @".*/github.com/([\w-]+)/([\w-]+)/pull/(\d+)");
+                var match = Regex.Match(options.PullRequest, $@".*/{host}/([\w-]+)/([\w-]+)/pull/(\d+)");
 
                 if (match.Success)
                 {
@@ -288,7 +303,7 @@ namespace Microsoft.Crank.PullRequestBot
         {
             if (_githubClient.Credentials == Credentials.Anonymous)
             {
-                _githubClient = GitHubHelper.CreateClient(await GitHubHelper.GetCredentialsAsync(_options));
+                _githubClient = GitHubHelper.CreateClient(await GitHubHelper.GetCredentialsAsync(_options), _options.GitHubBaseUrl);
             }
         }
 

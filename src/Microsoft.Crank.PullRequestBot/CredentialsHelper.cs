@@ -94,9 +94,9 @@ namespace Microsoft.Crank.PullRequestBot
             return null;
         }
 
-        public static GitHubClient CreateClient(Credentials credentials)
+        public static GitHubClient CreateClient(Credentials credentials, Uri baseAddress = null)
         {
-            var githubClient = new GitHubClient(ClientHeader);
+            var githubClient = new GitHubClient(ClientHeader, baseAddress ?? GitHubClient.GitHubApiUrl);
             githubClient.Credentials = credentials;
 
             return githubClient;
