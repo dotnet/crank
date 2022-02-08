@@ -223,6 +223,10 @@ namespace Microsoft.Crank.Models
     public class Options
     {
         public bool DisplayOutput { get; set; }
+        public bool DownloadOutput { get; set; }
+        public string DownloadOutputOutput { get; set; }
+        public bool DownloadBuildLog { get; set; }
+        public string DownloadBuildLogOutput { get; set; }
         public bool Fetch { get; set; }
         public string FetchOutput { get; set; }
         public List<string> DownloadFiles { get; set; } = new List<string>();
