@@ -102,7 +102,7 @@ namespace Microsoft.Crank.PullRequestBot
                     "The GitHub installation id."),
                 new Option<Uri>(
                     "--github-base-url",
-                    "The base URL GitHub if using GitHub Enterprise, e.g., https://github.local"),
+                    "The GitHub base URL if using GitHub Enterprise, e.g., https://github.local"),
                 new Option<string>(
                     "--config",
                     "The path to a configuration file.") { IsRequired = true }
