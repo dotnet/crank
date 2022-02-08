@@ -567,7 +567,7 @@ namespace Microsoft.Crank.Controller
                         }
                     }
 
-                    ResultComparer.Compare(_compareOption.Values, results.JobResults, jobName);
+                    ResultComparer.Compare(_compareOption.Values, results.JobResults, results.Benchmarks, jobName);
                 }
 
                 return results.ReturnCode;
