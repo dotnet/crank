@@ -119,6 +119,26 @@ namespace Microsoft.Crank.IntegrationTests
             Assert.Contains("Lock Contention", result.StandardOutput);
         }
 
+        [Fact]
+        public async Task UploadFile()
+        {
+            _output.WriteLine($"[TEST] Starting controller");
+
+            var result = await ProcessUtil.RunAsync(
+                "dotnet",
+                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --application.options.outputFiles ./assets/hello.benchmarks.yml",
+                workingDirectory: _crankTestsDirectory,
+                captureOutput: true,
+                timeout: TimeSpan.FromMinutes(5),
+                throwOnError: false,
+                outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); }
+            );
+
+            Assert.Equal(0, result.ExitCode);
+
+            Assert.Contains("Uploading", result.StandardOutput);
+        }
+
         [SkipOnMacOs]
         public async Task CollectDump()
         {
