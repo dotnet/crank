@@ -47,14 +47,15 @@ RUN apt-get update \
         libc-ares-dev libjemalloc-dev libsystemd-dev \
         python python3-dev python-setuptools
 
-ENV NGHTTP2_VERSION 1.41.0
+# If nghttp2 build fail just ignore it
+ENV NGHTTP2_VERSION 1.46.0
 RUN cd /tmp \
     && curl -L "https://github.com/nghttp2/nghttp2/releases/download/v${NGHTTP2_VERSION}/nghttp2-${NGHTTP2_VERSION}.tar.gz" -o "nghttp2-${NGHTTP2_VERSION}.tar.gz" \
     && tar -zxvf "nghttp2-${NGHTTP2_VERSION}.tar.gz" \
     && cd /tmp/nghttp2-$NGHTTP2_VERSION \
     && ./configure \
     && make \
-    && make install
+    && make install || true
 
 # Install docker client
 ENV DOCKER_VERSION 17.09.0-ce
@@ -66,10 +67,11 @@ RUN cd /tmp \
 
 # Install perfcollect
 ADD https://raw.githubusercontent.com/microsoft/perfview/main/src/perfcollect/perfcollect /usr/bin/perfcollect
-
 RUN chmod +x /usr/bin/perfcollect
-
 RUN /usr/bin/perfcollect install
+
+# Rename whatever version of perf is installed to 'perf', e.g., perf_5.10 -> perf
+RUN cp /usr/bin/perf_* /usr/bin/perf
 
 COPY --from=build-env /app /app
 
