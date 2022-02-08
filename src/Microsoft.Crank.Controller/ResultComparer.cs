@@ -280,7 +280,7 @@ namespace Microsoft.Crank.Controller
                 }
             }
 
-            foreach (var benchmark in summaries.Values)
+            foreach (var benchmark in summaries.OrderBy(kvp => kvp.Key).Select(kvp => kvp.Value))
             {
                 var firstBenchmark = benchmark.First();
                 var simplifiedName = simplifiedNames[firstBenchmark.Name];
