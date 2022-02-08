@@ -1020,20 +1020,26 @@ namespace Microsoft.Crank.Controller
                 return;
             }
 
-            var fileName = Path.Combine(Job.Options.DownloadFilesOutput ?? ".", $"{Job.RunId}.{_jobName}.{_serverUri.Host}.{Job.Id}.build.log");
+            const string logExtension = ".log";
+            var downloadDestination = Job.Options.DownloadBuildLogOutput;
 
-            Log.Write($"Downloading build log from {_serverUri.Host} to '{fileName}'");
-
-            if (!Directory.Exists(Path.GetDirectoryName(fileName)))
+            if (String.IsNullOrWhiteSpace(downloadDestination))
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(fileName));
+                downloadDestination = Job.Service;
             }
+
+            if (!downloadDestination.EndsWith(logExtension, StringComparison.OrdinalIgnoreCase))
+            {
+                downloadDestination = downloadDestination + "." + DateTime.Now.ToString("MM-dd-HH-mm-ss") + logExtension;
+            }
+
+            Log.Write($"Downloading build log from {_serverUri.Host} to '{downloadDestination}'");
 
             try
             {
                 StartKeepAlive();
                 var uri = Combine(_serverJobUri, "/buildlog");
-                await _httpClient.DownloadFileAsync(uri, _serverJobUri, fileName);
+                await _httpClient.DownloadFileAsync(uri, _serverJobUri, downloadDestination);
             }
             finally
             {
@@ -1088,20 +1094,26 @@ namespace Microsoft.Crank.Controller
                 return;
             }
 
-            var fileName = Path.Combine(Job.Options.DownloadOutputOutput ?? ".", $"{Job.RunId}.{_jobName}.{_serverUri.Host}.{Job.Id}.output.log");
+            const string logExtension = ".log";
+            var downloadDestination = Job.Options.DownloadOutputOutput;
 
-            Log.Write($"Downloading job output from {_serverUri.Host} to '{fileName}'");
-            
-            if (!Directory.Exists(Path.GetDirectoryName(fileName)))
+            if (String.IsNullOrWhiteSpace(downloadDestination))
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(fileName));
+                downloadDestination = Job.Service;
             }
+
+            if (!downloadDestination.EndsWith(logExtension, StringComparison.OrdinalIgnoreCase))
+            {
+                downloadDestination = downloadDestination + "." + DateTime.Now.ToString("MM-dd-HH-mm-ss") + logExtension;
+            }
+
+            Log.Write($"Downloading job output from {_serverUri.Host} to '{downloadDestination}'");
 
             try
             {
                 StartKeepAlive();
                 var uri = Combine(_serverJobUri, "/output");
-                await _httpClient.DownloadFileAsync(uri, _serverJobUri, fileName);
+                await _httpClient.DownloadFileAsync(uri, _serverJobUri, downloadDestination);
             }
             finally
             {
