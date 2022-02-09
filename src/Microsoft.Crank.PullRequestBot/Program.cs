@@ -578,9 +578,10 @@ namespace Microsoft.Crank.PullRequestBot
 
             // 1- Build the base branch once
             // 2- Run all benchmarks on all profiles
-            // 3- Build the PR branch once
-            // 4- Run all benchmarks on all profiles
-            // 5- Clean
+            // 4- Merge HEAD
+            // 5- Build the PR branch once
+            // 6- Run all benchmarks on all profiles
+            // 6- Clean
 
             try
             {
@@ -607,8 +608,8 @@ namespace Microsoft.Crank.PullRequestBot
                 }
 
                 await ProcessUtil.RunAsync("git", $@"fetch origin pull/{prNumber}/head", workingDirectory: cloneFolder, log: true);
-                //await ProcessUtil.RunAsync("git", $@"config user.name ""user""", workingDirectory: cloneFolder, log: true);
-                //await ProcessUtil.RunAsync("git", $@"config user.email ""user@company.com""", workingDirectory: cloneFolder, log: true);
+                await ProcessUtil.RunAsync("git", $@"config user.name ""user""", workingDirectory: cloneFolder, log: true);
+                await ProcessUtil.RunAsync("git", $@"config user.email ""user@company.com""", workingDirectory: cloneFolder, log: true);
                 await ProcessUtil.RunAsync("git", $@"merge FETCH_HEAD", workingDirectory: cloneFolder, log: true);
 
                 // Build head
