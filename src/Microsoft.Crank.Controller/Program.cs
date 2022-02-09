@@ -1189,13 +1189,20 @@ namespace Microsoft.Crank.Controller
             
             var job = new JobConnection(service, new Uri(service.Endpoints.Single()));
 
-            // Check os and architecture requirements
-            if (!await EnsureServerRequirementsAsync(new [] { job }, service))
+            var relayToken = await GetRelayTokenAsync(job.ServerUri);
+
+            if (!String.IsNullOrEmpty(relayToken))
             {
-                Log.Write($"Scenario skipped as the agent doesn't match the operating and architecture constraints for '{jobName}' ({String.Join("/", new[] { service.Options.RequiredArchitecture, service.Options.RequiredOperatingSystem })})");
-                return new ExecutionResult { ReturnCode = -1} ;
+                job.ConfigureRelay(relayToken);
             }
             
+            // Check os and architecture requirements
+            if (!await EnsureServerRequirementsAsync(new[] { job }, service))
+            {
+                Log.Write($"Scenario skipped as the agent doesn't match the operating and architecture constraints for '{jobName}' ({String.Join("/", new[] { service.Options.RequiredArchitecture, service.Options.RequiredOperatingSystem })})");
+                return new ExecutionResult { ReturnCode = -1 };
+            }
+
             // Required structure for helper methods
             jobsByDependency[jobName] = new List<JobConnection>() { job };
 
