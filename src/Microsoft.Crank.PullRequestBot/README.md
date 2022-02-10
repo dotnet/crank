@@ -24,7 +24,7 @@ Options:
   --app-id <app-id>                      The GitHub application id.
   --install-id <install-id>              The GitHub installation id.
   --github-base-url <github-base-url>    The GitHub base URL if using GitHub Enterprise, e.g., https://github.local
-  --arguments <first second third ...>   Any additional arguments to pass through to crank.
+  --arguments "<first second third ...>" Any additional arguments to pass through to crank.
   --config <config> (REQUIRED)           The path to a configuration file.
   --version                              Show version information
   -?, -h, --help                         Show help and usage information
