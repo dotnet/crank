@@ -388,6 +388,7 @@ namespace Microsoft.Crank.Agent.Controllers
 
             if (Request.Headers.TryGetValue("Content-Encoding", out var encoding) && encoding.Contains("gzip"))
             {
+                Log.Info($"Received gzipped file content");
                 using var decompressor = new GZipStream(Request.Body, CompressionMode.Decompress);
                 await decompressor.CopyToAsync(outputFileStream, Request.HttpContext.RequestAborted);
             }

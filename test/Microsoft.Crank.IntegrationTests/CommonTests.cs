@@ -124,9 +124,16 @@ namespace Microsoft.Crank.IntegrationTests
         {
             _output.WriteLine($"[TEST] Starting controller");
 
+            // Create a local folder to download file into
+            var outputFileDirectory = Path.Combine(_crankTestsDirectory, "outputfiles");
+            Directory.CreateDirectory(outputFileDirectory);
+
+            var expectedOutputFilename = Path.Combine(outputFileDirectory, "hello.benchmarks.yml");
+            var expectedOutputFileContent = File.ReadAllText(Path.Combine(_crankTestsDirectory, "assets", "hello.benchmarks.yml"));
+
             var result = await ProcessUtil.RunAsync(
                 "dotnet",
-                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --application.options.outputFiles ./assets/hello.benchmarks.yml",
+                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --application.options.outputFiles ./assets/hello.benchmarks.yml  --application.options.downloadFiles hello.benchmarks.yml --application.options.downloadFilesOutput {outputFileDirectory}",
                 workingDirectory: _crankTestsDirectory,
                 captureOutput: true,
                 timeout: TimeSpan.FromMinutes(5),
@@ -136,7 +143,11 @@ namespace Microsoft.Crank.IntegrationTests
 
             Assert.Equal(0, result.ExitCode);
 
+            _output.WriteLine(_agent.FlushOutput());
+
             Assert.Contains("Uploading", result.StandardOutput);
+            Assert.True(File.Exists(expectedOutputFilename));
+            Assert.Equal(expectedOutputFileContent, File.ReadAllText(expectedOutputFilename));
         }
 
         [SkipOnMacOs]
