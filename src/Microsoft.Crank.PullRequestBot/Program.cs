@@ -104,6 +104,9 @@ namespace Microsoft.Crank.PullRequestBot
                     "--github-base-url",
                     "The GitHub base URL if using GitHub Enterprise, e.g., https://github.local"),
                 new Option<string>(
+                    "--arguments",
+                    "Any additional arguments to pass through to crank."),
+                new Option<string>(
                     "--config",
                     "The path to a configuration file.") { IsRequired = true }
             };
@@ -604,7 +607,7 @@ namespace Microsoft.Crank.PullRequestBot
                     File.Delete(prResultsFilename);
 
                     Directory.SetCurrentDirectory(cloneFolder);
-                    RunCrank(_configuration.Defaults, benchmark.Arguments, profile.Arguments, buildArguments, $@"--json ""{baseResultsFilename}""");
+                    RunCrank(_configuration.Defaults, benchmark.Arguments, profile.Arguments, buildArguments, $@"--json ""{baseResultsFilename}""", _options.Arguments);
                 }
 
                 await ProcessUtil.RunAsync("git", $@"fetch origin pull/{prNumber}/head", workingDirectory: cloneFolder, log: true);
@@ -625,7 +628,7 @@ namespace Microsoft.Crank.PullRequestBot
                     var prResultsFilename = $"{workspace}{run.Benchmark}.{PrFilename}";
 
                     Directory.SetCurrentDirectory(cloneFolder);
-                    RunCrank(_configuration.Defaults, benchmark.Arguments, profile.Arguments, buildArguments, $@"--json ""{prResultsFilename}""");
+                    RunCrank(_configuration.Defaults, benchmark.Arguments, profile.Arguments, buildArguments, $@"--json ""{prResultsFilename}""", _options.Arguments);
 
                     // Compare benchmarks
                     var result = RunCrank($"compare", $"{baseResultsFilename}", $"{prResultsFilename}");
