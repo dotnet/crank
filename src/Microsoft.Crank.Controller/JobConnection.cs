@@ -1015,16 +1015,8 @@ namespace Microsoft.Crank.Controller
 
             protected override async Task SerializeToStreamAsync(Stream stream, TransportContext context)
             {
-                var compressedStream = new GZipStream(stream, CompressionMode.Compress, leaveOpen: true);
-                
-                try
-                {
-                    await _content.CopyToAsync(compressedStream);
-                }
-                finally
-                {
-                    compressedStream.Dispose();
-                }
+                using var compressedStream = new GZipStream(stream, CompressionMode.Compress, leaveOpen: true);
+                await _content.CopyToAsync(compressedStream);
             }
         }
 
