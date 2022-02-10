@@ -17,6 +17,7 @@ using Microsoft.Crank.Controller.Ignore;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Threading;
+using System.Net.Http.Headers;
 
 namespace Microsoft.Crank.Controller
 {
@@ -959,13 +960,20 @@ namespace Microsoft.Crank.Controller
 
                 using (var request = new HttpRequestMessage(HttpMethod.Post, uri))
                 {
-                    var fileContent = uploadFilename.StartsWith("http", StringComparison.OrdinalIgnoreCase)
-                        ? new StreamContent(await _httpClient.GetStreamAsync(uploadFilename))
-                        : new StreamContent(new FileStream(uploadFilename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 1, FileOptions.Asynchronous | FileOptions.SequentialScan));
+                    using var fileStream = 
+                        uploadFilename.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+                        ? await _httpClient.GetStreamAsync(uploadFilename)
+                        : new FileStream(uploadFilename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 1, FileOptions.Asynchronous | FileOptions.SequentialScan)
+                        ;
 
-                    using (fileContent)
+                    using (var fileContent = new StreamContent(fileStream))
                     {
                         request.Content = fileContent;
+                        if (Job.ServerVersion >= 5)
+                        {
+                            request.Content = new CompressedContent(request.Content);
+                        }
+
                         request.Headers.Add("id", Job.Id.ToString());
                         request.Headers.Add("destinationFilename", destinationFilename);
 
@@ -979,6 +987,37 @@ namespace Microsoft.Crank.Controller
             }
 
             return 0;
+        }
+
+        public class CompressedContent : HttpContent
+        {
+            private HttpContent _content;
+
+            public CompressedContent(HttpContent content)
+            {
+                _content = content;
+
+                // copy the headers from the original content
+                foreach (KeyValuePair<string, IEnumerable<string>> header in _content.Headers)
+                {
+                    Headers.TryAddWithoutValidation(header.Key, header.Value);
+                }
+
+                Headers.ContentEncoding.Add("gzip");
+            }
+
+            protected override bool TryComputeLength(out long length)
+            {
+                length = -1;
+
+                return false;
+            }
+
+            protected override async Task SerializeToStreamAsync(Stream stream, TransportContext context)
+            {
+                using var compressedStream = new GZipStream(stream, CompressionMode.Compress, leaveOpen: true);
+                await _content.CopyToAsync(compressedStream);
+            }
         }
 
         private async Task<string> DownloadTemporaryFileAsync(string uri)
