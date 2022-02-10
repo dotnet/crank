@@ -37,7 +37,7 @@ namespace Microsoft.Crank.PullRequestBot
 
         private const string BenchmarkCommand = "/benchmark";
         private const string BaseFilename = "base.json";
-        private const string HeadFilename = "pr.json";
+        private const string PrFilename = "pr.json";
 
         private static readonly DateTime CommentCutoffDate = DateTime.Now.AddHours(-24);
 
@@ -179,7 +179,7 @@ namespace Microsoft.Crank.PullRequestBot
             {
                 int value;
 
-                // https://github.com/dotnet/aspnetcore/pull/39527
+                // Parse parts of the pull-request URL, e.g., https://github.com/dotnet/aspnetcore/pull/39527
                 var match = Regex.Match(options.PullRequest, $@".*/{host}/([\w-]+)/([\w-]+)/pull/(\d+)");
 
                 if (match.Success)
@@ -563,79 +563,102 @@ namespace Microsoft.Crank.PullRequestBot
             // Workspace ends with path separator
             workspace = workspace.TrimEnd('\\', '/') + Path.DirectorySeparatorChar;
 
-            foreach (var run in runs)
+            var cloneUrl = command.PullRequest.Base.Repository.CloneUrl; // "https://github.com/dotnet/aspnetcore.git";
+            var folder = command.PullRequest.Base.Repository.Name; // $"aspnetcore"; // 
+            var baseBranch = command.PullRequest.Base.Ref; // "main"; // 
+            var prNumber = command.PullRequest.Number; // 39463;
+
+            // Compute a unique clone folder name
+            var counter = 1;
+            while (Directory.Exists(Path.Combine(workspace, folder))) { folder = command.PullRequest.Base.Repository.Name + counter++; }
+
+            var cloneFolder = Path.Combine(workspace, folder);
+
+            var buildCommands = command.Components.SelectMany(b => _configuration.Components[b].Script.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries));
+
+            // 1- Build the base branch once
+            // 2- Run all benchmarks on all profiles
+            // 4- Merge HEAD
+            // 5- Build the PR branch once
+            // 6- Run all benchmarks on all profiles
+            // 6- Clean
+
+            try
             {
-                File.Delete(Path.Combine(workspace, BaseFilename));
-                File.Delete(Path.Combine(workspace, HeadFilename));
+                await ProcessUtil.RunAsync("git", $"clone --recursive {cloneUrl} {cloneFolder} -b {baseBranch}", workingDirectory: workspace, log: true);
 
-                var benchmark = _configuration.Benchmarks[run.Benchmark];
-                var profile = _configuration.Profiles[run.Profile];
-                var buildArguments = String.Join(" ", command.Components.Select(b => _configuration.Components[b].Arguments));
-                var cloneUrl = command.PullRequest.Base.Repository.CloneUrl; // "https://github.com/dotnet/aspnetcore.git";
-                var folder = command.PullRequest.Base.Repository.Name; // $"aspnetcore"; // 
-                var baseBranch = command.PullRequest.Base.Ref; // "main"; // 
-                var prNumber = command.PullRequest.Number; // 39463;
+                // Build base
+                foreach (var c in buildCommands) await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), $"/c {c}", workingDirectory: cloneFolder, log: true);
 
-                // Compute a unique clone folder name
-                var counter = 1;
-                while (Directory.Exists(Path.Combine(workspace, folder))) { folder = command.PullRequest.Base.Repository.Name + counter++; }
-
-                var cloneFolder = Path.Combine(workspace, folder);
-
-                var buildCommands = command.Components.SelectMany(b => _configuration.Components[b].Script.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries));
-
-                try
+                foreach (var run in runs)
                 {
-                    await ProcessUtil.RunAsync("git", $"clone --recursive {cloneUrl} {cloneFolder} -b {baseBranch}", workingDirectory: workspace, log: true);
+                    var benchmark = _configuration.Benchmarks[run.Benchmark];
+                    var profile = _configuration.Profiles[run.Profile];
+                    var buildArguments = String.Join(" ", command.Components.Select(b => _configuration.Components[b].Arguments));
 
-                    // Build base
-                    foreach (var c in buildCommands) await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), $"/c {c}", workingDirectory: cloneFolder, log: true);
+                    // Delete existing files (if any) before the base run
+                    var baseResultsFilename = $"{workspace}{run.Benchmark}.{BaseFilename}";
+                    var prResultsFilename = $"{workspace}{run.Benchmark}.{PrFilename}";
 
-                    Directory.SetCurrentDirectory(cloneFolder);
-                    RunCrank(_configuration.Defaults, benchmark.Arguments, profile.Arguments, buildArguments, $@"--json ""{workspace}{BaseFilename}""");
-
-                    await ProcessUtil.RunAsync("git", $@"fetch origin pull/{prNumber}/head", workingDirectory: cloneFolder, log: true);
-                    await ProcessUtil.RunAsync("git", $@"config user.name ""user""", workingDirectory: cloneFolder, log: true);
-                    await ProcessUtil.RunAsync("git", $@"config user.email ""user@company.com""", workingDirectory: cloneFolder, log: true);
-                    await ProcessUtil.RunAsync("git", $@"merge FETCH_HEAD", workingDirectory: cloneFolder, log: true);
-
-                    // Build head
-                    foreach (var c in buildCommands) await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), $"/c {c}", workingDirectory: cloneFolder, log: true);
+                    File.Delete(baseResultsFilename);
+                    File.Delete(prResultsFilename);
 
                     Directory.SetCurrentDirectory(cloneFolder);
-                    RunCrank(_configuration.Defaults, benchmark.Arguments, profile.Arguments, buildArguments, $@"--json ""{workspace}{HeadFilename}""");
+                    RunCrank(_configuration.Defaults, benchmark.Arguments, profile.Arguments, buildArguments, $@"--json ""{baseResultsFilename}""");
+                }
+
+                await ProcessUtil.RunAsync("git", $@"fetch origin pull/{prNumber}/head", workingDirectory: cloneFolder, log: true);
+                await ProcessUtil.RunAsync("git", $@"config user.name ""user""", workingDirectory: cloneFolder, log: true);
+                await ProcessUtil.RunAsync("git", $@"config user.email ""user@company.com""", workingDirectory: cloneFolder, log: true);
+                await ProcessUtil.RunAsync("git", $@"merge FETCH_HEAD", workingDirectory: cloneFolder, log: true);
+
+                // Build head
+                foreach (var c in buildCommands) await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), $"/c {c}", workingDirectory: cloneFolder, log: true);
+
+                foreach (var run in runs)
+                {
+                    var benchmark = _configuration.Benchmarks[run.Benchmark];
+                    var profile = _configuration.Profiles[run.Profile];
+                    var buildArguments = String.Join(" ", command.Components.Select(b => _configuration.Components[b].Arguments));
+
+                    var baseResultsFilename = $"{workspace}{run.Benchmark}.{BaseFilename}";
+                    var prResultsFilename = $"{workspace}{run.Benchmark}.{PrFilename}";
+
+                    Directory.SetCurrentDirectory(cloneFolder);
+                    RunCrank(_configuration.Defaults, benchmark.Arguments, profile.Arguments, buildArguments, $@"--json ""{prResultsFilename}""");
 
                     // Compare benchmarks
-                    var result = RunCrank($"compare", $"{workspace}{BaseFilename}", $"{workspace}{HeadFilename}");
+                    var result = RunCrank($"compare", $"{baseResultsFilename}", $"{prResultsFilename}");
 
                     results.Add(new Result(run.Profile, run.Benchmark, result));
                 }
-                finally
+            }
+            finally
+            {
+                // Stop dotnet process
+                // This assumes dotnet is part of the PATH, which might not work based on the host
+
+                await ProcessUtil.RunAsync(@"dotnet", "build-server shutdown", log: true, throwOnError: false);
+
+                if (Environment.OSVersion.Platform == PlatformID.Unix)
                 {
-                    // Stop dotnet process
-                    // This assumes dotnet is part of the PATH, which might not work based on the host
+                    await ProcessUtil.RunAsync("sh", "-c \"pkill dotnet || true\"", log: true, throwOnError: false);
+                }
+                else if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+                {
+                    await ProcessUtil.RunAsync(@"taskkill", "/F /IM dotnet.exe", log: true, throwOnError: false);
+                }
 
-                    await ProcessUtil.RunAsync(@"dotnet", "build-server shutdown", log: true, throwOnError: false);
-
-                    if (Environment.OSVersion.Platform == PlatformID.Unix)
-                    {
-                        await ProcessUtil.RunAsync("sh", "-c \"pkill dotnet || true\"", log: true, throwOnError: false);
-                    }
-                    else if (Environment.OSVersion.Platform == PlatformID.Win32NT)
-                    {
-                        await ProcessUtil.RunAsync(@"taskkill", "/F /IM dotnet.exe", log: true, throwOnError: false);
-                    }
-
-                    // Clean git clones
-                    try
-                    {
-                        Directory.Delete(cloneFolder);
-                    }
-                    catch
-                    {
-                        // Fail to delete the clone folder, continue
-                        Console.WriteLine($"Failed to clean {cloneFolder}. Ignoring...");
-                    }
+                // Clean git clones
+                try
+                {
+                    Console.WriteLine($"Cleaning '{cloneFolder}'");
+                    Directory.Delete(cloneFolder);
+                }
+                catch
+                {
+                    // Fail to delete the clone folder, continue
+                    Console.WriteLine($"Failed to clean {cloneFolder}. Ignoring...");
                 }
             }
 
@@ -658,9 +681,9 @@ namespace Microsoft.Crank.PullRequestBot
             finally
             {
                 Console.SetOut(consoleOut);
+                Console.WriteLine(sw.ToString());
             }
-
-            Console.WriteLine(sw.ToString());
+            
             return sw.ToString();
         }
     }
