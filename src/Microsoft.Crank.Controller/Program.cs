@@ -25,6 +25,7 @@ using Manatee.Json.Schema;
 using Manatee.Json;
 using Jint;
 using System.Security.Cryptography;
+using Microsoft.Azure.Relay;
 
 namespace Microsoft.Crank.Controller
 {
@@ -59,6 +60,7 @@ namespace Microsoft.Crank.Controller
             _sqlTableOption,
             _elastiSearchUrlOption,
            _elasticSearchIndexOption,
+            _relayConnectionStringOption,
             _sessionOption,
             _descriptionOption,
             _propertyOption,
@@ -151,13 +153,11 @@ namespace Microsoft.Crank.Controller
             _compareOption = app.Option("--compare", "An optional filename to compare the results to. Can be used multiple times.", CommandOptionType.MultipleValue);
             _variableOption = app.Option("--variable", "Variable", CommandOptionType.MultipleValue);
             _sqlConnectionStringOption = app.Option("--sql",
-                "Connection string of the SQL Server Database to store results in", CommandOptionType.SingleValue);
+                "Connection string or environment variable name of the SQL Server Database to store results in.", CommandOptionType.SingleValue);
             _sqlTableOption = app.Option("--table",
-                "Table name of the SQL Database to store results in", CommandOptionType.SingleValue);
-            _elastiSearchUrlOption = app.Option("--es",
-            "Elasticsearch server url to store results in", CommandOptionType.SingleValue);
-            _elasticSearchIndexOption = app.Option("--index",
-                    "Index name of the Elasticsearch server to store results in", CommandOptionType.SingleValue); _sessionOption = app.Option("--session", "A logical identifier to group related jobs.", CommandOptionType.SingleValue);
+                "Table name or environment variable name of the SQL table to store results in.", CommandOptionType.SingleValue);
+            _relayConnectionStringOption = app.Option("--relay", "Connection string or environment variable name of the Azure Relay namespace used to access the Crank Agent endpoints. e.g., 'Endpoint=sb://mynamespace.servicebus.windows.net;...', 'MY_AZURE_RELAY_ENV'", CommandOptionType.SingleValue);
+            _sessionOption = app.Option("--session", "A logical identifier to group related jobs.", CommandOptionType.SingleValue);
             _descriptionOption = app.Option("--description", "A string describing the job.", CommandOptionType.SingleValue);
             _propertyOption = app.Option("-p|--property", "Some custom key/value that will be added to the results, .e.g. --property arch=arm --property os=linux", CommandOptionType.MultipleValue);
             _excludeMeasurementsOption = app.Option("--no-measurements", "Remove all measurements from the stored results. For instance, all samples of a measure won't be stored, only the final value.", CommandOptionType.SingleOrNoValue);
@@ -188,7 +188,7 @@ namespace Microsoft.Crank.Controller
             });
 
             // Store arguments before the dynamic ones are removed
-            var commandLineArguments = String.Join(' ', args.Where(x => !String.IsNullOrWhiteSpace(x)));
+            var commandLineArguments = String.Join(' ', args.Where(x => !String.IsNullOrWhiteSpace(x)).Select(x => x.StartsWith('-') ? x : '"' + x + '"'));
 
             // Extract dynamic arguments
             for (var i = 0; i < args.Length; i++)
@@ -498,7 +498,11 @@ namespace Microsoft.Crank.Controller
                             using (var cts = new CancellationTokenSource(10000))
                             {
                                 var response = await _httpClient.GetAsync(endpoint, cts.Token);
-                                response.EnsureSuccessStatusCode();
+                                
+                                if (!_relayConnectionStringOption.HasValue())
+                                {
+                                    response.EnsureSuccessStatusCode();
+                                }
                             }
                         }
                         catch (Exception e)
@@ -592,7 +596,7 @@ namespace Microsoft.Crank.Controller
                         }
                     }
 
-                    ResultComparer.Compare(_compareOption.Values, results.JobResults, jobName);
+                    ResultComparer.Compare(_compareOption.Values, results.JobResults, results.Benchmarks, jobName);
                 }
 
                 return results.ReturnCode;
@@ -671,6 +675,16 @@ namespace Microsoft.Crank.Controller
                             else
                             {
                                 jobs = service.Endpoints.Select(endpoint => new JobConnection(service, new Uri(endpoint))).ToList();
+
+                                foreach (var jobConnection in jobs)
+                                {
+                                    var relayToken = await GetRelayTokenAsync(jobConnection.ServerUri);
+
+                                    if (!String.IsNullOrEmpty(relayToken))
+                                    {
+                                        jobConnection.ConfigureRelay(relayToken);
+                                    }
+                                }
 
                                 jobsByDependency[jobName] = jobs;
 
@@ -810,6 +824,10 @@ namespace Microsoft.Crank.Controller
 
                                     await Task.WhenAll(jobs.Select(job => job.DownloadTraceAsync()));
 
+                                    await Task.WhenAll(jobs.Select(job => job.DownloadBuildLogAsync()));
+
+                                    await Task.WhenAll(jobs.Select(job => job.DownloadOutputAsync()));
+
                                     await Task.WhenAll(jobs.Select(job => job.DownloadAssetsAsync(jobName)));
 
                                     await Task.WhenAll(jobs.Select(job => job.DeleteAsync()));
@@ -878,6 +896,10 @@ namespace Microsoft.Crank.Controller
                         if (!SpanShouldKeepJobRunning(jobName) || IsLastIteration())
                         {
                             await Task.WhenAll(jobs.Select(job => job.DownloadDumpAsync()));
+
+                            await Task.WhenAll(jobs.Select(job => job.DownloadBuildLogAsync()));
+
+                            await Task.WhenAll(jobs.Select(job => job.DownloadOutputAsync()));
 
                             await Task.WhenAll(jobs.Select(job => job.DownloadTraceAsync()));
 
@@ -1092,9 +1114,9 @@ namespace Microsoft.Crank.Controller
                                 foreach (var m in job.Value.Metadata)
                                 {
                                     yield return job.Value.Results.ContainsKey(m.Name)
-                                        ? Convert.ToString(job.Value.Results[m.Name], System.Globalization.CultureInfo.InvariantCulture)
-                                        : ""
-                                        ;
+                                    ? Convert.ToString(job.Value.Results[m.Name], System.Globalization.CultureInfo.InvariantCulture)
+                                    : ""
+                                    ;
                                 }
 
                                 foreach (var e in job.Value.Environment)
@@ -1111,6 +1133,11 @@ namespace Microsoft.Crank.Controller
 
                         string EscapeCsvValue(string value)
                         {
+                            if (String.IsNullOrEmpty(value))
+                            {
+                                return "";
+                            }
+                            
                             if (value.Contains("\""))
                             {
                                 return "\"" + value.Replace("\"", "\"\"") + "\"";
@@ -1200,6 +1227,13 @@ namespace Microsoft.Crank.Controller
 
             var job = new JobConnection(service, new Uri(service.Endpoints.Single()));
 
+            var relayToken = await GetRelayTokenAsync(job.ServerUri);
+
+            if (!String.IsNullOrEmpty(relayToken))
+            {
+                job.ConfigureRelay(relayToken);
+            }
+            
             // Check os and architecture requirements
             if (!await EnsureServerRequirementsAsync(new[] { job }, service))
             {
@@ -1242,6 +1276,10 @@ namespace Microsoft.Crank.Controller
             {
                 Log.WriteError(job.Job.Error, notime: true);
             }
+
+            await job.DownloadBuildLogAsync();
+
+            await job.DownloadOutputAsync();
 
             await job.DownloadDumpAsync();
 
@@ -1481,6 +1519,10 @@ namespace Microsoft.Crank.Controller
             await job.StopAsync();
 
             await job.TryUpdateJobAsync();
+
+            await job.DownloadBuildLogAsync();
+
+            await job.DownloadOutputAsync();
 
             await job.DownloadDumpAsync();
 
@@ -2278,9 +2320,17 @@ namespace Microsoft.Crank.Controller
                     }
                     )).GroupBy(x => x.Name).ToDictionary(x => x.Key, x => x.Last());
 
+                var jobOptions = jobConnections.First().Job.Options;
+
                 // Update any result definition with the ones in the configuration
                 foreach (var result in configuration.Results)
                 {
+                    // If the result is from a dotnet counter, only add it if the counter was requested
+                    if (IsUnusedDotnetCounter(result.Name, jobOptions))
+                    {
+                        continue;
+                    }
+
                     resultDefinitions.TryGetValue(result.Name, out var existing);
 
                     if (existing == null)
@@ -2340,6 +2390,29 @@ namespace Microsoft.Crank.Controller
                 }
 
                 jobResult.Environment = await jobConnections.First().GetInfoAsync();
+
+                bool IsUnusedDotnetCounter(string name, Models.Options jobOptions)
+                {
+                    // Properties from dotnet counters should not be added if they are not part of the included providers
+
+                    var isCounter = false;
+                    var isImportedCounter = false;
+
+                    foreach (var counters in configuration.Counters)
+                    {
+                        // is the result is from a counter ?
+                        if (counters.Values.Any(y => y.Measurement == name))
+                        {
+                            isCounter = true;
+
+                            // yes, then check if it is part of the ones tracked, or skip this result
+                            isImportedCounter = jobOptions.CounterProviders.Contains(counters.Provider);
+                            break;
+                        }
+                    }
+
+                    return isCounter && !isImportedCounter;
+                }
             }
 
             // Duplicate measurements with multiple keys
@@ -2924,6 +2997,61 @@ namespace Microsoft.Crank.Controller
             }
 
             return executionResult;
+        }
+
+        private static async Task<string> GetRelayTokenAsync(Uri endpointUri)
+        {
+            var connectionString = GetAzureRelayConnectionString();
+
+            if (String.IsNullOrEmpty(connectionString))
+            {
+                return null;
+            }
+
+            var rcsb = new RelayConnectionStringBuilder(connectionString);
+            var tokenProvider = TokenProvider.CreateSharedAccessSignatureTokenProvider(rcsb.SharedAccessKeyName, rcsb.SharedAccessKey);
+            return (await tokenProvider.GetTokenAsync(rcsb.Endpoint.ToString(), TimeSpan.FromHours(1))).TokenString;
+
+            string GetAzureRelayConnectionString()
+            {
+                // 1- Use argument if provided
+                // 2- Look for an ENV with the name of the hybrid connection
+                // 3- Look for an ENV with the name of the relay
+
+                if (_relayConnectionStringOption.HasValue())
+                {
+                    var relayConnectionString = _relayConnectionStringOption.Value();
+
+                    if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(relayConnectionString)))
+                    {
+                        return Environment.GetEnvironmentVariable(relayConnectionString);
+                    }
+                    else
+                    {
+                        return relayConnectionString;
+                    }
+                }
+
+                if (!endpointUri.Authority.EndsWith("servicebus.windows.net", StringComparison.OrdinalIgnoreCase))
+                {
+                    return null;
+                }
+
+                var rootVariable = $"{endpointUri.Authority.Replace(".", "_")}"; // aspnetperf_servicebus_windows_net
+                var entityVariable = $"{rootVariable}__{endpointUri.LocalPath}"; // aspnetperf_servicebus_windows_net__local
+
+                if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(entityVariable)))
+                {
+                    return Environment.GetEnvironmentVariable(entityVariable);
+                }
+
+                if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(rootVariable)))
+                {
+                    return Environment.GetEnvironmentVariable(entityVariable);
+                }
+
+                return null;
+            }
         }
     }
 }

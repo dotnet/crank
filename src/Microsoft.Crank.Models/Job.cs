@@ -19,7 +19,9 @@ namespace Microsoft.Crank.Models
         // 2: Introduced Measurements/Metadata
         // 3: Output value not serialized
         // 4: Simplified rest endpoints
-        public int ServerVersion { get; set; } = 4;
+        // 5: Support for gzipped uploads
+
+        public int ServerVersion { get; set; } = 5;
 
         public int Id { get; set; }
 
@@ -127,7 +129,7 @@ namespace Microsoft.Crank.Models
         public int MeasurementsIntervalSec { get; set; } = 1;
         
         /// <summary>
-        /// The list of performance counter providers to be collected. Defaults to <c>System.Runtime</c>.
+        /// The list of performance counter providers to be collected.
         /// </summary>
         public List<DotnetCounter> Counters { get; set; } = new List<DotnetCounter>();
         public string BasePath { get; set; }
@@ -223,6 +225,10 @@ namespace Microsoft.Crank.Models
     public class Options
     {
         public bool DisplayOutput { get; set; }
+        public bool DownloadOutput { get; set; }
+        public string DownloadOutputOutput { get; set; }
+        public bool DownloadBuildLog { get; set; }
+        public string DownloadBuildLogOutput { get; set; }
         public bool Fetch { get; set; }
         public string FetchOutput { get; set; }
         public List<string> DownloadFiles { get; set; } = new List<string>();
