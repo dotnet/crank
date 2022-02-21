@@ -1,0 +1,82 @@
+{
+  "id": "http://microsoft.com/dotnet/crank/pullrequestbot",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Crank Pull Request Bot JSON Schema",
+  "type": "object",
+  "definitions": {
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "required": [ "script", "arguments" ],
+      "properties": {
+        "script": {
+          "type": "string",
+          "description": "A multi-line script to execute when the component is selected."
+        },
+        "arguments": {
+          "type": "string",
+          "description": "The crank arguments to add when the component is selected."
+        }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 2,
+      "required": [ "description", "arguments" ],
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "The description of the profile."
+        },
+        "arguments": {
+          "type": "string",
+          "description": "The crank arguments to add when the profile is selected."
+        }
+      }
+    },
+    "benchmark": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 2,
+      "required": [ "description", "arguments" ],
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "The description of the benchmark."
+        },
+        "arguments": {
+          "type": "string",
+          "description": "The crank arguments to add when the benchmark is selected."
+        }
+      }
+    }
+  },
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "defaults": {
+      "type": "string",
+      "title": "Default arguments passed to the crank command line for all benchmarks of this file."
+    },
+    "components": {
+      "type": "object",
+      "title": "An list of components to build",
+      "additionalProperties": { "$ref": "#/definitions/component" }
+    },
+    "profiles": {
+      "type": "object",
+      "title": "An list of profiles to run the benchmarks",
+      "additionalProperties": { "$ref": "#/definitions/profile" }
+    },
+    "benchmarks": {
+      "type": "object",
+      "title": "An list of benchmarks to run",
+      "additionalProperties": { "$ref": "#/definitions/benchmark" }
+    }
+  },
+  "minProperties": 0,
+  "additionalProperties": false
+}

@@ -20,6 +20,7 @@ namespace Microsoft.Crank.Models
         public Dependency[] Dependencies { get; set; } = Array.Empty<Dependency>();
         public List<Measurement[]> Measurements { get; set; } = new List<Measurement[]>();
         public Dictionary<string, object> Environment { get; set; } = new Dictionary<string, object>();
+        public Benchmark[] Benchmarks { get; set; } = Array.Empty<Benchmark>();
     }
 
     public class ResultMetadata
@@ -27,5 +28,31 @@ namespace Microsoft.Crank.Models
         public string Name { get; set; }
         public string Description { get; set; }
         public string Format { get; set; }
+    }
+
+    public class Benchmark
+    {
+        public string FullName { get; set; }
+        public BenchmarkStatistics Statistics { get; set; }
+        public BenchmarkMemory Memory { get; set; }
+    }
+
+    public class BenchmarkStatistics
+    {
+        public double Min { get; set; }
+        public double Mean { get; set; }
+        public double Median { get; set; }
+        public double Max { get; set; }
+        public double StandardError { get; set; }
+        public double StandardDeviation { get; set; }
+    }
+
+    public class BenchmarkMemory
+    {
+        public int Gen0Collections { get; set; }
+        public int Gen1Collections { get; set; }
+        public int Gen2Collections { get; set; }
+        public long BytesAllocatedPerOperation { get; set; }
+        public long TotalOperations { get; set; }
     }
 }

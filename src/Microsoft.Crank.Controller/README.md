@@ -41,6 +41,7 @@ Options:
   --chart-scale [off (default)| auto]                            Scale for chart. Values are 'off' (default) or 'auto'. When scale is off, the min value starts at 0.
   --script [name]                                                Execute a named script available in the configuration files. Can be used multiple times.
   --debug <filename>                                             Saves the final configuration to a file and skips the execution of the benchmark, e.g., '-d debug.json'
+  --relay <connection_string>                                    Connection string or environment variable name of the Azure Relay namespace used to access the Crank Agent endpoints. e.g., 'Endpoint=sb://mynamespace.servicebus.windows.net;...', 'MY_AZURE_RELAY_ENV';
 
   These options are specific to a Job service named [JOB]
 
@@ -89,6 +90,10 @@ Options:
   --[JOB].options.dumpType <full|heap|mini>                                The type of dump to collect.
   --[JOB].options.dumpOutput <filename>                                    The name of the dump file. Can be a file prefix (app will add *.DATE*.zip) , or a specific name and no DATE* will be added e.g., c:\dumps\mydump
   --[JOB].collectDependencies <true|false>                                 Whether to include the list of project dependencies in the results.
+  --[JOB].options.downloadOutput <true|false>                              Whether to download the job output
+  --[JOB].options.downloadOutputOutput <filename>                          The name of the output file. Can be a file prefix (app will add *.DATE*.log) , or a specific name and no DATE* will be added e.g., c:\outputs\myoutput
+  --[JOB].options.downloadBuildLog <true|false>                            Whether to download the build log
+  --[JOB].options.downloadBuildLogOutput <filename>                        The name of the build log file. Can be a file prefix (app will add *.DATE*.log) , or a specific name and no DATE* will be added e.g., c:\builds\mybuild
 
   ## Environment
 

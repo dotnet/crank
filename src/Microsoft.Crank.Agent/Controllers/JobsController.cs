@@ -319,10 +319,7 @@ namespace Microsoft.Crank.Agent.Controllers
 
             var tempFilename = Path.GetTempFileName();
 
-            using (var fs = System.IO.File.Create(tempFilename))
-            {
-                await Request.Body.CopyToAsync(fs, Request.HttpContext.RequestAborted);
-            }
+            await SaveBodyAsync(tempFilename);
 
             job.Attachments.Add(new Attachment
             {
@@ -347,10 +344,7 @@ namespace Microsoft.Crank.Agent.Controllers
             var job = _jobs.Find(id);
             var tempFilename = Path.GetTempFileName();
 
-            using (var fs = System.IO.File.Create(tempFilename))
-            {
-                await Request.Body.CopyToAsync(fs, Request.HttpContext.RequestAborted);
-            }
+            await SaveBodyAsync(tempFilename);
 
             job.Source.SourceCode = new Attachment
             {
@@ -370,15 +364,12 @@ namespace Microsoft.Crank.Agent.Controllers
         {
             var destinationFilename = Request.Headers["destinationFilename"].ToString();
 
-            Log.Info($"Uploading build files");
+            Log.Info($"Uploading build file {destinationFilename}");
 
             var job = _jobs.Find(id);
             var tempFilename = Path.GetTempFileName();
 
-            using (var fs = System.IO.File.Create(tempFilename))
-            {
-                await Request.Body.CopyToAsync(fs, Request.HttpContext.RequestAborted);
-            }
+            await SaveBodyAsync(tempFilename);
 
             job.BuildAttachments.Add(new Attachment
             {
@@ -389,6 +380,22 @@ namespace Microsoft.Crank.Agent.Controllers
             job.LastDriverCommunicationUtc = DateTime.UtcNow;
 
             return Ok();
+        }
+
+        private async Task SaveBodyAsync(string filename)
+        {
+            using var outputFileStream = System.IO.File.Create(filename);
+
+            if (Request.Headers.TryGetValue("Content-Encoding", out var encoding) && encoding.Contains("gzip"))
+            {
+                Log.Info($"Received gzipped file content");
+                using var decompressor = new GZipStream(Request.Body, CompressionMode.Decompress);
+                await decompressor.CopyToAsync(outputFileStream, Request.HttpContext.RequestAborted);
+            }
+            else
+            {
+                await Request.Body.CopyToAsync(outputFileStream, Request.HttpContext.RequestAborted);
+            }
         }
 
         [HttpGet("{id}/trace")]
