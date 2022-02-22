@@ -156,6 +156,10 @@ namespace Microsoft.Crank.Controller
                 "Connection string or environment variable name of the SQL Server Database to store results in.", CommandOptionType.SingleValue);
             _sqlTableOption = app.Option("--table",
                 "Table name or environment variable name of the SQL table to store results in.", CommandOptionType.SingleValue);
+            _elastiSearchUrlOption = app.Option("--es",
+            "Elasticsearch server url to store results in", CommandOptionType.SingleValue);
+            _elasticSearchIndexOption = app.Option("--index",
+                    "Index name of the Elasticsearch server to store results in", CommandOptionType.SingleValue); _sessionOption = app.Option("--session", "A logical identifier to group related jobs.", CommandOptionType.SingleValue);
             _relayConnectionStringOption = app.Option("--relay", "Connection string or environment variable name of the Azure Relay namespace used to access the Crank Agent endpoints. e.g., 'Endpoint=sb://mynamespace.servicebus.windows.net;...', 'MY_AZURE_RELAY_ENV'", CommandOptionType.SingleValue);
             _sessionOption = app.Option("--session", "A logical identifier to group related jobs.", CommandOptionType.SingleValue);
             _descriptionOption = app.Option("--description", "A string describing the job.", CommandOptionType.SingleValue);
@@ -498,7 +502,7 @@ namespace Microsoft.Crank.Controller
                             using (var cts = new CancellationTokenSource(10000))
                             {
                                 var response = await _httpClient.GetAsync(endpoint, cts.Token);
-                                
+
                                 if (!_relayConnectionStringOption.HasValue())
                                 {
                                     response.EnsureSuccessStatusCode();
@@ -1137,7 +1141,7 @@ namespace Microsoft.Crank.Controller
                             {
                                 return "";
                             }
-                            
+
                             if (value.Contains("\""))
                             {
                                 return "\"" + value.Replace("\"", "\"\"") + "\"";
@@ -1233,7 +1237,7 @@ namespace Microsoft.Crank.Controller
             {
                 job.ConfigureRelay(relayToken);
             }
-            
+
             // Check os and architecture requirements
             if (!await EnsureServerRequirementsAsync(new[] { job }, service))
             {
