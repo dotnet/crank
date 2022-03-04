@@ -3908,7 +3908,7 @@ namespace Microsoft.Crank.Agent
             }
             else if (String.Equals(sdkVersion, "Edge", StringComparison.OrdinalIgnoreCase))
             {
-                (sdkVersion, _) = await ParseLatestVersionFile(_latestSdkVersionUrl);
+                (sdkVersion, _) = await ParseVersionsFile(_latestSdkVersionUrl, "installer");
                 Log.Info($"SDK: {sdkVersion} (Edge)");
             }
             else
@@ -4151,6 +4151,36 @@ namespace Microsoft.Crank.Agent
 
                 return (version, hash);
             }
+        }
+
+        /// <summary>
+        /// Parses files that contains lines with [prefix]:[sha], [version]
+        /// </summary>
+        private static async Task<(string version, string hash)> ParseVersionsFile(string urlOrFilename, string prefix)
+        {
+            var content = urlOrFilename.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+                ? await DownloadContentAsync(urlOrFilename)
+                : await File.ReadAllTextAsync(urlOrFilename)
+                ;
+
+            using (var sr = new StringReader(content))
+            {
+                string line = null;
+
+                while (null != (line = sr.ReadLine()))
+                {
+                    if (line.StartsWith(prefix))
+                    {
+                        var fragments = line.Split(',', 2);
+                        var hash = fragments[0].Split(':', 2)[1].Trim();
+                        var version = fragments[1].Trim();
+
+                        return (version, hash);
+                    }
+                }
+            }
+
+            return (null, null);
         }
 
         private static async Task<bool> DownloadFileAsync(string url, string outputPath, int maxRetries, int timeout = 5, bool throwOnError = true)
