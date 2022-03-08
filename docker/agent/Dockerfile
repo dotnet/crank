@@ -32,7 +32,11 @@ RUN apt-get update \
         libgdiplus \
         # libmsquic requirements
         gnupg2 \
-        software-properties-common
+        software-properties-common \
+        # NativeAOT requirements
+        clang \
+        zlib1g-dev \
+        libkrb5-dev
 
 # Install HTTP/3 support
 
