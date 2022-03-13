@@ -46,11 +46,22 @@ namespace Microsoft.Crank.Jobs.Bombardier
             TryGetArgumentValue("-w", argsList, out int warmup);
             TryGetArgumentValue("-d", argsList, out int duration);
             TryGetArgumentValue("-n", argsList, out int requests);
+            TryGetArgumentValue("-o", argsList, out string outputFormat);
             TryGetArgumentValue("-f", argsList, out string bodyFile);
 
             if (duration == 0 && requests == 0)
             {
                 Console.WriteLine("Couldn't find valid -d and -n arguments (integers)");
+                return -1;
+            }
+
+            if (string.IsNullOrEmpty(outputFormat))
+            {
+                outputFormat = "json";
+            }
+            else if ((outputFormat != "json") && (outputFormat != "plain-text"))
+            {
+                Console.WriteLine("Value value for -o is json or plain-text");
                 return -1;
             }
 
@@ -134,7 +145,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
 
             args = argsList.Select(Quote).ToArray();
 
-            var baseArguments = String.Join(' ', args) + " --print r --format json";
+            var baseArguments = String.Join(' ', args) + $" --print r --format {outputFormat}";
 
             var process = new Process()
             {
@@ -175,6 +186,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
 
                 if (process.ExitCode != 0)
                 {
+                    Console.WriteLine("Failed to run bombardier.");
                     return process.ExitCode;
                 }
             }
@@ -214,6 +226,11 @@ namespace Microsoft.Crank.Jobs.Bombardier
                 lock (stringBuilder)
                 {
                     output = stringBuilder.ToString();
+                }
+
+                if (outputFormat != "json")
+                {
+                    return 0;
                 }
 
                 var document = JObject.Parse(output);
