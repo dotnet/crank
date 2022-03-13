@@ -3657,6 +3657,12 @@ namespace Microsoft.Crank.Agent
                     var globalObject = JObject.Parse(File.ReadAllText(globalJsonFilename));
                     sdkVersion = globalObject["sdk"]["version"].ToString();
 
+                    // Patch global.json such that the version for SDK is preserved even though a new one is locally available
+                    globalObject["sdk"]["allowPrerelease"] = true;
+                    globalObject["sdk"]["rollForward"] = "disable";
+
+                    File.WriteAllText(globalJsonFilename, globalObject.ToString());
+
                     Log.Info($"Detecting global.json SDK version: {sdkVersion}");
                 }
             }
