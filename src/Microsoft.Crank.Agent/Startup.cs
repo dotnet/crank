@@ -766,7 +766,7 @@ namespace Microsoft.Crank.Agent
                                             Aggregate = Operation.Max,
                                             Reduce = Operation.Sum,
                                             Format = "n0",
-                                            LongDescription = "Number of period that any thread in the cgroup was runnable",
+                                            LongDescription = "Number of periods that any thread in the cgroup was runnable",
                                             ShortDescription = "Runnable Periods (#)"
                                         });
                                     }
