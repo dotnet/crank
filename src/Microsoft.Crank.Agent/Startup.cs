@@ -757,6 +757,48 @@ namespace Microsoft.Crank.Agent
                                         });
                                     }
 
+                                    if (!job.Metadata.Any(x => x.Name == "benchmarks/cpu/periods/total"))
+                                    {
+                                        job.Metadata.Enqueue(new MeasurementMetadata
+                                        {
+                                            Source = "Host Process",
+                                            Name = "benchmarks/cpu/periods/total",
+                                            Aggregate = Operation.Max,
+                                            Reduce = Operation.Sum,
+                                            Format = "n0",
+                                            LongDescription = "Number of periods that any thread in the cgroup was runnable",
+                                            ShortDescription = "Runnable Periods (#)"
+                                        });
+                                    }
+
+                                    if (!job.Metadata.Any(x => x.Name == "benchmarks/cpu/periods/throttled"))
+                                    {
+                                        job.Metadata.Enqueue(new MeasurementMetadata
+                                        {
+                                            Source = "Host Process",
+                                            Name = "benchmarks/cpu/periods/throttled",
+                                            Aggregate = Operation.Max,
+                                            Reduce = Operation.Sum,
+                                            Format = "n0",
+                                            LongDescription = "Number of runnable periods in which the application used its entire quota and was throttled",
+                                            ShortDescription = "Throttled Periods (#)"
+                                        });
+                                    }
+
+                                    if (!job.Metadata.Any(x => x.Name == "benchmarks/cpu/throttled"))
+                                    {
+                                        job.Metadata.Enqueue(new MeasurementMetadata
+                                        {
+                                            Source = "Host Process",
+                                            Name = "benchmarks/cpu/throttled",
+                                            Aggregate = Operation.Max,
+                                            Reduce = Operation.Sum,
+                                            Format = "n0",
+                                            LongDescription = "Total amount of time individual threads within the cgroup were throttled",
+                                            ShortDescription = "Throttled Time (ns)"
+                                        });
+                                    }
+
                                 }
 
                             }
@@ -1420,6 +1462,31 @@ namespace Microsoft.Crank.Agent
                                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && (job.MemoryLimitInBytes > 0 || job.CpuLimitRatio > 0 || !String.IsNullOrEmpty(job.CpuSet)))
                                 {
                                     var controller = GetCGroupController(job);
+
+                                    // Read cpu throttling stats
+
+                                    var cpuStats = await GetCpuStats(controller);
+
+                                    job.Measurements.Enqueue(new Measurement
+                                    {
+                                        Name = "benchmarks/cpu/periods/total",
+                                        Timestamp = DateTime.UtcNow,
+                                        Value = cpuStats.nrPeriods
+                                    });
+
+                                    job.Measurements.Enqueue(new Measurement
+                                    {
+                                        Name = "benchmarks/cpu/periods/throttled",
+                                        Timestamp = DateTime.UtcNow,
+                                        Value = cpuStats.nrThrottled
+                                    });
+
+                                    job.Measurements.Enqueue(new Measurement
+                                    {
+                                        Name = "benchmarks/cpu/throttled",
+                                        Timestamp = DateTime.UtcNow,
+                                        Value = cpuStats.throttledTime
+                                    });
 
                                     await ProcessUtil.RunAsync("cgdelete", $"cpu,memory,cpuset:{controller}", log: true, throwOnError: false);
                                 }
@@ -5267,6 +5334,44 @@ namespace Microsoft.Crank.Agent
 
                 return fileName;
             }
+        }
+
+        private static async Task<(long nrPeriods, long nrThrottled, long throttledTime)> GetCpuStats(string controller)
+        {
+            var result = await ProcessUtil.RunAsync("cat", $"/sys/fs/cgroup/cpu/{controller}/cpu.stat", throwOnError: false, captureOutput: true);
+
+            // nr_periods 3
+            // nr_throttled 3
+            // throttled_time 258313264
+
+            long nrPeriods = 0, nrThrottled = 0, throttledTime = 0;
+
+            using (var sr = new StringReader(result.StandardOutput))
+            {
+                var line = sr.ReadLine();
+
+                while (line != null)
+                {
+                    if (line.StartsWith("nr_periods"))
+                    {
+                        long.TryParse(line.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries).Last(), out nrPeriods);
+                    }
+
+                    if (line.StartsWith("nr_throttled"))
+                    {
+                        long.TryParse(line.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries).Last(), out nrThrottled);
+                    }
+
+                    if (line.StartsWith("throttled_time"))
+                    {
+                        long.TryParse(line.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries).Last(), out throttledTime);
+                    }
+
+                    line = sr.ReadLine();
+                }
+            }
+
+            return (nrPeriods, nrThrottled, throttledTime);
         }
 
         private static async Task<long> GetSwapBytesAsync()
