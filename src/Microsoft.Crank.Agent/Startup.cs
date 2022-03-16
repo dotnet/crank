@@ -1469,14 +1469,14 @@ namespace Microsoft.Crank.Agent
 
                                     if (job.Source.IsDocker())
                                     {
-                                        var result = await ProcessUtil.RunAsync("docker", $"exec {dockerContainerId} /sys/fs/cgroup/cpu/cpu.stat", throwOnError: false, captureOutput: true);
+                                        var result = await ProcessUtil.RunAsync("docker", $"exec {dockerContainerId} cat /sys/fs/cgroup/cpu/cpu.stat", throwOnError: false, captureOutput: true);
                                         cpuStats = result.StandardOutput;
                                     }
                                     else
                                     {
                                         var result = await ProcessUtil.RunAsync("cat", $"/sys/fs/cgroup/cpu/{controller}/cpu.stat", throwOnError: false, captureOutput: true);
                                         cpuStats = result.StandardOutput;
-                                    }                                        
+                                    }
 
                                     await MeasureCpuStatsAsync(cpuStats, job);
 
