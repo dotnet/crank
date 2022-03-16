@@ -1478,7 +1478,7 @@ namespace Microsoft.Crank.Agent
                                         cpuStats = result.StandardOutput;
                                     }
 
-                                    await MeasureCpuStatsAsync(cpuStats, job);
+                                    MeasureCpuStats(cpuStats, job);
 
                                     await ProcessUtil.RunAsync("cgdelete", $"cpu,memory,cpuset:{controller}", log: true, throwOnError: false);
                                 }
@@ -5326,7 +5326,7 @@ namespace Microsoft.Crank.Agent
             }
         }
 
-        private static async Task MeasureCpuStatsAsync(string cpuStat, Job job)
+        private static void MeasureCpuStats(string cpuStat, Job job)
         {
             // docker exec -it benchmarks_nodejs-2 cat /sys/fs/cgroup/cpu/cpu.stat
 
