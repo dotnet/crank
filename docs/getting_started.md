@@ -4,7 +4,7 @@ This tutorial shows how to benchmark a simple .NET web application using the __b
 
 ## Installing crank
 
-1. Install [.NET Core 5.0](<http://dot.net>).
+1. Install [.NET Core](<http://dot.net>).
 2. Install Crank via the following command:
 
     ```text
