@@ -1464,29 +1464,7 @@ namespace Microsoft.Crank.Agent
                                     var controller = GetCGroupController(job);
 
                                     // Read cpu throttling stats
-
-                                    var cpuStats = await GetCpuStats(controller);
-
-                                    job.Measurements.Enqueue(new Measurement
-                                    {
-                                        Name = "benchmarks/cpu/periods/total",
-                                        Timestamp = DateTime.UtcNow,
-                                        Value = cpuStats.nrPeriods
-                                    });
-
-                                    job.Measurements.Enqueue(new Measurement
-                                    {
-                                        Name = "benchmarks/cpu/periods/throttled",
-                                        Timestamp = DateTime.UtcNow,
-                                        Value = cpuStats.nrThrottled
-                                    });
-
-                                    job.Measurements.Enqueue(new Measurement
-                                    {
-                                        Name = "benchmarks/cpu/throttled",
-                                        Timestamp = DateTime.UtcNow,
-                                        Value = cpuStats.throttledTime
-                                    });
+                                    await GetCpuStatsAsync(job, controller);
 
                                     await ProcessUtil.RunAsync("cgdelete", $"cpu,memory,cpuset:{controller}", log: true, throwOnError: false);
                                 }
@@ -2094,7 +2072,7 @@ namespace Microsoft.Crank.Agent
                         }
                     }
 
-                  
+                    await GetCpuStatsAsync(job, null);                  
                 }
                 else
                 {
@@ -5336,9 +5314,13 @@ namespace Microsoft.Crank.Agent
             }
         }
 
-        private static async Task<(long nrPeriods, long nrThrottled, long throttledTime)> GetCpuStats(string controller)
+        private static async Task GetCpuStatsAsync(Job job, string controller)
         {
-            var result = await ProcessUtil.RunAsync("cat", $"/sys/fs/cgroup/cpu/{controller}/cpu.stat", throwOnError: false, captureOutput: true);
+            // if controller is null, use system wide value, e.g. for a docker container
+           
+            var cpuStatPath = String.IsNullOrEmpty(controller) ? $"/sys/fs/cgroup/cpu/cpu.stat" : $"/sys/fs/cgroup/cpu/{controller}/cpu.stat";
+
+            var result = await ProcessUtil.RunAsync("cat", cpuStatPath, throwOnError: false, captureOutput: true);
 
             // nr_periods 3
             // nr_throttled 3
@@ -5371,7 +5353,27 @@ namespace Microsoft.Crank.Agent
                 }
             }
 
-            return (nrPeriods, nrThrottled, throttledTime);
+            job.Measurements.Enqueue(new Measurement
+            {
+                Name = "benchmarks/cpu/periods/total",
+                Timestamp = DateTime.UtcNow,
+                Value = nrPeriods
+            });
+
+            job.Measurements.Enqueue(new Measurement
+            {
+                Name = "benchmarks/cpu/periods/throttled",
+                Timestamp = DateTime.UtcNow,
+                Value = nrThrottled
+            });
+
+            job.Measurements.Enqueue(new Measurement
+            {
+                Name = "benchmarks/cpu/throttled",
+                Timestamp = DateTime.UtcNow,
+                Value = throttledTime
+            });
+
         }
 
         private static async Task<long> GetSwapBytesAsync()
