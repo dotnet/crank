@@ -982,7 +982,7 @@ namespace Microsoft.Crank.Agent
                                                         }
                                                     }
 
-                                                    if (!String.IsNullOrEmpty(dockerImage))
+                                                    if (job.Source.IsDocker())
                                                     {
                                                         // Check the container is still running
                                                         var inspectResult = ProcessUtil.RunAsync("docker", "inspect -f {{.State.Running}} " + dockerContainerId,
@@ -1465,28 +1465,20 @@ namespace Microsoft.Crank.Agent
 
                                     // Read cpu throttling stats
 
-                                    var cpuStats = await GetCpuStats(controller);
+                                    string cpuStats;
 
-                                    job.Measurements.Enqueue(new Measurement
+                                    if (job.Source.IsDocker())
                                     {
-                                        Name = "benchmarks/cpu/periods/total",
-                                        Timestamp = DateTime.UtcNow,
-                                        Value = cpuStats.nrPeriods
-                                    });
+                                        var result = await ProcessUtil.RunAsync("docker", $"exec {dockerContainerId} cat /sys/fs/cgroup/cpu/cpu.stat", throwOnError: false, captureOutput: true);
+                                        cpuStats = result.StandardOutput;
+                                    }
+                                    else
+                                    {
+                                        var result = await ProcessUtil.RunAsync("cat", $"/sys/fs/cgroup/cpu/{controller}/cpu.stat", throwOnError: false, captureOutput: true);
+                                        cpuStats = result.StandardOutput;
+                                    }
 
-                                    job.Measurements.Enqueue(new Measurement
-                                    {
-                                        Name = "benchmarks/cpu/periods/throttled",
-                                        Timestamp = DateTime.UtcNow,
-                                        Value = cpuStats.nrThrottled
-                                    });
-
-                                    job.Measurements.Enqueue(new Measurement
-                                    {
-                                        Name = "benchmarks/cpu/throttled",
-                                        Timestamp = DateTime.UtcNow,
-                                        Value = cpuStats.throttledTime
-                                    });
+                                    MeasureCpuStats(cpuStats, job);
 
                                     await ProcessUtil.RunAsync("cgdelete", $"cpu,memory,cpuset:{controller}", log: true, throwOnError: false);
                                 }
@@ -1649,7 +1641,7 @@ namespace Microsoft.Crank.Agent
 
                                     process = null;
                                 }
-                                else if (!String.IsNullOrEmpty(dockerImage))
+                                else if (job.Source.IsDocker())
                                 {
                                     await DockerCleanUpAsync(dockerContainerId, dockerImage, job);
                                 }
@@ -2093,8 +2085,6 @@ namespace Microsoft.Crank.Agent
                             });
                         }
                     }
-
-                  
                 }
                 else
                 {
@@ -5336,17 +5326,18 @@ namespace Microsoft.Crank.Agent
             }
         }
 
-        private static async Task<(long nrPeriods, long nrThrottled, long throttledTime)> GetCpuStats(string controller)
+        private static void MeasureCpuStats(string cpuStat, Job job)
         {
-            var result = await ProcessUtil.RunAsync("cat", $"/sys/fs/cgroup/cpu/{controller}/cpu.stat", throwOnError: false, captureOutput: true);
+            // docker exec -it benchmarks_nodejs-2 cat /sys/fs/cgroup/cpu/cpu.stat
 
+            
             // nr_periods 3
             // nr_throttled 3
             // throttled_time 258313264
 
             long nrPeriods = 0, nrThrottled = 0, throttledTime = 0;
 
-            using (var sr = new StringReader(result.StandardOutput))
+            using (var sr = new StringReader(cpuStat))
             {
                 var line = sr.ReadLine();
 
@@ -5371,7 +5362,27 @@ namespace Microsoft.Crank.Agent
                 }
             }
 
-            return (nrPeriods, nrThrottled, throttledTime);
+            job.Measurements.Enqueue(new Measurement
+            {
+                Name = "benchmarks/cpu/periods/total",
+                Timestamp = DateTime.UtcNow,
+                Value = nrPeriods
+            });
+
+            job.Measurements.Enqueue(new Measurement
+            {
+                Name = "benchmarks/cpu/periods/throttled",
+                Timestamp = DateTime.UtcNow,
+                Value = nrThrottled
+            });
+
+            job.Measurements.Enqueue(new Measurement
+            {
+                Name = "benchmarks/cpu/throttled",
+                Timestamp = DateTime.UtcNow,
+                Value = throttledTime
+            });
+
         }
 
         private static async Task<long> GetSwapBytesAsync()
