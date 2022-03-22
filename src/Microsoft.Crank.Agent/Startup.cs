@@ -5163,7 +5163,8 @@ namespace Microsoft.Crank.Agent
                 Log.Info("Downloading dotnet skd package for mono AOT...");
 
                 var found = false;
-                var url = $"https://dotnetcli.azureedge.net/dotnet/Sdk/{dotnetSdkVersion}/dotnet-sdk-{dotnetSdkVersion}-linux-{pkgNameSuffix}.tar.gz";
+                
+                var url = $"{GetAzureFeedForVersion(dotnetSdkVersion)}/Sdk/{dotnetSdkVersion}/dotnet-sdk-{dotnetSdkVersion}-linux-{pkgNameSuffix}.tar.gz";
 
                 if (await DownloadFileAsync(url, dotnetMonoPath, maxRetries: 3, timeout: 60, throwOnError: false))
                 {
