@@ -5155,7 +5155,7 @@ namespace Microsoft.Crank.Agent
                 if (Directory.Exists(dotnetMonoRootPath))
                 {
                     Log.Info("Deleting dotnet-mono folder...");
-                    Directory.Delete(dotnetMonoRootPath);
+                    Directory.Delete(dotnetMonoRootPath, true);
                 }
                 Log.Info("Creating dotnet-mono folder...");
                 Directory.CreateDirectory(dotnetMonoRootPath);
@@ -5196,7 +5196,7 @@ namespace Microsoft.Crank.Agent
 
                 if (Directory.Exists(llvmExtractDir))
                 {
-                    Directory.Delete(llvmExtractDir);
+                    Directory.Delete(llvmExtractDir, true);
                 }
 
                 Directory.CreateDirectory(llvmExtractDir);
