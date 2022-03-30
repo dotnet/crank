@@ -54,7 +54,7 @@ counters:
     description: LOH (Large Object Heap) Size
 
   - name: poh-size
-    measurement: runtime-counter/
+    measurement: runtime-counter/poh-size
     description: POH (Pinned Object Heap) Size
 
   - name: alloc-rate
