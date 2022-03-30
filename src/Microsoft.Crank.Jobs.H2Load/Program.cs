@@ -229,11 +229,12 @@ namespace H2LoadClient
                 var value = double.Parse(match.Groups[1].Value);
                 var unit = match.Groups[2].Value;
 
+                // Convert to ms
                 switch (unit)
                 {
-                    case "s": return value / 1000;
+                    case "s": return value * 1000;
                     case "ms": return value;
-                    case "us": return value * 1000;
+                    case "us": return value / 1000;
 
                     default:
                         Log("Failed to parse latency unit: " + unit);
