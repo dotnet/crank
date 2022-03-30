@@ -19,6 +19,7 @@ jobs:
       threads: 1
       streams: 1
       connections: 1
+      requests: 0
       duration: 15
       warmup: 5
       protocol: h2c
@@ -27,6 +28,6 @@ jobs:
       serverScheme: http
       serverAddress: localhost      
       serverPort: 5000
-    arguments: "-c {{connections}} -t {{threads}} -m {{streams}} -d {{duration}} -w {{warmup}} -u {% if serverUri == blank or serverUri == empty %} {{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}} {% else %} {{serverUri}}:{{serverPort}}{{path}} {% endif %} -p {{ protocol }} {{headers[presetHeaders]}} {% if body != '' %} --body {{ body }} {% endif %}"
+    arguments: "-c {{connections}} -t {{threads}} -m {{streams}} -d {{duration}} -w {{warmup}} -n {{requests}} -u {% if serverUri == blank or serverUri == empty %} {{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}} {% else %} {{serverUri}}:{{serverPort}}{{path}} {% endif %} -p {{ protocol }} {{headers[presetHeaders]}} {% if body != '' %} --body {{ body }} {% endif %}"
     options:
       requiredOperatingSystem: linux

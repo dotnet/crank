@@ -12,6 +12,7 @@ namespace H2LoadClient
     class Program
     {
         public static string ServerUrl { get; private set; }
+        public static int Requests { get; private set; }
         public static int Connections { get; private set; }
         public static int Threads { get; private set; }
         public static int Streams { get; private set; }
@@ -33,6 +34,7 @@ namespace H2LoadClient
             var optionConnections = app.Option<int>("-c|--connections <N>", "Total number of connections to use", CommandOptionType.SingleValue);
             var optionThreads = app.Option<int>("-t|--threads <N>", "The number of native threads", CommandOptionType.SingleValue);
             var optionStreams = app.Option<int>("-m|--streams <N>", "Max concurrent streams to issue per session", CommandOptionType.SingleValue);
+            var optionRequests = app.Option<int>("-n|--requests <N>", "Number of requests to send", CommandOptionType.SingleValue);
             var optionTimeout = app.Option<int>("-T|--timeout <N>", "Timeout to keep the connection open", CommandOptionType.SingleValue);
             var optionWarmup = app.Option<int>("-w|--warmup <N>", "Duration of the warmup in seconds", CommandOptionType.SingleValue);
             var optionDuration = app.Option<int>("-d|--duration <N>", "Duration of the test in seconds", CommandOptionType.SingleValue);
@@ -48,6 +50,7 @@ namespace H2LoadClient
                 Connections = optionConnections.HasValue() ? optionConnections.ParsedValue : 1;
                 Threads = optionThreads.HasValue() ? optionThreads.ParsedValue : 1;
                 Streams = optionStreams.HasValue() ? optionStreams.ParsedValue : 1;
+                Requests = optionRequests.HasValue() ? optionRequests.ParsedValue : 0;
                 Timeout = optionTimeout.HasValue() ? optionTimeout.ParsedValue : 5;
                 Warmup = optionWarmup.HasValue() ? optionWarmup.ParsedValue : 5;
                 Duration = optionDuration.HasValue() ? optionDuration.ParsedValue : 10;
@@ -256,7 +259,8 @@ namespace H2LoadClient
                 command += $" -H \"{header.Key}: {header.Value}\"";
             }
 
-            command += $" -c {Connections} -T {Timeout} -t {Threads} -m {Streams} -D {Duration} --warm-up-time {Warmup}";
+            command += $" -c {Connections} -T {Timeout} -t {Threads} -m {Streams} --warm-up-time {Warmup}";
+            command += Requests > 0 ? $" -n {Requests}" : $" -D {Duration}";
 
             switch (Protocol)
             {
