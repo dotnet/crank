@@ -113,7 +113,7 @@ Each service that is deployed gets an entry in the `jobResults.jobs` property. I
 
 Use `--sql [connection-string] --table [table-name]` arguments to store in the specified SQL Server database. The connection string must point to an existing SQL Server database. The first time it's called the required table will be created.
 
-The create table has the following schema:
+The created table has the following schema:
 
 
 | Column         | Type     | Example     | Description     |
@@ -125,3 +125,9 @@ The create table has the following schema:
 | Scenario | `nvarchard(200)` | hello | name of the scenario that was used |
 | Description | `nvarchard(200)` | custom string representing extra information about the job | |
 | Document | `nvarchar(max)` | { jobResults: {} } | json document containing the results of the job |
+
+### Elasticsearch
+
+Use `--es [server-url] --index [index-name]` arguments to store in the specified Elasticsearch server. The url must point to an existing Elasticsearch instance. The first time it's called the mapping of the required index will be created.
+
+The created index has the same set of fields as SqlServer

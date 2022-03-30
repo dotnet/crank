@@ -22,6 +22,8 @@ Options:
   
   --sql                                                          Connection string or environment variable name of the SQL Server Database to store results in.
   --table                                                        Table or environment variable name of the SQL Database to store results in.
+  --es                                                           Url or environment variable name of the Elasticsearch server to store results in.
+  --index                                                        Index name or environment variable name of the Elasticsearch server to store results in.
   --json <filename>                                              Store the results as json in the specified file.
   --csv <filename>                                               Store or append the results as csv in the specified file.
   --no-metadata                                                  Don't record metadata in the stored document.
