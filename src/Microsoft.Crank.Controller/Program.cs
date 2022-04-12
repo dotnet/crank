@@ -159,7 +159,7 @@ namespace Microsoft.Crank.Controller
             _elastiSearchUrlOption = app.Option("--es",
             "Elasticsearch server url to store results in", CommandOptionType.SingleValue);
             _elasticSearchIndexOption = app.Option("--index",
-                    "Index name of the Elasticsearch server to store results in", CommandOptionType.SingleValue); _sessionOption = app.Option("--session", "A logical identifier to group related jobs.", CommandOptionType.SingleValue);
+                    "Index name of the Elasticsearch server to store results in", CommandOptionType.SingleValue); 
             _relayConnectionStringOption = app.Option("--relay", "Connection string or environment variable name of the Azure Relay namespace used to access the Crank Agent endpoints. e.g., 'Endpoint=sb://mynamespace.servicebus.windows.net;...', 'MY_AZURE_RELAY_ENV'", CommandOptionType.SingleValue);
             _sessionOption = app.Option("--session", "A logical identifier to group related jobs.", CommandOptionType.SingleValue);
             _descriptionOption = app.Option("--description", "A string describing the job.", CommandOptionType.SingleValue);
