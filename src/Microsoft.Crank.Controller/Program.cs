@@ -1658,6 +1658,10 @@ namespace Microsoft.Crank.Controller
             // 1- The default values of the profile is applied to all jobs
             // 2- The job specific values are applied accordingly to each named job
 
+            // Merge all requested profiles to have the information of all agents available in a single one
+
+            var profile = new JObject();
+
             foreach (var profileName in profileNames)
             {
                 // Check the requested profile name exists
@@ -1667,79 +1671,79 @@ namespace Microsoft.Crank.Controller
                     throw new ControllerException($"Could not find a profile named '{profileName}'. Possible values: '{availableProfiles}'");
                 }
 
-                var profile = (JObject)configuration["Profiles"][profileName];
+                var localProfile = (JObject)configuration["Profiles"][profileName];
+                PatchObject(profile, localProfile);
+            }            
 
-                // Patch all jobs with the profile's default values (Step 1)
-                var profileWithoutJob = (JObject)profile.DeepClone();
-                profileWithoutJob.Remove("jobs"); // remove both pascal and camel case properties
-                profileWithoutJob.Remove("Jobs");
-                profileWithoutJob.Remove("agents"); // 'jobs' was renamed 'agents' when name mapping was introduced
-                profileWithoutJob.Remove("Agents");
+            // Patch all jobs with the profile's default values (Step 1)
 
-                foreach (JProperty jobProperty in configuration["Jobs"] ?? new JObject())
+            var profileWithoutJob = (JObject)profile.DeepClone();
+            profileWithoutJob.Remove("jobs"); // remove both pascal and camel case properties
+            profileWithoutJob.Remove("Jobs");
+            profileWithoutJob.Remove("agents"); // 'jobs' was renamed 'agents' when name mapping was introduced
+            profileWithoutJob.Remove("Agents");
+
+            foreach (JProperty jobProperty in configuration["Jobs"] ?? new JObject())
+            {
+                PatchObject((JObject)jobProperty.Value, profileWithoutJob);
+            }
+
+            // Patch each specific job (Step 2)
+
+            foreach (var serviceEntry in configurationInstance.Scenarios[scenarioName])
+            {
+                var serviceName = serviceEntry.Key;
+
+                var service = configuration["Jobs"][serviceName] as JObject;
+
+                if (service == null)
                 {
-                    PatchObject((JObject)jobProperty.Value, profileWithoutJob);
+                    throw new ControllerException($"Could not find a service named '{serviceName}' while applying profiles");
                 }
 
-                // Patch each specific job (Step 2)
+                // Apply profile on each service:
+                // 1- if a service has an agent property use it to match an agent name or its aliases
+                // 2- otherwise use the service name to match an agent name or its aliases
 
-                ;
+                string agentName = null;
 
-                foreach (var serviceEntry in configurationInstance.Scenarios[scenarioName])
+                if (!String.IsNullOrEmpty(serviceEntry.Value.Agent))
                 {
-                    var serviceName = serviceEntry.Key;
-
-                    var service = configuration["Jobs"][serviceName] as JObject;
-
-                    if (service == null)
-                    {
-                        throw new ControllerException($"Could not find a service named '{serviceName}' while applying profiles");
-                    }
-
-                    // Apply profile on each service:
-                    // 1- if a service has an agent property use it to match an agent name or its aliases
-                    // 2- otherwise use the service name to match an agent name or its aliases
-
-                    string agentName = null;
-
-                    if (!String.IsNullOrEmpty(serviceEntry.Value.Agent))
-                    {
-                        agentName = serviceEntry.Value.Agent;
-                    }
-                    else
-                    {
-                        agentName = serviceName;
-                    }
-
-                    var agents = (profile["agents"] ?? profile["jobs"]) as JObject;
-
-
-                    // Seek the definition for this profile and agent
-                    var profileAgent = agents.Properties().FirstOrDefault(x =>
-                    {
-                        if (x.Name == agentName)
-                        {
-                            return true;
-                        }
-
-                        if (x.Value is JObject v
-                            && v.TryGetValue("aliases", out var aliases)
-                            && aliases is JArray aliasesArray
-                            && aliasesArray.Values().Select(a => a.Value<string>()).Contains(agentName))
-                        {
-                            return true;
-                        }
-
-                        return false;
-                    })?.Value as JObject;
-
-                    if (profileAgent == null)
-                    {
-                        throw new ControllerException($"Could not find an agent named '{agentName}'.");
-                    }
-
-                    PatchObject(service, profileAgent);
+                    agentName = serviceEntry.Value.Agent;
                 }
+                else
+                {
+                    agentName = serviceName;
+                }
+
+                var agents = (profile["agents"] ?? profile["jobs"]) as JObject;
+
+
+                // Seek the definition for this profile and agent
+                var profileAgent = agents.Properties().FirstOrDefault(x =>
+                {
+                    if (x.Name == agentName)
+                    {
+                        return true;
+                    }
+
+                    if (x.Value is JObject v
+                        && v.TryGetValue("aliases", out var aliases)
+                        && aliases is JArray aliasesArray
+                        && aliasesArray.Values().Select(a => a.Value<string>()).Contains(agentName))
+                    {
+                        return true;
+                    }
+
+                    return false;
+                })?.Value as JObject;
+
+                if (profileAgent == null)
+                {
+                    throw new ControllerException($"Could not find an agent named '{agentName}'.");
+                }
+
+                PatchObject(service, profileAgent);
             }
 
             // Apply custom arguments
