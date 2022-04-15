@@ -34,8 +34,7 @@ namespace Microsoft.Crank.Models
         public string CrankArguments { get; set; }
         public string Origin { get; set; }
 
-        [JsonConverter(typeof(StringEnumConverter))]
-        public Hardware? Hardware { get; set; }
+        public string Hardware { get; set; }
 
         public string HardwareVersion { get; set; }
 
