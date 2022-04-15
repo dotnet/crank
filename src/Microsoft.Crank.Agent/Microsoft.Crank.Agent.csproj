@@ -25,7 +25,7 @@
     <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" Version="0.2.251802" />
     <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="2.0.74" />
     <PackageReference Include="Mono.Cecil" Version="0.11.3" />
-    <PackageReference Include="Mono.Posix.NETStandard" Version="1.0.0" />
+    <PackageReference Include="Mono.Unix" Version="7.1.0-final.1.21458.1" />
     <PackageReference Include="NuGet.Versioning" Version="5.5.1" />
     <PackageReference Include="Vanara.PInvoke.Kernel32" Version="3.3.14" />
     <PackageReference Include="Serilog.Formatting.Compact" Version="1.1.0" />
