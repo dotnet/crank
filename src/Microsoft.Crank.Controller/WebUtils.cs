@@ -95,7 +95,7 @@ namespace Microsoft.Crank.Controller
             Console.WriteLine();
         }
 
-        internal static async Task CopyToAsync(this Stream source, Stream destination, IProgress<long> progress, CancellationToken cancellationToken = default(CancellationToken), int bufferSize = 0x1000)
+        internal static async Task CopyToAsync(this Stream source, Stream destination, IProgress<long> progress, CancellationToken cancellationToken = default(CancellationToken), int bufferSize = 0x10000)
         {
             var buffer = new byte[bufferSize];
             int bytesRead;
