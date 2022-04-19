@@ -4,14 +4,14 @@ This tutorial shows how to store the results of a benchmark locally and in a SQL
 
 ### Local JSON files
 
-Use `--output [filename]` to store the results locally in JSON format. 
+Use `--json [filename]` to store the results locally in JSON format. 
 
 Some jobs can provide more information when the results are stored than on the console. For instance __bombardier__ will also provide detailed latency information that is not displayed by default.
 
 The following example executes the __hello__ sample benchmark and stores the results in a file named `results.json`. We assume the agent is running locally.
 
 ```
-crank --config /crank/samples/hello/hello.benchmarks.yml --scenario hello --profile local --output results.json 
+crank --config /crank/samples/hello/hello.benchmarks.yml --scenario hello --profile local --json results.json 
 ```
 
 And the file should contain some content similar to this:
