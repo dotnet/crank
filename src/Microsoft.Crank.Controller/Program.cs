@@ -9,23 +9,24 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Crank.Models;
-using Microsoft.Crank.Controller.Serializers;
 using Fluid;
 using Fluid.Values;
+using Jint;
+using Manatee.Json;
+using Manatee.Json.Schema;
 using McMaster.Extensions.CommandLineUtils;
+using Microsoft.Azure.Relay;
+using Microsoft.Crank.Controller.Serializers;
+using Microsoft.Crank.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 using YamlDotNet.Serialization;
-using System.Text;
-using Manatee.Json.Schema;
-using Manatee.Json;
-using Jint;
-using System.Security.Cryptography;
-using Microsoft.Azure.Relay;
 
 namespace Microsoft.Crank.Controller
 {
@@ -45,7 +46,7 @@ namespace Microsoft.Crank.Controller
         // c.f. https://github.com/Microsoft/perfview/blob/main/src/PerfView/CommandLineArgs.cs
         private const string _defaultTraceArguments = "BufferSizeMB=1024;CircularMB=4096;TplEvents=None;Providers=Microsoft-Diagnostics-DiagnosticSource:0:0;KernelEvents=default+ThreadTime-NetworkTCPIP";
 
-        private static ScriptConsole _scriptConsole = new ScriptConsole();
+        private static readonly ScriptConsole _scriptConsole = new ScriptConsole();
 
         private static CommandOption
             _configOption,
@@ -59,7 +60,7 @@ namespace Microsoft.Crank.Controller
             _sqlConnectionStringOption,
             _sqlTableOption,
             _elastiSearchUrlOption,
-           _elasticSearchIndexOption,
+            _elasticSearchIndexOption,
             _relayConnectionStringOption,
             _sessionOption,
             _descriptionOption,
@@ -79,18 +80,24 @@ namespace Microsoft.Crank.Controller
             _scriptOption,
             _excludeOption,
             _excludeOrderOption,
-            _debugOption
+            _debugOption,
+            _commandLinePropertyOption
             ;
 
         // The dynamic arguments that will alter the configurations
-        private static List<KeyValuePair<string, string>> Arguments = new List<KeyValuePair<string, string>>();
+        private static readonly List<KeyValuePair<string, string>> Arguments = new List<KeyValuePair<string, string>>();
 
-        private static Dictionary<string, string> _deprecatedArguments = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        private static readonly Dictionary<string, string> _deprecatedArguments = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             { "--output", "--json" }, { "-o", "-j" } // todo: remove in subsequent version prefix
         };
 
-        private static Dictionary<string, string> _synonymArguments = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        // These commands are ignored from the 'command-line' property
+        private static HashSet<CommandOption> _ignoredCommands;
+
+        private static string _commandLineProperty;
+
+        private static readonly Dictionary<string, string> _synonymArguments = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
         };
 
@@ -179,6 +186,31 @@ namespace Microsoft.Crank.Controller
             _excludeOption = app.Option("-x|--exclude", "Excludes the specified number of high and low results, e.g., 1, 1:0 (exclude the lowest), 0:3 (exclude the 3 highest)", CommandOptionType.SingleValue);
             _excludeOrderOption = app.Option("-xo|--exclude-order", "The result to use to detect the high and low results, e.g., 'load:http/rps/mean'", CommandOptionType.SingleValue);
             _debugOption = app.Option("-d|--debug", "Saves the final configuration to a file and skips the execution of the benchmark, e.g., '-d debug.json'", CommandOptionType.SingleValue);
+            _commandLinePropertyOption = app.Option("--command-line-property", "Saves the final crank command line in a custom 'command-line' property, excludinf all unnecessary and security sensitive arguments.", CommandOptionType.NoValue);
+
+            _ignoredCommands = new HashSet<CommandOption>()
+            {
+                _jsonOption,
+                _csvOption,
+                _compareOption,
+                _sqlConnectionStringOption,
+                _sqlTableOption,
+                _elastiSearchUrlOption,
+                _elasticSearchIndexOption,
+                _relayConnectionStringOption,
+                _sessionOption,
+                _descriptionOption,
+                _propertyOption,
+                _excludeMetadataOption,
+                _excludeMeasurementsOption,
+                _renderChartOption,
+                _chartTypeOption,
+                _chartScaleOption,
+                _verboseOption,
+                _quietOption,
+                _debugOption,
+                _commandLinePropertyOption,
+            };
 
             app.Command("compare", compareCmd =>
             {
@@ -190,9 +222,6 @@ namespace Microsoft.Crank.Controller
                     return ResultComparer.Compare(files.Values);
                 });
             });
-
-            // Store arguments before the dynamic ones are removed
-            var commandLineArguments = String.Join(' ', args.Where(x => !String.IsNullOrWhiteSpace(x)).Select(x => x.StartsWith('-') ? x : '"' + x + '"'));
 
             // Extract dynamic arguments
             for (var i = 0; i < args.Length; i++)
@@ -217,6 +246,39 @@ namespace Microsoft.Crank.Controller
 
             app.OnExecuteAsync(async (t) =>
             {
+                var builder = new StringBuilder("crank");
+
+                // Add non-excluded options
+                foreach (var option in app.Options)
+                {
+                    if (_ignoredCommands.Contains(option))
+                    {
+                        continue;
+                    }
+
+                    if (option.HasValue())
+                    {
+                        foreach (var value in option.Values)
+                        {
+                            builder.Append($" --{option.LongName}");
+
+                            if (!String.IsNullOrWhiteSpace(value))
+                            {
+                                builder.Append(' ').Append(EncodeParameterArgument(value));
+                            }
+                        }
+                    }
+                }
+
+                // Add dynamic properties back
+
+                foreach (var dynamicArgument in Arguments)
+                {
+                    builder.Append(" --").Append(dynamicArgument.Key).Append(' ').Append(EncodeParameterArgument(dynamicArgument.Value));
+                }
+
+                _commandLineProperty = builder.ToString();
+
                 Log.IsQuiet = _quietOption.HasValue();
                 Log.IsVerbose = _verboseOption.HasValue();
 
@@ -472,7 +534,7 @@ namespace Microsoft.Crank.Controller
 
                     service.RunId = groupId;
                     service.Origin = Environment.MachineName;
-                    service.CrankArguments = commandLineArguments;
+                    service.CrankArguments = _commandLineProperty;
 
                     if (String.IsNullOrEmpty(service.Source.Project) &&
                         String.IsNullOrEmpty(service.Source.DockerFile) &&
@@ -956,6 +1018,11 @@ namespace Microsoft.Crank.Controller
                     jobResults.Properties[segments[0]] = segments[1];
                 }
 
+                if (_commandLinePropertyOption.HasValue())
+                {
+                    jobResults.Properties["command-line"] = _commandLineProperty;
+                }
+
                 executionResult.JobResults = jobResults;
                 executionResults.Add(executionResult);
 
@@ -1338,6 +1405,11 @@ namespace Microsoft.Crank.Controller
                     jobResults.Properties[segments[0]] = segments[1];
                 }
 
+                if (_commandLinePropertyOption.HasValue())
+                {
+                    jobResults.Properties["command-line"] = _commandLineProperty;
+                }
+
                 jobResults.Jobs[jobName].Results["benchmarks"] = benchmark;
 
                 // "Micro.Md5VsSha256.Sha256(N: 100)"
@@ -1477,6 +1549,11 @@ namespace Microsoft.Crank.Controller
                         var segments = property.Split('=', 2);
 
                         jobResults.Properties[segments[0]] = segments[1];
+                    }
+
+                    if (_commandLinePropertyOption.HasValue())
+                    {
+                        jobResults.Properties["command-line"] = _commandLineProperty;
                     }
 
                     // Save results
@@ -3060,6 +3137,21 @@ namespace Microsoft.Crank.Controller
 
                 return null;
             }
+        }
+        
+        private static string EncodeParameterArgument(string original)
+        {
+            // c.f., https://stackoverflow.com/questions/5510343/escape-command-line-arguments-in-c-sharp
+
+            if (string.IsNullOrEmpty(original))
+            {
+                return original;
+            }
+
+            var value = Regex.Replace(original, @"(\\*)" + "\"", @"$1\$0");
+            value = Regex.Replace(value, @"^(.*\s.*?)(\\*)$", "\"$1$2$2\"", RegexOptions.Singleline);
+
+            return value;
         }
     }
 }

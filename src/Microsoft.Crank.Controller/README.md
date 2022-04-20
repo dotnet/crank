@@ -42,6 +42,7 @@ Options:
   --script [name]                                                Execute a named script available in the configuration files. Can be used multiple times.
   --debug <filename>                                             Saves the final configuration to a file and skips the execution of the benchmark, e.g., '-d debug.json'
   --relay <connection_string>                                    Connection string or environment variable name of the Azure Relay namespace used to access the Crank Agent endpoints. e.g., 'Endpoint=sb://mynamespace.servicebus.windows.net;...', 'MY_AZURE_RELAY_ENV';
+  --command-line-property                                        Saves the final crank command line in a custom 'command-line' property, excludinf all unnecessary and security sensitive arguments.
 
   These options are specific to a Job service named [JOB]
 

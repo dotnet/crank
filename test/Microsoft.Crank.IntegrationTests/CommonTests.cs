@@ -80,7 +80,7 @@ namespace Microsoft.Crank.IntegrationTests
 
             var result = await ProcessUtil.RunAsync(
                 "dotnet", 
-                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --config ./assets/scripts.benchmarks.yml --script add_current_time --json results.json", 
+                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --config ./assets/scripts.benchmarks.yml --script add_current_time --json results.json --property a=b --command-line-property", 
                 workingDirectory: _crankTestsDirectory,
                 captureOutput: true,
                 timeout: TimeSpan.FromMinutes(5),
@@ -97,6 +97,14 @@ namespace Microsoft.Crank.IntegrationTests
             Assert.Contains("a default script", result.StandardOutput);
             Assert.NotEmpty(results.RootElement.GetProperty("jobResults").GetProperty("properties").GetProperty("time").GetString());
             Assert.Equal(123.0, results.RootElement.GetProperty("jobResults").GetProperty("jobs").GetProperty("application").GetProperty("results").GetProperty("my/result").GetDouble());
+            Assert.Equal("b", results.RootElement.GetProperty("jobResults").GetProperty("properties").GetProperty("a").GetString());
+
+            var commandLineArguments = results.RootElement.GetProperty("jobResults").GetProperty("properties").GetProperty("command-line").GetString();
+
+            Assert.Contains("--config ./assets/hello.benchmarks.yml", commandLineArguments);
+            Assert.Contains("--scenario hello", commandLineArguments);
+            Assert.Contains("--profile local", commandLineArguments);
+            Assert.DoesNotContain("--json results.json", commandLineArguments);
         }
 
         [Fact]
