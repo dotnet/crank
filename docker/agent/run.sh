@@ -24,4 +24,4 @@ do
     esac
 done
 
-docker run -it --name $name -d --network host --restart always --privileged -v /var/run/docker.sock:/var/run/docker.sock crank-agent --url $url $others
+docker run -it --name $name -d --network host --restart always --log-opt max-size=1G --privileged -v /var/run/docker.sock:/var/run/docker.sock crank-agent --url $url $others
