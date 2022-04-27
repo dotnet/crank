@@ -10,6 +10,7 @@
     <OutputType>Exe</OutputType>
     <Authors>Microsoft</Authors>
     <PackageId>Microsoft.Crank.Controller</PackageId>
+    <LangVersion>9.0</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
