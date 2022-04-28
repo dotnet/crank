@@ -17,7 +17,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Crank.Jobs.Bombardier
 {
-    class Program
+    static class Program
     {
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
@@ -238,14 +238,14 @@ namespace Microsoft.Crank.Jobs.Bombardier
                 BenchmarksEventSource.Register("bombardier/requests;http/requests", Operations.Max, Operations.Sum, "Requests", "Total number of requests", "n0");
                 BenchmarksEventSource.Register("bombardier/badresponses;http/requests/badresponses", Operations.Max, Operations.Sum, "Bad responses", "Non-2xx or 3xx responses", "n0");
 
-                BenchmarksEventSource.Register("bombardier/latency/50;http/latency/50", Operations.Max, Operations.Max, "Latency 50th (us)", "Latency 50th (us)", "n0");
-                BenchmarksEventSource.Register("bombardier/latency/75;http/latency/75", Operations.Max, Operations.Max, "Latency 75th (us)", "Latency 75th (us)", "n0");
-                BenchmarksEventSource.Register("bombardier/latency/90;http/latency/90", Operations.Max, Operations.Max, "Latency 90th (us)", "Latency 90th (us)", "n0");
-                BenchmarksEventSource.Register("bombardier/latency/95;http/latency/95", Operations.Max, Operations.Max, "Latency 95th (us)", "Latency 95th (us)", "n0");
-                BenchmarksEventSource.Register("bombardier/latency/99;http/latency/99", Operations.Max, Operations.Max, "Latency 99th (us)", "Latency 99th (us)", "n0");
+                BenchmarksEventSource.Register("bombardier/latency/50;http/latency/50", Operations.Max, Operations.Max, "Latency 50th (ms)", "Latency 50th (ms)", "n2");
+                BenchmarksEventSource.Register("bombardier/latency/75;http/latency/75", Operations.Max, Operations.Max, "Latency 75th (ms)", "Latency 75th (ms)", "n2");
+                BenchmarksEventSource.Register("bombardier/latency/90;http/latency/90", Operations.Max, Operations.Max, "Latency 90th (ms)", "Latency 90th (ms)", "n2");
+                BenchmarksEventSource.Register("bombardier/latency/95;http/latency/95", Operations.Max, Operations.Max, "Latency 95th (ms)", "Latency 95th (ms)", "n2");
+                BenchmarksEventSource.Register("bombardier/latency/99;http/latency/99", Operations.Max, Operations.Max, "Latency 99th (ms)", "Latency 99th (ms)", "n2");
 
-                BenchmarksEventSource.Register("bombardier/latency/mean;http/latency/mean", Operations.Max, Operations.Avg, "Mean latency (us)", "Mean latency (us)", "n0");
-                BenchmarksEventSource.Register("bombardier/latency/max;http/latency/max", Operations.Max, Operations.Max, "Max latency (us)", "Max latency (us)", "n0");
+                BenchmarksEventSource.Register("bombardier/latency/mean;http/latency/mean", Operations.Max, Operations.Avg, "Mean latency (ms)", "Mean latency (ms)", "n2");
+                BenchmarksEventSource.Register("bombardier/latency/max;http/latency/max", Operations.Max, Operations.Max, "Max latency (ms)", "Max latency (ms)", "n2");
 
                 BenchmarksEventSource.Register("bombardier/rps/mean;http/rps/mean", Operations.Max, Operations.Sum, "Requests/sec", "Requests per second", "n0");
                 BenchmarksEventSource.Register("bombardier/rps/max;http/rps/max", Operations.Max, Operations.Sum, "Requests/sec (max)", "Max requests per second", "n0");
@@ -266,14 +266,14 @@ namespace Microsoft.Crank.Jobs.Bombardier
                 BenchmarksEventSource.Measure("bombardier/requests;http/requests", total);
                 BenchmarksEventSource.Measure("bombardier/badresponses;http/requests/badresponses", total - success);
 
-                BenchmarksEventSource.Measure("bombardier/latency/50;http/latency/50", document["result"]["latency"]["percentiles"]["50"].Value<double>());
-                BenchmarksEventSource.Measure("bombardier/latency/75;http/latency/75", document["result"]["latency"]["percentiles"]["75"].Value<double>());
-                BenchmarksEventSource.Measure("bombardier/latency/90;http/latency/90", document["result"]["latency"]["percentiles"]["90"].Value<double>());
-                BenchmarksEventSource.Measure("bombardier/latency/95;http/latency/95", document["result"]["latency"]["percentiles"]["95"].Value<double>());
-                BenchmarksEventSource.Measure("bombardier/latency/99;http/latency/99", document["result"]["latency"]["percentiles"]["99"].Value<double>());
+                BenchmarksEventSource.Measure("bombardier/latency/50;http/latency/50", document["result"]["latency"]["percentiles"]["50"].Value<double>().ToMilliseconds());
+                BenchmarksEventSource.Measure("bombardier/latency/75;http/latency/75", document["result"]["latency"]["percentiles"]["75"].Value<double>().ToMilliseconds());
+                BenchmarksEventSource.Measure("bombardier/latency/90;http/latency/90", document["result"]["latency"]["percentiles"]["90"].Value<double>().ToMilliseconds());
+                BenchmarksEventSource.Measure("bombardier/latency/95;http/latency/95", document["result"]["latency"]["percentiles"]["95"].Value<double>().ToMilliseconds());
+                BenchmarksEventSource.Measure("bombardier/latency/99;http/latency/99", document["result"]["latency"]["percentiles"]["99"].Value<double>().ToMilliseconds());
 
-                BenchmarksEventSource.Measure("bombardier/latency/mean;http/latency/mean", document["result"]["latency"]["mean"].Value<double>());
-                BenchmarksEventSource.Measure("bombardier/latency/max;http/latency/max", document["result"]["latency"]["max"].Value<double>());
+                BenchmarksEventSource.Measure("bombardier/latency/mean;http/latency/mean", document["result"]["latency"]["mean"].Value<double>().ToMilliseconds());
+                BenchmarksEventSource.Measure("bombardier/latency/max;http/latency/max", document["result"]["latency"]["max"].Value<double>().ToMilliseconds());
 
                 BenchmarksEventSource.Measure("bombardier/rps/max;http/rps/max", document["result"]["rps"]["max"].Value<double>());
                 BenchmarksEventSource.Measure("bombardier/rps/mean;http/rps/mean", document["result"]["rps"]["mean"].Value<double>());
@@ -386,6 +386,16 @@ namespace Microsoft.Crank.Jobs.Bombardier
             }
 
             return s;
+        }
+
+        private static double ToMilliseconds(this double microseconds)
+        {
+            if (microseconds <= 0)
+            {
+                return microseconds;
+            }
+
+            return microseconds / 1000;
         }
     }
 }

@@ -105,8 +105,8 @@ namespace H2LoadClient
             BenchmarksEventSource.Register("h2load/badresponses;http/requests/badresponses", Operations.Max, Operations.Sum, "Bad responses", "Non-2xx or 3xx responses", "n0");
             BenchmarksEventSource.Register("h2load/errors/socketerrors;http/requests/errors", Operations.Max, Operations.Sum, "Socket errors", "Socket errors", "n0");
 
-            BenchmarksEventSource.Register("h2load/latency/mean;http/latency/mean", Operations.Max, Operations.Sum, "Mean latency (ms)", "Mean latency (ms)", "n0");
-            BenchmarksEventSource.Register("h2load/latency/max;http/latency/max", Operations.Max, Operations.Sum, "Max latency (ms)", "Max latency (ms)", "n0");
+            BenchmarksEventSource.Register("h2load/latency/mean;http/latency/mean", Operations.Max, Operations.Sum, "Mean latency (ms)", "Mean latency (ms)", "n2");
+            BenchmarksEventSource.Register("h2load/latency/max;http/latency/max", Operations.Max, Operations.Sum, "Max latency (ms)", "Max latency (ms)", "n2");
 
             BenchmarksEventSource.Register("h2load/rps/max;http/rps/max", Operations.Max, Operations.Sum, "Max RPS", "RPS: max", "n0");
             BenchmarksEventSource.Register("h2load/raw", Operations.All, Operations.All, "Raw results", "Raw results", "object");
