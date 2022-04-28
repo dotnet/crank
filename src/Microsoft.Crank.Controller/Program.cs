@@ -150,10 +150,10 @@ namespace Microsoft.Crank.Controller
 
             app.HelpOption("-?|-h|--help");
 
-            _configOption = app.Option("-c|--config", "Configuration file or url", CommandOptionType.MultipleValue);
-            _scenarioOption = app.Option("-s|--scenario", "Scenario to execute", CommandOptionType.SingleValue);
-            _jobOption = app.Option("-j|--job", "Name of job to define", CommandOptionType.MultipleValue);
-            _profileOption = app.Option("--profile", "Profile name", CommandOptionType.MultipleValue);
+            _configOption = app.Option("-c|--config", "Configuration file or url.", CommandOptionType.MultipleValue);
+            _scenarioOption = app.Option("-s|--scenario", "Scenario to execute.", CommandOptionType.SingleValue);
+            _jobOption = app.Option("-j|--job", "Creates a job that is not defined in configuration.", CommandOptionType.MultipleValue);
+            _profileOption = app.Option("--profile", "Profile name.", CommandOptionType.MultipleValue);
             _scriptOption = app.Option("--script", "Execute a named script available in the configuration files. Can be used multiple times.", CommandOptionType.MultipleValue);
             _jsonOption = app.Option("-j|--json", "Saves the results as json in the specified file.", CommandOptionType.SingleValue);
             _csvOption = app.Option("--csv", "Saves the results as csv in the specified file.", CommandOptionType.SingleValue);
@@ -164,9 +164,9 @@ namespace Microsoft.Crank.Controller
             _sqlTableOption = app.Option("--table",
                 "Table name or environment variable name of the SQL table to store results in.", CommandOptionType.SingleValue);
             _elastiSearchUrlOption = app.Option("--es",
-            "Elasticsearch server url to store results in", CommandOptionType.SingleValue);
+            "Elasticsearch server url to store results in.", CommandOptionType.SingleValue);
             _elasticSearchIndexOption = app.Option("--index",
-                    "Index name of the Elasticsearch server to store results in", CommandOptionType.SingleValue); 
+                    "Index name of the Elasticsearch server to store results in.", CommandOptionType.SingleValue); 
             _relayConnectionStringOption = app.Option("--relay", "Connection string or environment variable name of the Azure Relay namespace used to access the Crank Agent endpoints. e.g., 'Endpoint=sb://mynamespace.servicebus.windows.net;...', 'MY_AZURE_RELAY_ENV'", CommandOptionType.SingleValue);
             _sessionOption = app.Option("--session", "A logical identifier to group related jobs.", CommandOptionType.SingleValue);
             _descriptionOption = app.Option("--description", "A string describing the job.", CommandOptionType.SingleValue);
@@ -475,7 +475,6 @@ namespace Microsoft.Crank.Controller
                 var results = new ExecutionResult();
 
                 var scenarioName = _scenarioOption.Value();
-                var jobNames = _jobOption.Values;
 
                 var variables = new JObject();
 
@@ -1696,6 +1695,19 @@ namespace Microsoft.Crank.Controller
                     var jobName = service.Value.Job;
                     var serviceName = service.Key;
 
+                    // Check if an argument redefines the base job of a service, e.g. --load.job wrk
+
+                    foreach (var argument in arguments.ToArray())
+                    {
+                        if (argument.Key == $"{serviceName}.job")
+                        {
+                            jobName = argument.Value;
+
+                            // Remove this argument
+                            arguments = arguments.Where(x => x.Key != argument.Key);
+                        }
+                    }
+
                     if (!configurationInstance.Jobs.ContainsKey(jobName))
                     {
                         throw new ControllerException($"The job named `{jobName}` was not found for `{serviceName}`");
@@ -1826,7 +1838,8 @@ namespace Microsoft.Crank.Controller
             // Apply custom arguments
             foreach (var argument in arguments)
             {
-                JToken node = configuration["Jobs"];
+                // Initial node
+                var node = configuration["Jobs"];
 
                 var segments = argument.Key.Split('.');
 

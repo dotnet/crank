@@ -10,18 +10,18 @@ namespace Microsoft.Crank.Controller
 {
     public class Configuration
     {
-        public object Variables { get; set; } = new Dictionary<string, object>();
+        public Dictionary<string, object> Variables { get; } = new ();
 
-        public Dictionary<string, Job> Jobs { get; set; } = new Dictionary<string, Job>();
+        public Dictionary<string, Job> Jobs { get; } = new ();
 
-        public Dictionary<string, Dictionary<string, Scenario>> Scenarios { get; set; } = new Dictionary<string, Dictionary<string, Scenario>>();
+        public Dictionary<string, Dictionary<string, Service>> Scenarios { get; } = new ();
 
-        public Dictionary<string, object> Profiles { get; set; } = new Dictionary<string, object>();
+        public Dictionary<string, object> Profiles { get; } = new ();
 
         /// <summary>
         /// List of named script sections that can be executed in a run
         /// </summary>
-        public Dictionary<string, string> Scripts { get; set; } = new Dictionary<string, string>();
+        public Dictionary<string, string> Scripts { get; } = new ();
 
         /// <summary>
         /// Scripts which are loaded automatically when the configuration file is included.
@@ -53,7 +53,7 @@ namespace Microsoft.Crank.Controller
 
     }
 
-    public class Scenario
+    public class Service
     {
         public string Job { get; set; }
 
