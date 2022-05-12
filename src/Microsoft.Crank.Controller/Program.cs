@@ -2060,10 +2060,12 @@ namespace Microsoft.Crank.Controller
             {
                 string configurationContent;
 
+                var isRemoteConfiguration = configurationFilenameOrUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase);
+
                 // Load the job definition from a url or locally
                 try
                 {
-                    if (configurationFilenameOrUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                    if (isRemoteConfiguration)
                     {
                         configurationContent = await _httpClient.GetStringAsync(configurationFilenameOrUrl);
                     }
@@ -2074,7 +2076,8 @@ namespace Microsoft.Crank.Controller
                 }
                 catch
                 {
-                    throw new ControllerException($"Configuration '{Path.GetFullPath(configurationFilenameOrUrl)}' could not be loaded.");
+                    var path = isRemoteConfiguration ? configurationFilenameOrUrl : Path.GetFullPath(configurationFilenameOrUrl);
+                    throw new ControllerException($"Configuration '{path}' could not be loaded.");
                 }
 
                 localconfiguration = null;
