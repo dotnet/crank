@@ -40,8 +40,32 @@ RUN apt-get update \
 
 # Install HTTP/3 support
 
-RUN if [ "$(uname -m)" != "aarch64" ] ; then curl -O https://packages.microsoft.com/debian/10/prod/pool/main/libm/libmsquic/libmsquic-1.5.0-amd64.deb ; fi
-RUN if [ "$(uname -m)" != "aarch64" ] ; then dpkg -i libmsquic-1.5.0-amd64.deb ; fi
+# msquic 1.9 for .NET 6
+RUN if [ "$(uname -m)" != "aarch64" ] ; then curl -O https://packages.microsoft.com/debian/10/prod/pool/main/libm/libmsquic/libmsquic_1.9.1_amd64.deb ; fi
+RUN if [ "$(uname -m)" != "aarch64" ] ; then dpkg -i libmsquic_1.9.1_amd64.deb ; fi
+
+# msquic 2 for .NET 7 -- temporary workaround until we get a signed package
+RUN if [ "$(uname -m)" != "aarch64" ] ; then \
+    apt-get update -y \
+    && apt-get upgrade -y \
+    && apt-get install -y cmake clang ruby-dev gem lttng-tools libssl-dev \
+    && gem install fpm ; fi
+RUN if [ "$(uname -m)" != "aarch64" ] ; then \
+    cd /tmp \
+    && git clone --recursive https://github.com/dotnet/msquic; fi
+RUN if [ "$(uname -m)" != "aarch64" ] ; then \
+    cd /tmp/msquic/src/msquic \
+    && mkdir build \
+    && cmake -B build -DCMAKE_BUILD_TYPE=Release -DQUIC_ENABLE_LOGGING=false -DQUIC_USE_SYSTEM_LIBCRYPTO=true -DQUIC_BUILD_TOOLS=off -DQUIC_BUILD_TEST=off -DQUIC_BUILD_PERF=off \
+    && cd build \
+    && cmake --build . --config Release ; fi
+RUN if [ "$(uname -m)" != "aarch64" ] ; then \
+    cd /tmp/msquic/src/msquic/build/bin/Release \
+    && rm libmsquic.so \
+    && fpm -f -s dir -t deb -n libmsquic2 -v $( find -type f | cut -d "." -f 4- ) \
+    --license MIT --url https://github.com/microsoft/msquic --log error \
+    $( ls ./* | cut -d "/" -f 2 | sed -r "s/(.*)/\1=\/usr\/lib\/\1/g" ) \
+    && dpkg -i libmsquic2_*.deb ; fi
 
 # Build and install h2load. Required as there isn't a way to distribute h2load as a single file to download
 RUN apt-get update \
