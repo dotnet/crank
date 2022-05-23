@@ -345,7 +345,7 @@ namespace Microsoft.Crank.RegressionBot
                 title = await fluidTemplate.RenderAsync(context);
             }
 
-            return title;
+            return title.Trim();
         }
 
         private static async Task CreateRegressionIssue(IEnumerable<Regression> regressions, string titleTemplate, string bodyTemplate)
