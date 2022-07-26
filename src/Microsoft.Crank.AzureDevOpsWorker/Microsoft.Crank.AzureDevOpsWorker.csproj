@@ -14,11 +14,11 @@
 
   <ItemGroup>
     <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="3.0.0" />
-    <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.0.0" />
+    <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.9.0" />
     <PackageReference Include="Jint" Version="3.0.0-beta-1914" />
     
     <!-- Force version for Component Governance compliance -->
-    <PackageReference Include="System.Text.Encodings.Web" Version="4.5.1" >
+    <PackageReference Include="System.Text.Encodings.Web" Version="4.7.2" >
       <AllowExplicitReference>true</AllowExplicitReference>
     </PackageReference>
   </ItemGroup>
