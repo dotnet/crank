@@ -25,7 +25,7 @@
     <PackageReference Include="YamlDotNet" Version="8.1.2" />
 
     <!-- Force version for Component Governance compliance -->
-    <PackageReference Include="System.Text.Encodings.Web" Version="4.5.1" >
+    <PackageReference Include="System.Text.Encodings.Web" Version="4.7.2" >
       <AllowExplicitReference>true</AllowExplicitReference>
     </PackageReference>
   </ItemGroup>

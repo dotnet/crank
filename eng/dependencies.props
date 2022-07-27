@@ -1,5 +1,5 @@
 <Project>
   <PropertyGroup Label="Package Versions">
-    <JsonNetVersion>12.0.3</JsonNetVersion>
+    <JsonNetVersion>13.0.1</JsonNetVersion>
   </PropertyGroup>
 </Project>
