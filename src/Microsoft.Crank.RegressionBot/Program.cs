@@ -735,7 +735,7 @@ namespace Microsoft.Crank.RegressionBot
                             {
                                 PreviousResult = resultSet[i+2].Result,
                                 CurrentResult = resultSet[i+3].Result,
-                                Change = value3,
+                                Change = CurrentResult - PreviousResult,
                                 StandardDeviation = standardDeviation,
                                 Average = average
                             };
