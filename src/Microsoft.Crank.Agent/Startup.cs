@@ -78,10 +78,16 @@ namespace Microsoft.Crank.Agent
         private static readonly string _dotnetInstallPs1Url = "https://dot.net/v1/dotnet-install.ps1";
         private static readonly string _aspNetCoreDependenciesUrl = "https://raw.githubusercontent.com/aspnet/AspNetCore/{0}";
         private static readonly string _perfviewUrl = $"https://github.com/Microsoft/perfview/releases/download/{PerfViewVersion}/PerfView.exe";
+
         private static readonly string _aspnet5FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
         private static readonly string _aspnet6FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
         private static readonly string _aspnet7FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet7/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
         private static readonly string _aspnet8FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
+
+        private static readonly string _netcore5FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.linux-x64/index.json";
+        private static readonly string _netcore6FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.linux-x64/index.json";
+        private static readonly string _netcore7FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet7/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.linux-x64/index.json";
+        private static readonly string _netcore8FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.linux-x64/index.json";
 
         // Safe-keeping these urls
         //private static readonly string _latestRuntimeApiUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.linux-x64/index.json";
@@ -4017,21 +4023,30 @@ namespace Microsoft.Crank.Agent
 
                 var versionPrefix = targetFramework.Substring(targetFramework.Length - 3);
 
-                foreach (var runtimeApiUrl in _runtimeFeedUrls)
+                if (versionPrefix == "8.0")
                 {
-                    try
-                    {
-                        runtimeVersion = await GetFlatContainerVersion(runtimeApiUrl + "/microsoft.netcore.app.runtime.win-x64/index.json", versionPrefix, checkDotnetInstallUrl: true);
-
-                        if (!String.IsNullOrEmpty(runtimeVersion))
-                        {
-                            Log.Info($"Runtime: {runtimeVersion} (Edge)");
-                            break;
-                        }
-                    }
-                    catch
-                    {
-                    }
+                    runtimeVersion = await GetFlatContainerVersion(_netcore8FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
+                    Log.Info($"Runtime: {runtimeVersion} (Latest - From 8.0 feed)");
+                }
+                if (versionPrefix == "7.0")
+                {
+                    runtimeVersion = await GetFlatContainerVersion(_netcore7FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
+                    Log.Info($"Runtime: {runtimeVersion} (Latest - From 7.0 feed)");
+                }
+                else if (versionPrefix == "6.0")
+                {
+                    runtimeVersion = await GetFlatContainerVersion(_netcore6FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
+                    Log.Info($"Runtime: {runtimeVersion} (Latest - From 6.0 feed)");
+                }
+                else if (versionPrefix == "5.0")
+                {
+                    runtimeVersion = await GetFlatContainerVersion(_netcore5FlatContainerUrl, versionPrefix);
+                    Log.Info($"Runtime: {runtimeVersion} (Latest - From 5.0 feed)");
+                }
+                else
+                {
+                    runtimeVersion = currentRuntimeVersion;
+                    Log.Info($"Runtime: {runtimeVersion} (Latest - Fallback on Current)");
                 }
             }
             else
