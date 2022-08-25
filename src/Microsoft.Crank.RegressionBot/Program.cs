@@ -728,17 +728,17 @@ namespace Microsoft.Crank.RegressionBot
                             default:
                                 break;
                         }
-
-                        var previousResult = resultSet[i+2].Result;
-                        var currentResult = resultSet[i+3].Result;
+                        
+                        var currentValue = values[i + 3];
+                        var previousValue = values[i + 2];
                         
                         if (hasRegressed)
                         {
                             var regression = new Regression 
                             {
-                                PreviousResult = previousResult,
-                                CurrentResult = currentResult,
-                                Change = currentResult - previousResult,
+                                PreviousResult = resultSet[i+2].Result,
+                                CurrentResult = resultSet[i+3].Result,
+                                Change = currentValue - previousValue,
                                 StandardDeviation = standardDeviation,
                                 Average = average
                             };
@@ -746,7 +746,7 @@ namespace Microsoft.Crank.RegressionBot
                             if (_options.Verbose)
                             {
                                 Console.ForegroundColor = ConsoleColor.Red;
-                                Console.WriteLine($"Regression detected: {values[i + 2]:n0} to {values[i + 3]:n0} for {regression.Identifier}");
+                                Console.WriteLine($"Regression detected: {previousValue:n0} to {currentValue:n0} for {regression.Identifier}");
                                 Console.ResetColor();
                             }
 
