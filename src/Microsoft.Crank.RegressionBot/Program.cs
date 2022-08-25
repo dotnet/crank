@@ -729,13 +729,16 @@ namespace Microsoft.Crank.RegressionBot
                                 break;
                         }
 
+                        var previousResult = resultSet[i+2].Result;
+                        var currentResult = resultSet[i+3].Result;
+                        
                         if (hasRegressed)
                         {
                             var regression = new Regression 
                             {
-                                PreviousResult = resultSet[i+2].Result,
-                                CurrentResult = resultSet[i+3].Result,
-                                Change = CurrentResult - PreviousResult,
+                                PreviousResult = previousResult,
+                                CurrentResult = currentResult,
+                                Change = currentResult - previousResult,
                                 StandardDeviation = standardDeviation,
                                 Average = average
                             };
