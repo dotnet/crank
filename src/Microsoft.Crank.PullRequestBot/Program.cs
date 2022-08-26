@@ -591,7 +591,11 @@ namespace Microsoft.Crank.PullRequestBot
                 await ProcessUtil.RunAsync("git", $"clone --recursive {cloneUrl} {cloneFolder} -b {baseBranch}", workingDirectory: workspace, log: true);
 
                 // Build base
-                foreach (var c in buildCommands) await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), $"/c {c}", workingDirectory: cloneFolder, log: true);
+                foreach (var c in buildCommands)
+                {
+                    var scriptArgs = Environment.OSVersion.Platform == PlatformID.Win32NT ? $"/c {c}" : $"-c \"{c}\"";
+                    await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), scriptArgs, workingDirectory: cloneFolder, log: true);
+                }
 
                 foreach (var run in runs)
                 {
@@ -616,7 +620,11 @@ namespace Microsoft.Crank.PullRequestBot
                 await ProcessUtil.RunAsync("git", $@"merge FETCH_HEAD", workingDirectory: cloneFolder, log: true);
 
                 // Build head
-                foreach (var c in buildCommands) await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), $"/c {c}", workingDirectory: cloneFolder, log: true);
+                foreach (var c in buildCommands)
+                {
+                    var scriptArgs = Environment.OSVersion.Platform == PlatformID.Win32NT ? $"/c {c}" : $"-c \"{c}\"";
+                    await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), scriptArgs, workingDirectory: cloneFolder, log: true);
+                }
 
                 foreach (var run in runs)
                 {

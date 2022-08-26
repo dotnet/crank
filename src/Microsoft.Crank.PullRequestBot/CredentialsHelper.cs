@@ -30,7 +30,7 @@ namespace Microsoft.Crank.PullRequestBot
             }
             else
             {
-                return await GetCredentialsFromStore();
+                return await GetCredentialsFromStore(options.GitHubBaseUrl);
             }
         }
         public static Credentials GetCredentialsForUser(BotOptions options)
@@ -73,7 +73,7 @@ namespace Microsoft.Crank.PullRequestBot
             return new Credentials(installationToken.Token, AuthenticationType.Bearer);
         }
 
-        public static async Task<Credentials> GetCredentialsFromStore()
+        public static async Task<Credentials> GetCredentialsFromStore(Uri gitHubBaseUrl)
         {
             // echo url=https://github.com/git/git.git | git credential fill
 
@@ -81,8 +81,17 @@ namespace Microsoft.Crank.PullRequestBot
             // host=github.com
             // username=[PLACEHOLDER] # actual value is "Personal Access Token"
             // password=[PLACEHOLDER]
+            var gitHubUrl = "https://github.com";
 
-            var presult = await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), "/c echo url=https://github.com/git/git.git | git credential fill", captureOutput: true);
+            if (gitHubBaseUrl != null)
+            {
+                gitHubUrl = gitHubBaseUrl.ToString();
+            }
+
+            var script = $"echo url={gitHubUrl}/git/git.git | git credential fill";
+            var scriptArgs = Environment.OSVersion.Platform == PlatformID.Win32NT ? $"/c {script}" : $"-c \"{script}\"";
+
+            var presult = await ProcessUtil.RunAsync(ProcessUtil.GetScriptHost(), script, captureOutput: true);
 
             var match = Regex.Match(presult.StandardOutput, "password=(.*)");
 
