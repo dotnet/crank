@@ -4971,7 +4971,7 @@ namespace Microsoft.Crank.Agent
                     source.Process();
                     Log.Info($"Event pipe source stopped ({job.Service}:{job.Id})");
                 }
-                catch (Exception e)
+                catch (Exception e) when (e is not ObjectDisposedException)
                 {
                     if (e.Message == "Read past end of stream.")
                     {
