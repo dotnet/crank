@@ -251,7 +251,7 @@ namespace Microsoft.Crank.PullRequestBot
 
                 var command = new Command { PullRequest = pr, Benchmarks = benchmarkNames, Profiles = profileNames, Components = componentNames };
 
-                var results = await RunBenchmark(command);
+                var results = await RunBenchmark(command, options.AccessToken);
 
                 if (options.PublishResults)
                 {
@@ -290,7 +290,7 @@ namespace Microsoft.Crank.PullRequestBot
                     {
                         await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint($"Benchmark started for __{string.Join(", ", command.Benchmarks)}__ on __{string.Join(", ", command.Profiles)}__ with __{string.Join(", ", command.Components)}__"));
 
-                        var results = await RunBenchmark(command);
+                        var results = await RunBenchmark(command, options.AccessToken);
 
                         if (options.PublishResults)
                         {
@@ -665,7 +665,7 @@ namespace Microsoft.Crank.PullRequestBot
             return template;
         }
 
-        private static async Task<IEnumerable<Result>> RunBenchmark(Command command)
+        private static async Task<IEnumerable<Result>> RunBenchmark(Command command, string accessToken)
         {
             var results = new List<Result>();
 
@@ -676,7 +676,14 @@ namespace Microsoft.Crank.PullRequestBot
             // Workspace ends with path separator
             workspace = workspace.TrimEnd('\\', '/') + Path.DirectorySeparatorChar;
 
-            var cloneUrl = command.PullRequest.Base.Repository.CloneUrl; // "https://github.com/dotnet/aspnetcore.git";
+            var cloneUri = new UriBuilder(command.PullRequest.Base.Repository.CloneUrl);
+
+            if (!string.IsNullOrWhiteSpace(accessToken))
+            {
+                cloneUri.UserName = $"x-access-token:{accessToken}";
+            }
+
+            var cloneUrl = cloneUri.Uri.ToString();
             var folder = command.PullRequest.Base.Repository.Name; // $"aspnetcore"; // 
             var baseBranch = command.PullRequest.Base.Ref; // "main"; // 
             var prNumber = command.PullRequest.Number; // 39463;
