@@ -286,13 +286,6 @@ namespace Microsoft.Crank.PullRequestBot
 
                     try
                     {
-                        if (!HasThingsToRun(command.Benchmarks, command.Profiles, command.Components))
-                        {
-                            Console.WriteLine("Arguments don't match a valid command.");
-                            
-                            continue;
-                        }
-
                         await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint($"Benchmark started for __{string.Join(", ", command.Benchmarks)}__ on __{string.Join(", ", command.Profiles)}__ with __{string.Join(", ", command.Components)}__"));
 
                         var results = await RunBenchmark(command);
@@ -321,13 +314,6 @@ namespace Microsoft.Crank.PullRequestBot
             }
 
             return 0;
-        }
-        private static bool HasThingsToRun(string[] benchmarkNames, string[] profileNames, string[] componentNames)
-        {
-            return benchmarkNames.Any(x => !_configuration.Benchmarks.ContainsKey(x))
-                   && profileNames.Any(x => !_configuration.Profiles.ContainsKey(x))
-                   && componentNames.Any(x => !_configuration.Components.ContainsKey(x))
-                   ;
         }
 
         private static void CreateThumbprint()
