@@ -120,7 +120,7 @@ namespace Microsoft.Crank.PullRequestBot
             rootCommand.Handler = CommandHandler.Create<BotOptions>(Controller);
 
             // Parse the incoming args and invoke the handler
-            return await rootCommand.InvokeAsync(args); 
+            return await rootCommand.InvokeAsync(args);
         }
 
         private static async Task<int> Controller(BotOptions options)
