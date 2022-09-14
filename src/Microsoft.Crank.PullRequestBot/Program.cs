@@ -145,7 +145,7 @@ namespace Microsoft.Crank.PullRequestBot
                 return 1;
             }
 
-            CommentCutoffDate =  DateTime.Now.AddMinutes(0 - _options.Age);
+            CommentCutoffDate =  DateTime.Now.Subtract(TimeSpan.FromMinutes(_options.Age));
 
             if (_options.GitHubBaseUrl != null)
             {
@@ -155,7 +155,7 @@ namespace Microsoft.Crank.PullRequestBot
             }
 
             // If authentication information is provided pre-authenticate since it will prevent some rate limiting exception for read-only API calls.
-            if (!String.IsNullOrEmpty(_options.AccessToken) || !String.IsNullOrEmpty(_options.AppId) || !String.IsNullOrEmpty(_options.AppId))
+            if (!string.IsNullOrEmpty(_options.AccessToken) || !string.IsNullOrEmpty(_options.AppId) || !string.IsNullOrEmpty(_options.AppId))
             {
                 await UpgradeAuthenticatedClient();
             }
@@ -278,7 +278,7 @@ namespace Microsoft.Crank.PullRequestBot
 
                     try
                     {
-                        await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint($"Benchmark started for __{String.Join(", ", command.Benchmarks)}__ on __{String.Join(", ", command.Profiles)}__ with __{String.Join(", ", command.Components)}__"));
+                        await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint($"Benchmark started for __{string.Join(", ", command.Benchmarks)}__ on __{string.Join(", ", command.Profiles)}__ with __{string.Join(", ", command.Components)}__"));
 
                         var results = await RunBenchmark(command);
 
@@ -628,7 +628,7 @@ namespace Microsoft.Crank.PullRequestBot
                 {
                     var benchmark = _configuration.Benchmarks[run.Benchmark];
                     var profile = _configuration.Profiles[run.Profile];
-                    var buildArguments = String.Join(" ", command.Components.Select(b => _configuration.Components[b].Arguments));
+                    var buildArguments = string.Join(" ", command.Components.Select(b => _configuration.Components[b].Arguments));
 
                     // Delete existing files (if any) before the base run
                     var baseResultsFilename = $"{workspace}{run.Benchmark}.{BaseFilename}";
@@ -657,7 +657,7 @@ namespace Microsoft.Crank.PullRequestBot
                 {
                     var benchmark = _configuration.Benchmarks[run.Benchmark];
                     var profile = _configuration.Profiles[run.Profile];
-                    var buildArguments = String.Join(" ", command.Components.Select(b => _configuration.Components[b].Arguments));
+                    var buildArguments = string.Join(" ", command.Components.Select(b => _configuration.Components[b].Arguments));
 
                     var baseResultsFilename = $"{workspace}{run.Benchmark}.{BaseFilename}";
                     var prResultsFilename = $"{workspace}{run.Benchmark}.{PrFilename}";
@@ -707,7 +707,7 @@ namespace Microsoft.Crank.PullRequestBot
         {
             args = args.SelectMany(c => CommandLineStringSplitter.Instance.Split(c)).ToArray();
 
-            Console.WriteLine($"crank {String.Join(' ', args)}");
+            Console.WriteLine($"crank {string.Join(' ', args)}");
 
             using var sw = new StringWriter();
             var consoleOut = Console.Out;

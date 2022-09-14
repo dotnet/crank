@@ -31,14 +31,14 @@ namespace Microsoft.Crank.PullRequestBot
         {
             if (!Debug)
             {
-                if (String.IsNullOrEmpty(Repository) && String.IsNullOrEmpty(PullRequest))
+                if (string.IsNullOrEmpty(Repository) && string.IsNullOrEmpty(PullRequest))
                 {
                     throw new ArgumentException("--repository or --pull-request is required");
                 }
 
-                else if (!String.IsNullOrEmpty(AppKey))
+                else if (!string.IsNullOrEmpty(AppKey))
                 {
-                    if(String.IsNullOrEmpty(AppId))
+                    if(string.IsNullOrEmpty(AppId))
                     {
                         throw new ArgumentException("GitHubAppId argument is missing");
                     }
