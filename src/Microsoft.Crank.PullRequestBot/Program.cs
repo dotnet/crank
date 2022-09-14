@@ -153,10 +153,9 @@ namespace Microsoft.Crank.PullRequestBot
                 // rather than just use a different base address for the API.
                 await UpgradeAuthenticatedClient();
             }
-
-            // If authentication information is provided pre-authenticate since it will prevent some rate limiting exception for read-only API calls.
-            if (!string.IsNullOrEmpty(_options.AccessToken) || !string.IsNullOrEmpty(_options.AppId) || !string.IsNullOrEmpty(_options.AppId))
+            else if (!string.IsNullOrEmpty(_options.AccessToken) || !string.IsNullOrEmpty(_options.AppId) || !string.IsNullOrEmpty(_options.AppId))
             {
+                // If authentication information is provided pre-authenticate since it will prevent some rate limiting exception for read-only API calls.
                 await UpgradeAuthenticatedClient();
             }
 
