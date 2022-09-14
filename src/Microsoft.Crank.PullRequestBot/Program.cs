@@ -117,7 +117,7 @@ namespace Microsoft.Crank.PullRequestBot
             rootCommand.Handler = CommandHandler.Create<BotOptions>(Controller);
 
             // Parse the incoming args and invoke the handler
-            return await rootCommand.InvokeAsync(args);
+            return await rootCommand.InvokeAsync(args); 
         }
 
         private static async Task<int> Controller(BotOptions options)
@@ -146,6 +146,12 @@ namespace Microsoft.Crank.PullRequestBot
             {
                 // GitHub Enterprise may require the client to be authenticated,
                 // rather than just use a different base address for the API.
+                await UpgradeAuthenticatedClient();
+            }
+
+            // If authentication information is provided pre-authenticate since it will prevent some rate limiting exception for read-only API calls.
+            if (!String.IsNullOrEmpty(_options.AccessToken) || !String.IsNullOrEmpty(_options.AppId) || !String.IsNullOrEmpty(_options.AppId))
+            {
                 await UpgradeAuthenticatedClient();
             }
 
@@ -324,75 +330,91 @@ namespace Microsoft.Crank.PullRequestBot
                 SortProperty = PullRequestSort.Updated,
             };
 
-            var prs = await _githubClient.PullRequest.GetAllForRepository(owner, name, prRequest);
+            // Get all PRs by page
 
-            foreach (var pr in prs)
+            var page = 0;
+
+            while (true)
             {
-                if (pr.UpdatedAt < CommentCutoffDate)
+                // 1-indexed value
+                page++;
+
+                var prs = await _githubClient.PullRequest.GetAllForRepository(owner, name, prRequest, new ApiOptions { PageCount = 1, StartPage = page });
+
+                if (!prs.Any())
                 {
                     break;
                 }
 
-                var comments = await _githubClient.Issue.Comment.GetAllForIssue(owner, name, pr.Number);
-
-                for (var i = comments.Count - 1; i >= 0; i--)
+                foreach (var pr in prs)
                 {
-                    var comment = comments[i];
-
-                    if (comment.CreatedAt < CommentCutoffDate)
+                    // Stop processing PRs when we find one that is too old since they are ordered
+                    if (pr.UpdatedAt < CommentCutoffDate)
                     {
                         break;
                     }
 
-                    if (comment.Body.StartsWith(BenchmarkCommand))
+                    var comments = await _githubClient.Issue.Comment.GetAllForIssue(owner, name, pr.Number);
+
+                    for (var i = comments.Count - 1; i >= 0; i--)
                     {
-                        await UpgradeAuthenticatedClient();
+                        var comment = comments[i];
 
-                        if (await _githubClient.Repository.Collaborator.IsCollaborator(pr.Base.Repository.Id, comment.User.Login))
+                        if (comment.CreatedAt < CommentCutoffDate)
                         {
-                            var arguments = comment.Body[BenchmarkCommand.Length..].Trim()
-                                .Split(' ', 3, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                            break;
+                        }
 
-                            var benchmarkNames = (arguments.Length > 0 ? arguments[0] : "").Split(',', StringSplitOptions.RemoveEmptyEntries);
-                            var profileNames = (arguments.Length > 1 ? arguments[1] : "").Split(',', StringSplitOptions.RemoveEmptyEntries);
-                            var buildNames = (arguments.Length > 2 ? arguments[2] : "").Split(',', StringSplitOptions.RemoveEmptyEntries);
+                        if (comment.Body.StartsWith(BenchmarkCommand))
+                        {
+                            await UpgradeAuthenticatedClient();
 
-                            if (!ArgumentsValid(benchmarkNames, profileNames, buildNames, markdown: true, out var help))
+                            if (await _githubClient.Repository.Collaborator.IsCollaborator(pr.Base.Repository.Id, comment.User.Login))
                             {
-                                await _githubClient.Issue.Comment.Create(owner, name, pr.Number, ApplyThumbprint(help));
+                                var arguments = comment.Body[BenchmarkCommand.Length..].Trim()
+                                    .Split(' ', 3, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-                                yield break;
+                                var benchmarkNames = (arguments.Length > 0 ? arguments[0] : "").Split(',', StringSplitOptions.RemoveEmptyEntries);
+                                var profileNames = (arguments.Length > 1 ? arguments[1] : "").Split(',', StringSplitOptions.RemoveEmptyEntries);
+                                var buildNames = (arguments.Length > 2 ? arguments[2] : "").Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+                                if (!ArgumentsValid(benchmarkNames, profileNames, buildNames, markdown: true, out var help))
+                                {
+                                    await _githubClient.Issue.Comment.Create(owner, name, pr.Number, ApplyThumbprint(help));
+
+                                    yield break;
+                                }
+
+                                // Default command values
+                                yield return new Command
+                                {
+                                    Benchmarks = benchmarkNames.Any() ? benchmarkNames : new[] { _configuration.Benchmarks.First().Key },
+                                    Profiles = profileNames.Any() ? profileNames : new[] { _configuration.Profiles.First().Key },
+                                    Components = buildNames.Any() ? buildNames : new[] { _configuration.Components.First().Key },
+                                    PullRequest = pr,
+                                };
                             }
-
-                            // Default command values
-                            yield return new Command
+                            else
                             {
-                                Benchmarks = benchmarkNames.Any() ? benchmarkNames : new[] { _configuration.Benchmarks.First().Key },
-                                Profiles = profileNames.Any() ? profileNames : new[] { _configuration.Profiles.First().Key },
-                                Components = buildNames.Any() ? buildNames : new[] { _configuration.Components.First().Key },
-                                PullRequest = pr,
-                            };
+                                var message = $"The user @{comment.User.Login} is not allowed to perform this action.";
+
+                                Console.WriteLine(message);
+
+                                await _githubClient.Issue.Comment.Create(owner, name, pr.Number, ApplyThumbprint(message));
+                            }
+                        }
+                        else if (comment.Body.Contains(Thumbprint))
+                        {
+                            // The bot has already commented with results for the most recent benchmark request.
+                            break;
                         }
                         else
                         {
-                            var message = $"The user @{comment.User.Login} is not allowed to perform this action.";
-
-                            Console.WriteLine(message);
-
-                            await _githubClient.Issue.Comment.Create(owner, name, pr.Number, ApplyThumbprint(message));
+                            // Ignore comment
                         }
                     }
-                    else if (comment.Body.Contains(Thumbprint))
-                    {
-                        // The bot has already commented with results for the most recent benchmark request.
-                        break;
-                    }
-                    else
-                    {
-                        // Ignore comment
-                    }
                 }
-            }
+            }            
         }
 
         public static bool ArgumentsValid(string[] benchmarkNames, string[] profileNames, string[] buildNames, bool markdown, out string help)
