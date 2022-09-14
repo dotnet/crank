@@ -39,7 +39,7 @@ namespace Microsoft.Crank.PullRequestBot
         private const string BaseFilename = "base.json";
         private const string PrFilename = "pr.json";
 
-        private static readonly DateTime CommentCutoffDate = DateTime.Now.AddHours(-24);
+        private static DateTime CommentCutoffDate;
 
         static Program()
         {
@@ -108,7 +108,10 @@ namespace Microsoft.Crank.PullRequestBot
                     "Any additional arguments to pass through to crank."),
                 new Option<string>(
                     "--config",
-                    "The path to a configuration file.") { IsRequired = true }
+                    "The path to a configuration file.") { IsRequired = true },
+                new Option<int>(
+                    "--age",
+                    "The age of the most recent comment to look for in minutes. Default is 60."),
             };
 
             rootCommand.Description = "Crank Pull Requests Bot";
@@ -141,6 +144,8 @@ namespace Microsoft.Crank.PullRequestBot
 
                 return 1;
             }
+
+            CommentCutoffDate =  DateTime.Now.AddMinutes(0 - _options.Age);
 
             if (_options.GitHubBaseUrl != null)
             {
@@ -339,7 +344,7 @@ namespace Microsoft.Crank.PullRequestBot
                 // 1-indexed value
                 page++;
 
-                var prs = await _githubClient.PullRequest.GetAllForRepository(owner, name, prRequest, new ApiOptions { PageCount = 1, StartPage = page });
+                var prs = await _githubClient.PullRequest.GetAllForRepository(owner, name, prRequest, new ApiOptions { PageCount = 1, PageSize = 5, StartPage = page });
 
                 if (!prs.Any())
                 {

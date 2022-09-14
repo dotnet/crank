@@ -11,6 +11,7 @@ namespace Microsoft.Crank.PullRequestBot
     {
         public string Workspace { get; set; } = Path.GetTempPath();
         public int Limit { get; set; } = 0;
+        public int Age { get; set; } = 60;
         public string Benchmarks { get; set; } = "";
         public string Profiles { get; set; } = "";
         public string Components { get; set; } = "";
