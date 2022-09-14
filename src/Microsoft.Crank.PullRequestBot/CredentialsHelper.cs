@@ -20,11 +20,11 @@ namespace Microsoft.Crank.PullRequestBot
 
         public static async Task<Credentials> GetCredentialsAsync(BotOptions options)
         {
-            if (!String.IsNullOrEmpty(options.AppKey))
+            if (!string.IsNullOrEmpty(options.AppKey))
             {
                 return await GetCredentialsForAppAsync(options);
             }
-            else if (!String.IsNullOrEmpty(options.AccessToken))
+            else if (!string.IsNullOrEmpty(options.AccessToken))
             {
                 return GetCredentialsForUser(options);
             }
