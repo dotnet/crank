@@ -15,7 +15,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.RegularExpressions;
-using System.Text.Unicode;
 using System.Threading.Tasks;
 using Manatee.Json;
 using Manatee.Json.Schema;
