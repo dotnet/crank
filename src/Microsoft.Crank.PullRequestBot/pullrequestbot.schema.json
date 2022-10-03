@@ -52,7 +52,7 @@
         },
         "variables": {
           "type": "object",
-          "title": "Variables available for this benchmark"
+          "title": "Variables used to run this benchmark"
         }
       }
     }
