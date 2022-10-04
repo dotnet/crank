@@ -8,7 +8,7 @@ namespace Microsoft.Crank.RegressionBot
 {
     public class SourceSection
     {
-        // Whether the bot check if the benchmarks are still run regularly.
+        // Whether the bot checks if the benchmarks are still run regularly.
         public bool HealthCheck { get; set; } = false;
 
         // List of measurements that are checked against for regressions.
