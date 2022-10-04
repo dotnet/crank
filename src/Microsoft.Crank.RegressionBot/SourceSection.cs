@@ -2,13 +2,14 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System;
 using System.Collections.Generic;
 
 namespace Microsoft.Crank.RegressionBot
 {
     public class SourceSection
     {
+        public bool HealthCheck { get; set; } = false;
+
         public List<Probe> Probes { get; set; } = new List<Probe>();
 
         // Labels added to the issues created

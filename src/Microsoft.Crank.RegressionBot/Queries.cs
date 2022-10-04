@@ -10,8 +10,7 @@ namespace Microsoft.Crank.RegressionBot
             SELECT TOP (10000) *     -- Bounded to prevent from downloading too many records
             FROM [dbo].[{0}]        -- Substitute table name 
             WHERE 
-                [Excluded] = 0
-                AND [DateTimeUtc] >= @startDate
+                [DateTimeUtc] >= @startDate
             ORDER BY [Id] DESC
         ";
     }
