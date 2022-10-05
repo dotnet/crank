@@ -18,10 +18,8 @@ namespace Microsoft.Crank.RegressionBot
 
         // The list of rules to apply
         public List<Rule> Rules { get; set; } = new List<Rule>();
-        
-        public SourceSection Regressions { get; set; } = new SourceSection();
-        public SourceSection Errors { get; set; } = new SourceSection();
-        public SourceSection NotRunning { get; set; } = new SourceSection();
+
+        public SourceSection Regressions { get; set; }
 
         public int DaysToLoad { get; set; } = 7;
 

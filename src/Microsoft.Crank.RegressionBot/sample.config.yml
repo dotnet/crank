@@ -22,18 +22,28 @@ sources:
       owners:
         - sebastienros
       template: rps
-    # errors:
-    #   probes: 
-    #     - path: jobs.load.results['bombardier/badresponses']
-    #     - path: jobs.load.results['wrk/errors/badresponses']
-    #     - path: jobs.load.results['wrk/errors/socketerrors']
-    #   labels: 
-    #     - Perf
-    #     - perf-bad-response
-    # notRunning:
-    #   labels:
-    #     - Perf
-    #     - perf-not-running 
+      healthCheck: true
+
+  - name: EFCoreCrank
+    table: EFCoreCrank
+    daysToLoad: 30
+    stdevCount: 7
+    daysToSkip: 4
+    rules:
+      - include: AddDataVariations.Add
+        labels: 
+          - area-efcore
+        owners:
+          - sebastienros
+    regressions:
+      labels: 
+        - Perf
+        - perf-regression
+      owners:
+        - sebastienros
+      template: rps
+      healthCheck: true
+
 templates:
   rps: "A performance regression has been detected for the following scenarios: \n\n
       | Scenario | Environment | Date | Old RPS | New RPS | Change | Deviation | StDev | \n

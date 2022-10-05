@@ -70,7 +70,7 @@ namespace Microsoft.Crank.RegressionBot
                     "The GitHub account access token. (Secured)"),
                 new Option<string>(
                     "--username",
-                    "The GitHub account username. e.g., 'pr-benchmarks[bot]'"){ IsRequired = true },
+                    "The GitHub account username. e.g., 'pr-benchmarks[bot]'"),
                 new Option<string>(
                     "--app-key",
                     "The GitHub application key. (Secured)"),
@@ -525,7 +525,7 @@ namespace Microsoft.Crank.RegressionBot
 
             using (var connection = new SqlConnection(_options.ConnectionString))
             {
-                using (var command = new SqlCommand(String.Format(Queries.Latest, source.Table), connection))
+                using (var command = new SqlCommand(string.Format(Queries.Latest, source.Table), connection))
                 {
                     command.Parameters.AddWithValue("@startDate", loadStartDateTimeUtc);
                     
@@ -535,7 +535,7 @@ namespace Microsoft.Crank.RegressionBot
 
                     while (await reader.ReadAsync())
                     {
-                        allResults.Add(new BenchmarksResult
+                        var result = new BenchmarksResult
                         {
                             Id = Convert.ToInt32(reader["Id"]),
                             Excluded = Convert.ToBoolean(reader["Excluded"]),
@@ -544,7 +544,12 @@ namespace Microsoft.Crank.RegressionBot
                             Scenario = Convert.ToString(reader["Scenario"]),
                             Description = Convert.ToString(reader["Description"]),
                             Document = Convert.ToString(reader["Document"]),
-                        });
+                        };
+
+                        if (!result.Excluded)
+                        {
+                            allResults.Add(result);
+                        }                        
                     }
                 }
             }
@@ -629,7 +634,6 @@ namespace Microsoft.Crank.RegressionBot
 
                     // Look for 2 consecutive values that are outside of the threshold, 
                     // subsequent to 3 consecutive values that are inside the threshold.  
-
 
                     // 5 is the number of data points necessary to detect a threshold
 
@@ -819,6 +823,146 @@ namespace Microsoft.Crank.RegressionBot
                                     
                                     break;
                                 }
+                            }
+
+                            regression.ComputeChanges();
+
+                            yield return regression;
+                        }
+                    }
+                }
+
+                if (source.Regressions.HealthCheck)
+                {
+                    if (_options.Verbose)
+                    {
+                        Console.WriteLine();
+                        Console.WriteLine($"Checking health");
+                        Console.WriteLine("=============================================================================================");
+                        Console.WriteLine();
+                    }
+
+                    var resultSet = results
+                        .Select(x => new { Result = x, DateTimeUtc = x.DateTimeUtc })
+                        .ToList();
+
+                    // Add NOW as the last value
+                    resultSet.Add(new { Result = default(BenchmarksResult), DateTimeUtc = DateTimeOffset.UtcNow });
+
+                    // Find regressions
+
+                    // Can't find a regression if there are less than StdevCount values
+                    if (resultSet.Count < source.StdevCount)
+                    {
+                        if (_options.Verbose)
+                        {
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            Console.WriteLine($"Not enough data ({resultSet.Count})");
+                            Console.ResetColor();
+                        }
+
+                        continue;
+                    }
+
+                    if (_options.Verbose)
+                    {
+                        Console.WriteLine($"Values: {JsonConvert.SerializeObject(resultSet.Select(x => x.DateTimeUtc.ToString("G")).ToArray())}");
+                    }
+
+                    var values = resultSet.Select(x => x.DateTimeUtc).ToArray();
+
+                    // Calculate average time between runs and standard deviation
+
+                    for (var i = 0; i < values.Length - source.StdevCount; i++)
+                    {
+                        var stdevs = new List<long>();
+
+                        var currentResult = resultSet[i + 1 + source.StdevCount];
+                        var previousResult = resultSet[i + source.StdevCount];
+
+                        var currentValue = values[i + 1 + source.StdevCount];
+                        var previousValue = values[i + source.StdevCount];
+
+                        for (var k = 0; k < source.StdevCount; k++)
+                        {
+                            // Measure in seconds
+                            stdevs.Add((values[i + 1 + k].Ticks - values[i + k].Ticks) / TimeSpan.TicksPerSecond);
+                        }
+
+                        // Calculate the stdev from all values up to the verified window
+                        var average = (long)stdevs.Average();
+                        var sumOfSquaresOfDifferences = stdevs.Sum(val => (val - average) * (val - average));
+                        var standardDeviation = Math.Sqrt(sumOfSquaresOfDifferences / stdevs.Count);
+
+                        if (_options.Verbose)
+                        {
+                            Console.WriteLine($"Benchmark runs on average every {(int)TimeSpan.FromSeconds(average).TotalHours} hours with a stdev of {(int)TimeSpan.FromSeconds(standardDeviation).TotalHours} hours. Occurences were: {JsonConvert.SerializeObject(stdevs)}");
+                        }
+
+                        if (standardDeviation == 0)
+                        {
+                            // We skip measurement with stdev of zero since it could induce divisions by zero, and any change will trigger
+                            // a regression
+                            Console.WriteLine($"Ignoring measurement with stdev = 0");
+                            continue;
+                        }
+
+                        var hasRegressed = (currentValue.Ticks - previousValue.Ticks) / TimeSpan.TicksPerSecond > (average + 2 * standardDeviation);
+
+                        if (hasRegressed)
+                        {
+                            var regression = new Regression
+                            {
+                                PreviousResult = previousResult.Result,
+                                CurrentResult = currentResult.Result,
+                                Change = (currentValue - previousValue).TotalSeconds,
+                                StandardDeviation = standardDeviation,
+                                Average = new TimeSpan(average).TotalSeconds
+                            };
+
+                            if (_options.Verbose)
+                            {
+                                Console.ForegroundColor = ConsoleColor.Red;
+                                Console.WriteLine($"Downtime detected: {previousValue} to {currentValue} for {regression.Identifier}");
+                                Console.ResetColor();
+                            }
+
+                            foreach (var rule in rules)
+                            {
+                                foreach (var label in rule.Labels)
+                                {
+                                    regression.Labels.Add(label);
+                                }
+
+                                foreach (var owner in rule.Owners)
+                                {
+                                    regression.Owners.Add(owner);
+                                }
+                            }
+
+                            foreach (var label in source.Regressions.Labels)
+                            {
+                                regression.Labels.Add(label);
+                            }
+
+                            foreach (var owner in source.Regressions.Owners)
+                            {
+                                regression.Owners.Add(owner);
+                            }
+
+                            // If there are subsequent measurements, the benchmark has recovered
+
+                            var hasRecovered = resultSet.Count > i + source.StdevCount;
+
+                            if (hasRecovered)
+                            {
+                                regression.RecoveredResult = resultSet[i + 1 + source.StdevCount].Result;
+
+                                Console.ForegroundColor = ConsoleColor.Green;
+                                Console.WriteLine($"Recovered on {regression.RecoveredResult.DateTimeUtc}");
+                                Console.ResetColor();
+
+                                break;
                             }
 
                             regression.ComputeChanges();
