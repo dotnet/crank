@@ -2634,15 +2634,8 @@ namespace Microsoft.Crank.Agent
             {
                 channel = job.Channel;
             }
-
-            // Until there is a "current" version of net8.0, use "edge"
-            if (targetFramework.Equals("net8.0"))
-            {
-                channel = "edge";
-            }
-
-            // Until there is a "current" version of net7.0, use "edge"
-            if (targetFramework.Equals("net7.0"))
+            // Until there is a GA version of net7.0 or net8.0, use "edge"
+            else if (targetFramework.Equals("net7.0") || targetFramework.Equals("net8.0"))
             {
                 channel = "edge";
             }
@@ -4028,7 +4021,7 @@ namespace Microsoft.Crank.Agent
                     runtimeVersion = await GetFlatContainerVersion(_netcore8FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
                     Log.Info($"Runtime: {runtimeVersion} (Latest - From 8.0 feed)");
                 }
-                if (versionPrefix == "7.0")
+                else if (versionPrefix == "7.0")
                 {
                     runtimeVersion = await GetFlatContainerVersion(_netcore7FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
                     Log.Info($"Runtime: {runtimeVersion} (Latest - From 7.0 feed)");
@@ -4209,13 +4202,6 @@ namespace Microsoft.Crank.Agent
         /// </summary>
         private static async Task<(string Runtime, string Desktop, string AspNet, string Sdk)> GetCurrentVersions(string targetFramework)
         {
-            // There are currently no release for net7.0
-            // Remove once there is at least a preview and a "release-metadata" file
-            if (targetFramework.Equals("net7.0", StringComparison.OrdinalIgnoreCase))
-            {
-                return (null, null, null, null);
-            }
-
             // There are currently no release for net8.0
             // Remove once there is at least a preview and a "release-metadata" file
             if (targetFramework.Equals("net8.0", StringComparison.OrdinalIgnoreCase))
@@ -5578,7 +5564,7 @@ namespace Microsoft.Crank.Agent
 
         public static string GetAzureFeedForVersion(string version)
         {
-            return version.StartsWith("7.0") || version.StartsWith("8.0")
+            return version.StartsWith("8.0")
                 ? "https://dotnetbuilds.azureedge.net/public" // since 7.0, nightly builds are on this feed
                 : "https://dotnetcli.azureedge.net/dotnet" // this is the default dotnet-install feed
                 ;
