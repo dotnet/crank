@@ -4,12 +4,14 @@
 
 using System;
 using System.Collections.Generic;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Crank.PullRequestBot
 {
     public class Configuration
     {
         public string Defaults { get; set; }
+        public Dictionary<string, object> Variables { get; } = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
         public Dictionary<string, Build> Components { get; set; } = new Dictionary<string, Build>(StringComparer.OrdinalIgnoreCase);
         public Dictionary<string, Profile> Profiles { get; set; } = new Dictionary<string, Profile>(StringComparer.OrdinalIgnoreCase);
         public Dictionary<string, Benchmark> Benchmarks { get; set; } = new Dictionary<string, Benchmark>(StringComparer.OrdinalIgnoreCase);
@@ -25,6 +27,7 @@ namespace Microsoft.Crank.PullRequestBot
     {
         public string Description { get; set; }
         public string Arguments { get; set; }
+        public Dictionary<string, object> Variables { get; } = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
     }
 
     public class Build

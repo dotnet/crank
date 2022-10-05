@@ -49,6 +49,10 @@
         "arguments": {
           "type": "string",
           "description": "The crank arguments to add when the benchmark is selected."
+        },
+        "variables": {
+          "type": "object",
+          "title": "Variables used to run this benchmark"
         }
       }
     }
@@ -60,6 +64,10 @@
     "defaults": {
       "type": "string",
       "title": "Default arguments passed to the crank command line for all benchmarks of this file."
+    },
+    "variables": {
+      "type": "object",
+      "title": "The global variables"
     },
     "components": {
       "type": "object",

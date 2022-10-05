@@ -16,6 +16,7 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Fluid;
 using Manatee.Json;
 using Manatee.Json.Schema;
 using Newtonsoft.Json;
@@ -33,6 +34,7 @@ namespace Microsoft.Crank.PullRequestBot
         private static BotOptions _options;
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
+        private static readonly FluidParser FluidParser = new FluidParser();
 
         // Any comment made by this bot should contain the thumbprint to detect benchmark commands have already been processed 
         private static string Thumbprint = "<!-- pullrequestthumbprint {0} -->";
@@ -593,12 +595,74 @@ namespace Microsoft.Crank.PullRequestBot
                         throw new PullRequestBotException($"Unsupported configuration format: {configurationExtension}");
                 }
 
+                // Evaluate templates in variables
+                var rootVariables = localconfiguration["variables"];
+                foreach (JProperty property in localconfiguration["benchmarks"] ?? new JObject())
+                {
+                    var benchmark = property.Value;
+                    var benchmarkVariables = benchmark["variables"];
+
+                    var variables = MergeVariables(rootVariables, benchmarkVariables);
+                    ApplyTemplates(variables, new TemplateContext(variables.DeepClone()));
+
+                    benchmark["variables"] = variables;
+                }
+
                 return localconfiguration.ToObject<Configuration>();
             }
             else
             {
                 throw new PullRequestBotException($"Invalid file path or url: '{configurationFilenameOrUrl}'");
             }
+        }
+
+        private static JObject MergeVariables(params object[] variableObjects)
+        {
+            var mergeOptions = new JsonMergeSettings { MergeArrayHandling = MergeArrayHandling.Replace, MergeNullValueHandling = MergeNullValueHandling.Merge };
+
+            var result = new JObject();
+
+            foreach (var variableObject in variableObjects)
+            {
+                if (variableObject == null || !(variableObject is JObject))
+                {
+                    continue;
+                }
+
+                result.Merge(JObject.FromObject(variableObject), mergeOptions);
+            }
+
+            return result;
+        }
+
+        private static void ApplyTemplates(JToken node, TemplateContext templateContext)
+        {
+            foreach (var token in node.Children())
+            {
+                if (token is JValue jValue)
+                {
+                    if (jValue.Type == JTokenType.String)
+                    {
+                        jValue.Value = ApplyTemplate(jValue.ToString(), templateContext);
+                    }
+                }
+                else
+                {
+                    ApplyTemplates(token, templateContext);
+                }
+            }
+        }
+
+        private static string ApplyTemplate(string template, TemplateContext templateContext)
+        {
+            if (template != null && template.Contains("{"))
+            {
+                if (FluidParser.TryParse(template, out var tree))
+                {
+                    return tree.Render(templateContext);
+                }
+            }
+            return template;
         }
 
         private static async Task<IEnumerable<Result>> RunBenchmark(Command command)
@@ -657,7 +721,7 @@ namespace Microsoft.Crank.PullRequestBot
                     File.Delete(prResultsFilename);
 
                     Directory.SetCurrentDirectory(cloneFolder);
-                    RunCrank(_configuration.Defaults, benchmark.Arguments, profile.Arguments, buildArguments, $@"--json ""{baseResultsFilename}""", _options.Arguments);
+                    RunCrank(benchmark.Variables, _configuration.Defaults, benchmark.Arguments, profile.Arguments, buildArguments, $@"--json ""{baseResultsFilename}""", _options.Arguments);
                 }
 
                 await ProcessUtil.RunAsync("git", $@"fetch origin pull/{prNumber}/head", workingDirectory: cloneFolder, log: true);
@@ -682,7 +746,7 @@ namespace Microsoft.Crank.PullRequestBot
                     var prResultsFilename = $"{workspace}{run.Benchmark}.{PrFilename}";
 
                     Directory.SetCurrentDirectory(cloneFolder);
-                    RunCrank(_configuration.Defaults, benchmark.Arguments, profile.Arguments, buildArguments, $@"--json ""{prResultsFilename}""", _options.Arguments);
+                    RunCrank(benchmark.Variables, _configuration.Defaults, benchmark.Arguments, profile.Arguments, buildArguments, $@"--json ""{prResultsFilename}""", _options.Arguments);
 
                     // Compare benchmarks
                     var result = RunCrank($"compare", $"{baseResultsFilename}", $"{prResultsFilename}");
@@ -720,6 +784,14 @@ namespace Microsoft.Crank.PullRequestBot
             }
 
             return results;
+        }
+
+        private static string RunCrank(IDictionary<string, object> variables, params string[] args)
+        {
+            var templateContext = new TemplateContext(variables);
+            args = args.Select(arg => ApplyTemplate(arg, templateContext)).ToArray();
+
+            return RunCrank(args);
         }
 
         private static string RunCrank(params string[] args)
