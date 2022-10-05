@@ -2634,9 +2634,8 @@ namespace Microsoft.Crank.Agent
             {
                 channel = job.Channel;
             }
-
-            // Until there is a "current" version of net8.0, use "edge"
-            if (targetFramework.Equals("net8.0"))
+            // Until there is a GA version of net7.0 or net8.0, use "edge"
+            else if (targetFramework.Equals("net7.0") || targetFramework.Equals("net8.0"))
             {
                 channel = "edge";
             }
