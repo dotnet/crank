@@ -896,7 +896,7 @@ namespace Microsoft.Crank.RegressionBot
 
                         if (_options.Verbose)
                         {
-                            Console.WriteLine($"Benchmark run on average every {(int)TimeSpan.FromSeconds(average).TotalHours} hours with an stdev of {(int)TimeSpan.FromSeconds(standardDeviation).TotalHours} values {JsonConvert.SerializeObject(stdevs)}");
+                            Console.WriteLine($"Benchmark runs on average every {(int)TimeSpan.FromSeconds(average).TotalHours} hours with a stdev of {(int)TimeSpan.FromSeconds(standardDeviation).TotalHours} hours. Occurences were: {JsonConvert.SerializeObject(stdevs)}");
                         }
 
                         if (standardDeviation == 0)
