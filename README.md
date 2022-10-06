@@ -1,6 +1,6 @@
 # Microsoft.Crank
 
-[![Build Status](https://dnceng.visualstudio.com/public/_apis/build/status/dotnet/crank/dotnet-crank-ci-public?branchName=main)](https://dnceng.visualstudio.com/public/_build/latest?definitionId=848&branchName=main)
+[![Build Status](https://dev.azure.com/dnceng-public/public/_apis/build/status/dotnet/crank/dotnet-crank-ci-public?branchName=main)](https://dev.azure.com/dnceng-public/public/_build/latest?definitionId=164&branchName=main)
 
 Crank is the benchmarking infrastructure used by the .NET team to run benchmarks including (but not limited to) scenarios from the [TechEmpower Web Framework Benchmarks](https://www.techempower.com/benchmarks/).
 
