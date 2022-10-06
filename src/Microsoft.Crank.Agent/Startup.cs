@@ -5561,8 +5561,8 @@ namespace Microsoft.Crank.Agent
             const string publicFeed = "https://dotnetcli.azureedge.net/dotnet";
             
             var dotnetFeeds = version.StartsWith("8.0")
-                ? new string[] { internaFeed, publicFeed } // for 8.0 we check on the internal feed first
-                : new string[] { publicFeed, internaFeed } // for older versions odds are that we are looking for a public package
+                ? new string[] { internalFeed, publicFeed } // for 8.0 we check on the internal feed first
+                : new string[] { publicFeed, internalFeed } // for older versions odds are that we are looking for a public package
                 ;
 
             foreach (var feed in dotnetFeeds)
