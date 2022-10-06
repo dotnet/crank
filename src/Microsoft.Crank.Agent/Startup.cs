@@ -2696,9 +2696,7 @@ namespace Microsoft.Crank.Agent
 
                         // Install latest SDK version (and associated runtime)
 
-                        dotnetFeed = GetAzureFeedForVersion(sdkVersion);
-
-                        if (!await CheckPackageExistsAsync(PackageTypes.Sdk, sdkVersion))
+                        if (!TryGetAzureFeedForPackage(PackageTypes.Sdk, sdkVersion, out dotnetFeed))
                         {
                             throw new InvalidOperationException();
                         }
@@ -2725,9 +2723,7 @@ namespace Microsoft.Crank.Agent
 
                         // Install runtimes required for this scenario
 
-                        dotnetFeed = GetAzureFeedForVersion(runtimeVersion);
-
-                        if (!await CheckPackageExistsAsync(PackageTypes.NetCoreApp, runtimeVersion))
+                        if (!TryGetAzureFeedForPackage(PackageTypes.NetCoreApp, runtimeVersion, out dotnetFeed))
                         {
                             throw new InvalidOperationException();
                         }
@@ -2761,9 +2757,7 @@ namespace Microsoft.Crank.Agent
                                 dotnetInstallStep = $"Desktop runtime '{desktopVersion}'";
                                 Log.Info($"Installing {dotnetInstallStep} ...");
 
-                                dotnetFeed = GetAzureFeedForVersion(desktopVersion);
-
-                                if (!await CheckPackageExistsAsync(PackageTypes.WindowsDesktop, desktopVersion))
+                                if (!TryGetAzureFeedForPackage(PackageTypes.WindowsDesktop, desktopVersion, out dotnetFeed))
                                 {
                                     throw new InvalidOperationException();
                                 }
@@ -2809,9 +2803,7 @@ namespace Microsoft.Crank.Agent
 
                         // Install aspnet runtime required for this scenario
 
-                        dotnetFeed = GetAzureFeedForVersion(aspNetCoreVersion);
-
-                        if (!await CheckPackageExistsAsync(PackageTypes.AspNetCore, aspNetCoreVersion))
+                        if (!TryGetAzureFeedForPackage(PackageTypes.AspNetCore, aspNetCoreVersion, out dotnetFeed))
                         {
                             throw new InvalidOperationException();
                         }
@@ -2840,9 +2832,7 @@ namespace Microsoft.Crank.Agent
 
                         // Install latest SDK version (and associated runtime)
 
-                        dotnetFeed = GetAzureFeedForVersion(sdkVersion);
-
-                        if (!await CheckPackageExistsAsync(PackageTypes.Sdk, sdkVersion))
+                        if (!TryGetAzureFeedForPackage(PackageTypes.Sdk, sdkVersion, out dotnetFeed))
                         {
                             throw new InvalidOperationException();
                         }
@@ -2869,9 +2859,7 @@ namespace Microsoft.Crank.Agent
 
                         // Install required runtime
 
-                        dotnetFeed = GetAzureFeedForVersion(runtimeVersion);
-
-                        if (!await CheckPackageExistsAsync(PackageTypes.NetCoreApp, runtimeVersion))
+                        if (!TryGetAzureFeedForPackage(PackageTypes.NetCoreApp, runtimeVersion, out dotnetFeed))
                         {
                             throw new InvalidOperationException();
                         }
@@ -2899,9 +2887,7 @@ namespace Microsoft.Crank.Agent
 
                         // Install required runtime
 
-                        dotnetFeed = GetAzureFeedForVersion(aspNetCoreVersion);
-
-                        if (!await CheckPackageExistsAsync(PackageTypes.AspNetCore, aspNetCoreVersion))
+                        if (!TryGetAzureFeedForPackage(PackageTypes.AspNetCore, aspNetCoreVersion, out dotnetFeed))
                         {
                             throw new InvalidOperationException();
                         }
@@ -5199,7 +5185,12 @@ namespace Microsoft.Crank.Agent
 
                 var found = false;
                 
-                var url = $"{GetAzureFeedForVersion(dotnetSdkVersion)}/Sdk/{dotnetSdkVersion}/dotnet-sdk-{dotnetSdkVersion}-linux-{pkgNameSuffix}.tar.gz";
+                if (!TryGetAzureFeedForPackage(PackageTypes.Sdk, dotnetSdkVersion, out var dotnetFeed))
+                {
+                    throw new InvalidOperationException();
+                }
+
+                var url = $"{dotnetFeed}/Sdk/{dotnetSdkVersion}/dotnet-sdk-{dotnetSdkVersion}-linux-{pkgNameSuffix}.tar.gz";
 
                 if (await DownloadFileAsync(url, dotnetMonoPath, maxRetries: 3, timeout: 60, throwOnError: false))
                 {
@@ -5562,52 +5553,59 @@ namespace Microsoft.Crank.Agent
             return null;
         }
 
-        public static string GetAzureFeedForVersion(string version)
+        private static bool TryGetAzureFeedForPackage(PackageTypes runtime, string version, out string dotnetFeed)
         {
-            return version.StartsWith("8.0")
-                ? "https://dotnetbuilds.azureedge.net/public" // since 7.0, nightly builds are on this feed
-                : "https://dotnetcli.azureedge.net/dotnet" // this is the default dotnet-install feed
+            dotnetFeed = null;
+
+            const string internalFeed = "https://dotnetbuilds.azureedge.net/public";
+            const string publicFeed = "https://dotnetcli.azureedge.net/dotnet";
+            
+            var dotnetFeeds = version.StartsWith("8.0")
+                ? new string[] { internalFeed, publicFeed } // for 8.0 we check on the internal feed first
+                : new string[] { publicFeed, internalFeed } // for older versions odds are that we are looking for a public package
                 ;
-        }
 
-        private static async Task<bool> CheckPackageExistsAsync(PackageTypes runtime, string version)
-        {
-            // packageIndexUrl -> https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/[packageName]/index.json
-            // e.g., https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json
-            // actual package url -> https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/[packageName]/[version]/[packageName].[version].nupkg
-
-            // https://dotnetcli.blob.core.windows.net/dotnet
-            // https://dotnetcli.blob.core.windows.net/dotnet/Runtime/main/latest.version
-            // aspnetcore: https://dotnetcli.azureedge.net/dotnet/aspnetcore/Runtime/6.0.0-preview.5.21220.5/aspnetcore-runtime-6.0.0-preview.5.21220.5-win-x64.zip
-            // dotnet: https://dotnetcli.azureedge.net/dotnet/Runtime/6.0.0-preview.5.21220.8/dotnet-runtime-6.0.0-preview.5.21220.8-win-x64.zip
-
-            var urlPattern = runtime switch
+            foreach (var feed in dotnetFeeds)
             {
-                PackageTypes.Sdk => "{3}/Sdk/{0}/dotnet-sdk-{0}-{1}.{2}",
-                PackageTypes.AspNetCore => "{3}/aspnetcore/Runtime/{0}/aspnetcore-runtime-{0}-{1}.{2}",
-                PackageTypes.NetCoreApp => "{3}/Runtime/{0}/dotnet-runtime-{0}-{1}.{2}",
-                PackageTypes.WindowsDesktop => "{3}/Runtime/{0}/windowsdesktop-runtime-{0}-{1}.{2}",
-                _ => throw new InvalidOperationException()
-            };
-                
-            var extension = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                ? "zip"
-                : "tar.gz"
-                ;
+                // packageIndexUrl -> https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/[packageName]/index.json
+                // e.g., https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json
+                // actual package url -> https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/[packageName]/[version]/[packageName].[version].nupkg
 
-            var dotnetFeed = GetAzureFeedForVersion(version);
+                // https://dotnetcli.blob.core.windows.net/dotnet
+                // https://dotnetcli.blob.core.windows.net/dotnet/Runtime/main/latest.version
+                // aspnetcore: https://dotnetcli.azureedge.net/dotnet/aspnetcore/Runtime/6.0.0-preview.5.21220.5/aspnetcore-runtime-6.0.0-preview.5.21220.5-win-x64.zip
+                // dotnet: https://dotnetcli.azureedge.net/dotnet/Runtime/6.0.0-preview.5.21220.8/dotnet-runtime-6.0.0-preview.5.21220.8-win-x64.zip
 
-            var download_link = String.Format(urlPattern, version, GetPlatformMoniker(), extension, dotnetFeed);
+                var urlPattern = runtime switch
+                {
+                    PackageTypes.Sdk => "{3}/Sdk/{0}/dotnet-sdk-{0}-{1}.{2}",
+                    PackageTypes.AspNetCore => "{3}/aspnetcore/Runtime/{0}/aspnetcore-runtime-{0}-{1}.{2}",
+                    PackageTypes.NetCoreApp => "{3}/Runtime/{0}/dotnet-runtime-{0}-{1}.{2}",
+                    PackageTypes.WindowsDesktop => "{3}/Runtime/{0}/windowsdesktop-runtime-{0}-{1}.{2}",
+                    _ => throw new InvalidOperationException()
+                };
 
-            Log.Info($"Checking package: {download_link}");
+                var extension = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                    ? "zip"
+                    : "tar.gz"
+                    ;
 
-            var httpMessage = new HttpRequestMessage(HttpMethod.Head, download_link);
-            httpMessage.Headers.IfModifiedSince = DateTime.Now;
+                dotnetFeed = feed;
 
-            using var response = await _httpClient.SendAsync(httpMessage);
+                var download_link = String.Format(urlPattern, version, GetPlatformMoniker(), extension, dotnetFeed);
 
-            // If the file exists, it will return a 304, otherwise a 404
-            return response.StatusCode == HttpStatusCode.NotModified;
+                Log.Info($"Checking package: {download_link}");
+
+                var httpMessage = new HttpRequestMessage(HttpMethod.Head, download_link);
+                httpMessage.Headers.IfModifiedSince = DateTime.Now;
+
+                using var response = _httpClient.Send(httpMessage);
+
+                // If the file exists, it will return a 304, otherwise a 404
+                return response.StatusCode == HttpStatusCode.NotModified;
+            }
+
+            return false;
         }
 
         private static async Task<string> GetFlatContainerVersion(string packageIndexUrl, string versionPrefix, bool checkDotnetInstallUrl = false)
@@ -5640,7 +5638,7 @@ namespace Microsoft.Crank.Agent
             {
                 var version = nugetVersion.OriginalVersion;
 
-                if (await CheckPackageExistsAsync(runtimeType, version))
+                if (TryGetAzureFeedForPackage(runtimeType, version, out _))
                 { 
                     return version;
                 }
