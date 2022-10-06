@@ -5557,7 +5557,7 @@ namespace Microsoft.Crank.Agent
         {
             dotnetFeed = null;
 
-            const string internaFeed = "https://dotnetbuilds.azureedge.net/public";
+            const string internalFeed = "https://dotnetbuilds.azureedge.net/public";
             const string publicFeed = "https://dotnetcli.azureedge.net/dotnet";
             
             var dotnetFeeds = version.StartsWith("8.0")
