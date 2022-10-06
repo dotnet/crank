@@ -45,3 +45,11 @@ The command format is `/benchmark <benchmarks[,...]> <profiles[,...]> <component
 ```
 dotnet run --config .\sample.config.yml --repository https://github.com/sebastienros/aspnetcore --publish-results true
 ```
+
+Security:
+
+All arguments can be provided from an environment variable by prefixing the value with `env:`.
+
+```
+dotnet run --config .\sample.config.yml --access-token env:GITHUB_API_KEY 
+```
