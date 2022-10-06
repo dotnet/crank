@@ -5596,13 +5596,16 @@ namespace Microsoft.Crank.Agent
 
                 Log.Info($"Checking package: {download_link}");
 
-                var httpMessage = new HttpRequestMessage(HttpMethod.Head, download_link);
+                using var httpMessage = new HttpRequestMessage(HttpMethod.Head, download_link);
                 httpMessage.Headers.IfModifiedSince = DateTime.Now;
 
                 using var response = _httpClient.Send(httpMessage);
 
                 // If the file exists, it will return a 304, otherwise a 404
-                return response.StatusCode == HttpStatusCode.NotModified;
+                if (response.StatusCode == HttpStatusCode.NotModified)
+                {
+                    return true;
+                }
             }
 
             return false;
