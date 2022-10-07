@@ -2627,7 +2627,7 @@ namespace Microsoft.Crank.Agent
                 targetFramework = ResolveProjectTFM(job, projectFileName, targetFramework);
             }
 
-            await PatchProjectFrameworkReferenceAsync(job, projectFileName, targetFramework);
+            await PatchProjectFrameworkReferenceAsync(job, projectFileName, targetFramework, new HashSet<string>());
 
             // If a specific channel is set, use it instead of the detected one
             if (!String.IsNullOrEmpty(job.Channel))
