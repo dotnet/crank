@@ -2627,7 +2627,7 @@ namespace Microsoft.Crank.Agent
                 targetFramework = ResolveProjectTFM(job, projectFileName, targetFramework);
             }
 
-            await PatchProjectFrameworkReferenceAsync(job, projectFileName, targetFramework);
+            await PatchProjectFrameworkReferenceAsync(job, projectFileName, targetFramework, new HashSet<string>());
 
             // If a specific channel is set, use it instead of the detected one
             if (!String.IsNullOrEmpty(job.Channel))
@@ -3477,13 +3477,23 @@ namespace Microsoft.Crank.Agent
             return !String.IsNullOrEmpty(version) && char.IsDigit(version[0]);
         }
 
-        private static async Task PatchProjectFrameworkReferenceAsync(Job job, string projectFileName, string targetFramework)
+        /// <summary>
+        /// Alters the csproj to force the TFM and the framework versions defined in the job. 
+        /// </summary>
+        private static async Task PatchProjectFrameworkReferenceAsync(Job job, string projectFileName, string targetFramework, HashSet<string> processed)
         {
-            // Alters the csproj to force the TFM and the framework versions defined in the job. 
+            // Normalize the project filename
+            projectFileName = Path.GetFullPath(projectFileName);
+
+            // If the project is already being processed, return
+            if (!processed.Add(projectFileName))
+            {
+                return;
+            }
 
             if (File.Exists(projectFileName))
             {
-                Log.Info("Patching project file with Framework References");
+                Log.Info($"Patching project file '{projectFileName}'");
 
                 await ProcessUtil.RetryOnExceptionAsync(3, async () =>
                 {
@@ -3492,6 +3502,17 @@ namespace Microsoft.Crank.Agent
                     using (var projectFileStream = File.OpenRead(projectFileName))
                     {
                         project = await XDocument.LoadAsync(projectFileStream, LoadOptions.None, new CancellationTokenSource(3000).Token);
+                    }
+
+                    // Search all project references (depth-first)
+
+                    var relativeProjectReferences = project.Root.Elements("ItemGroup").Elements("ProjectReference").Select(x => x.Attribute("Include").Value).Where(x => !string.IsNullOrEmpty(x));
+
+                    foreach (var relativeProjectReference in relativeProjectReferences)
+                    {
+                        var projectReference = Path.Combine(Path.GetDirectoryName(projectFileName), relativeProjectReference);
+
+                        await PatchProjectFrameworkReferenceAsync(job, projectReference, targetFramework, processed);
                     }
 
                     // Remove existing <TargetFramework(s)> element
@@ -3518,7 +3539,6 @@ namespace Microsoft.Crank.Agent
                     {
                         project.Root.Add(
                             new XElement("ItemGroup",
-                                new XAttribute("Condition", "$(TargetFramework) == 'netcoreapp3.0' or $(TargetFramework) == 'netcoreapp3.1' or $(TargetFramework) == 'net5.0' or $(TargetFramework) == 'net6.0' or $(TargetFramework) == 'net7.0' or $(TargetFramework) == 'net8.0'"),
                                 new XElement("FrameworkReference",
                                     new XAttribute("Update", "Microsoft.AspNetCore.App"),
                                     new XAttribute("RuntimeFrameworkVersion", "$(MicrosoftAspNetCoreAppPackageVersion)")
@@ -3534,7 +3554,6 @@ namespace Microsoft.Crank.Agent
                     {
                         project.Root.Add(
                             new XElement("ItemGroup",
-                                new XAttribute("Condition", "$(TargetFramework) == 'netcoreapp3.0' or $(TargetFramework) == 'netcoreapp3.1' or $(TargetFramework) == 'net5.0' or $(TargetFramework) == 'net6.0' or $(TargetFramework) == 'net7.0' or $(TargetFramework) == 'net8.0'"),
                                 new XElement("FrameworkReference",
                                     new XAttribute("Update", "Microsoft.AspNetCore.App"),
                                     new XAttribute("RuntimeFrameworkVersion", "$(MicrosoftAspNetCoreAppPackageVersion)")
