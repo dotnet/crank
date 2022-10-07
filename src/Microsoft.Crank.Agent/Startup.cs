@@ -3486,7 +3486,7 @@ namespace Microsoft.Crank.Agent
             projectFileName = Path.GetFullPath(projectFileName);
 
             // If the project is already being processed, return
-            if (processed.Add(projectFileName))
+            if (!processed.Add(projectFileName))
             {
                 return;
             }
