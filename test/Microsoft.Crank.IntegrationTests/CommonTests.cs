@@ -13,6 +13,8 @@ namespace Microsoft.Crank.IntegrationTests
 {
     public class CommonTests : IClassFixture<AgentFixture>, IDisposable
     {
+        private static readonly TimeSpan DefaultTimeOut = TimeSpan.FromMinutes(10);
+
         private readonly ITestOutputHelper _output;
         private readonly AgentFixture _agent;
         private string _crankDirectory;
@@ -60,7 +62,7 @@ namespace Microsoft.Crank.IntegrationTests
                 $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local", 
                 workingDirectory: _crankTestsDirectory,
                 captureOutput: true,
-                timeout: TimeSpan.FromMinutes(5),
+                timeout: DefaultTimeOut,
                 throwOnError: false,
                 outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); } 
             );
@@ -83,7 +85,7 @@ namespace Microsoft.Crank.IntegrationTests
                 $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --config ./assets/scripts.benchmarks.yml --script add_current_time --json results.json --property a=b --command-line-property", 
                 workingDirectory: _crankTestsDirectory,
                 captureOutput: true,
-                timeout: TimeSpan.FromMinutes(5),
+                timeout: DefaultTimeOut,
                 throwOnError: false,
                 outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); } 
             );
@@ -117,7 +119,7 @@ namespace Microsoft.Crank.IntegrationTests
                 $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --application.options.counterProviders System.Runtime", 
                 workingDirectory: _crankTestsDirectory,
                 captureOutput: true,
-                timeout: TimeSpan.FromMinutes(5),
+                timeout: DefaultTimeOut,
                 throwOnError: false,
                 outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); } 
             );
@@ -144,7 +146,7 @@ namespace Microsoft.Crank.IntegrationTests
                 $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --application.options.outputFiles ./assets/hello.benchmarks.yml  --application.options.downloadFiles hello.benchmarks.yml --application.options.downloadFilesOutput {outputFileDirectory}",
                 workingDirectory: _crankTestsDirectory,
                 captureOutput: true,
-                timeout: TimeSpan.FromMinutes(5),
+                timeout: DefaultTimeOut,
                 throwOnError: false,
                 outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); }
             );
@@ -168,7 +170,7 @@ namespace Microsoft.Crank.IntegrationTests
                 $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --application.options.dumpType mini",
                 workingDirectory: _crankTestsDirectory,
                 captureOutput: true,
-                timeout: TimeSpan.FromMinutes(5),
+                timeout: TimeSpan.FromMinutes(10),
                 throwOnError: false,
                 outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); }
             );
@@ -189,7 +191,7 @@ namespace Microsoft.Crank.IntegrationTests
                 $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --exclude 1 --exclude-order load:http/rps/mean --iterations 3", 
                 workingDirectory: _crankTestsDirectory,
                 captureOutput: true,
-                timeout: TimeSpan.FromMinutes(5),
+                timeout: DefaultTimeOut,
                 throwOnError: false,
                 outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); } 
             );
@@ -212,7 +214,7 @@ namespace Microsoft.Crank.IntegrationTests
                 $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/multiclient.benchmarks.yml --scenario hello --profile local", 
                 workingDirectory: _crankTestsDirectory,
                 captureOutput: true,
-                timeout: TimeSpan.FromMinutes(5),
+                timeout: DefaultTimeOut,
                 throwOnError: false,
                 outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); } 
             );
