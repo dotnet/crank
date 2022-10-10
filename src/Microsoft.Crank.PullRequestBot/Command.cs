@@ -12,5 +12,6 @@ namespace Microsoft.Crank.PullRequestBot
         public string[] Benchmarks { get; set; }
         public string[] Profiles { get; set; }
         public string[] Components { get; set; }
+        public string Arguments { get; set; }
     }
 }
