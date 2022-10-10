@@ -395,11 +395,12 @@ namespace Microsoft.Crank.PullRequestBot
                             if (await _githubClient.Repository.Collaborator.IsCollaborator(pr.Base.Repository.Id, comment.User.Login))
                             {
                                 var arguments = comment.Body[BenchmarkCommand.Length..].Trim()
-                                    .Split(' ', 3, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                                    .Split(' ', 4, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
                                 var benchmarkNames = (arguments.Length > 0 ? arguments[0] : "").Split(',', StringSplitOptions.RemoveEmptyEntries);
                                 var profileNames = (arguments.Length > 1 ? arguments[1] : "").Split(',', StringSplitOptions.RemoveEmptyEntries);
                                 var componentNames = (arguments.Length > 2 ? arguments[2] : "").Split(',', StringSplitOptions.RemoveEmptyEntries);
+                                var crankArguments = (arguments.Length > 3 ? arguments[3] : null);
 
                                 // If some arguments are missing render the help text as a new comment
                                 if (!benchmarkNames.Any() || !profileNames.Any() || !componentNames.Any())
@@ -428,6 +429,7 @@ namespace Microsoft.Crank.PullRequestBot
                                     Profiles = profileNames.Any() ? profileNames : new[] { _configuration.Profiles.First().Key },
                                     Components = componentNames.Any() ? componentNames : new[] { _configuration.Components.First().Key },
                                     PullRequest = pr,
+                                    Arguments = crankArguments,
                                 };
                             }
                             else
@@ -728,7 +730,7 @@ namespace Microsoft.Crank.PullRequestBot
                     File.Delete(prResultsFilename);
 
                     Directory.SetCurrentDirectory(cloneFolder);
-                    RunCrank(benchmark.Variables, _configuration.Defaults, benchmark.Arguments, profile.Arguments, buildArguments, $@"--json ""{baseResultsFilename}""", _options.Arguments);
+                    RunCrank(benchmark.Variables, _configuration.Defaults, benchmark.Arguments, profile.Arguments, buildArguments, $@"--json ""{baseResultsFilename}""", command.Arguments, _options.Arguments);
                 }
 
                 await ProcessUtil.RunAsync("git", $@"fetch origin pull/{prNumber}/head", workingDirectory: cloneFolder, log: true);
@@ -753,7 +755,7 @@ namespace Microsoft.Crank.PullRequestBot
                     var prResultsFilename = $"{workspace}{run.Benchmark}.{PrFilename}";
 
                     Directory.SetCurrentDirectory(cloneFolder);
-                    RunCrank(benchmark.Variables, _configuration.Defaults, benchmark.Arguments, profile.Arguments, buildArguments, $@"--json ""{prResultsFilename}""", _options.Arguments);
+                    RunCrank(benchmark.Variables, _configuration.Defaults, benchmark.Arguments, profile.Arguments, buildArguments, $@"--json ""{prResultsFilename}""", command.Arguments, _options.Arguments);
 
                     // Compare benchmarks
                     var result = RunCrank($"compare", $"{baseResultsFilename}", $"{prResultsFilename}");
