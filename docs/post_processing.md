@@ -6,7 +6,7 @@ Once a benchmark is finished, the results (computed values out of measurements) 
 
 Crank provides the ability to define custom post-processing scripts that can be invoked before the results are stored, and reused across runs.
 
-In these scripts, the `benchmarks` property is available for read/write access, and represent the JSon document as it would be save on disk with the option `--output [filename]`.
+In these scripts, the `benchmarks` property is available for read/write access, and represents the JSon document as it would be saved on disk with the option `--json [filename]`.
 
 ## Prerequisites
 
