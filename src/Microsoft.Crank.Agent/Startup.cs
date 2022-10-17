@@ -3662,44 +3662,42 @@ namespace Microsoft.Crank.Agent
 
             // Define which ASP.NET Core packages version to use
 
-            if (String.Equals(aspNetCoreVersion, "Current", StringComparison.OrdinalIgnoreCase))
+            switch (aspNetCoreVersion.ToLowerInvariant())
             {
-                aspNetCoreVersion = currentAspNetCoreVersion;
-                Log.Info($"ASP.NET: {aspNetCoreVersion} (Current)");
-            }
-            else if (String.Equals(aspNetCoreVersion, "Latest", StringComparison.OrdinalIgnoreCase)
-                || String.Equals(aspNetCoreVersion, "Edge", StringComparison.OrdinalIgnoreCase))
-            {
-                // aspnet runtime service releases are not published on feeds
-                if (versionPrefix == "8.0")
-                {
-                    aspNetCoreVersion = await GetFlatContainerVersion(_aspnet8FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
-                    Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - From 8.0 feed)");
-                }
-                if (versionPrefix == "7.0")
-                {
-                    aspNetCoreVersion = await GetFlatContainerVersion(_aspnet7FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
-                    Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - From 7.0 feed)");
-                }
-                else if (versionPrefix == "6.0")
-                {
-                    aspNetCoreVersion = await GetFlatContainerVersion(_aspnet6FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
-                    Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - From 6.0 feed)");
-                }
-                else if (versionPrefix == "5.0")
-                {
-                    aspNetCoreVersion = await GetFlatContainerVersion(_aspnet5FlatContainerUrl, versionPrefix);
-                    Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - From 5.0 feed)");
-                }
-                else
-                {
+                case "current":
                     aspNetCoreVersion = currentAspNetCoreVersion;
-                    Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - Fallback on Current)");
-                }
-            }
-            else
-            {
-                Log.Info($"ASP.NET: {aspNetCoreVersion} (Specific)");
+                    Log.Info($"ASP.NET: {aspNetCoreVersion} (Current)");
+                    break;
+                case "latest":
+                case "edge":
+                    // aspnet runtime service releases are not published on feeds
+                    switch (versionPrefix)
+                    {
+                        case "8.0":
+                            aspNetCoreVersion = await GetFlatContainerVersion(_aspnet8FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
+                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - From 8.0 feed)");
+                            break;
+                        case "7.0":
+                            aspNetCoreVersion = await GetFlatContainerVersion(_aspnet7FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
+                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - From 7.0 feed)");
+                            break;
+                        case "6.0":
+                            aspNetCoreVersion = await GetFlatContainerVersion(_aspnet6FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
+                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - From 6.0 feed)");
+                            break;
+                        case "5.0":
+                            aspNetCoreVersion = await GetFlatContainerVersion(_aspnet5FlatContainerUrl, versionPrefix);
+                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - From 5.0 feed)");
+                            break;
+                        default:
+                            aspNetCoreVersion = currentAspNetCoreVersion;
+                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - Fallback on Current)");
+                            break;
+                    }
+                    break;
+                default:
+                    Log.Info($"ASP.NET: {aspNetCoreVersion} (Specific)");
+                    break;
             }
 
             return aspNetCoreVersion;
