@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <Description>The benchmarking agent</Description>
-    <TargetFrameworks>net5.0;net6.0</TargetFrameworks>
+    <TargetFrameworks>net6.0</TargetFrameworks>
     <OutputType>Exe</OutputType>
     <Authors>Microsoft</Authors>
     <PackAsTool>true</PackAsTool>
@@ -22,9 +22,9 @@
     <PackageReference Include="Microsoft.AspNetCore.Hosting.WindowsServices" Version="5.0.12" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="3.1.8" />
     <PackageReference Include="Microsoft.Azure.Relay.AspNetCore" Version="1.3.15173" />
-    <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" Version="0.2.251802" />
-    <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="2.0.74" />
     <PackageReference Include="Mono.Cecil" Version="0.11.3" />
+    <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" Version="0.2.328102" />
+    <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="3.0.5" />
     <PackageReference Include="Mono.Unix" Version="7.1.0-final.1.21458.1" />
     <PackageReference Include="NuGet.Versioning" Version="5.5.1" />
     <PackageReference Include="Vanara.PInvoke.Kernel32" Version="3.3.14" />

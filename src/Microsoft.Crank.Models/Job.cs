@@ -215,6 +215,11 @@ namespace Microsoft.Crank.Models
         public List<Dependency> Dependencies { get; set; } = new List<Dependency>();
 
         public bool CollectDependencies { get; set; }
+
+        /// <summary>
+        /// Whether to patch the TFM of project references.
+        /// </summary>
+        public bool PatchReferences { get; set; } = false;
     }
 
     /// <summary>
