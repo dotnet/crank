@@ -2627,7 +2627,7 @@ namespace Microsoft.Crank.Agent
                 targetFramework = ResolveProjectTFM(job, projectFileName, targetFramework);
             }
 
-            await PatchProjectFrameworkReferenceAsync(job, projectFileName, targetFramework, new HashSet<string>());
+            await PatchProjectFrameworkReferenceAsync(job, projectFileName, targetFramework);
 
             // If a specific channel is set, use it instead of the detected one
             if (!String.IsNullOrEmpty(job.Channel))
@@ -2687,7 +2687,7 @@ namespace Microsoft.Crank.Agent
             {
                 if (OperatingSystem == OperatingSystem.Windows)
                 {
-                    desktopVersion = ResolveDestopVersion(desktopVersion, currentDesktopVersion);
+                    desktopVersion = await ResolveDestopVersion(desktopVersion, currentDesktopVersion);
 
                     if (!_installedSdks.Contains(sdkVersion))
                     {
@@ -2710,7 +2710,7 @@ namespace Microsoft.Crank.Agent
 
                         if (result.ExitCode != 0)
                         {
-                            throw new InvalidOperationException(); 
+                            throw new InvalidOperationException();
                         }
 
                         _installedSdks.Add(sdkVersion);
@@ -3480,13 +3480,13 @@ namespace Microsoft.Crank.Agent
         /// <summary>
         /// Alters the csproj to force the TFM and the framework versions defined in the job. 
         /// </summary>
-        private static async Task PatchProjectFrameworkReferenceAsync(Job job, string projectFileName, string targetFramework, HashSet<string> processed)
+        private static async Task PatchProjectFrameworkReferenceAsync(Job job, string projectFileName, string targetFramework, HashSet<string> processed = null)
         {
             // Normalize the project filename
             projectFileName = Path.GetFullPath(projectFileName);
 
             // If the project is already being processed, return
-            if (!processed.Add(projectFileName))
+            if (processed != null && !processed.Add(projectFileName))
             {
                 return;
             }
@@ -3504,15 +3504,23 @@ namespace Microsoft.Crank.Agent
                         project = await XDocument.LoadAsync(projectFileStream, LoadOptions.None, new CancellationTokenSource(3000).Token);
                     }
 
-                    // Search all project references (depth-first)
-
-                    var relativeProjectReferences = project.Root.Elements("ItemGroup").Elements("ProjectReference").Select(x => x.Attribute("Include").Value).Where(x => !string.IsNullOrEmpty(x));
-
-                    foreach (var relativeProjectReference in relativeProjectReferences)
+                    if (job.PatchReferences)
                     {
-                        var projectReference = Path.Combine(Path.GetDirectoryName(projectFileName), relativeProjectReference);
+                        if (processed == null)
+                        {
+                            processed = new HashSet<string>() { projectFileName };
+                        }
 
-                        await PatchProjectFrameworkReferenceAsync(job, projectReference, targetFramework, processed);
+                        // Search all project references (depth-first)
+
+                        var relativeProjectReferences = project.Root.Elements("ItemGroup").Elements("ProjectReference").Select(x => x.Attribute("Include").Value).Where(x => !string.IsNullOrEmpty(x));
+
+                        foreach (var relativeProjectReference in relativeProjectReferences)
+                        {
+                            var projectReference = Path.Combine(Path.GetDirectoryName(projectFileName), relativeProjectReference);
+
+                            await PatchProjectFrameworkReferenceAsync(job, projectReference, targetFramework, processed);
+                        }
                     }
 
                     // Remove existing <TargetFramework(s)> element
@@ -4054,7 +4062,7 @@ namespace Microsoft.Crank.Agent
             return runtimeVersion;
         }
 
-        private static string ResolveDestopVersion(string desktopVersion, string currentDesktopVersion)
+        private static async Task<string> ResolveDestopVersion(string desktopVersion, string currentDesktopVersion)
         {
             if (String.Equals(desktopVersion, "Current", StringComparison.OrdinalIgnoreCase))
             {
@@ -4068,14 +4076,13 @@ namespace Microsoft.Crank.Agent
             }
             else if (String.Equals(desktopVersion, "Edge", StringComparison.OrdinalIgnoreCase))
             {
-                desktopVersion = currentDesktopVersion;
+                (desktopVersion, _) = await ParseVersionsFile(_latestSdkVersionUrl, "windowsdesktop");
                 Log.Info($"Desktop: {currentDesktopVersion} (Edge)");
             }
             else
             {
                 // Custom version
-                desktopVersion = currentDesktopVersion;
-                Log.Info($"Desktop: {desktopVersion} (Current)");
+                Log.Info($"Desktop: {desktopVersion} (Specific)");
             }
 
             return desktopVersion;
