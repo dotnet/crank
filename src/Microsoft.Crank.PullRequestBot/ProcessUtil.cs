@@ -141,7 +141,7 @@ namespace Microsoft.Crank.PullRequestBot
 
                 if (throwOnError && process.ExitCode != 0)
                 {
-                    processLifetimeTask.TrySetException(new InvalidOperationException($"Command {filename} {arguments} returned exit code {process.ExitCode}"));
+                    processLifetimeTask.TrySetException(new InvalidOperationException($"Command '{filename} {arguments}' returned exit code {process.ExitCode}"));
                 }
                 else
                 {
@@ -163,6 +163,11 @@ namespace Microsoft.Crank.PullRequestBot
 
             if (result != processLifetimeTask.Task)
             {
+                if (log)
+                {
+                    Console.WriteLine($"Command '{filename} {arguments}' {(cancellationToken.IsCancellationRequested ? "is canceled" : "timed out")}, process {process.Id} will be terminated");
+                }
+
                 if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
                     sys_kill(process.Id, sig: 2); // SIGINT
@@ -180,7 +185,7 @@ namespace Microsoft.Crank.PullRequestBot
 
                     if (!process.HasExited)
                     {
-                        process.Kill();
+                        process.Kill(entireProcessTree: true);
                     }
                 }
             }

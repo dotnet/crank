@@ -26,6 +26,7 @@ namespace Microsoft.Crank.PullRequestBot
         public bool Debug { get; set; }
         public Uri GitHubBaseUrl { get; set; }
         public string Arguments { get; set; }
+        public Uri ExternalLogUri { get; set; }
 
         public void Validate()
         {
