@@ -43,7 +43,7 @@ namespace Microsoft.Crank.PullRequestBot
         private const string BenchmarkCommand = "/benchmark";
         private const string BaseFilename = "base.json";
         private const string PrFilename = "pr.json";
-        private const int CrankMaxRetries = 1; // retry once after an unsuccessful run
+        private const int CrankMaxRetries = 2; // retry once after an unsuccessful run
 
         private static DateTime CommentCutoffDate;
 
@@ -256,22 +256,29 @@ namespace Microsoft.Crank.PullRequestBot
 
                 var command = new Command { PullRequest = pr, Benchmarks = benchmarkNames, Profiles = profileNames, Components = componentNames };
 
-                var results = await RunBenchmark(command, options.AccessToken);
-
-                if (options.PublishResults)
+                try
                 {
-                    var text = new StringBuilder();
+                    var results = await RunBenchmark(command, options.AccessToken);
 
-                    foreach (var result in results)
+                    if (options.PublishResults)
                     {
-                        text.AppendLine(FormatResult(result));
+                        var text = new StringBuilder();
+
+                        foreach (var result in results)
+                        {
+                            text.AppendLine(FormatResult(result));
+                        }
+
+                        await UpgradeAuthenticatedClient();
+
+                        var issueComment = await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint(text.ToString()));
+
+                        Console.WriteLine($"Results published at {issueComment.HtmlUrl}");
                     }
-
-                    await UpgradeAuthenticatedClient();
-
-                    var issueComment = await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint(text.ToString()));
-
-                    Console.WriteLine($"Results published at {issueComment.HtmlUrl}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to benchmark PR #{command.PullRequest.Number}. Skipping... Details:\n```\n{ex}\n```");
                 }
             }
             else
@@ -753,9 +760,9 @@ namespace Microsoft.Crank.PullRequestBot
                         RunCrank(runOptions, _configuration.Defaults, benchmark.Arguments, profile.Arguments, command.Arguments, _options.Arguments);
                     }
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
-                    Console.WriteLine($"Pre-check failed: {e}");
+                    Console.WriteLine($"Pre-check failed");
                     buildBaseCts.Cancel(); // Cancel build on pre-check failure
                     try
                     {
@@ -765,7 +772,7 @@ namespace Microsoft.Crank.PullRequestBot
                     throw; // Re-throw original pre-check exception
                 }
 
-                Console.WriteLine($"Pre-check succsessful");
+                Console.WriteLine($"Pre-check successful");
                 await buildBaseTask; // on successful pre-check, wait until build is finished
 
                 Console.WriteLine($"Base run started...");
@@ -869,45 +876,47 @@ namespace Microsoft.Crank.PullRequestBot
 
             Console.WriteLine($"crank {string.Join(' ', args)}");
 
-            for (int i = 0; i < options.MaxRetries + 1; ++i)
+            for (int i = 0; i < options.MaxRetries; ++i)
             {
-                try
+                int exitCode = 1;
+                string result = null;
+
+                if (!options.CaptureOutput)
                 {
-                    return RunCrankController(args, options.CaptureOutput);
+                    exitCode = Crank.Controller.Program.Main(args);
+                }
+                else
+                {
+                    using var sw = new StringWriter();
+                    var consoleOut = Console.Out;
+                    try
+                    {
+                        Console.SetOut(sw);
+                        exitCode = Crank.Controller.Program.Main(args);
+                    }
+                    finally
+                    {
+                        Console.SetOut(consoleOut);
+                        Console.WriteLine(sw.ToString());
+                    }
+                    result = sw.ToString();
+                }
+
+                if (exitCode == 0)
+                {
                     // successful run
+                    return result;
                 }
-                catch (Exception e) when (i < options.MaxRetries)
-                {
-                    Console.WriteLine(e);
-                    Console.WriteLine($"An error occurred during crank run. Will retry ({i+1} of {options.MaxRetries})");
+
+                var errorMessage = "An error occurred during crank run";
+                if (i + 1 < options.MaxRetries)
+                {                
+                    errorMessage += $". Retrying... ({i + 2} of {options.MaxRetries})";
                 }
+                Console.WriteLine(errorMessage);
             }
 
-            throw new InvalidOperationException("Crank run failed"); // unreachable, throws above on last unsuccessful retry
-        }
-
-        private static string RunCrankController(string[] args, bool captureOutput)
-        {
-            if (!captureOutput)
-            {
-                Crank.Controller.Program.Main(args);
-                return null;
-            }
-
-            using var sw = new StringWriter();
-            var consoleOut = Console.Out;
-            try
-            {
-                Console.SetOut(sw);
-                Crank.Controller.Program.Main(args);
-            }
-            finally
-            {
-                Console.SetOut(consoleOut);
-                Console.WriteLine(sw.ToString());
-            }
-
-            return sw.ToString();
+            throw new InvalidOperationException("Crank run failed. Max retries reached");
         }
     }
 
@@ -941,7 +950,7 @@ namespace Microsoft.Crank.PullRequestBot
     {
         public static RunOptions Default = new();
 
-        public RunOptions(int maxRetries = 0, bool captureOutput = true, IDictionary<string, object> variables = null)
+        public RunOptions(int maxRetries = 1, bool captureOutput = true, IDictionary<string, object> variables = null)
         {
             MaxRetries = maxRetries;
             CaptureOutput = captureOutput;
