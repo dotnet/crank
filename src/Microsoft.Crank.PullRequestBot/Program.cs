@@ -881,25 +881,32 @@ namespace Microsoft.Crank.PullRequestBot
                 int exitCode = 1;
                 string result = null;
 
-                if (!options.CaptureOutput)
+                try
                 {
-                    exitCode = Crank.Controller.Program.Main(args);
-                }
-                else
-                {
-                    using var sw = new StringWriter();
-                    var consoleOut = Console.Out;
-                    try
+                    if (!options.CaptureOutput)
                     {
-                        Console.SetOut(sw);
                         exitCode = Crank.Controller.Program.Main(args);
                     }
-                    finally
+                    else
                     {
-                        Console.SetOut(consoleOut);
-                        Console.WriteLine(sw.ToString());
+                        using var sw = new StringWriter();
+                        var consoleOut = Console.Out;
+                        try
+                        {
+                            Console.SetOut(sw);
+                            exitCode = Crank.Controller.Program.Main(args);
+                        }
+                        finally
+                        {
+                            Console.SetOut(consoleOut);
+                            Console.WriteLine(sw.ToString());
+                        }
+                        result = sw.ToString();
                     }
-                    result = sw.ToString();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
                 }
 
                 if (exitCode == 0)
