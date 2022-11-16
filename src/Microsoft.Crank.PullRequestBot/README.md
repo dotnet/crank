@@ -28,6 +28,7 @@ Options:
   --config <config> (REQUIRED)           The path to a configuration file.
   --version                              Show version information
   --age                                  The age of the most recent comment to look for in minutes. Default is 60.
+  --external-log-uri <external-log-uri>  Link to the logs (e.g. in AzDO) to publish in the start comment.
   -?, -h, --help                         Show help and usage information
 ```
 
