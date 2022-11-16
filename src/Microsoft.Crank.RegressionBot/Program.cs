@@ -6,7 +6,6 @@ using System;
 using System.Collections.Generic;
 using System.CommandLine;
 using System.CommandLine.Invocation;
-using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -15,14 +14,15 @@ using System.Text;
 using System.Threading.Tasks;
 using Fluid;
 using Fluid.Values;
-using Manatee.Json.Schema;
 using Manatee.Json;
+using Manatee.Json.Schema;
+using MessagePack;
+using Microsoft.Crank.RegressionBot.Models;
+using Microsoft.Data.SqlClient;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Octokit;
 using YamlDotNet.Serialization;
-using Microsoft.Crank.RegressionBot.Models;
-using MessagePack;
 
 namespace Microsoft.Crank.RegressionBot
 {
