@@ -49,10 +49,10 @@ stages:
         pool:
           ${{ if eq(variables['System.TeamProject'], 'public') }}:
             name: NetCore-Public
-            demands: ImageOverride -equals 1es-windows-2022.open
+            demands: ImageOverride -equals windows.vs2022.amd64.open
           ${{ if eq(variables['System.TeamProject'], 'internal') }}:
             name: NetCore1ESPool-Internal
-            demands: ImageOverride -equals 1es-windows-2022
+            demands: ImageOverride -equals windows.vs2022.amd64
         variables:
           
 
