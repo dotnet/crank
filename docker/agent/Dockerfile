@@ -7,7 +7,7 @@ ENV DOTNET_CLI_TELEMETRY_OPTOUT 1
 
 # Build self contained
 
-RUN dotnet publish -c Release src/Microsoft.Crank.Agent --output /app --framework net6.0
+RUN dotnet publish -c Release src/Microsoft.Crank.Agent --output /app --framework net7.0
 
 # Build runtime image
 # FROM mcr.microsoft.com/dotnet/aspnet:7.0
