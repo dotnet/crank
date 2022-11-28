@@ -2837,22 +2837,27 @@ namespace Microsoft.Crank.Agent
 
                         // Install latest SDK version (and associated runtime)
 
-                        if (!TryGetAzureFeedForPackage(PackageTypes.Sdk, sdkVersion, out dotnetFeed))
+                        ProcessResult result = null;
+                        
+                        await ProcessUtil.RetryOnExceptionAsync(3, async () =>
                         {
-                            throw new InvalidOperationException();
-                        }
+                            if (!TryGetAzureFeedForPackage(PackageTypes.Sdk, sdkVersion, out dotnetFeed))
+                            {
+                                throw new InvalidOperationException();
+                            }
 
-                        ProcessResult result = await ProcessUtil.RunAsync("/usr/bin/env", $"bash dotnet-install.sh --version {sdkVersion} --no-path --skip-non-versioned-files --install-dir {dotnetHome} -AzureFeed {dotnetFeed}",
-                                log: false,
-                                throwOnError: false, 
-                                workingDirectory: _dotnetInstallPath,
-                                environmentVariables: env,
-                                cancellationToken: cancellationToken);
+                            result = await ProcessUtil.RunAsync("/usr/bin/env", $"bash dotnet-install.sh --version {sdkVersion} --no-path --skip-non-versioned-files --install-dir {dotnetHome} -AzureFeed {dotnetFeed}",
+                                    log: false,
+                                    throwOnError: false, 
+                                    workingDirectory: _dotnetInstallPath,
+                                    environmentVariables: env,
+                                    cancellationToken: cancellationToken);
 
-                        if (result.ExitCode != 0)
-                        {
-                            throw new InvalidOperationException();
-                        }
+                            if (result.ExitCode != 0)
+                            {
+                                throw new InvalidOperationException();
+                            }
+                        });
 
                         _installedSdks.Add(sdkVersion);
                     }
