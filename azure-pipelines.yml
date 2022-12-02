@@ -164,8 +164,7 @@ stages:
       # Symbol validation isn't being very reliable lately. This should be enabled back
       # once this issue is resolved: https://github.com/dotnet/arcade/issues/2871
       enableSymbolValidation: false
-      # Signing validation is currently not working with net7.0 due to an msbuild issue
-      enableSigningValidation: false
+      enableSigningValidation: true
       # It's a private repo in github so this won't pass until we create an internal mirror
       enableSourceLinkValidation: false
       publishingInfraVersion: 3
