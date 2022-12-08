@@ -898,5 +898,5 @@ onResultsCreating:
     var percentile99 = x => percentile(x, 99)
     var percentile95 = x => percentile(x, 95)
     var percentile90 = x => percentile(x, 90)
-    var percentile75 = x => percentile(x, 90)
-    var percentile50 = x => percentile(x, 90)
+    var percentile75 = x => percentile(x, 75)
+    var percentile50 = x => percentile(x, 50)
