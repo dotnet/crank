@@ -72,6 +72,7 @@ namespace Microsoft.Crank.Agent
 
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
+        private static readonly char[] _splitChars = { '\n', ' ', '=', '"' };
 
         // Sources of dotnet-install scripts are in https://github.com/dotnet/install-scripts/
         private static readonly string _dotnetInstallShUrl = "https://dot.net/v1/dotnet-install.sh";
@@ -4289,9 +4290,9 @@ namespace Microsoft.Crank.Agent
                 {
                     if (line.StartsWith(prefix))
                     {
-                        var fragments = line.Split(',', 2);
-                        var hash = fragments[0].Split(':', 2)[1].Trim();
-                        var version = fragments[1].Trim();
+                        var fragments = line.Split(_splitChars, 7);
+                        var hash = fragments[2];
+                        var version = fragments[6].Trim();
 
                         return (version, hash);
                     }
