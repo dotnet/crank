@@ -72,7 +72,7 @@ namespace Microsoft.Crank.Agent
 
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
-        private static readonly char[] _splitChars = { '\n', ' ', '=', '"' };
+        private static readonly char[] _splitChars = { ' ', '=', '"' };
 
         // Sources of dotnet-install scripts are in https://github.com/dotnet/install-scripts/
         private static readonly string _dotnetInstallShUrl = "https://dot.net/v1/dotnet-install.sh";
@@ -2635,8 +2635,8 @@ namespace Microsoft.Crank.Agent
             {
                 channel = job.Channel;
             }
-            // Until there is a GA version of net7.0 or net8.0, use "edge"
-            else if (targetFramework.Equals("net7.0") || targetFramework.Equals("net8.0"))
+            // Until there is a GA version of net8.0, use "edge"
+            else if (targetFramework.Equals("net8.0"))
             {
                 channel = "edge";
             }
@@ -4290,9 +4290,9 @@ namespace Microsoft.Crank.Agent
                 {
                     if (line.StartsWith(prefix))
                     {
-                        var fragments = line.Split(_splitChars, 7);
-                        var hash = fragments[2];
-                        var version = fragments[6].Trim();
+                        var fragments = line.Split(_splitChars, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+                        var hash = fragments[1];
+                        var version = fragments[3];
 
                         return (version, hash);
                     }
