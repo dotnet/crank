@@ -3398,7 +3398,7 @@ namespace Microsoft.Crank.Agent
                 var fis = d.GetFiles();
                 foreach (var fi in fis)
                 {
-                    if (ignoredExtensions != null && ignoredExtensions.Contains(fi.Extension))
+                    if (ignoredExtensions != null && ignoredExtensions.Contains(fi.Extension, StringComparer.OrdinalIgnoreCase))
                     {
                         continue;
                     }
