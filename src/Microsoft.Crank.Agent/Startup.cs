@@ -1670,7 +1670,7 @@ namespace Microsoft.Crank.Agent
                                     await DockerCleanUpAsync(dockerContainerId, dockerImage, job);
                                 }
 
-                                // Running AfterScript
+                                // Run scripts after the benchmark is stopped
                                 if (!String.IsNullOrEmpty(job.AfterScript))
                                 {
                                     var segments = job.AfterScript.Split(' ', 2);
@@ -2010,13 +2010,6 @@ namespace Microsoft.Crank.Agent
 
             job.BasePath = workingDirectory;
 
-            // Running BeforeScript
-            if (!String.IsNullOrEmpty(job.BeforeScript))
-            {
-                var segments = job.BeforeScript.Split(' ', 2);
-                var processResult = await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: workingDirectory, log: true, outputDataReceived: text => job.Output.AddLine(text));
-            }
-
             // Copy build files before building/publishing
             foreach (var attachment in job.BuildAttachments)
             {
@@ -2125,6 +2118,13 @@ namespace Microsoft.Crank.Agent
                         outputDataReceived: text => job.BuildLog.AddLine(text)
                     );
                 }
+            }
+
+            // Run scripts before the benchmark is run, and after custom build attachments have be uploaded
+            if (!String.IsNullOrEmpty(job.BeforeScript))
+            {
+                var segments = job.BeforeScript.Split(' ', 2);
+                var processResult = await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: workingDirectory, log: true, outputDataReceived: text => job.Output.AddLine(text));
             }
 
             if (cancellationToken.IsCancellationRequested)
@@ -4492,7 +4492,7 @@ namespace Microsoft.Crank.Agent
 
             var iis = job.WebHost == WebHost.IISInProcess || job.WebHost == WebHost.IISOutOfProcess;
 
-            // Running BeforeScript
+            // Run scripts before the benchmark is run
             if (!String.IsNullOrEmpty(job.BeforeScript))
             {
                 var segments = job.BeforeScript.Split(' ', 2);

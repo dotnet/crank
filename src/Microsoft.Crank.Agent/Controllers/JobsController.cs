@@ -332,6 +332,69 @@ namespace Microsoft.Crank.Agent.Controllers
             return Ok();
         }
 
+        [HttpPost("{id}/attachment/zip")]
+        [RequestSizeLimit(10_000_000_000)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 10_000_000_000)]
+        public async Task<IActionResult> UploadAttachmentZip(int id)
+        {
+            // Because uploaded files can be big, the client is supposed to keep
+            // pinging the service to keep the job alive during the Initialize state.
+
+            var destinationFilename = Request.Headers["destinationFilename"].ToString();
+
+            Log.Info($"Uploading archive: {destinationFilename}");
+
+            var job = _jobs.Find(id);
+
+            if (job == null)
+            {
+                return NotFound("Job doesn't exist anymore");
+            }
+
+            if (job.State != JobState.Initializing)
+            {
+                Log.Info($"Attachment rejected, job is {job.State}");
+                return StatusCode(500, $"The job can't accept attachment as its state is {job.State}");
+            }
+
+            var destinationTempFilename = Path.GetFullPath(Path.GetRandomFileName(), Path.GetTempPath());
+
+            var tempFilename = Path.GetTempFileName() + ".zip";
+
+            await SaveBodyAsync(tempFilename);
+
+            job.LastDriverCommunicationUtc = DateTime.UtcNow;
+
+            try
+            {
+                // Extract the zip file in a temporary folder
+                ZipFile.ExtractToDirectory(tempFilename, destinationTempFilename);
+            }
+            finally
+            {
+                System.IO.File.Delete(tempFilename);
+            }
+
+            job.LastDriverCommunicationUtc = DateTime.UtcNow;
+
+            foreach (var file in Directory.GetFiles(destinationTempFilename, "*.*", SearchOption.AllDirectories))
+            {
+                var attachment = new Attachment
+                {
+                    TempFilename = file,
+                    Filename = Path.Combine(Path.GetDirectoryName(destinationFilename), file.Substring(destinationTempFilename.Length).TrimStart('/', '\\'))
+                };
+                
+                job.Attachments.Add(attachment);
+
+                Log.Info($"Creating attachment: {attachment.Filename}");
+            }
+
+            job.LastDriverCommunicationUtc = DateTime.UtcNow;
+
+            return Ok();
+        }
+
         [HttpPost("{id}/source")]
         [RequestSizeLimit(10_000_000_000)]
         [RequestFormLimits(MultipartBodyLengthLimit = 10_000_000_000)]

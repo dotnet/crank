@@ -122,6 +122,8 @@ Options:
   --[JOB].options.outputFiles <filename>                                   Output files that will be copied in the published folder after the application is built. Accepts globing patterns and recursive marker (**). Format is 'path[;destination]'. Path can be a URL. e.g., c:\build\Microsoft.AspNetCore.Mvc.dll, c:\files\samples\picture.png;wwwroot\picture.png. If provided, the destination needs to be a folder name, relative to the published path.
   --[JOB].options.reuseSource <true|false>                                 Reuse local or remote sources across benchmarks for the same source.
   --[JOB].options.reuseBuild <true|false>                                  Reuse build files across benchmarks. Don't use with floating runtime versions.
+  --[JOB].options.beforeScript <commandline>                               A command line to execute before the job is started. Current directory is the same as the project or docker file.
+  --[JOB].options.afterScript <commandline>                                A command line to execute after the job is stopped. Current directory is the same as the project or docker file.
 
   ## Timeouts
 
