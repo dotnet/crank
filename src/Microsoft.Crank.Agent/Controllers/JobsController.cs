@@ -590,7 +590,13 @@ namespace Microsoft.Crank.Agent.Controllers
                     return NotFound();
                 }
 
-                var fullPath = Path.Combine(job.BasePath, path);
+                // Resolve dot notation in path
+                var fullPath = Path.GetFullPath(path, job.BasePath);
+
+                if (!fullPath.StartsWith(job.BasePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest("Attempts to access a path outside of the job.");
+                }
 
                 Log.Info($"Download requested: '{fullPath}'");
 
@@ -645,7 +651,13 @@ namespace Microsoft.Crank.Agent.Controllers
                     return NotFound();
                 }
 
-                var fullPath = Path.Combine(job.BasePath, path);
+                // Resolve dot notation in path
+                var fullPath = Path.GetFullPath(path, job.BasePath);
+
+                if (!fullPath.StartsWith(job.BasePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest("Attempts to access a path outside of the job.");
+                }
 
                 if (!Directory.Exists(Path.GetDirectoryName(fullPath)))
                 {
