@@ -10,14 +10,13 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
-using Microsoft.Crank.Models;
 using Microsoft.Crank.Controller.Ignore;
+using Microsoft.Crank.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using System.Threading;
-using System.Net.Http.Headers;
 
 namespace Microsoft.Crank.Controller
 {
@@ -309,28 +308,41 @@ namespace Microsoft.Crank.Controller
                                 outputFileSegments[0] = Path.Combine(".", outputFileSegments[0]);
                             }
 
-                            foreach (var resolvedFile in Directory.GetFiles(Path.GetDirectoryName(outputFileSegments[0]), Path.GetFileName(outputFileSegments[0]), shouldSearchRecursively ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly))
+                            var tempFilename = Path.GetFullPath(Path.GetRandomFileName(), Path.GetTempPath()) + ".zip";
+
+                            using (var archive = ZipFile.Open(tempFilename, ZipArchiveMode.Create))
                             {
-                                var resolvedFileWithDestination = resolvedFile;
-
-                                if (outputFileSegments.Length > 1)
+                                foreach (var resolvedFile in Directory.GetFiles(Path.GetDirectoryName(outputFileSegments[0]), Path.GetFileName(outputFileSegments[0]), shouldSearchRecursively ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly))
                                 {
-                                    resolvedFileWithDestination += ";" + outputFileSegments[1] + Path.GetDirectoryName(resolvedFile).Substring(Path.GetDirectoryName(outputFileSegments[0]).Length) + "/" + Path.GetFileName(resolvedFileWithDestination);
-                                }
+                                    var resolvedFileWithDestination = resolvedFile;
 
-                                var result = await UploadFileAsync(resolvedFileWithDestination, Combine(_serverJobUri, "/attachment"));
+                                    var localPath = resolvedFile.Substring(Path.GetDirectoryName(outputFileSegments[0]).Length).TrimStart('/', '\\');
 
-                                if (result != 0)
-                                {
-                                    throw new Exception("Error while uploading output files");
+                                    if (outputFileSegments.Length > 1)
+                                    {
+                                        localPath = outputFileSegments[1] + Path.GetDirectoryName(resolvedFile).Substring(Path.GetDirectoryName(outputFileSegments[0]).Length) + "/" + Path.GetFileName(resolvedFileWithDestination);
+                                    }
+
+                                    archive.CreateEntryFromFile(resolvedFile, localPath);
+
+                                    Log.Write($"File added: {resolvedFile}");
+
+                                    someFilesWereUploaded = true;
                                 }
-                                
-                                someFilesWereUploaded = true;
                             }
 
                             if (!someFilesWereUploaded)
                             {
                                 Log.WriteWarning($"The argument '{outputFileSegments[0]}' didn't match any existing file.");
+                            }
+                            else
+                            {
+                                var result = await UploadFileAsync(tempFilename, Combine(_serverJobUri, "/attachment/zip"), gzipped: false);
+
+                                if (result != 0)
+                                {
+                                    throw new Exception("Error while uploading output files");
+                                }
                             }
                         }
                     }
@@ -934,12 +946,12 @@ namespace Microsoft.Crank.Controller
                 {
                     var localPath = gitFile.Path.Substring(sourceDirectoryName.Length);
                     Log.Verbose($"Adding {localPath}");
-                    var entry = archive.CreateEntryFromFile(gitFile.Path, localPath);
+                    archive.CreateEntryFromFile(gitFile.Path, localPath);
                 }
             }
         }
 
-        private async Task<int> UploadFileAsync(string filename, string uri)
+        private async Task<int> UploadFileAsync(string filename, string uri, bool gzipped = true)
         {
             try
             {
@@ -969,7 +981,8 @@ namespace Microsoft.Crank.Controller
                     using (var fileContent = new StreamContent(fileStream))
                     {
                         request.Content = fileContent;
-                        if (Job.ServerVersion >= 5)
+
+                        if (Job.ServerVersion >= 5 && gzipped)
                         {
                             request.Content = new CompressedContent(request.Content);
                         }
