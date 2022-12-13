@@ -357,20 +357,25 @@ namespace Microsoft.Crank.Agent.Controllers
                 return StatusCode(500, $"The job can't accept attachment as its state is {job.State}");
             }
 
+            var destinationTempFilename = Path.GetFullPath(Path.GetRandomFileName(), Path.GetTempPath());
+
             var tempFilename = Path.GetTempFileName() + ".zip";
 
             await SaveBodyAsync(tempFilename);
 
             job.LastDriverCommunicationUtc = DateTime.UtcNow;
 
-            var destinationTempFilename = Path.GetFullPath(Path.GetRandomFileName(), Path.GetTempPath());
-            
-            // Extract the zip file in a temporary folder
-            ZipFile.ExtractToDirectory(tempFilename, destinationTempFilename);
+            try
+            {
+                // Extract the zip file in a temporary folder
+                ZipFile.ExtractToDirectory(tempFilename, destinationTempFilename);
+            }
+            finally
+            {
+                System.IO.File.Delete(tempFilename);
+            }
 
             job.LastDriverCommunicationUtc = DateTime.UtcNow;
-
-            System.IO.File.Delete(tempFilename);
 
             foreach (var file in Directory.GetFiles(destinationTempFilename, "*.*", SearchOption.AllDirectories))
             {
