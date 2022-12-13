@@ -113,6 +113,7 @@ namespace Microsoft.Crank.Agent
         private static readonly HashSet<string> _ignoredDesktopRuntimes = new(StringComparer.OrdinalIgnoreCase);
         private static readonly HashSet<string> _installedSdks = new(StringComparer.OrdinalIgnoreCase);
 
+        private static readonly string[] _ignoredSymbolsExtensions = new string[] { ".dbg", ".pdb" };
         private const string _defaultUrl = "http://*:5010";
         private static readonly string _defaultHostname = Dns.GetHostName();
         private static string _perfviewPath;
@@ -752,6 +753,19 @@ namespace Microsoft.Crank.Agent
                                         });
                                     }
 
+                                    if (!job.Metadata.Any(x => x.Name == "benchmarks/symbols-size"))
+                                    {
+                                        job.Metadata.Enqueue(new MeasurementMetadata
+                                        {
+                                            Source = "Host Process",
+                                            Name = "benchmarks/symbols-size",
+                                            Aggregate = Operation.Max,
+                                            Reduce = Operation.Max,
+                                            Format = "n0",
+                                            LongDescription = "The size of the published symbols (KB)",
+                                            ShortDescription = "Symbols Size (KB)"
+                                        });
+                                    }
 
                                     if (!job.Metadata.Any(x => x.Name == "benchmarks/memory/swap"))
                                     {
@@ -3206,6 +3220,18 @@ namespace Microsoft.Crank.Agent
                 });
             }
 
+            var publishedSizeWithoutSymbols = DirSize(new DirectoryInfo(outputFolder), _ignoredSymbolsExtensions) / 1024;
+
+            if (publishedSize != 0 && publishedSizeWithoutSymbols != 0)
+            {
+                job.Measurements.Enqueue(new Measurement
+                {
+                    Name = "benchmarks/symbols-size",
+                    Timestamp = DateTime.UtcNow,
+                    Value = publishedSize - publishedSizeWithoutSymbols
+                });
+            }
+
             Log.Info($"Published size: {job.PublishedSize}");
 
             // Copy crossgen in the app folder
@@ -3365,13 +3391,18 @@ namespace Microsoft.Crank.Agent
                 }
             }
 
-            long DirSize(DirectoryInfo d)
+            long DirSize(DirectoryInfo d, params string[] ignoredExtensions)
             {
                 long size = 0;
                 // Add file sizes.
                 var fis = d.GetFiles();
                 foreach (var fi in fis)
                 {
+                    if (ignoredExtensions != null && ignoredExtensions.Contains(fi.Extension, StringComparer.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
                     size += fi.Length;
                 }
                 // Add subdirectory sizes.
