@@ -36,6 +36,7 @@ namespace Microsoft.Crank.Controller
         private bool _keepAlive;
         private int _keepAliveTimeoutMilliseconds = 5000;
         private int _keepAlivePeriodMilliseconds = 2000;
+        private int _uploadBufferSize = 1024 * 1204; // default is 80K which is too small on slow network connections
         private DateTime? _runningUtc;
         private string _jobName;
         private bool _traceCollected;
@@ -615,7 +616,7 @@ namespace Microsoft.Crank.Controller
                             await StopAsync();
                         }
 
-                        int timeTakenForPing = (DateTime.Now - start).TotalMilliseconds;
+                        var timeTakenForPing = (int)(DateTime.Now - start).TotalMilliseconds;
 
                         // To send a ping every 2s (_keepAlivePeriodMilliseconds) we substract the time taken to execute the previous ping
                         if (timeTakenForPing < _keepAlivePeriodMilliseconds)
@@ -991,7 +992,7 @@ namespace Microsoft.Crank.Controller
                     // Use a 1MB buffer instead of the default one (80K)
                     // The buffer is pooled internally, and on slow networks (VPN) upload can be slower
 
-                    using (var fileContent = new StreamContent(fileStream, 1024 * 1204))
+                    using (var fileContent = new StreamContent(fileStream, _uploadBufferSize))
                     {
                         request.Content = fileContent;
 
