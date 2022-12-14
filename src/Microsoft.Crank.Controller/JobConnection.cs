@@ -34,6 +34,8 @@ namespace Microsoft.Crank.Controller
 
         private string _serverJobUri;
         private bool _keepAlive;
+        private int _keepAliveTimeoutMilliseconds = 5000;
+        private int _keepAlivePeriodMilliseconds = 2000;
         private DateTime? _runningUtc;
         private string _jobName;
         private bool _traceCollected;
@@ -600,9 +602,11 @@ namespace Microsoft.Crank.Controller
                 {
                     try
                     {
+                        var start = DateTime.UtcNow;
+
                         // Ping server job to keep it alive
                         Log.Verbose($"GET {_serverJobUri}/touch...");
-                        var response = await _httpClient.GetAsync(Combine(_serverJobUri, "/touch"), new CancellationTokenSource(2000).Token);
+                        var response = await _httpClient.GetAsync(Combine(_serverJobUri, "/touch"), new CancellationTokenSource(_keepAliveTimeoutMilliseconds).Token);
 
                         // Detect if the job has timed out. This doesn't account for any other service
                         if (Job.Timeout > 0 && _runningUtc != null && DateTime.UtcNow - _runningUtc > TimeSpan.FromSeconds(Job.Timeout))
@@ -611,7 +615,13 @@ namespace Microsoft.Crank.Controller
                             await StopAsync();
                         }
 
-                        await Task.Delay(2000);
+                        int timeTakenForPing = (DateTime.Now - start).TotalMilliseconds;
+
+                        // To send a ping every 2s (_keepAlivePeriodMilliseconds) we substract the time taken to execute the previous ping
+                        if (timeTakenForPing < _keepAlivePeriodMilliseconds)
+                        {
+                            await Task.Delay(_keepAlivePeriodMilliseconds - timeTakenForPing);
+                        }
                     }
                     catch (Exception e)
                     {
@@ -978,7 +988,10 @@ namespace Microsoft.Crank.Controller
                         : new FileStream(uploadFilename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 1, FileOptions.Asynchronous | FileOptions.SequentialScan)
                         ;
 
-                    using (var fileContent = new StreamContent(fileStream))
+                    // Use a 1MB buffer instead of the default one (80K)
+                    // The buffer is pooled internally, and on slow networks (VPN) upload can be slower
+
+                    using (var fileContent = new StreamContent(fileStream, 1024 * 1204))
                     {
                         request.Content = fileContent;
 

@@ -457,6 +457,7 @@ namespace Microsoft.Crank.Agent.Controllers
             }
             else
             {
+                Log.Info($"Received uncompressed file content");
                 await Request.Body.CopyToAsync(outputFileStream, Request.HttpContext.RequestAborted);
             }
         }
