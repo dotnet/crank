@@ -655,12 +655,12 @@ namespace Microsoft.Crank.Agent
 
                                 lock (job.Metadata)
                                 {
-                                    if (!job.Metadata.Any(x => x.Name == "benchmarks/cpu"))
+                                    if (!job.Metadata.Any(x => x.Name == Measurements.BenchmarksCpu))
                                     {
                                         job.Metadata.Enqueue(new MeasurementMetadata
                                         {
                                             Source = "Host Process",
-                                            Name = "benchmarks/cpu",
+                                            Name = Measurements.BenchmarksCpu,
                                             Aggregate = Operation.Max,
                                             Reduce = Operation.Max,
                                             Format = "n0",
@@ -669,12 +669,12 @@ namespace Microsoft.Crank.Agent
                                         });
                                     }
 
-                                    if (!job.Metadata.Any(x => x.Name == "benchmarks/cpu/raw"))
+                                    if (!job.Metadata.Any(x => x.Name == Measurements.BenchmarksCpuRaw))
                                     {
                                         job.Metadata.Enqueue(new MeasurementMetadata
                                         {
                                             Source = "Host Process",
-                                            Name = "benchmarks/cpu/raw",
+                                            Name = Measurements.BenchmarksCpuRaw,
                                             Aggregate = Operation.Max,
                                             Reduce = Operation.Max,
                                             Format = "n0",
@@ -683,12 +683,12 @@ namespace Microsoft.Crank.Agent
                                         });
                                     }
 
-                                    if (!job.Metadata.Any(x => x.Name == "benchmarks/working-set"))
+                                    if (!job.Metadata.Any(x => x.Name == Measurements.BenchmarksWorkingSet))
                                     {
                                         job.Metadata.Enqueue(new MeasurementMetadata
                                         {
                                             Source = "Host Process",
-                                            Name = "benchmarks/working-set",
+                                            Name = Measurements.BenchmarksWorkingSet,
                                             Aggregate = Operation.Max,
                                             Reduce = Operation.Max,
                                             Format = "n0",
@@ -697,12 +697,12 @@ namespace Microsoft.Crank.Agent
                                         });
                                     }
 
-                                    if (!job.Metadata.Any(x => x.Name == "benchmarks/private-memory"))
+                                    if (!job.Metadata.Any(x => x.Name == Measurements.BenchmarksPrivateMemory))
                                     {
                                         job.Metadata.Enqueue(new MeasurementMetadata
                                         {
                                             Source = "Host Process",
-                                            Name = "benchmarks/private-memory",
+                                            Name = Measurements.BenchmarksPrivateMemory,
                                             Aggregate = Operation.Max,
                                             Reduce = Operation.Max,
                                             Format = "n0",
@@ -711,12 +711,12 @@ namespace Microsoft.Crank.Agent
                                         });
                                     }
 
-                                    if (!job.Metadata.Any(x => x.Name == "benchmarks/build-time"))
+                                    if (!job.Metadata.Any(x => x.Name == Measurements.BenchmarksBuildTime))
                                     {
                                         job.Metadata.Enqueue(new MeasurementMetadata
                                         {
                                             Source = "Host Process",
-                                            Name = "benchmarks/build-time",
+                                            Name = Measurements.BenchmarksBuildTime,
                                             Aggregate = Operation.Max,
                                             Reduce = Operation.Max,
                                             Format = "n0",
@@ -725,12 +725,12 @@ namespace Microsoft.Crank.Agent
                                         });
                                     }
 
-                                    if (!job.Metadata.Any(x => x.Name == "benchmarks/start-time"))
+                                    if (!job.Metadata.Any(x => x.Name == Measurements.BenchmarksStartTime))
                                     {
                                         job.Metadata.Enqueue(new MeasurementMetadata
                                         {
                                             Source = "Host Process",
-                                            Name = "benchmarks/start-time",
+                                            Name = Measurements.BenchmarksStartTime,
                                             Aggregate = Operation.Max,
                                             Reduce = Operation.Max,
                                             Format = "n0",
@@ -739,12 +739,12 @@ namespace Microsoft.Crank.Agent
                                         });
                                     }
 
-                                    if (!job.Metadata.Any(x => x.Name == "benchmarks/published-size"))
+                                    if (!job.Metadata.Any(x => x.Name == Measurements.BenchmarksPublishedSize))
                                     {
                                         job.Metadata.Enqueue(new MeasurementMetadata
                                         {
                                             Source = "Host Process",
-                                            Name = "benchmarks/published-size",
+                                            Name = Measurements.BenchmarksPublishedSize,
                                             Aggregate = Operation.Max,
                                             Reduce = Operation.Max,
                                             Format = "n0",
@@ -753,12 +753,12 @@ namespace Microsoft.Crank.Agent
                                         });
                                     }
 
-                                    if (!job.Metadata.Any(x => x.Name == "benchmarks/symbols-size"))
+                                    if (!job.Metadata.Any(x => x.Name == Measurements.BenchmarksSymbolsSize))
                                     {
                                         job.Metadata.Enqueue(new MeasurementMetadata
                                         {
                                             Source = "Host Process",
-                                            Name = "benchmarks/symbols-size",
+                                            Name = Measurements.BenchmarksSymbolsSize,
                                             Aggregate = Operation.Max,
                                             Reduce = Operation.Max,
                                             Format = "n0",
@@ -767,12 +767,12 @@ namespace Microsoft.Crank.Agent
                                         });
                                     }
 
-                                    if (!job.Metadata.Any(x => x.Name == "benchmarks/memory/swap"))
+                                    if (!job.Metadata.Any(x => x.Name == Measurements.BenchmarksMemorySwap))
                                     {
                                         job.Metadata.Enqueue(new MeasurementMetadata
                                         {
                                             Source = "Host Process",
-                                            Name = "benchmarks/memory/swap",
+                                            Name = Measurements.BenchmarksMemorySwap,
                                             Aggregate = Operation.Delta,
                                             Reduce = Operation.Avg,
                                             Format = "n0",
@@ -781,12 +781,12 @@ namespace Microsoft.Crank.Agent
                                         });
                                     }
 
-                                    if (!job.Metadata.Any(x => x.Name == "benchmarks/cpu/periods/total"))
+                                    if (!job.Metadata.Any(x => x.Name == Measurements.BenchmarksCpuPeriodsTotal))
                                     {
                                         job.Metadata.Enqueue(new MeasurementMetadata
                                         {
                                             Source = "Host Process",
-                                            Name = "benchmarks/cpu/periods/total",
+                                            Name = Measurements.BenchmarksCpuPeriodsTotal,
                                             Aggregate = Operation.Max,
                                             Reduce = Operation.Sum,
                                             Format = "n0",
@@ -795,12 +795,12 @@ namespace Microsoft.Crank.Agent
                                         });
                                     }
 
-                                    if (!job.Metadata.Any(x => x.Name == "benchmarks/cpu/periods/throttled"))
+                                    if (!job.Metadata.Any(x => x.Name == Measurements.BenchmarksCpuPeriodsThrottled))
                                     {
                                         job.Metadata.Enqueue(new MeasurementMetadata
                                         {
                                             Source = "Host Process",
-                                            Name = "benchmarks/cpu/periods/throttled",
+                                            Name = Measurements.BenchmarksCpuPeriodsThrottled,
                                             Aggregate = Operation.Max,
                                             Reduce = Operation.Sum,
                                             Format = "n0",
@@ -809,12 +809,12 @@ namespace Microsoft.Crank.Agent
                                         });
                                     }
 
-                                    if (!job.Metadata.Any(x => x.Name == "benchmarks/cpu/throttled"))
+                                    if (!job.Metadata.Any(x => x.Name == Measurements.BenchmarksCpuThrottled))
                                     {
                                         job.Metadata.Enqueue(new MeasurementMetadata
                                         {
                                             Source = "Host Process",
-                                            Name = "benchmarks/cpu/throttled",
+                                            Name = Measurements.BenchmarksCpuThrottled,
                                             Aggregate = Operation.Max,
                                             Reduce = Operation.Sum,
                                             Format = "n0",
@@ -1078,21 +1078,21 @@ namespace Microsoft.Crank.Agent
 
                                                                     job.Measurements.Enqueue(new Measurement
                                                                     {
-                                                                        Name = "benchmarks/working-set",
+                                                                        Name = Measurements.BenchmarksWorkingSet,
                                                                         Timestamp = now,
                                                                         Value = Math.Ceiling((double)workingSet / 1024 / 1024) // < 1MB still needs to appear as 1MB
                                                                     });
 
                                                                     job.Measurements.Enqueue(new Measurement
                                                                     {
-                                                                        Name = "benchmarks/cpu",
+                                                                        Name = Measurements.BenchmarksCpu,
                                                                         Timestamp = now,
                                                                         Value = cpu
                                                                     });
 
                                                                     job.Measurements.Enqueue(new Measurement
                                                                     {
-                                                                        Name = "benchmarks/cpu/raw",
+                                                                        Name = Measurements.BenchmarksCpuRaw,
                                                                         Timestamp = now,
                                                                         Value = Math.Round(rawCpu)
                                                                     });
@@ -1103,7 +1103,7 @@ namespace Microsoft.Crank.Agent
                                                                         {
                                                                             job.Measurements.Enqueue(new Measurement
                                                                             {
-                                                                                Name = "benchmarks/memory/swap",
+                                                                                Name = Measurements.BenchmarksMemorySwap,
                                                                                 Timestamp = now,
                                                                                 Value = GetSwapBytesAsync().GetAwaiter().GetResult() / 1024 / 1024
                                                                             });
@@ -1202,28 +1202,28 @@ namespace Microsoft.Crank.Agent
                                                                 {
                                                                     job.Measurements.Enqueue(new Measurement
                                                                     {
-                                                                        Name = "benchmarks/working-set",
+                                                                        Name = Measurements.BenchmarksWorkingSet,
                                                                         Timestamp = now,
                                                                         Value = Math.Ceiling((double)trackProcess.WorkingSet64 / 1024 / 1024) // < 1MB still needs to appear as 1MB
                                                                     });
 
                                                                     job.Measurements.Enqueue(new Measurement
                                                                     {
-                                                                        Name = "benchmarks/private-memory",
+                                                                        Name = Measurements.BenchmarksPrivateMemory,
                                                                         Timestamp = now,
                                                                         Value = Math.Ceiling((double)trackProcess.PrivateMemorySize64 / 1024 / 1024) // < 1MB still needs to appear as 1MB
                                                                     });
 
                                                                     job.Measurements.Enqueue(new Measurement
                                                                     {
-                                                                        Name = "benchmarks/cpu",
+                                                                        Name = Measurements.BenchmarksCpu,
                                                                         Timestamp = now,
                                                                         Value = cpu
                                                                     });
 
                                                                     job.Measurements.Enqueue(new Measurement
                                                                     {
-                                                                        Name = "benchmarks/cpu/raw",
+                                                                        Name = Measurements.BenchmarksCpuRaw,
                                                                         Timestamp = now,
                                                                         Value = Math.Round(rawCpu)
                                                                     });
@@ -1234,7 +1234,7 @@ namespace Microsoft.Crank.Agent
                                                                         {
                                                                             job.Measurements.Enqueue(new Measurement
                                                                             {
-                                                                                Name = "benchmarks/memory/swap",
+                                                                                Name = Measurements.BenchmarksMemorySwap,
                                                                                 Timestamp = now,
                                                                                 Value = GetSwapBytesAsync().GetAwaiter().GetResult() / 1024 / 1024
                                                                             });
@@ -2067,7 +2067,7 @@ namespace Microsoft.Crank.Agent
 
                     job.Measurements.Enqueue(new Measurement
                     {
-                        Name = "benchmarks/build-time",
+                        Name = Measurements.BenchmarksBuildTime,
                         Timestamp = DateTime.UtcNow,
                         Value = stopwatch.ElapsedMilliseconds
                     });
@@ -2096,7 +2096,7 @@ namespace Microsoft.Crank.Agent
 
                             job.Measurements.Enqueue(new Measurement
                             {
-                                Name = "benchmarks/published-size",
+                                Name = Measurements.BenchmarksPublishedSize,
                                 Timestamp = DateTime.UtcNow,
                                 Value = imageSize / 1024
                             });
@@ -2953,12 +2953,12 @@ namespace Microsoft.Crank.Agent
             job.DesktopVersion = desktopVersion;
             job.SdkVersion = sdkVersion;
 
-            if (!job.Metadata.Any(x => x.Name == "netSdkVersion"))
+            if (!job.Metadata.Any(x => x.Name == Measurements.BenchmarksNetSdkVersion))
             {
                 job.Metadata.Enqueue(new MeasurementMetadata
                 {
                     Source = "Host Process",
-                    Name = "netSdkVersion",
+                    Name = Measurements.BenchmarksNetSdkVersion,
                     Aggregate = Operation.First, // Use first as iterations won't repeat it in next runs
                     Reduce = Operation.First,
                     Format = "",
@@ -2968,7 +2968,7 @@ namespace Microsoft.Crank.Agent
 
                 job.Measurements.Enqueue(new Measurement
                 {
-                    Name = "netSdkVersion",
+                    Name = Measurements.BenchmarksNetSdkVersion,
                     Timestamp = DateTime.UtcNow,
                     Value = sdkVersion
                 });
@@ -2976,7 +2976,7 @@ namespace Microsoft.Crank.Agent
 
             var knownDependencies = new List<Dependency>();
 
-            if (!job.Metadata.Any(x => x.Name == "AspNetCoreVersion"))
+            if (!job.Metadata.Any(x => x.Name == Measurements.BenchmarksAspNetCoreVersion))
             {
                 try
                 {
@@ -2986,7 +2986,7 @@ namespace Microsoft.Crank.Agent
                     job.Metadata.Enqueue(new MeasurementMetadata
                     {
                         Source = "Host Process",
-                        Name = "AspNetCoreVersion",
+                        Name = Measurements.BenchmarksAspNetCoreVersion,
                         Aggregate = Operation.First, // Use first as iterations won't repeat it in next runs
                         Reduce = Operation.First,
                         Format = "",
@@ -2996,7 +2996,7 @@ namespace Microsoft.Crank.Agent
 
                     job.Measurements.Enqueue(new Measurement
                     {
-                        Name = "AspNetCoreVersion",
+                        Name = Measurements.BenchmarksAspNetCoreVersion,
                         Timestamp = DateTime.UtcNow,
                         Value = $"{aspNetCoreVersion}+{aspnetCoreCommitHash.Substring(0, 7)}"
                     });
@@ -3009,7 +3009,7 @@ namespace Microsoft.Crank.Agent
                 }
             }
 
-            if (!job.Metadata.Any(x => x.Name == "NetCoreAppVersion"))
+            if (!job.Metadata.Any(x => x.Name == Measurements.BenchmarksNetCoreAppVersion))
             {
                 try
                 {
@@ -3019,7 +3019,7 @@ namespace Microsoft.Crank.Agent
                     job.Metadata.Enqueue(new MeasurementMetadata
                     {
                         Source = "Host Process",
-                        Name = "NetCoreAppVersion",
+                        Name = Measurements.BenchmarksNetCoreAppVersion,
                         Aggregate = Operation.First, // Use first as iterations won't repeat it in next runs
                         Reduce = Operation.First,
                         Format = "",
@@ -3029,7 +3029,7 @@ namespace Microsoft.Crank.Agent
 
                     job.Measurements.Enqueue(new Measurement
                     {
-                        Name = "NetCoreAppVersion",
+                        Name = Measurements.BenchmarksNetCoreAppVersion,
                         Timestamp = DateTime.UtcNow,
                         Value = $"{runtimeVersion}+{netCoreAppCommitHash.Substring(0, 7)}"
                     });
@@ -3196,7 +3196,7 @@ namespace Microsoft.Crank.Agent
 
                 job.Measurements.Enqueue(new Measurement
                 {
-                    Name = "benchmarks/build-time",
+                    Name = Measurements.BenchmarksBuildTime,
                     Timestamp = DateTime.UtcNow,
                     Value = stopwatch.ElapsedMilliseconds
                 });
@@ -3214,7 +3214,7 @@ namespace Microsoft.Crank.Agent
 
                 job.Measurements.Enqueue(new Measurement
                 {
-                    Name = "benchmarks/published-size",
+                    Name = Measurements.BenchmarksPublishedSize,
                     Timestamp = DateTime.UtcNow,
                     Value = publishedSize
                 });
@@ -3226,7 +3226,7 @@ namespace Microsoft.Crank.Agent
             {
                 job.Measurements.Enqueue(new Measurement
                 {
-                    Name = "benchmarks/symbols-size",
+                    Name = Measurements.BenchmarksSymbolsSize,
                     Timestamp = DateTime.UtcNow,
                     Value = publishedSize - publishedSizeWithoutSymbols
                 });
@@ -5361,7 +5361,7 @@ namespace Microsoft.Crank.Agent
 
             job.Measurements.Enqueue(new Measurement
             {
-                Name = "benchmarks/start-time",
+                Name = Measurements.BenchmarksStartTime,
                 Timestamp = DateTime.UtcNow,
                 Value = stopwatch.ElapsedMilliseconds
             });
@@ -5471,21 +5471,21 @@ namespace Microsoft.Crank.Agent
 
             job.Measurements.Enqueue(new Measurement
             {
-                Name = "benchmarks/cpu/periods/total",
+                Name = Measurements.BenchmarksCpuPeriodsTotal,
                 Timestamp = DateTime.UtcNow,
                 Value = nrPeriods
             });
 
             job.Measurements.Enqueue(new Measurement
             {
-                Name = "benchmarks/cpu/periods/throttled",
+                Name = Measurements.BenchmarksCpuPeriodsThrottled,
                 Timestamp = DateTime.UtcNow,
                 Value = nrThrottled
             });
 
             job.Measurements.Enqueue(new Measurement
             {
-                Name = "benchmarks/cpu/throttled",
+                Name = Measurements.BenchmarksCpuThrottled,
                 Timestamp = DateTime.UtcNow,
                 Value = throttledTime
             });
