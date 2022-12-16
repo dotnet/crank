@@ -1696,7 +1696,16 @@ namespace Microsoft.Crank.Agent
 
                                     // Delete application folder
 
-                                    await TryDeleteDirAsync(tempDir, false);
+                                    await TryDeleteDirAsync(tempDir);
+                                }
+
+                                // Delete temporary attachment files
+                                // NB: Attachments are already deleted once they are copied, unless the job fails
+                                // to reach that point.
+
+                                foreach (var attachment in job.Attachments)
+                                {
+                                    TryDeleteFile(attachment.TempFilename);
                                 }
 
                                 tempDir = null;
@@ -4419,7 +4428,7 @@ namespace Microsoft.Crank.Agent
             return false;
         }
 
-        private static async Task TryDeleteDirAsync(string path, bool rethrow = true)
+        private static async Task TryDeleteDirAsync(string path)
         {
             if (String.IsNullOrEmpty(path) || !Directory.Exists(path))
             {
