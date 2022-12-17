@@ -1685,25 +1685,39 @@ namespace Microsoft.Crank.Agent
 
                             async Task DeleteJobAsync()
                             {
-                                await StopJobAsync(abortCollection: true);
-
-                                if (_cleanup && !job.NoClean && String.IsNullOrEmpty(job.Source.SourceKey) && tempDir != null)
+                                try
                                 {
-                                    // Delete traces
-
-                                    TryDeleteFile(job.DumpFile);
-                                    TryDeleteFile(job.PerfViewTraceFile);
-
-                                    // Delete application folder
-
-                                    await TryDeleteDirAsync(tempDir, false);
+                                    await StopJobAsync(abortCollection: true);
                                 }
+                                finally
+                                {
+                                    if (_cleanup && !job.NoClean && String.IsNullOrEmpty(job.Source.SourceKey) && tempDir != null)
+                                    {
+                                        // Delete traces
 
-                                tempDir = null;
+                                        TryDeleteFile(job.DumpFile);
+                                        TryDeleteFile(job.PerfViewTraceFile);
 
-                                Log.Info($"{job.State} -> Deleted ({job.Service}:{job.Id})");
+                                        // Delete application folder
 
-                                job.State = JobState.Deleted;
+                                        await TryDeleteDirAsync(tempDir);
+                                    }
+
+                                    // Delete temporary attachment files
+                                    // NB: Attachments are already deleted once they are copied, unless the job fails
+                                    // to reach that point.
+
+                                    foreach (var attachment in job.Attachments)
+                                    {
+                                        TryDeleteFile(attachment.TempFilename);
+                                    }
+
+                                    tempDir = null;
+
+                                    Log.Info($"{job.State} -> Deleted ({job.Service}:{job.Id})");
+
+                                    job.State = JobState.Deleted;
+                                }
                             }
 
                             // Store context for the current job
@@ -4419,7 +4433,7 @@ namespace Microsoft.Crank.Agent
             return false;
         }
 
-        private static async Task TryDeleteDirAsync(string path, bool rethrow = true)
+        private static async Task TryDeleteDirAsync(string path)
         {
             if (String.IsNullOrEmpty(path) || !Directory.Exists(path))
             {
@@ -6022,7 +6036,7 @@ namespace Microsoft.Crank.Agent
 
                 if (_cleanup && Directory.Exists(_rootTempDir))
                 {
-                    TryDeleteDirAsync(_rootTempDir, false).GetAwaiter().GetResult();
+                    TryDeleteDirAsync(_rootTempDir).GetAwaiter().GetResult();
                 }
             }
             finally
