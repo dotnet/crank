@@ -36,7 +36,7 @@ namespace Microsoft.Crank.Controller
         private bool _keepAlive;
         private int _keepAliveTimeoutMilliseconds = 5000;
         private int _keepAlivePeriodMilliseconds = 2000;
-        private int _uploadBufferSize = 1024 * 1204; // default is 80K which is too small on slow network connections
+        private int _uploadBufferSize = 1024 * 1024; // default is 80K which is too small on slow network connections
         private DateTime? _runningUtc;
         private string _jobName;
         private bool _traceCollected;
