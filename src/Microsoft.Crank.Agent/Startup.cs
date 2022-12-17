@@ -1685,34 +1685,39 @@ namespace Microsoft.Crank.Agent
 
                             async Task DeleteJobAsync()
                             {
-                                await StopJobAsync(abortCollection: true);
-
-                                if (_cleanup && !job.NoClean && String.IsNullOrEmpty(job.Source.SourceKey) && tempDir != null)
+                                try
                                 {
-                                    // Delete traces
-
-                                    TryDeleteFile(job.DumpFile);
-                                    TryDeleteFile(job.PerfViewTraceFile);
-
-                                    // Delete application folder
-
-                                    await TryDeleteDirAsync(tempDir);
+                                    await StopJobAsync(abortCollection: true);
                                 }
-
-                                // Delete temporary attachment files
-                                // NB: Attachments are already deleted once they are copied, unless the job fails
-                                // to reach that point.
-
-                                foreach (var attachment in job.Attachments)
+                                finally
                                 {
-                                    TryDeleteFile(attachment.TempFilename);
+                                    if (_cleanup && !job.NoClean && String.IsNullOrEmpty(job.Source.SourceKey) && tempDir != null)
+                                    {
+                                        // Delete traces
+
+                                        TryDeleteFile(job.DumpFile);
+                                        TryDeleteFile(job.PerfViewTraceFile);
+
+                                        // Delete application folder
+
+                                        await TryDeleteDirAsync(tempDir);
+                                    }
+
+                                    // Delete temporary attachment files
+                                    // NB: Attachments are already deleted once they are copied, unless the job fails
+                                    // to reach that point.
+
+                                    foreach (var attachment in job.Attachments)
+                                    {
+                                        TryDeleteFile(attachment.TempFilename);
+                                    }
+
+                                    tempDir = null;
+
+                                    Log.Info($"{job.State} -> Deleted ({job.Service}:{job.Id})");
+
+                                    job.State = JobState.Deleted;
                                 }
-
-                                tempDir = null;
-
-                                Log.Info($"{job.State} -> Deleted ({job.Service}:{job.Id})");
-
-                                job.State = JobState.Deleted;
                             }
 
                             // Store context for the current job
@@ -6031,7 +6036,7 @@ namespace Microsoft.Crank.Agent
 
                 if (_cleanup && Directory.Exists(_rootTempDir))
                 {
-                    TryDeleteDirAsync(_rootTempDir, false).GetAwaiter().GetResult();
+                    TryDeleteDirAsync(_rootTempDir).GetAwaiter().GetResult();
                 }
             }
             finally
