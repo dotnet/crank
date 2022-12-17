@@ -616,7 +616,7 @@ namespace Microsoft.Crank.Controller
                             await StopAsync();
                         }
 
-                        var timeTakenForPing = (int)(DateTime.Now - start).TotalMilliseconds;
+                        var timeTakenForPing = (int)(DateTime.UtcNow - start).TotalMilliseconds;
 
                         // To send a ping every 2s (_keepAlivePeriodMilliseconds) we substract the time taken to execute the previous ping
                         if (timeTakenForPing < _keepAlivePeriodMilliseconds)
