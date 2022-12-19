@@ -732,7 +732,7 @@ namespace Microsoft.Crank.PullRequestBot
                 using var buildBaseCts = new CancellationTokenSource();
                 var buildBaseTask = Task.Run(async () =>
                 {
-                    await ProcessUtil.RunAsync("git", $"clone --recursive {cloneUrl} {cloneFolder} -b {baseBranch}", workingDirectory: workspace, log: true, cancellationToken: buildBaseCts.Token);
+                    await ProcessUtil.RunAsync("git", $"clone -c core.longpaths=true --recursive {cloneUrl} {cloneFolder} -b {baseBranch}", workingDirectory: workspace, log: true, cancellationToken: buildBaseCts.Token);
 
                     // Build base
                     foreach (var c in buildCommands)
