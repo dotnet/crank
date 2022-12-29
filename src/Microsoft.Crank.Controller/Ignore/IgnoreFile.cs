@@ -4,18 +4,12 @@
 
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 
 namespace Microsoft.Crank.Controller.Ignore
 {
     public class IgnoreFile
     {
-        private readonly string _gitIgnorePath;
-
-        private IgnoreFile(string gitIgnorePath)
-        {
-            _gitIgnorePath = gitIgnorePath;
-        }
-
         public List<IgnoreRule> Rules { get; } = new List<IgnoreRule>();
 
         /// <summary>
@@ -26,13 +20,13 @@ namespace Microsoft.Crank.Controller.Ignore
         /// <returns>A list of <see cref="IgnoreRule"/> instances.</returns>
         public static IgnoreFile Parse(string path, bool includeParentDirectories = false)
         {
-            var ignoreFile = new IgnoreFile(path);
+            var ignoreFile = new IgnoreFile();
 
-            var currentDir = new DirectoryInfo(Path.GetDirectoryName(path));
+            var currentDir = Directory.Exists(path) ? new DirectoryInfo(path) : new DirectoryInfo(Path.GetDirectoryName(path));
             
             while (currentDir != null && currentDir.Exists)
             {
-                var gitIgnoreFilename = Path.Combine(currentDir.FullName, ".gitignore");
+                var gitIgnoreFilename = Path.GetFullPath(currentDir.FullName + "/.gitignore");
 
                 if (File.Exists(gitIgnoreFilename))
                 {
@@ -40,11 +34,8 @@ namespace Microsoft.Crank.Controller.Ignore
 
                     var localRules = new List<IgnoreRule>();
 
-                    // Ignore .git folders by default
-                    localRules.Add(IgnoreRule.Parse(basePath, ".git/"));
-
                     // Don't process parent folder if we are at the repository level
-                    if (Directory.Exists(Path.Combine(currentDir.FullName, ".git")))
+                    if (Directory.Exists(Path.GetFullPath(currentDir.FullName + "/.git")))
                     {
                         currentDir = null;
                     }
@@ -67,6 +58,23 @@ namespace Microsoft.Crank.Controller.Ignore
                                 continue;
                             }
 
+                            // Put a backslash ("\") in front of the first hash for patterns that begin with a hash.
+                            if (rule.StartsWith(@"\#"))
+                            {
+                                rule = rule[1..];
+                            }
+
+                            // Trailing spaces are ignored unless they are quoted with backslash ("\").
+                            if (rule.Contains(@"\ "))
+                            {
+                                var index = rule.LastIndexOf(@"\ ");
+                                rule = rule.TrimEnd();
+                                if (rule.EndsWith(@"\") && rule.Length == index + 1)
+                                {
+                                    rule += " ";
+                                }
+                            }
+
                             var ignoreRule = IgnoreRule.Parse(basePath, rule);
 
                             if (ignoreRule != null)
@@ -83,7 +91,14 @@ namespace Microsoft.Crank.Controller.Ignore
                     }
                 }
 
-                currentDir = currentDir?.Parent;
+                if (includeParentDirectories)
+                {
+                    currentDir = currentDir?.Parent;
+                }
+                else
+                {
+                    break;
+                }
             }
 
             return ignoreFile;
@@ -100,13 +115,21 @@ namespace Microsoft.Crank.Controller.Ignore
             return result;
         }
 
+        private static readonly Regex GitFolderRegex = new(@"(/|^)\.git/", RegexOptions.Compiled);
+
         private void ListDirectory(string path, List<IGitFile> accumulator)
         {
-            foreach (var filename in Directory.EnumerateFiles(path))
+            foreach (var filename in Directory.EnumerateFiles(path, "*.*", SearchOption.AllDirectories))
             {
                 var gitFile = new GitFile(filename);
 
                 var ignore = false;
+
+                // Ignore .git folders content by default
+                if (GitFolderRegex.IsMatch(gitFile.Path))
+                {
+                    ignore = true;
+                }
 
                 foreach (var rule in Rules)
                 {
@@ -127,30 +150,40 @@ namespace Microsoft.Crank.Controller.Ignore
                 }
             }
 
-            foreach (var directoryName in Directory.EnumerateDirectories(path))
-            {
-                var gitFile = new GitDirectory(directoryName);
+            //foreach (var directoryName in Directory.EnumerateDirectories(path))
+            //{
+            //    var gitFile = new GitDirectory(directoryName);
 
-                var ignore = false;
+            //    var ignore = false;
 
-                foreach (var rule in Rules)
-                {
-                    if (rule.Match(gitFile))
-                    {
-                        ignore = true;
+            //    foreach (var rule in Rules)
+            //    {
+            //        if (rule.Match(gitFile))
+            //        {
+            //            ignore = true;
 
-                        if (rule.Negate)
-                        {
-                            ignore = false;
-                        }
-                    }
-                }
+            //            if (rule.Negate)
+            //            {
+            //                ignore = false;
+            //            }
+            //        }
+            //    }
 
-                if (!ignore)
-                {
-                    ListDirectory(directoryName, accumulator);
-                }
-            }
+            //    if (!ignore)
+            //    {
+            //        ListDirectory(directoryName, accumulator);
+            //    }
+            //}
+        }
+
+        protected virtual IEnumerable<string> EnumerateFiles(string path)
+        {
+            return Directory.EnumerateFiles(path);
+        }
+
+        protected virtual IEnumerable<string> EnumerateDirectories(string path)
+        {
+            return Directory.EnumerateDirectories(path);
         }
     }
 }

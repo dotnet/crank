@@ -48,22 +48,20 @@ namespace Microsoft.Crank.Controller.Ignore
 
     public class IgnoreRule
     {
+        // Temporary marker to prevent '.*' from being processed as '*'
+        private const string DotStar = "\\DOT_STAR\\";
+
+        public string Rule { get; private set; }
+
         private string _basePath;
-        private bool _matchFile = true;
         private bool _matchDir = true;
         private string _pattern;
-        private string _rule;
         private Regex _regex;
         public bool Negate = false;
 
         public bool Match(IGitFile file)
         {
             if (!_matchDir && file.IsDirectory)
-            {
-                return false;
-            }
-
-            if (!_matchFile && !file.IsDirectory)
             {
                 return false;
             }
@@ -84,11 +82,11 @@ namespace Microsoft.Crank.Controller.Ignore
 
         public static IgnoreRule Parse(string basePath, string rule)
         {
-            var ignoreRule = new IgnoreRule();
-
-            ignoreRule._basePath = basePath;
-
-            ignoreRule._rule = rule;
+            var ignoreRule = new IgnoreRule
+            {
+                _basePath = basePath,
+                Rule = rule
+            };
 
             if (string.IsNullOrEmpty(rule))
             {
@@ -109,34 +107,53 @@ namespace Microsoft.Crank.Controller.Ignore
                 }
             }
 
-            rule = rule.Replace('\\', '/');
-
-            if (firstChar == '!')
+            // Put a backslash ("\") in front of the first "!" for patterns that begin with a literal "!"
+            if (rule.StartsWith(@"\!"))
             {
-                ignoreRule.Negate = true;
+                rule = rule[1..];
             }
+            else
+            {
+                if (firstChar == '!')
+                {
+                    ignoreRule.Negate = true;
+                    rule = rule[1..];
+                }
+            }
+
+            rule = rule.Replace('\\', '/');
 
             rule = rule.Replace(".", "\\.");
 
             // A leading slash matches the beginning of the pathname. For example, "/*.c" matches "cat-file.c" but not "mozilla-sha1/sha1.c".
             if (rule.StartsWith("/"))
             {
-                rule = "^" + rule;
+                rule = "^" + rule[1..];
             }
-            else
+            else if (rule.StartsWith("**/"))
+            {
+                rule = $"(/|^){DotStar}{rule[3..]}";
+            }
+            else 
             {
                 rule = "(/|^)" + rule;
             }
 
-            if (rule.EndsWith('/'))
+            if (rule.EndsWith("/*"))
             {
-                ignoreRule._matchFile = false;
+                rule += "$";
             }
-            else
+
+            // Spec: If there is a separator at the end of the pattern then the pattern will only match directories,
+            // otherwise the pattern can match both files and directories.
+
+            // i.e., if the pattern ends with '/', we keep it in the regex so we can match a directory name,
+            // otherwise we use the pattern either for a folder name or the filename (end of string)
+            if (!rule.EndsWith('/'))
             {
                 // match the whole word, either before / or the end of the string
                 // i.e., "foo" matches "/foo", "bar/foo" but not "foobar"
-                rule = rule + "(/|$)";
+                rule += "(/|$)";
             }
 
             // A trailing "/**" matches everything inside.
@@ -147,7 +164,7 @@ namespace Microsoft.Crank.Controller.Ignore
 
             // A double asterisk matches zero or more directories. 
             // The pattern is to look for any chars, including /
-            rule = rule.Replace("**", ".*");
+            rule = rule.Replace("/**/", $"{DotStar}/{DotStar}");
 
             // "*" matches anything except "/"
             rule = rule.Replace("*", @"[^/]*");
@@ -155,6 +172,7 @@ namespace Microsoft.Crank.Controller.Ignore
             // "?" matches any one character except "/"
             rule = rule.Replace("?", @"[^/]");
 
+            rule = rule.Replace(DotStar, ".*");
             ignoreRule._pattern = rule;
 
             ignoreRule._regex = new Regex(ignoreRule._pattern, RegexOptions.Compiled);

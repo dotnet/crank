@@ -5,11 +5,11 @@ namespace Microsoft.Crank.IntegrationTests
 {
     class SkipOnMacOsAttribute : FactAttribute
     {
-        public SkipOnMacOsAttribute() 
+        public SkipOnMacOsAttribute(string message = null) 
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
-                Skip = $"Test ignored on OSX";
+                Skip = message ?? "Test ignored on OSX";
             }
         }
     }
