@@ -172,6 +172,7 @@ namespace Microsoft.Crank.Controller
 
                         var sourceDir = Job.Source.LocalFolder;
 
+                        DoCreateFromDirectory(sourceDir, tempFilename);
 
                         var result = await UploadFileAsync(tempFilename, Combine(_serverJobUri, "/source"), gzipped: false);
 
