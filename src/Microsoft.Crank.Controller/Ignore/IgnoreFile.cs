@@ -65,13 +65,18 @@ namespace Microsoft.Crank.Controller.Ignore
                             }
 
                             // Trailing spaces are ignored unless they are quoted with backslash ("\").
-                            if (rule.Contains(@"\ "))
+                            if (rule.EndsWith(" "))
                             {
-                                var index = rule.LastIndexOf(@"\ ");
-                                rule = rule.TrimEnd();
-                                if (rule.EndsWith(@"\") && rule.Length == index + 1)
+                                var index = rule.LastIndexOf('\\');
+                                var trimmed = rule.TrimEnd();
+                                if (index == -1 || trimmed[^1] != '\\')
                                 {
-                                    rule += " ";
+                                    // Not an escape sequence
+                                    rule = trimmed;
+                                }
+                                else
+                                {
+                                    rule = rule.Substring(0, index) + rule.Substring(index + 1);
                                 }
                             }
 

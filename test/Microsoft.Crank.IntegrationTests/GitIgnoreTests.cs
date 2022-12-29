@@ -87,19 +87,30 @@ namespace Microsoft.Crank.IntegrationTests
             AssertNotHasFile("!important!.txt", files);
         }
 
-        [SkipOnWindows("File System ignore spaces in extension")]
-        public void EscapesTrailingSpace()
+        [Fact]
+        public void TrailingSpaceAreIgnored()
         {
-            CreateFile(".gitignore", @"file.txt\   ");
-            CreateFile("file.txt ");
-            CreateFile("file.txt  ");
+            CreateFile(".gitignore", @"bar.txt  ");
+            CreateFile("bar.txt");
 
             var ignoreFile = IgnoreFile.Parse(_tempFolder);
 
             var files = ignoreFile.ListDirectory(_tempFolder);
 
-            AssertHasFile("file.txt  ", files);
-            AssertNotHasFile("file.txt ", files);
+            AssertNotHasFile("bar.txt", files);
+        }
+
+        [SkipOnWindows("File System ignore spaces in extension")]
+        public void EscapesTrailingSpace()
+        {
+            CreateFile(".gitignore", @"foo.txt\   ");
+            CreateFile("foo.txt   ");
+
+            var ignoreFile = IgnoreFile.Parse(_tempFolder);
+
+            var files = ignoreFile.ListDirectory(_tempFolder);
+
+            AssertNotHasFile("foo.txt   ", files);
         }
 
         [Fact]
@@ -339,16 +350,14 @@ namespace Microsoft.Crank.IntegrationTests
             // pattern does not match "bar/hello.c" which has a slash in it.
 
             CreateFile(".gitignore", @"foo/*");
-            //CreateFile("foo/test.json");
-            //CreateDirectory("foo/bar");
+            CreateFile("foo/test.json");
             CreateFile("foo/bar/hello.c");
 
             var ignoreFile = IgnoreFile.Parse(_tempFolder);
 
             var files = ignoreFile.ListDirectory(_tempFolder);
 
-            //AssertNotHasFile("foo/test.json", files);
-            //AssertNotHasFile("foo/bar", files);
+            AssertNotHasFile("foo/test.json", files);
             AssertHasFile("foo/bar/hello.c", files);
         }
 
@@ -357,11 +366,6 @@ namespace Microsoft.Crank.IntegrationTests
             Directory.CreateDirectory(Normalize(Path.GetDirectoryName(filePath)));
             File.Delete(Normalize(filePath));
             File.AppendAllLines(Normalize(filePath), lines);
-        }
-
-        private void CreateDirectory(string directory, params string[] lines)
-        {
-            Directory.CreateDirectory(Normalize(directory));
         }
 
         private string Normalize(string filePath) => Path.GetFullPath(_tempFolder + Path.AltDirectorySeparatorChar + filePath).Replace("\\", "/");
