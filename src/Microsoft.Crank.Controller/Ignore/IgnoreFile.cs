@@ -149,31 +149,6 @@ namespace Microsoft.Crank.Controller.Ignore
                     accumulator.Add(gitFile);
                 }
             }
-
-            //foreach (var directoryName in Directory.EnumerateDirectories(path))
-            //{
-            //    var gitFile = new GitDirectory(directoryName);
-
-            //    var ignore = false;
-
-            //    foreach (var rule in Rules)
-            //    {
-            //        if (rule.Match(gitFile))
-            //        {
-            //            ignore = true;
-
-            //            if (rule.Negate)
-            //            {
-            //                ignore = false;
-            //            }
-            //        }
-            //    }
-
-            //    if (!ignore)
-            //    {
-            //        ListDirectory(directoryName, accumulator);
-            //    }
-            //}
         }
 
         protected virtual IEnumerable<string> EnumerateFiles(string path)
