@@ -150,15 +150,5 @@ namespace Microsoft.Crank.Controller.Ignore
                 }
             }
         }
-
-        protected virtual IEnumerable<string> EnumerateFiles(string path)
-        {
-            return Directory.EnumerateFiles(path);
-        }
-
-        protected virtual IEnumerable<string> EnumerateDirectories(string path)
-        {
-            return Directory.EnumerateDirectories(path);
-        }
     }
 }

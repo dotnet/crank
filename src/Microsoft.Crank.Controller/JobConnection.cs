@@ -172,9 +172,8 @@ namespace Microsoft.Crank.Controller
 
                         var sourceDir = Job.Source.LocalFolder;
 
-                        DoCreateFromDirectory(sourceDir, tempFilename);
 
-                        var result = await UploadFileAsync(tempFilename, Combine(_serverJobUri, "/source"));
+                        var result = await UploadFileAsync(tempFilename, Combine(_serverJobUri, "/source"), gzipped: false);
 
                         File.Delete(tempFilename);
 
@@ -943,7 +942,7 @@ namespace Microsoft.Crank.Controller
             {
                 var basePath = di.FullName;
 
-                var ignoreFile = IgnoreFile.Parse(Path.Combine(sourceDirectoryName, ".gitignore"), includeParentDirectories: true);
+                var ignoreFile = IgnoreFile.Parse(Path.Combine(sourceDirectoryName, ".gitignore"));
 
                 if (ignoreFile.Rules.Any())
                 {
