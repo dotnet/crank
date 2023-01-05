@@ -26,7 +26,7 @@ namespace Microsoft.Crank.Controller.Ignore
             
             while (currentDir != null && currentDir.Exists)
             {
-                var gitIgnoreFilename = Path.GetFullPath(currentDir.FullName + "/.gitignore");
+                var gitIgnoreFilename = Path.GetFullPath(Path.Combine(currentDir.FullName, ".gitignore"));
 
                 if (File.Exists(gitIgnoreFilename))
                 {
@@ -35,7 +35,7 @@ namespace Microsoft.Crank.Controller.Ignore
                     var localRules = new List<IgnoreRule>();
 
                     // Don't process parent folder if we are at the repository level
-                    if (Directory.Exists(Path.GetFullPath(currentDir.FullName + "/.git")))
+                    if (Directory.Exists(Path.GetFullPath(Path.Combine(currentDir.FullName, ".git"))))
                     {
                         currentDir = null;
                     }
