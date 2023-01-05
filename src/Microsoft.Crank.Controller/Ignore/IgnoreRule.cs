@@ -107,7 +107,7 @@ namespace Microsoft.Crank.Controller.Ignore
                 }
             }
 
-            // Put a backslash ("\") in front of the first "!" for patterns that begin with a literal "!"
+            // Detect escaped '!' character by checking it there is a backslash ("\") in front.
             if (rule.StartsWith(@"\!"))
             {
                 rule = rule[1..];

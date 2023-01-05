@@ -58,7 +58,7 @@ namespace Microsoft.Crank.Controller.Ignore
                                 continue;
                             }
 
-                            // Put a backslash ("\") in front of the first hash for patterns that begin with a hash.
+                            // Detect escaped '#' character by checking it there is a backslash ("\") in front.
                             if (rule.StartsWith(@"\#"))
                             {
                                 rule = rule[1..];
