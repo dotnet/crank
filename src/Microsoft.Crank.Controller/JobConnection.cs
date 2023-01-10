@@ -944,8 +944,8 @@ namespace Microsoft.Crank.Controller
                 var basePath = di.FullName;
 
                 var ignoreFile = Job.Options.NoGitIgnore
-                    ? IgnoreFile.Parse(Path.Combine(sourceDirectoryName, ".gitignore"))
-                    : new IgnoreFile()
+                    ? new IgnoreFile()
+                    : IgnoreFile.Parse(Path.Combine(sourceDirectoryName, ".gitignore"))
                     ;
 
                 if (ignoreFile.Rules.Any())
