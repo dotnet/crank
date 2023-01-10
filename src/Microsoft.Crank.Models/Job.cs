@@ -261,6 +261,7 @@ namespace Microsoft.Crank.Models
         // Full, Heap, Mini
         public string DumpType { get; set; }
         public string DumpOutput { get; set; }
+        public bool NoGitIgnore { get; set; }
 
     }
 }

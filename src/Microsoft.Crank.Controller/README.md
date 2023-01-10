@@ -124,6 +124,7 @@ Options:
   --[JOB].options.reuseBuild <true|false>                                  Reuse build files across benchmarks. Don't use with floating runtime versions.
   --[JOB].options.beforeScript <commandline>                               A command line to execute before the job is started. Current directory is the same as the project or docker file.
   --[JOB].options.afterScript <commandline>                                A command line to execute after the job is stopped. Current directory is the same as the project or docker file.
+  --[JOB[.options.noGitIgnore <true|false>                                 Whether to ignore the .gitignore file when upload local source or build files. Default is false, meaning the local gitignore file is respected.
 
   ## Timeouts
 
