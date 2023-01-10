@@ -925,7 +925,7 @@ namespace Microsoft.Crank.Controller
                 Console.WriteLine(markdownResult.Value.Replace("**", ""));
             }
         }
-        private static void DoCreateFromDirectory(string sourceDirectoryName, string destinationArchiveFileName)
+        private void DoCreateFromDirectory(string sourceDirectoryName, string destinationArchiveFileName)
         {
             sourceDirectoryName = Path.GetFullPath(sourceDirectoryName);
 
@@ -943,7 +943,10 @@ namespace Microsoft.Crank.Controller
             {
                 var basePath = di.FullName;
 
-                var ignoreFile = IgnoreFile.Parse(Path.Combine(sourceDirectoryName, ".gitignore"));
+                var ignoreFile = Job.Options.NoGitIgnore
+                    ? new IgnoreFile()
+                    : IgnoreFile.Parse(Path.Combine(sourceDirectoryName, ".gitignore"))
+                    ;
 
                 if (ignoreFile.Rules.Any())
                 {
