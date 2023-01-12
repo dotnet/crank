@@ -5004,23 +5004,24 @@ namespace Microsoft.Crank.Agent
                         var m = new Measurement();
                         m.Timestamp = eventData.TimeStamp;
 
-                        Log.Warning($"sessionId: {sessionId} eventName: {eventData.EventName} meterName: {eventData.PayloadValue(1)} intrumentName: {eventData.PayloadValue(3)}");
+                        // Used when debugging metrics only
+                        // Log.Warning($"sessionId: {sessionId} eventName: {eventData.EventName} meterName: {eventData.PayloadValue(1)} intrumentName: {eventData.PayloadValue(3)}");
 
                         if (sessionId == metricsEventSourceSessionId)
                         {
-                            if (eventData.EventName == "GaugeValuePublished")
+                            if (eventData.EventName == "CounterRateValuePublished")
                             {
                                 string meterName = (string)eventData.PayloadValue(1);
                                 string instrumentName = (string)eventData.PayloadValue(3);
-                                string lastValueText = (string)eventData.PayloadValue(6);
+                                string rateText = (string)eventData.PayloadValue(6);
 
                                 if (sessionId == metricsEventSourceSessionId)
                                 {
                                     // The value might be an empty string indicating no measurement was provided this collection interval
-                                    if (double.TryParse(lastValueText, NumberStyles.Number | NumberStyles.Float, CultureInfo.InvariantCulture, out double lastValue))
+                                    if (double.TryParse(rateText, NumberStyles.Number | NumberStyles.Float, CultureInfo.InvariantCulture, out var rate))
                                     {
                                         m.Name = instrumentName;
-                                        m.Value = lastValue;
+                                        m.Value = rate;
                                         job.Measurements.Enqueue(m);
                                     }
                                 }
