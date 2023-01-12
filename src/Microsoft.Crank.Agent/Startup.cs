@@ -5001,8 +5001,8 @@ namespace Microsoft.Crank.Agent
                     else if (eventData.ProviderName == "System.Diagnostics.Metrics")
                     {
                         var sessionId = (string)eventData.PayloadValue(0);
-                        var measurement = new Measurement();
-                        measurement.Timestamp = eventData.TimeStamp;
+                        var m = new Measurement();
+                        m.Timestamp = eventData.TimeStamp;
 
                         if (sessionId == metricsEventSourceSessionId)
                         {
@@ -5017,12 +5017,13 @@ namespace Microsoft.Crank.Agent
                                     // The value might be an empty string indicating no measurement was provided this collection interval
                                     if (double.TryParse(lastValueText, NumberStyles.Number | NumberStyles.Float, CultureInfo.InvariantCulture, out double lastValue))
                                     {
-                                        measurement.Name = instrumentName;
-                                        measurement.Value = lastValue;
-                                        job.Measurements.Enqueue(measurement);
+                                        m.Name = instrumentName;
+                                        m.Value = lastValue;
+                                        job.Measurements.Enqueue(m);
                                     }
                                 }
                             }
+                        }
                     }
                     else if (eventData.EventName.Equals("EventCounters"))
                     {
