@@ -3061,15 +3061,9 @@ namespace Microsoft.Crank.Agent
 
             var buildParameters =
                 $"/p:MicrosoftNETCoreAppPackageVersion={runtimeVersion} " +
-                $"/p:MicrosoftAspNetCoreAppPackageVersion={aspNetCoreVersion} "
-                // The following properties could be removed in a future version
-                //$"/p:BenchmarksNETStandardImplicitPackageVersion={aspNetCoreVersion} " +
-                //$"/p:BenchmarksNETCoreAppImplicitPackageVersion={aspNetCoreVersion} " +
-                //$"/p:BenchmarksRuntimeFrameworkVersion={runtimeVersion} " +
-                //$"/p:BenchmarksTargetFramework={targetFramework} " +
-                //$"/p:BenchmarksAspNetCoreVersion={aspNetCoreVersion} " +
-                //$"/p:MicrosoftAspNetCoreAllPackageVersion={aspNetCoreVersion} " +
-                //$"/p:NETCoreAppMaximumVersion=99.9 "; // Force the SDK to accept the TFM even if it's an unknown one. For instance using SDK 2.1 to build a netcoreapp2.2 TFM.
+                $"/p:MicrosoftAspNetCoreAppPackageVersion={aspNetCoreVersion} " +
+                $"/p:GenerateErrorForMissingTargetingPacks=false " +
+                $"/p:RestoreNoCache=true " // https://github.com/aspnet/Benchmarks/issues/1445 force no cache for restore to avoid restore failures for packages published within last 30 minutes
                 ;
 
             if (OperatingSystem == OperatingSystem.Windows)
@@ -3077,55 +3071,10 @@ namespace Microsoft.Crank.Agent
                 buildParameters += $"/p:MicrosoftWindowsDesktopAppPackageVersion={desktopVersion} ";
             }
 
-            if (targetFramework == "netcoreapp2.1")
+            if (!job.UseRuntimeStore)
             {
-                buildParameters += $"/p:MicrosoftNETCoreApp21PackageVersion={runtimeVersion} ";
-                if (!job.UseRuntimeStore)
-                {
-                    buildParameters += $"/p:MicrosoftNETPlatformLibrary=Microsoft.NETCore.App ";
-                }
+                buildParameters += $"/p:MicrosoftNETPlatformLibrary=Microsoft.NETCore.App ";
             }
-            else if (targetFramework == "netcoreapp2.2")
-            {
-                buildParameters += $"/p:MicrosoftNETCoreApp22PackageVersion={runtimeVersion} ";
-                if (!job.UseRuntimeStore)
-                {
-                    buildParameters += $"/p:MicrosoftNETPlatformLibrary=Microsoft.NETCore.App ";
-                }
-            }
-            else if (targetFramework == "netcoreapp3.0")
-            {
-                buildParameters += $"/p:MicrosoftNETCoreApp30PackageVersion={runtimeVersion} ";
-                if (!job.UseRuntimeStore)
-                {
-                    buildParameters += $"/p:MicrosoftNETPlatformLibrary=Microsoft.NETCore.App ";
-                }
-            }
-            else if (targetFramework == "netcoreapp3.1")
-            {
-                buildParameters += $"/p:MicrosoftNETCoreApp31PackageVersion={runtimeVersion} ";
-                if (!job.UseRuntimeStore)
-                {
-                    buildParameters += $"/p:MicrosoftNETPlatformLibrary=Microsoft.NETCore.App ";
-                }
-            }
-            else if (targetFramework == "net5.0" || targetFramework == "net6.0" || targetFramework == "net7.0" || targetFramework == "net8.0")
-            {
-                buildParameters += $"/p:MicrosoftNETCoreApp50PackageVersion={runtimeVersion} ";
-                buildParameters += $"/p:GenerateErrorForMissingTargetingPacks=false ";
-                if (!job.UseRuntimeStore)
-                {
-                    buildParameters += $"/p:MicrosoftNETPlatformLibrary=Microsoft.NETCore.App ";
-                }
-            }
-            else
-            {
-                job.Error = $"Unsupported framework: {targetFramework}";
-                return null;
-            }
-
-            // #1445 force no cache for restore to avoid restore failures for packages published within last 30 minutes
-            buildParameters += "/p:RestoreNoCache=true ";
 
             // Apply custom build arguments sent from the driver
             foreach (var argument in job.BuildArguments)
@@ -3187,7 +3136,7 @@ namespace Microsoft.Crank.Agent
                     workingDirectory: benchmarkedApp,
                     environmentVariables: env,
                     throwOnError: false,
-                    outputDataReceived: text => job.BuildLog.AddLine(text),
+                    outputDataReceived: job.BuildLog.AddLine,
                     cancellationToken: cancellationToken
                     );
 
@@ -3586,7 +3535,7 @@ namespace Microsoft.Crank.Agent
                     if (targetFrameworksElements.Any())
                     {
                         var targetFrameworksElement = targetFrameworksElements.First();
-                        ((XElement)targetFrameworksElement).Value = targetFramework;
+                        targetFrameworksElement.Value = targetFramework;
                     }
                     else
                     {
@@ -3595,7 +3544,7 @@ namespace Microsoft.Crank.Agent
                         if (targetFrameworkElements.Any())
                         {
                             var targetFrameworkElement = targetFrameworkElements.First();
-                            ((XElement)targetFrameworkElement).Value = targetFramework;
+                            targetFrameworkElement.Value = targetFramework;
                         }
                     }
 
@@ -4838,7 +4787,7 @@ namespace Microsoft.Crank.Agent
         private static string GetCGroupController(Job job)
         {
             // Create a unique cgroup controller per agent
-            return $"benchmarks-{Process.GetCurrentProcess().Id}-{job.Id}";
+            return $"benchmarks-{Environment.ProcessId}-{job.Id}";
         }
 
         private static async Task StartCountersAsync(Job job, JobContext context)
@@ -4850,24 +4799,52 @@ namespace Microsoft.Crank.Agent
 
             Log.Info("Starting counters");
 
+            var metricsEventSourceSessionId = Guid.NewGuid().ToString();
+
             var client = new DiagnosticsClient(job.ProcessId);
 
             var providerNames = job.Counters.Select(x => x.Provider).Distinct().ToArray();
 
-            var providerList = providerNames
-                .Select(p => new EventPipeProvider(
-                    name: p,
-                    eventLevel: EventLevel.Informational,
-                    arguments: new Dictionary<string, string>() 
-                        { { "EventCounterIntervalSec", job.MeasurementsIntervalSec.ToString(CultureInfo.InvariantCulture) } })
-                )
-                .ToList();
+            // Configured providers
+            var providerList = new List<EventPipeProvider>();
 
+            providerList.AddRange(providerNames.Select(p =>
+                new EventPipeProvider(name: p, eventLevel: EventLevel.Informational,
+                    arguments: new Dictionary<string, string>()
+                    {
+                        { "EventCounterIntervalSec", job.MeasurementsIntervalSec.ToString(CultureInfo.InvariantCulture) }
+                    })
+                )
+            );
+
+            // Custom measurements sent by the benchmark
             providerList.Add(
                 new EventPipeProvider(
                     name: "Benchmarks",
                     eventLevel: EventLevel.Verbose)
             );
+
+            // System.Diagnostics.Metrics EventSource supports the new Meter/Instrument APIs
+
+            const long TimeSeriesValues = 0x2;
+            var metrics = string.Join(",", providerNames);
+
+            var defaultMaxHitograms = 10;
+            var defaultMaxTimeSeries = 1000;
+
+            var metricsEventSourceProvider =
+                new EventPipeProvider("System.Diagnostics.Metrics", EventLevel.Informational, TimeSeriesValues,
+                    new Dictionary<string, string>()
+                    {
+                        { "SessionId", metricsEventSourceSessionId },
+                        { "Metrics", metrics },
+                        { "RefreshInterval", job.MeasurementsIntervalSec.ToString() },
+                        { "MaxTimeSeries", defaultMaxHitograms.ToString() },
+                        { "MaxHistograms", defaultMaxTimeSeries.ToString() }
+                    }
+                );
+
+            providerList.Add(metricsEventSourceProvider);
 
             context.EventPipeSession = null;
 
@@ -4970,9 +4947,58 @@ namespace Microsoft.Crank.Agent
                             });
                         }
                     }
+                    else if (eventData.ProviderName == "System.Diagnostics.Metrics")
+                    {
+                        var sessionId = (string)eventData.PayloadValue(0);
+                        
+                        var m = new Measurement
+                        {
+                            Timestamp = eventData.TimeStamp
+                        };
 
-                    // We only track event counters
-                    if (eventData.EventName.Equals("EventCounters"))
+                        // Used when debugging metrics only
+                        // Log.Warning($"sessionId: {sessionId} eventName: {eventData.EventName} meterName: {eventData.PayloadValue(1)} intrumentName: {eventData.PayloadValue(3)}");
+
+                        if (sessionId == metricsEventSourceSessionId)
+                        {
+                            string meterName, instrumentName, valueText;
+
+                            switch (eventData.EventName)
+                            {
+                                case "GaugeValuePublished":
+                                case "CounterRateValuePublished":
+
+                                    meterName = (string)eventData.PayloadValue(1);
+                                    instrumentName = (string)eventData.PayloadValue(3);
+                                    valueText = (string)eventData.PayloadValue(6);
+
+                                    // The value might be an empty string indicating no measurement was provided this collection interval
+                                    if (double.TryParse(valueText, NumberStyles.Number | NumberStyles.Float, CultureInfo.InvariantCulture, out var rate))
+                                    {
+                                        m.Name = instrumentName;
+                                        m.Value = rate;
+                                        job.Measurements.Enqueue(m);
+                                    }
+                                    break;
+
+                                case "HistogramValuePublished":
+                                    meterName = (string)eventData.PayloadValue(1);
+                                    instrumentName = (string)eventData.PayloadValue(3);
+                                    valueText = (string)eventData.PayloadValue(6);
+
+                                    var quantiles = ParseQuantiles(valueText);
+
+                                    foreach ((var key, var val) in quantiles)
+                                    {
+                                        m.Name = $"{instrumentName}-{(int)key * 100}";
+                                        m.Value = val;
+                                        job.Measurements.Enqueue(m);
+                                    }
+                                    break;
+                            }
+                        }
+                    }
+                    else if (eventData.EventName.Equals("EventCounters"))
                     {
                         var payloadVal = (IDictionary<string, object>)(eventData.PayloadValue(0));
                         var payloadFields = (IDictionary<string, object>)(payloadVal["Payload"]);
@@ -5843,7 +5869,6 @@ namespace Microsoft.Crank.Agent
                 }
             }
 
-
             if (!providerCollection.Any())
             {
                 Log.Info($"Tracing arguments not valid: {providers}");
@@ -5912,7 +5937,7 @@ namespace Microsoft.Crank.Agent
                 // From the /tmp folder (in Docker, should be mounted to /mnt/benchmarks) use a specific 'benchmarksserver' root folder to isolate from other services
                 // that use the temp folder, and create a sub-folder (process-id) for each server running.
                 // The cron job is responsible for cleaning the folders
-                _rootTempDir = Path.Combine(_buildPath, $"benchmarks-server-{Process.GetCurrentProcess().Id}");
+                _rootTempDir = Path.Combine(_buildPath, $"benchmarks-server-{Environment.ProcessId}");
 
                 if (Directory.Exists(_rootTempDir))
                 {
@@ -6042,6 +6067,30 @@ namespace Microsoft.Crank.Agent
             finally
             {
             }
+        }
+
+        private static KeyValuePair<double, double>[] ParseQuantiles(string quantileList)
+        {
+            var quantileParts = quantileList.Split(';', StringSplitOptions.RemoveEmptyEntries);
+            var quantiles = new List<KeyValuePair<double, double>>();
+            foreach (var quantile in quantileParts)
+            {
+                var keyValParts = quantile.Split('=', StringSplitOptions.RemoveEmptyEntries);
+                if (keyValParts.Length != 2)
+                {
+                    continue;
+                }
+                if (!double.TryParse(keyValParts[0], NumberStyles.Number | NumberStyles.Float, CultureInfo.InvariantCulture, out var key))
+                {
+                    continue;
+                }
+                if (!double.TryParse(keyValParts[1], NumberStyles.Number | NumberStyles.Float, CultureInfo.InvariantCulture, out var val))
+                {
+                    continue;
+                }
+                quantiles.Add(new KeyValuePair<double, double>(key, val));
+            }
+            return quantiles.ToArray();
         }
     }
 }
