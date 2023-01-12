@@ -5004,6 +5004,8 @@ namespace Microsoft.Crank.Agent
                         var m = new Measurement();
                         m.Timestamp = eventData.TimeStamp;
 
+                        Log.Warning($"sessionId: {sessionId} eventName: {eventData.EventName} meterName: {eventData.PayloadValue(1)} intrumentName: {eventData.PayloadValue(3)}");
+
                         if (sessionId == metricsEventSourceSessionId)
                         {
                             if (eventData.EventName == "GaugeValuePublished")
