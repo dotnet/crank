@@ -4838,7 +4838,7 @@ namespace Microsoft.Crank.Agent
         private static string GetCGroupController(Job job)
         {
             // Create a unique cgroup controller per agent
-            return $"benchmarks-{Process.GetCurrentProcess().Id}-{job.Id}";
+            return $"benchmarks-{Environment.ProcessId}-{job.Id}";
         }
 
         private static async Task StartCountersAsync(Job job, JobContext context)
@@ -4850,24 +4850,52 @@ namespace Microsoft.Crank.Agent
 
             Log.Info("Starting counters");
 
+            var metricsEventSourceSessionId = Guid.NewGuid().ToString();
+
             var client = new DiagnosticsClient(job.ProcessId);
 
             var providerNames = job.Counters.Select(x => x.Provider).Distinct().ToArray();
 
-            var providerList = providerNames
-                .Select(p => new EventPipeProvider(
-                    name: p,
-                    eventLevel: EventLevel.Informational,
-                    arguments: new Dictionary<string, string>() 
-                        { { "EventCounterIntervalSec", job.MeasurementsIntervalSec.ToString(CultureInfo.InvariantCulture) } })
-                )
-                .ToList();
+            // Configured providers
+            var providerList = new List<EventPipeProvider>();
 
+            providerList.AddRange(providerNames.Select(p =>
+                new EventPipeProvider(name: p, eventLevel: EventLevel.Informational,
+                    arguments: new Dictionary<string, string>()
+                    {
+                        { "EventCounterIntervalSec", job.MeasurementsIntervalSec.ToString(CultureInfo.InvariantCulture) }
+                    })
+                )
+            );
+
+            // Custom measurements sent by the benchmark
             providerList.Add(
                 new EventPipeProvider(
                     name: "Benchmarks",
                     eventLevel: EventLevel.Verbose)
             );
+
+            // System.Diagnostics.Metrics EventSource supports the new Meter/Instrument APIs
+
+            const long TimeSeriesValues = 0x2;
+            var metrics = string.Join(",", providerNames);
+
+            var defaultMaxHitograms = 10;
+            var defaultMaxTimeSeries = 1000;
+
+            var metricsEventSourceProvider =
+                new EventPipeProvider("System.Diagnostics.Metrics", EventLevel.Informational, TimeSeriesValues,
+                    new Dictionary<string, string>()
+                    {
+                        { "SessionId", metricsEventSourceSessionId },
+                        { "Metrics", metrics },
+                        { "RefreshInterval", job.MeasurementsIntervalSec.ToString() },
+                        { "MaxTimeSeries", defaultMaxHitograms.ToString() },
+                        { "MaxHistograms", defaultMaxTimeSeries.ToString() }
+                    }
+                );
+
+            providerList.Add(metricsEventSourceProvider);
 
             context.EventPipeSession = null;
 
@@ -4970,9 +4998,33 @@ namespace Microsoft.Crank.Agent
                             });
                         }
                     }
+                    else if (eventData.ProviderName == "System.Diagnostics.Metrics")
+                    {
+                        var sessionId = (string)eventData.PayloadValue(0);
+                        var measurement = new Measurement();
+                        measurement.Timestamp = eventData.TimeStamp;
 
-                    // We only track event counters
-                    if (eventData.EventName.Equals("EventCounters"))
+                        if (sessionId == metricsEventSourceSessionId)
+                        {
+                            if (eventData.EventName == "GaugeValuePublished")
+                            {
+                                string meterName = (string)eventData.PayloadValue(1);
+                                string instrumentName = (string)eventData.PayloadValue(3);
+                                string lastValueText = (string)eventData.PayloadValue(6);
+
+                                if (sessionId == metricsEventSourceSessionId)
+                                {
+                                    // The value might be an empty string indicating no measurement was provided this collection interval
+                                    if (double.TryParse(lastValueText, NumberStyles.Number | NumberStyles.Float, CultureInfo.InvariantCulture, out double lastValue))
+                                    {
+                                        measurement.Name = instrumentName;
+                                        measurement.Value = lastValue;
+                                        job.Measurements.Enqueue(measurement);
+                                    }
+                                }
+                            }
+                    }
+                    else if (eventData.EventName.Equals("EventCounters"))
                     {
                         var payloadVal = (IDictionary<string, object>)(eventData.PayloadValue(0));
                         var payloadFields = (IDictionary<string, object>)(payloadVal["Payload"]);
@@ -5843,7 +5895,6 @@ namespace Microsoft.Crank.Agent
                 }
             }
 
-
             if (!providerCollection.Any())
             {
                 Log.Info($"Tracing arguments not valid: {providers}");
@@ -5912,7 +5963,7 @@ namespace Microsoft.Crank.Agent
                 // From the /tmp folder (in Docker, should be mounted to /mnt/benchmarks) use a specific 'benchmarksserver' root folder to isolate from other services
                 // that use the temp folder, and create a sub-folder (process-id) for each server running.
                 // The cron job is responsible for cleaning the folders
-                _rootTempDir = Path.Combine(_buildPath, $"benchmarks-server-{Process.GetCurrentProcess().Id}");
+                _rootTempDir = Path.Combine(_buildPath, $"benchmarks-server-{Environment.ProcessId}");
 
                 if (Directory.Exists(_rootTempDir))
                 {
