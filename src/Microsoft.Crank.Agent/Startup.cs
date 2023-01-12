@@ -3063,7 +3063,7 @@ namespace Microsoft.Crank.Agent
                 $"/p:MicrosoftNETCoreAppPackageVersion={runtimeVersion} " +
                 $"/p:MicrosoftAspNetCoreAppPackageVersion={aspNetCoreVersion} " +
                 $"/p:GenerateErrorForMissingTargetingPacks=false " +
-                $"/p:RestoreNoCache=true " // #1445 force no cache for restore to avoid restore failures for packages published within last 30 minutes
+                $"/p:RestoreNoCache=true " // https://github.com/aspnet/Benchmarks/issues/1445 force no cache for restore to avoid restore failures for packages published within last 30 minutes
                 ;
 
             if (OperatingSystem == OperatingSystem.Windows)
