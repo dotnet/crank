@@ -68,7 +68,7 @@ namespace Microsoft.Crank.Agent
         private static readonly string DefaultTargetFramework = "net6.0";
         private static readonly string DefaultChannel = "current";
 
-        private const string PerfViewVersion = "P2.0.68";
+        private const string PerfViewVersion = "v3.0.7";
 
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
