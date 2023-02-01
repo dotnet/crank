@@ -84,16 +84,45 @@ namespace H2LoadClient
                     Console.WriteLine($"Request body of {requestBody.Length} written to '{RequestBodyFile}'.");
                 }
 
-                var process = StartProcess();
+                // Measure first request
 
-                Console.WriteLine("Waiting for process exit");
-                process.WaitForExit();
+                var tmpRequests = Requests;
+                Requests = 1;
+                Output = "";
 
-                // Wait for all Output messages to be flushed and available in Output
-                await Task.Delay(100);
+                using (var process = StartProcess())
+                {
+                    Console.WriteLine("Waiting for process exit");
+                    process.WaitForExit();
 
-                Console.WriteLine("Parsing output");
-                ParseOutput();
+                    // Wait for all Output messages to be flushed and available in Output
+                    await Task.Delay(100);
+
+                    Console.WriteLine("Reading first request");
+                    var p100Match = Regex.Match(Output, @"time for request: \s+[\d\.]+\w+\s+([\d\.]+)(\w+)");
+                    var maxLatency = ReadLatency(p100Match);
+
+                    BenchmarksEventSource.Register("http/firstrequest", Operations.Max, Operations.Max, "First Request (ms)", "Time to first request in ms", "n0");
+                    BenchmarksEventSource.Measure("http/firstrequest", maxLatency);
+                }
+
+                // Actual load
+
+                Requests = tmpRequests;
+                Output = "";
+
+                using (var process = StartProcess())
+                {
+
+                    Console.WriteLine("Waiting for process exit");
+                    process.WaitForExit();
+
+                    // Wait for all Output messages to be flushed and available in Output
+                    await Task.Delay(100);
+
+                    Console.WriteLine("Parsing output");
+                    ParseOutput();
+                }
             });
 
             await app.ExecuteAsync(args);
@@ -108,7 +137,7 @@ namespace H2LoadClient
             BenchmarksEventSource.Register("h2load/latency/mean;http/latency/mean", Operations.Max, Operations.Sum, "Mean latency (ms)", "Mean latency (ms)", "n2");
             BenchmarksEventSource.Register("h2load/latency/max;http/latency/max", Operations.Max, Operations.Sum, "Max latency (ms)", "Max latency (ms)", "n2");
 
-            BenchmarksEventSource.Register("h2load/rps/max;http/rps/max", Operations.Max, Operations.Sum, "Max RPS", "RPS: max", "n0");
+            BenchmarksEventSource.Register("h2load/rps/mean;http/rps/mean;", Operations.Max, Operations.Sum, "Requests/sec", "Requests per second", "n0");
             BenchmarksEventSource.Register("h2load/raw", Operations.All, Operations.All, "Raw results", "Raw results", "object");
 
             double rps = 0;
@@ -140,7 +169,7 @@ namespace H2LoadClient
             BenchmarksEventSource.Measure("h2load/latency/mean;http/latency/mean", averageLatency);
             BenchmarksEventSource.Measure("h2load/latency/max;http/latency/max", maxLatency);
 
-            BenchmarksEventSource.Measure("h2load/rps/max;http/rps/max", rps);
+            BenchmarksEventSource.Measure("h2load/rps/mean;http/rps/mean", rps);
 
             BenchmarksEventSource.Measure("h2load/raw", Output);
         }
