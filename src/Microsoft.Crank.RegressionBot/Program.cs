@@ -542,7 +542,7 @@ namespace Microsoft.Crank.RegressionBot
                         var result = new BenchmarksResult
                         {
                             Id = Convert.ToInt32(reader["Id"]),
-                            Excluded = Convert.ToBoolean(reader["Excluded"] as bool? ?? false), // Handle DBNull values
+                            Excluded = reader["Excluded"] as bool? ?? false, // Handle DBNull values
                             DateTimeUtc = (DateTimeOffset)reader["DateTimeUtc"],
                             Session = Convert.ToString(reader["Session"]),
                             Scenario = Convert.ToString(reader["Scenario"]),
