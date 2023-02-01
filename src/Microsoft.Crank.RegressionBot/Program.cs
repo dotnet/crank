@@ -32,6 +32,9 @@ namespace Microsoft.Crank.RegressionBot
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
 
+        private static readonly MessagePackSerializerOptions UncompressedSerializationOptions = MessagePack.Resolvers.ContractlessStandardResolver.Options;
+        private static readonly MessagePackSerializerOptions CompressedSerializationOptions = MessagePack.Resolvers.ContractlessStandardResolver.Options.WithCompression(MessagePackCompression.Lz4BlockArray);
+
         static BotOptions _options;
         static IReadOnlyList<Issue> _recentIssues;
 
@@ -243,11 +246,10 @@ namespace Microsoft.Crank.RegressionBot
                         }
 
                         var skip = 0;
-                        var pageSize = 10;
+                        var pageSize = 3; // Create issues with 3 regressions per issue max, due to Issue body size limitations (65KB)
 
                         while (true)
-                        {
-                            // Create issues with 10 regressions per issue max
+                        {                            
                             var page = regressionSet.Skip(skip).Take(pageSize);
 
                             if (!page.Any()) break;
@@ -296,6 +298,11 @@ namespace Microsoft.Crank.RegressionBot
                 body = AddOwners(body, regressions);
 
                 body += regressionBlock;
+
+                if (body.Length > 65536)
+                {
+                    throw new Exception($"Body too long ({body.Length} > 65536 chars)");
+                }
 
                 return body;
             }
@@ -359,19 +366,16 @@ namespace Microsoft.Crank.RegressionBot
 
             var title = await CreateIssueTitle(regressions, titleTemplate);
 
-            if (!_options.Debug)
+            var createIssue = new NewIssue(title)
             {
-                var createIssue = new NewIssue(title)
-                {
-                    Body = body
-                };
+                Body = body
+            };
 
-                TagIssue(createIssue, regressions);
+            TagIssue(createIssue, regressions);
 
-                if (!_options.ReadOnly) 
-                {
-                    await GitHubHelper.GetClient().Issue.Create(_options.RepositoryId, createIssue);
-                }
+            if (!_options.ReadOnly) 
+            {
+                await GitHubHelper.GetClient().Issue.Create(_options.RepositoryId, createIssue);
             }
 
             if (_options.Debug || _options.Verbose)
@@ -538,7 +542,7 @@ namespace Microsoft.Crank.RegressionBot
                         var result = new BenchmarksResult
                         {
                             Id = Convert.ToInt32(reader["Id"]),
-                            Excluded = Convert.ToBoolean(reader["Excluded"]),
+                            Excluded = reader["Excluded"] as bool? ?? false, // Handle DBNull values
                             DateTimeUtc = (DateTimeOffset)reader["DateTimeUtc"],
                             Session = Convert.ToString(reader["Session"]),
                             Scenario = Convert.ToString(reader["Scenario"]),
@@ -984,11 +988,6 @@ namespace Microsoft.Crank.RegressionBot
                 return _recentIssues;
             }
 
-            if (_options.Debug)
-            {
-                return Enumerable.Empty<Issue>().ToArray();
-            }
-
             var recently = new RepositoryIssueRequest
             {
                 Creator = _options.Username,
@@ -1011,11 +1010,6 @@ namespace Microsoft.Crank.RegressionBot
         private static async Task<IEnumerable<Regression>> UpdateIssues(IEnumerable<Regression> regressions, Source source, string template)
         {
             if (!regressions.Any())
-            {
-                return regressions;
-            }
-
-            if (_options.Debug)
             {
                 return regressions;
             }
@@ -1162,7 +1156,7 @@ namespace Microsoft.Crank.RegressionBot
             // A custom Base64 payload is injected as a comment in the issue such that we
             // can come back on the issue to update its content
 
-            var data = MessagePackSerializer.Serialize(regressions, MessagePack.Resolvers.ContractlessStandardResolver.Options);
+            var data = MessagePackSerializer.Serialize(regressions, CompressedSerializationOptions);
             var base64 = Convert.ToBase64String(data);
             return $"<!-- {RegressionsPrefix}{base64}{RegressionsSuffix} -->";
         }
@@ -1190,7 +1184,21 @@ namespace Microsoft.Crank.RegressionBot
             try
             {
                 var data = Convert.FromBase64String(base64);
-                var results = MessagePackSerializer.Deserialize<Regression[]>(data, MessagePack.Resolvers.ContractlessStandardResolver.Options);
+                
+                Regression[] results;
+
+                // Try deserialing the issues with compression enabled (default). If it fails it might be an old issue that was not compressed
+                // This can be removed once old issues are closed.
+
+                try
+                {
+                    results = MessagePackSerializer.Deserialize<Regression[]>(data, CompressedSerializationOptions);
+                }
+                catch
+                {
+                    results = MessagePackSerializer.Deserialize<Regression[]>(data, UncompressedSerializationOptions);
+                }
+
                 Console.WriteLine($"Loaded {results.Length} regressions");
                 return results;
             }
