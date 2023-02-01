@@ -518,6 +518,13 @@ namespace Microsoft.Crank.RegressionBot
                 yield break;
             }
 
+            if (!source.Table.All(char.IsLetterOrDigit))
+            {
+                Console.Write("Invalid table name should only contain alphanumeric characters.");
+
+                yield break;
+            }
+
             var loadStartDateTimeUtc = DateTime.UtcNow.AddDays(0 - source.DaysToLoad);
             var detectionMaxDateTimeUtc = DateTime.UtcNow.AddDays(0 - source.DaysToSkip);
             
