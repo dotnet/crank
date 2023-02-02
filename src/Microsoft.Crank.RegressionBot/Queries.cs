@@ -6,12 +6,14 @@ namespace Microsoft.Crank.RegressionBot
 {
     public static class Queries
     {
-        public const string Latest = @"
-            SELECT TOP (10000) *     -- Bounded to prevent from downloading too many records
-            FROM [dbo].[{0}]        -- Substitute table name 
-            WHERE 
-                [DateTimeUtc] >= @startDate
-            ORDER BY [Id] DESC
-        ";
+        public const string Latest = """
+            SELECT *
+            FROM (
+                SELECT TOP (10000) *     -- Bounded to prevent from downloading too many records
+                FROM [dbo].[{0}]         -- Substitute table name 
+                ORDER BY [Id] DESC
+            ) ORDERED
+            WHERE [DateTimeUtc] >= @startDate
+            """;
     }
 }
