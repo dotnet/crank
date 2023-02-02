@@ -472,6 +472,13 @@ namespace Microsoft.Crank.Controller
                     return 1;
                 }
 
+                if (!_profileOption.HasValue())
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkYellow;
+                    Console.WriteLine($"The argument --profile was not specified which is uncommon. You migh need to add one if your benchmark doesn't work.");
+                    Console.ResetColor();
+                }
+
                 var results = new ExecutionResult();
 
                 var scenarioName = _scenarioOption.Value();
