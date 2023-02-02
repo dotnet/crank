@@ -1654,6 +1654,8 @@ namespace Microsoft.Crank.Controller
         {
             JObject configuration = null;
 
+            profileNames ??= Array.Empty<string>();
+
             var defaultConfigFilename = Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "default.config.yml");
 
             configurationFileOrUrls = new[] { defaultConfigFilename }.Union(configurationFileOrUrls);
@@ -1753,6 +1755,11 @@ namespace Microsoft.Crank.Controller
 
             foreach (var profileName in profileNames)
             {
+                if (String.IsNullOrEmpty(profileName))
+                {
+                    continue;
+                }
+
                 // Check the requested profile name exists
                 if (!configurationInstance.Profiles.ContainsKey(profileName))
                 {
