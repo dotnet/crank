@@ -475,7 +475,7 @@ namespace Microsoft.Crank.Controller
                 if (!_profileOption.HasValue())
                 {
                     Console.ForegroundColor = ConsoleColor.DarkYellow;
-                    Console.WriteLine($"The argument --profile was not specified which is uncommon. You migh need to add one if your benchmark doesn't work.");
+                    Console.WriteLine("The argument --profile was not specified which is uncommon. You migh need to add one if your benchmark doesn't work.");
                     Console.ResetColor();
                 }
 
