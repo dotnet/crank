@@ -472,6 +472,13 @@ namespace Microsoft.Crank.Controller
                     return 1;
                 }
 
+                if (!_profileOption.HasValue())
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkYellow;
+                    Console.WriteLine("The argument --profile was not specified which is uncommon. You migh need to add one if your benchmark doesn't work.");
+                    Console.ResetColor();
+                }
+
                 var results = new ExecutionResult();
 
                 var scenarioName = _scenarioOption.Value();
@@ -1654,6 +1661,8 @@ namespace Microsoft.Crank.Controller
         {
             JObject configuration = null;
 
+            profileNames ??= Array.Empty<string>();
+
             var defaultConfigFilename = Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "default.config.yml");
 
             configurationFileOrUrls = new[] { defaultConfigFilename }.Union(configurationFileOrUrls);
@@ -1753,6 +1762,11 @@ namespace Microsoft.Crank.Controller
 
             foreach (var profileName in profileNames)
             {
+                if (String.IsNullOrEmpty(profileName))
+                {
+                    continue;
+                }
+
                 // Check the requested profile name exists
                 if (!configurationInstance.Profiles.ContainsKey(profileName))
                 {
