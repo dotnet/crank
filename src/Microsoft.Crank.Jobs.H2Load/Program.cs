@@ -86,11 +86,12 @@ namespace H2LoadClient
 
                 // Measure first request
 
-                var tmpValues = new { Requests, Connections, Duration, Warmup };
+                var tmpValues = new { Requests, Connections, Duration, Warmup, Threads };
                 Requests = 1;
                 Duration = 0;
                 Warmup = 0;
                 Connections = 1;
+                Threads = 1;
                 Output = "";
 
                 using (var process = StartProcess())
@@ -115,7 +116,8 @@ namespace H2LoadClient
                 Connections = tmpValues.Connections;
                 Duration = tmpValues.Duration;
                 Warmup = tmpValues.Warmup;
-
+                Threads = tmpValues.Threads;
+                
                 using (var process = StartProcess())
                 {
 
