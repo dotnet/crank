@@ -87,7 +87,9 @@ namespace H2LoadClient
                 // Measure first request
 
                 var tmpRequests = Requests;
+                var tmpConnections = Connections;
                 Requests = 1;
+                Connections = 1;
                 Output = "";
 
                 using (var process = StartProcess())
@@ -137,7 +139,7 @@ namespace H2LoadClient
             BenchmarksEventSource.Register("h2load/latency/mean;http/latency/mean", Operations.Max, Operations.Sum, "Mean latency (ms)", "Mean latency (ms)", "n2");
             BenchmarksEventSource.Register("h2load/latency/max;http/latency/max", Operations.Max, Operations.Sum, "Max latency (ms)", "Max latency (ms)", "n2");
 
-            BenchmarksEventSource.Register("h2load/rps/mean;http/rps/mean;", Operations.Max, Operations.Sum, "Requests/sec", "Requests per second", "n0");
+            BenchmarksEventSource.Register("h2load/rps/mean;http/rps/mean", Operations.Max, Operations.Sum, "Requests/sec", "Requests per second", "n0");
             BenchmarksEventSource.Register("h2load/raw", Operations.All, Operations.All, "Raw results", "Raw results", "object");
 
             double rps = 0;
@@ -289,8 +291,24 @@ namespace H2LoadClient
                 command += $" -H \"{header.Key}: {header.Value}\"";
             }
 
-            command += $" -c {Connections} -T {Timeout} -t {Threads} -m {Streams} --warm-up-time {Warmup}";
-            command += Requests > 0 ? $" -n {Requests}" : $" -D {Duration}";
+            command += $" -c {Connections} -T {Timeout} -t {Threads} -m {Streams}";
+
+            if (Warmup > 0)
+            {
+                command += $" --warm-up-time {Warmup}";
+            }
+
+            if (Request > 0)
+            {
+                command += $" -n {Requests}"
+            }
+
+            if (Duration > 0)
+            {
+                command += $" -D {Duration}";
+            }
+
+            
 
             switch (Protocol)
             {
