@@ -301,7 +301,7 @@ namespace H2LoadClient
                 command += $" --warm-up-time {Warmup}";
             }
 
-            if (Request > 0)
+            if (Requests > 0)
             {
                 command += $" -n {Requests}";
             }
