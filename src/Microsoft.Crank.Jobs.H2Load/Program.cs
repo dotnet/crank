@@ -303,7 +303,7 @@ namespace H2LoadClient
 
             if (Request > 0)
             {
-                command += $" -n {Requests}"
+                command += $" -n {Requests}";
             }
 
             if (Duration > 0)
