@@ -117,6 +117,7 @@ namespace H2LoadClient
                 Duration = tmpValues.Duration;
                 Warmup = tmpValues.Warmup;
                 Threads = tmpValues.Threads;
+                Output = "";
                 
                 using (var process = StartProcess())
                 {
