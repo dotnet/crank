@@ -134,6 +134,9 @@ Options:
   When using shell commands, ensure that they exit the shell. Example usage:
   --application.stoppingScript "cmd.exe /C echo hello %CRANK_PROCESS_ID% > hello.txt"
 
+  Another example using bash to extract some process information and download it from the controller:
+  --application.StoppingScript '/bin/bash -c ""cat /proc/$CRANK_PROCESS_ID/smaps > smaps.txt""' --application.downloadFiles smaps.txt
+  
   ## Timeouts
 
   --[JOB].timeout                                                          Maximum duration the job in seconds. Defaults to 0 (unlimited).
