@@ -1458,7 +1458,7 @@ namespace Microsoft.Crank.Agent
                                     job.DumpFile = Path.GetTempFileName();
 
                                     var dumper = new Dumper();
-                                    dumper.Collect(job.ChildProcessId > 0 ? job.ChildProcessId : job.ProcessId, job.DumpFile, job.DumpType);
+                                    dumper.Collect(job.TrackedProcessId, job.DumpFile, job.DumpType);
                                 }
 
                                 Log.Info($"Stopping heartbeat ({job.Service}:{job.Id})");
@@ -1480,6 +1480,19 @@ namespace Microsoft.Crank.Agent
                                     context.Disposed = true;
 
                                     Monitor.Exit(_synLock);
+                                }
+
+                                // Execute custom script
+                                if (!String.IsNullOrEmpty(job.StoppingScript))
+                                {
+                                    var environmentVariables = new Dictionary<string, string>()
+                                    {
+                                        ["CRANK_PROCESS_ID"] = job.TrackedProcessId.ToString(),
+                                        ["CRANK_WORKING_DIRECTORY"] = workingDirectory
+                                    };
+
+                                    var segments = job.StoppingScript.Split(' ', 2);
+                                    var processResult = await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", log: true, workingDirectory: workingDirectory, environmentVariables: environmentVariables, cancellationToken: cancellationToken);
                                 }
 
                                 // Delete the benchmarks group
@@ -1673,8 +1686,14 @@ namespace Microsoft.Crank.Agent
                                 // Run scripts after the benchmark is stopped
                                 if (!String.IsNullOrEmpty(job.AfterScript))
                                 {
+                                    var environmentVariables = new Dictionary<string, string>()
+                                    {
+                                        ["CRANK_PROCESS_ID"] = job.TrackedProcessId.ToString(),
+                                        ["CRANK_WORKING_DIRECTORY"] = workingDirectory
+                                    };
+
                                     var segments = job.AfterScript.Split(' ', 2);
-                                    var processResult = await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", log: true, workingDirectory: workingDirectory);
+                                    var processResult = await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", log: true, workingDirectory: workingDirectory, environmentVariables: environmentVariables);
 
                                     // TODO: Update the output with the result of AfterScript, and change the driver so that it polls the job a last time even when the job is stopped
                                     // if there is an AfterScript
@@ -2137,8 +2156,13 @@ namespace Microsoft.Crank.Agent
             // Run scripts before the benchmark is run, and after custom build attachments have be uploaded
             if (!String.IsNullOrEmpty(job.BeforeScript))
             {
+                var environmentVariables = new Dictionary<string, string>()
+                {
+                    ["CRANK_WORKING_DIRECTORY"] = workingDirectory
+                };
+
                 var segments = job.BeforeScript.Split(' ', 2);
-                var processResult = await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: workingDirectory, log: true, outputDataReceived: text => job.Output.AddLine(text));
+                var processResult = await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: workingDirectory, log: true, outputDataReceived: job.Output.AddLine, environmentVariables: environmentVariables);
             }
 
             if (cancellationToken.IsCancellationRequested)

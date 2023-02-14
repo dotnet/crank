@@ -146,11 +146,15 @@ namespace Microsoft.Crank.Models
         public bool SelfContained { get; set; }
         public string BeforeScript { get; set; }
         public string AfterScript { get; set; }
+        public string StoppingScript { get; set; }
         public ulong MemoryLimitInBytes { get; set; }
         public double CpuLimitRatio { get; set; }
         public string CpuSet { get; set; } // e.g., 0 or 0-3 or 1-4,6
         public ConcurrentQueue<Measurement> Measurements { get; set; } = new ConcurrentQueue<Measurement>();
         public ConcurrentQueue<MeasurementMetadata> Metadata { get; set; } = new ConcurrentQueue<MeasurementMetadata>();
+
+        [JsonIgnore] 
+        public int TrackedProcessId => Math.Max(ChildProcessId, ProcessId);
 
         /// <summary>
         /// The build log. This property is kept on the server side.

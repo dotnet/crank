@@ -113,7 +113,7 @@ Options:
   --[JOB].options.fetchOutput <filename>                                   The name of the fetched archive. Can be a file prefix (app will add *.DATE*.zip) , or a specific name (end in *.zip) and no DATE* will be added e.g., c:\publishedapps\myApp
   --[JOB].options.displayOutput <true|false>                               Whether to download and display the standard output of the benchmark.
   --[JOB].options.displayBuild <true|false>                                Whether to download and display the standard output of the build step (works for .NET and Docker).
-  --[JOB].options.downloadFiles <filename|pattern>                         The name of the file(s) to download.
+  --[JOB].options.downloadFiles <filename|pattern>                         The name of the file(s) to download. The working directory is the published folder.
   --[JOB].options.downloadFilesOutput <path>                               A path where the files will be downloaded.
 
   ## Files
@@ -124,7 +124,15 @@ Options:
   --[JOB].options.reuseBuild <true|false>                                  Reuse build files across benchmarks. Don't use with floating runtime versions.
   --[JOB].options.beforeScript <commandline>                               A command line to execute before the job is started. Current directory is the same as the project or docker file.
   --[JOB].options.afterScript <commandline>                                A command line to execute after the job is stopped. Current directory is the same as the project or docker file.
+  --[JOB].options.stoppingScript <commandline>                             A command line to execute after the job is stopped. Current directory is the same as the project or docker file.
   --[JOB].options.noGitIgnore <true|false>                                 Whether to ignore the .gitignore file when upload local source or build files. Default is false, meaning the local gitignore file is respected.
+
+  For script based arguments the following environment variables are available: 
+  - CRANK_PROCESS_ID
+  - CRANK_WORKING_DIRECTORY
+
+  When using shell commands, ensure that they exit the shell. Example usage:
+  --application.stoppingScript "cmd.exe /C echo hello %CRANK_PROCESS_ID% > hello.txt"
 
   ## Timeouts
 

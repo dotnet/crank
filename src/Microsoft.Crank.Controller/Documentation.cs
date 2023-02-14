@@ -85,24 +85,31 @@ internal class Documentation
 
   ## Debugging
 
-  --[JOB].noClean <true|false>                                  Whether to keep the work folder on the server or not. Default is false, such that each job is cleaned once it's 
-                                                                finished.
+  --[JOB].noClean <true|false>                                  Whether to keep the work folder on the server or not. Default is false, such that each job is cleaned once it's finished.
   --[JOB].options.fetch <true|false>                            Whether the benchmark folder is downloaded. e.g., true. For Docker see '--[JOB].source.dockerFetchPath'
-  --[JOB].options.fetchOutput <filename>                        The name of the fetched archive. Can be a file prefix (app will add *.DATE*.zip) , or a specific name (end in *.zip)
-                                                                 and no DATE* will be added e.g., c:\publishedapps\myApp
+  --[JOB].options.fetchOutput <filename>                        The name of the fetched archive. Can be a file prefix (app will add *.DATE*.zip) , or a specific name (end in *.zip) and no DATE* will be added e.g., c:\publishedapps\myApp
   --[JOB].options.displayOutput <true|false>                    Whether to download and display the standard output of the benchmark.
   --[JOB].options.displayBuild <true|false>                     Whether to download and display the standard output of the build step (works for .NET and Docker).
-  --[JOB].options.downloadFiles <filename|pattern>              The name of the file(s) to download.
+  --[JOB].options.downloadFiles <filename|pattern>              The name of the file(s) to download. The working directory is the published folder.
   --[JOB].options.downloadFilesOutput <path>                    A path where the files will be downloaded.
 
   ## Files
 
-  --[JOB].options.buildFiles <filename>                         Build files that will be copied in the project folder before the build occurs. Accepts globing patterns and recursive marker (**). 
-                                                                Format is 'path[;destination]'. Path can be a URL. e.g., c:\images\mydockerimage.tar, c:\code\Program.cs. If provided, the destination needs to be a folder name, relative to the project path.
-  --[JOB].options.outputFiles <filename>                        Output files that will be copied in the published folder after the application is built. Accepts globing patterns and recursive marker (**). 
-                                                                Format is 'path[;destination]'. Path can be a URL. e.g., c:\build\Microsoft.AspNetCore.Mvc.dll, c:\files\samples\picture.png;wwwroot\picture.png. If provided, the destination needs to be a folder name, relative to the published path.
+  --[JOB].options.buildFiles <filename>                         Build files that will be copied in the project folder before the build occurs. Accepts globing patterns and recursive marker (**). Format is 'path[;destination]'. Path can be a URL. e.g., c:\images\mydockerimage.tar, c:\code\Program.cs. If provided, the destination needs to be a folder name, relative to the project path.
+  --[JOB].options.outputFiles <filename>                        Output files that will be copied in the published folder after the application is built. Accepts globing patterns and recursive marker (**). Format is 'path[;destination]'. Path can be a URL. e.g., c:\build\Microsoft.AspNetCore.Mvc.dll, c:\files\samples\picture.png;wwwroot\picture.png. If provided, the destination needs to be a folder name, relative to the published path.
   --[JOB].options.reuseSource <true|false>                      Reuse local or remote sources across benchmarks for the same source.
   --[JOB].options.reuseBuild <true|false>                       Reuse build files across benchmarks. Don't use with floating runtime versions.
+  --[JOB].options.beforeScript <commandline>                    A command line to execute before the job is started. Current directory is the same as the project or docker file.
+  --[JOB].options.afterScript <commandline>                     A command line to execute after the job is stopped. Current directory is the same as the project or docker file.
+  --[JOB].options.stoppingScript <commandline>                  A command line to execute after the job is stopped. Current directory is the same as the project or docker file.
+  --[JOB].options.noGitIgnore <true|false>                      Whether to ignore the .gitignore file when upload local source or build files. Default is false, meaning the local gitignore file is respected.
+
+  For script based arguments the following environment variables are available: 
+  - CRANK_PROCESS_ID
+  - CRANK_WORKING_DIRECTORY
+
+  When using shell commands, ensure that they exit the shell. Example usage:
+  --application.stoppingScript ""cmd.exe /C echo hello %CRANK_PROCESS_ID% > hello.txt""
 
   ## Timeouts
 
