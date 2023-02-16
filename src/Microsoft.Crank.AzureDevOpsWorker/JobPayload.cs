@@ -13,15 +13,13 @@ namespace Microsoft.Crank.AzureDevOpsWorker
     public class JobPayload
     {
         private static TimeSpan DefaultJobTimeout = TimeSpan.FromMinutes(10);
-        private static JsonSerializerOptions _serializationOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        private static readonly JsonSerializerOptions _serializationOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
         [JsonConverter(typeof(TimeSpanConverter))]
         public TimeSpan Timeout { get; set; } = DefaultJobTimeout;
 
         public string Name { get; set; }
         public string[] Args { get; set; }
-
-        public string RawPayload { get; set; }
 
         // A JavaScript condition that must evaluate to true. "job" 
         public string Condition { get; set; }
@@ -40,7 +38,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 var index = -1;
                 do
                 {
-                    index = str.IndexOf('{', index);
+                    index = str.IndexOf('{', index + 1);
 
                     if (index == -1 || index >= str.Length)
                     {
@@ -52,8 +50,6 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 str = str.Substring(index);
                 str = str.Substring(0, str.LastIndexOf("}") + 1);
                 var result = JsonSerializer.Deserialize<JobPayload>(str, _serializationOptions);
-
-                result.RawPayload = str;
 
                 return result;
             }
