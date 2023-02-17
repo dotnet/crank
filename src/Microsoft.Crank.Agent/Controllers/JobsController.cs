@@ -658,7 +658,7 @@ namespace Microsoft.Crank.Agent.Controllers
                 var rootPath = Directory.GetParent(job.BasePath).FullName;
 
                 // Assume ~/ means relative to the project, otherwise it's relative to the application folder (job.BasePath)
-                var isRelativeToProject = String.IsNullOrEmpty(job.Source.DockerFile) && path.StartsWith("~/") || path.StartsWith("~\\");
+                var isRelativeToProject = String.IsNullOrEmpty(job.Source.DockerFile) && (path.StartsWith("~/") || path.StartsWith("~\\"));
                 
                 if (isRelativeToProject)
                 {
@@ -732,7 +732,7 @@ namespace Microsoft.Crank.Agent.Controllers
                 var rootPath = Directory.GetParent(job.BasePath).FullName;
 
                 // Assume ~/ means relative to the project, otherwise it's relative to the application folder (job.BasePath)
-                var isRelativeToProject = String.IsNullOrEmpty(job.Source.DockerFile) && path.StartsWith("~/") || path.StartsWith("~\\");
+                var isRelativeToProject = String.IsNullOrEmpty(job.Source.DockerFile) && (path.StartsWith("~/") || path.StartsWith("~\\"));
 
                 if (isRelativeToProject)
                 {
