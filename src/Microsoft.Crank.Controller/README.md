@@ -113,7 +113,7 @@ Options:
   --[JOB].options.fetchOutput <filename>                                   The name of the fetched archive. Can be a file prefix (app will add *.DATE*.zip) , or a specific name (end in *.zip) and no DATE* will be added e.g., c:\publishedapps\myApp
   --[JOB].options.displayOutput <true|false>                               Whether to download and display the standard output of the benchmark.
   --[JOB].options.displayBuild <true|false>                                Whether to download and display the standard output of the build step (works for .NET and Docker).
-  --[JOB].options.downloadFiles <filename|pattern>                         The name of the file(s) to download. The working directory is the published folder.
+  --[JOB].options.downloadFiles <filename|pattern>                         The name of the file(s) to download. The working directory is the published folder. Use '~/' to use the project's location as the base folder.
   --[JOB].options.downloadFilesOutput <path>                               A path where the files will be downloaded.
 
   ## Files

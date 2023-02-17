@@ -1218,7 +1218,12 @@ namespace Microsoft.Crank.Controller
                 var uri = Combine(_serverJobUri, "/download?path=" + HttpUtility.UrlEncode(file));
                 Log.Verbose("GET " + uri);
 
-                var filename = Path.Combine(output ?? "", file);
+                if (file.StartsWith("~/") || file.StartsWith("~\\"))
+                {
+                    file = file.Substring(2);
+                }
+
+                var filename = Path.Combine(output ?? "", Path.GetFileName(file));
                 filename = Path.GetFullPath(filename);
 
                 if (!Directory.Exists(Path.GetDirectoryName(filename)))

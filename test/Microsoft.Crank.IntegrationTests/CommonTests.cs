@@ -160,6 +160,35 @@ namespace Microsoft.Crank.IntegrationTests
             Assert.Equal(expectedOutputFileContent, File.ReadAllText(expectedOutputFilename));
         }
 
+        [Fact]
+        public async Task DownloadProjectFile()
+        {
+            _output.WriteLine($"[TEST] Starting controller");
+
+            // Create a local folder to download file into
+            var outputFileDirectory = Path.Combine(_crankTestsDirectory, "projecfiles");
+            Directory.CreateDirectory(outputFileDirectory);
+
+            var expectedOutputFilename = Path.Combine(outputFileDirectory, "hello.csproj");
+
+            var result = await ProcessUtil.RunAsync(
+                "dotnet",
+                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --application.options.downloadFiles ~/hello.csproj --application.options.downloadFilesOutput {outputFileDirectory}",
+                workingDirectory: _crankTestsDirectory,
+                captureOutput: true,
+                timeout: DefaultTimeOut,
+                throwOnError: false,
+                outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); }
+            );
+
+            Assert.Equal(0, result.ExitCode);
+
+            _output.WriteLine(_agent.FlushOutput());
+
+            Assert.Contains("Uploading", result.StandardOutput);
+            Assert.True(File.Exists(expectedOutputFilename));
+        }
+
         [SkipOnMacOs]
         public async Task CollectDump()
         {
