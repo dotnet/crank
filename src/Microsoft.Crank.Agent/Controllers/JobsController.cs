@@ -654,15 +654,28 @@ namespace Microsoft.Crank.Agent.Controllers
                     return NotFound();
                 }
 
+                // Downloads can't get out of this path
+                var rootPath = Directory.GetParent(job.BasePath).FullName;
+
+                // Assume ~/ means relative to the project, otherwise it's relative to the application folder (job.BasePath)
+                var isRelativeToProject = String.IsNullOrEmpty(job.Source.DockerFile) && path.StartsWith("~/") || path.StartsWith("~\\");
+                
+                if (isRelativeToProject)
+                {
+                    // One level up from the output folder
+                    path = string.Concat("..", path.AsSpan(1));
+                }
+
                 // Resolve dot notation in path
                 var fullPath = Path.GetFullPath(path, job.BasePath);
 
-                if (!fullPath.StartsWith(job.BasePath, StringComparison.OrdinalIgnoreCase))
+                Log.Info($"Download requested: '{path}'");
+
+                if (!fullPath.StartsWith(rootPath, StringComparison.OrdinalIgnoreCase))
                 {
+                    Log.Error($"Client is not allowed to download '{fullPath}'");
                     return BadRequest("Attempts to access a path outside of the job.");
                 }
-
-                Log.Info($"Download requested: '{fullPath}'");
 
                 if (String.IsNullOrEmpty(job.Source.DockerFile))
                 {
@@ -715,11 +728,24 @@ namespace Microsoft.Crank.Agent.Controllers
                     return NotFound();
                 }
 
+                // Downloads can't get out of this path
+                var rootPath = Directory.GetParent(job.BasePath).FullName;
+
+                // Assume ~/ means relative to the project, otherwise it's relative to the application folder (job.BasePath)
+                var isRelativeToProject = String.IsNullOrEmpty(job.Source.DockerFile) && path.StartsWith("~/") || path.StartsWith("~\\");
+
+                if (isRelativeToProject)
+                {
+                    // One level up from the output folder
+                    path = string.Concat("..", path.AsSpan(1));
+                }
+
                 // Resolve dot notation in path
                 var fullPath = Path.GetFullPath(path, job.BasePath);
 
-                if (!fullPath.StartsWith(job.BasePath, StringComparison.OrdinalIgnoreCase))
+                if (!fullPath.StartsWith(rootPath, StringComparison.OrdinalIgnoreCase))
                 {
+                    Log.Error($"Client is not allowed to list '{fullPath}'");
                     return BadRequest("Attempts to access a path outside of the job.");
                 }
 
