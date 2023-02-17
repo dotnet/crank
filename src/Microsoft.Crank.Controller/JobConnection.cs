@@ -1223,7 +1223,7 @@ namespace Microsoft.Crank.Controller
                     file = file.Substring(2);
                 }
 
-                var filename = Path.Combine(output ?? "", file);
+                var filename = Path.Combine(output ?? "", Path.GetFileName(file));
                 filename = Path.GetFullPath(filename);
 
                 if (!Directory.Exists(Path.GetDirectoryName(filename)))
