@@ -24,7 +24,7 @@ jobs:
       warmup: 5
       protocol: h2c
       body: ''
-      bodyFile: # url for a file to use as the body content
+      bodyFile: '' # url for a file to use as the body content
       presetHeaders: none
       serverScheme: http
       serverAddress: localhost      
