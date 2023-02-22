@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using McMaster.Extensions.CommandLineUtils;
@@ -40,6 +41,7 @@ namespace H2LoadClient
             var optionDuration = app.Option<int>("-d|--duration <N>", "Duration of the test in seconds", CommandOptionType.SingleValue);
             var optionProtocol = app.Option<string>("-p|--protocol <S>", "The HTTP protocol to use", CommandOptionType.SingleValue);
             var optionBody = app.Option<string>("-b|--body <S>", "Request body as base64 encoded text", CommandOptionType.SingleValue);
+            var optionBodyFile = app.Option<string>("--bodyFile <S>", "Url for a file to use as the body content", CommandOptionType.SingleValue);
             var optionHeaders = app.Option<string>("--header <S>", "Add a header to the request", CommandOptionType.MultipleValue);
 
             app.OnExecuteAsync(async cancellationToken =>
@@ -72,9 +74,19 @@ namespace H2LoadClient
                     Console.WriteLine("No headers");
                 }
 
-                if (optionBody.HasValue())
+                if (optionBody.HasValue() || optionBodyFile.HasValue())
                 {
-                    var requestBody = Convert.FromBase64String(optionBody.Value());
+                    byte[] requestBody;
+
+                    if (optionBody.HasValue())
+                    {
+                        requestBody = Convert.FromBase64String(optionBody.Value());
+                    }
+                    else
+                    {
+                        using var client = new HttpClient();
+                        requestBody = await client.GetByteArrayAsync(optionBodyFile.Value());
+                    }
 
                     // h2load takes a file as the request body
                     // write the body to a temporary file that is deleted in stop job
