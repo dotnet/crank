@@ -758,7 +758,7 @@ namespace Microsoft.Crank.Agent.Controllers
                 {
                     return Json(
                         Directory.GetFiles(Path.GetDirectoryName(fullPath), Path.GetFileName(fullPath))
-                        .Select(x => x.Substring(rootPath.Length).TrimStart('/', '\\'))
+                        .Select(x => x.Substring(job.BasePath.Length).TrimStart('/', '\\'))
                         .ToArray()
                         );
                 }
