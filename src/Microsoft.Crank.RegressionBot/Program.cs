@@ -800,7 +800,7 @@ namespace Microsoft.Crank.RegressionBot
                                 var hasRecovered = false;
 
                                 // It has recovered if the difference between the first measurement and the current one 
-                                // are within the threashold boundaries, or if the value is better (opposite sign).
+                                // are within the threshold boundaries, or if the value is better (opposite sign).
 
                                 switch (probe.Unit)
                                 {
@@ -881,54 +881,51 @@ namespace Microsoft.Crank.RegressionBot
                     }
 
                     var values = resultSet.Select(x => x.DateTimeUtc).ToArray();
+                    var stdevCount = source.StdevCount;
 
                     // Calculate average time between runs and standard deviation
-
-                    for (var i = 0; i < values.Length - source.StdevCount; i++)
+                    // i represents the current value to analyze
+                    for (var i = stdevCount; i < values.Length; i++)
                     {
-                        var stdevs = new List<long>();
+                        var intervalsInSeconds = new List<long>();
 
-                        var currentResult = resultSet[i + 1 + source.StdevCount];
-                        var previousResult = resultSet[i + source.StdevCount];
+                        var currentValue = values[i];
+                        var previousValue = values[i - 1];
 
-                        var currentValue = values[i + 1 + source.StdevCount];
-                        var previousValue = values[i + source.StdevCount];
+                        Console.WriteLine($"Testing value {currentValue}");
 
-                        for (var k = 0; k < source.StdevCount; k++)
+                        // Calculate stdev from previous values to the current one
+                        for (var k = i - stdevCount; k < i - 1; k++)
                         {
-                            // Measure in seconds
-                            stdevs.Add((values[i + 1 + k].Ticks - values[i + k].Ticks) / TimeSpan.TicksPerSecond);
+                            var differenceInSeconds = (values[k + 1].Ticks - values[k].Ticks) / TimeSpan.TicksPerSecond;
+
+                            intervalsInSeconds.Add(differenceInSeconds);
                         }
 
                         // Calculate the stdev from all values up to the verified window
-                        var average = (long)stdevs.Average();
-                        var sumOfSquaresOfDifferences = stdevs.Sum(val => (val - average) * (val - average));
-                        var standardDeviation = Math.Sqrt(sumOfSquaresOfDifferences / stdevs.Count);
+                        var averageInSeconds = (long)intervalsInSeconds.Average();
+                        var sumOfSquaresOfDifferences = intervalsInSeconds.Sum(val => (val - averageInSeconds) * (val - averageInSeconds));
+                        var standardDeviation = Math.Sqrt(sumOfSquaresOfDifferences / stdevCount);
 
                         if (_options.Verbose)
                         {
-                            Console.WriteLine($"Benchmark runs on average every {(int)TimeSpan.FromSeconds(average).TotalHours} hours with a stdev of {(int)TimeSpan.FromSeconds(standardDeviation).TotalHours} hours. Occurences were: {JsonConvert.SerializeObject(stdevs)}");
+                            Console.WriteLine($"Value: {currentValue}, benchmark runs on average every {(int)TimeSpan.FromSeconds(averageInSeconds).TotalMinutes} minutes with a stdev of {(int)TimeSpan.FromSeconds(standardDeviation).TotalMinutes} minutes. Intervals were: {String.Join(',', intervalsInSeconds)}");
                         }
 
-                        if (standardDeviation == 0)
-                        {
-                            // We skip measurement with stdev of zero since it could induce divisions by zero, and any change will trigger
-                            // a regression
-                            Console.WriteLine($"Ignoring measurement with stdev = 0");
-                            continue;
-                        }
+                        var changeInSeconds = (currentValue.Ticks - previousValue.Ticks) / TimeSpan.TicksPerSecond;
+                        var acceptedChange = (averageInSeconds + 2 * standardDeviation);
 
-                        var hasRegressed = (currentValue.Ticks - previousValue.Ticks) / TimeSpan.TicksPerSecond > (average + 2 * standardDeviation);
+                        var hasRegressed = changeInSeconds > acceptedChange;
 
                         if (hasRegressed)
                         {
                             var regression = new Regression
                             {
-                                PreviousResult = previousResult.Result,
-                                CurrentResult = currentResult.Result,
+                                PreviousResult = results[i - 1],
+                                CurrentResult = results[i],
                                 Change = (currentValue - previousValue).TotalSeconds,
                                 StandardDeviation = standardDeviation,
-                                Average = new TimeSpan(average).TotalSeconds
+                                Average = averageInSeconds
                             };
 
                             if (_options.Verbose)
@@ -963,7 +960,7 @@ namespace Microsoft.Crank.RegressionBot
 
                             // If there are subsequent measurements, the benchmark has recovered
 
-                            var hasRecovered = resultSet.Count > i + source.StdevCount;
+                            var hasRecovered = resultSet.Count > i + 1;
 
                             if (hasRecovered)
                             {
