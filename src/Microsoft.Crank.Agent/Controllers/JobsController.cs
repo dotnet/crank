@@ -754,6 +754,7 @@ namespace Microsoft.Crank.Agent.Controllers
                     return Json(Array.Empty<string>());
                 }
 
+                // Returned paths are relative to the job.BasePath folder (e.g., /published in case of dotnet projects)
                 if (fullPath.Contains("*"))
                 {
                     return Json(
