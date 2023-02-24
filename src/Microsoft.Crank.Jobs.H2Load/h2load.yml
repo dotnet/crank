@@ -1,8 +1,8 @@
 ﻿variables:
   headers:
     none: ''
-    grpc: "--header content-type=application/grpc --header TE=trailers"
-    grpcDeadline: "--header content-type=application/grpc --header TE=trailers --header grpc-timeout=100S"
+    grpc: '--header "content-type: application/grpc" --header "TE: trailers"'
+    grpcDeadline: '--header "content-type: application/grpc" --header "TE: trailers" --header "grpc-timeout: 100S"'
   presetHeaders: none
 
 jobs:
