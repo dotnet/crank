@@ -913,7 +913,7 @@ namespace Microsoft.Crank.RegressionBot
                         }
 
                         // We assume the benchmark is not running if it wasn't triggered for twice the expected delay.
-                        // The standard deviation could also be ignore here but since it's available let's take it into account.
+                        // The standard deviation could also be ignored here but since it's available let's take it into account.
                         var changeInSeconds = (currentValue.Ticks - previousValue.Ticks) / TimeSpan.TicksPerSecond;
                         var acceptedChange = 2 * (averageInSeconds + standardDeviation);
 
