@@ -912,17 +912,23 @@ namespace Microsoft.Crank.RegressionBot
                             Console.WriteLine($"Value: {currentValue}, benchmark runs on average every {(int)TimeSpan.FromSeconds(averageInSeconds).TotalMinutes} minutes with a stdev of {(int)TimeSpan.FromSeconds(standardDeviation).TotalMinutes} minutes. Intervals were: {String.Join(',', intervalsInSeconds)}");
                         }
 
+                        // We assume the benchmark is not running if it wasn't triggered for twice the expected delay.
+                        // The standard deviation could also be ignored here but since it's available let's take it into account.
                         var changeInSeconds = (currentValue.Ticks - previousValue.Ticks) / TimeSpan.TicksPerSecond;
-                        var acceptedChange = (averageInSeconds + 2 * standardDeviation);
+                        var acceptedChange = 2 * (averageInSeconds + standardDeviation);
 
                         var hasRegressed = changeInSeconds > acceptedChange;
 
                         if (hasRegressed)
                         {
+                            // Assign previous and current results to the same value to prevent the current result
+                            // from being empty. Healthchecks don't compare two results, but detect the second
+                            // result is either late or non-existent.
+
                             var regression = new Regression
                             {
                                 PreviousResult = results[i - 1],
-                                CurrentResult = results[i],
+                                CurrentResult = results[i - 1],
                                 Change = (currentValue - previousValue).TotalSeconds,
                                 StandardDeviation = standardDeviation,
                                 Average = averageInSeconds
@@ -964,13 +970,11 @@ namespace Microsoft.Crank.RegressionBot
 
                             if (hasRecovered)
                             {
-                                regression.RecoveredResult = resultSet[i + 1 + source.StdevCount].Result;
+                                regression.RecoveredResult = resultSet[i + 1].Result;
 
                                 Console.ForegroundColor = ConsoleColor.Green;
                                 Console.WriteLine($"Recovered on {regression.RecoveredResult.DateTimeUtc}");
                                 Console.ResetColor();
-
-                                break;
                             }
 
                             regression.ComputeChanges();
