@@ -922,7 +922,7 @@ namespace Microsoft.Crank.RegressionBot
                         if (hasRegressed)
                         {
                             // Assign previous and current results to the same value to prevent the current result
-                            // from being empty. Halthchecks don't compare two results, but detect the second
+                            // from being empty. Healthchecks don't compare two results, but detect the second
                             // result is either late or non-existent.
 
                             var regression = new Regression
