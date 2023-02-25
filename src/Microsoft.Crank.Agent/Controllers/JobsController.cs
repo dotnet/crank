@@ -754,11 +754,12 @@ namespace Microsoft.Crank.Agent.Controllers
                     return Json(Array.Empty<string>());
                 }
 
+                // Returned paths are relative to the job.BasePath folder (e.g., /published in case of dotnet projects)
                 if (fullPath.Contains("*"))
                 {
                     return Json(
                         Directory.GetFiles(Path.GetDirectoryName(fullPath), Path.GetFileName(fullPath))
-                        .Select(x => x.Substring(rootPath.Length).TrimStart('/', '\\'))
+                        .Select(x => x.Substring(job.BasePath.Length).TrimStart('/', '\\'))
                         .ToArray()
                         );
                 }
