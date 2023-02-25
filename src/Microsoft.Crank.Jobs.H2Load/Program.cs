@@ -59,14 +59,15 @@ namespace H2LoadClient
                 Protocol = optionProtocol.Value();
 
                 Headers = new Dictionary<string, string>();
+
                 foreach (var header in optionHeaders.ParsedValues)
                 {
-                    var headerParts = header.Split('=');
+                    var headerParts = header.Split(':', 2, StringSplitOptions.TrimEntries);
                     var key = headerParts[0];
                     var value = headerParts[1];
                     Headers.Add(key, value);
 
-                    Console.WriteLine($"Header: {key}={value}");
+                    Console.WriteLine($"Header: '{key}: {value}'");
                 }
 
                 if (Headers.Count == 0)
