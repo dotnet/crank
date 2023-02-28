@@ -148,7 +148,7 @@ namespace Microsoft.Crank.Controller
                 OptionsComparison = StringComparison.OrdinalIgnoreCase,
             };
 
-            app.HelpOption("-?|-h|--help");
+            app.HelpOption("-?|-h|--help", true);
 
             _configOption = app.Option("-c|--config", "Configuration file or url.", CommandOptionType.MultipleValue);
             _scenarioOption = app.Option("-s|--scenario", "Scenario to execute.", CommandOptionType.SingleValue);
