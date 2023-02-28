@@ -14,8 +14,6 @@ using System.Text;
 using System.Threading.Tasks;
 using Fluid;
 using Fluid.Values;
-using Manatee.Json;
-using Manatee.Json.Schema;
 using MessagePack;
 using Microsoft.Crank.RegressionBot.Models;
 using Microsoft.Data.SqlClient;
@@ -465,10 +463,10 @@ namespace Microsoft.Crank.RegressionBot
                         localconfiguration = JObject.Parse(json);
 
                         var schemaJson = File.ReadAllText(Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "regressionbot.schema.json"));
-                        var schema = new Manatee.Json.Serialization.JsonSerializer().Deserialize<JsonSchema>(JsonValue.Parse(schemaJson));
+                        var schema = Json.Schema.JsonSchema.FromText(schemaJson);
 
-                        var jsonToValidate = JsonValue.Parse(json);
-                        var validationResults = schema.Validate(jsonToValidate, new JsonSchemaOptions { OutputFormat = SchemaValidationOutputFormat.Detailed });
+                        var jsonToValidate = System.Text.Json.Nodes.JsonNode.Parse(json);
+                        var validationResults = schema.Validate(jsonToValidate, new Json.Schema.ValidationOptions { OutputFormat = Json.Schema.OutputFormat.Detailed });
 
                         if (!validationResults.IsValid)
                         {
@@ -481,7 +479,7 @@ namespace Microsoft.Crank.RegressionBot
                             var errorBuilder = new StringBuilder();
 
                             errorBuilder.AppendLine($"Invalid configuration file '{configurationFilenameOrUrl}' at '{validationResults.InstanceLocation}'");
-                            errorBuilder.AppendLine($"{validationResults.ErrorMessage}");
+                            errorBuilder.AppendLine($"{validationResults.Message}");
                             errorBuilder.AppendLine($"Debug file created at '{debugFilename}'");
 
                             throw new RegressionBotException(errorBuilder.ToString());
