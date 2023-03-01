@@ -17,8 +17,6 @@ using System.Threading.Tasks;
 using Fluid;
 using Fluid.Values;
 using Jint;
-using Manatee.Json;
-using Manatee.Json.Schema;
 using McMaster.Extensions.CommandLineUtils;
 using Microsoft.Azure.Relay;
 using Microsoft.Crank.Controller.Serializers;
@@ -2141,10 +2139,10 @@ namespace Microsoft.Crank.Controller
                         localconfiguration = JObject.Parse(json);
 
                         var schemaJson = File.ReadAllText(Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "benchmarks.schema.json"));
-                        var schema = new Manatee.Json.Serialization.JsonSerializer().Deserialize<JsonSchema>(JsonValue.Parse(schemaJson));
+                        var schema = Json.Schema.JsonSchema.FromText(schemaJson);
 
-                        var jsonToValidate = JsonValue.Parse(json);
-                        var validationResults = schema.Validate(jsonToValidate, new JsonSchemaOptions { OutputFormat = SchemaValidationOutputFormat.Detailed });
+                        var jsonToValidate = System.Text.Json.Nodes.JsonNode.Parse(json);
+                        var validationResults = schema.Validate(jsonToValidate, new Json.Schema.ValidationOptions { OutputFormat = Json.Schema.OutputFormat.Detailed });
 
                         if (!validationResults.IsValid)
                         {
@@ -2157,7 +2155,7 @@ namespace Microsoft.Crank.Controller
                             var errorBuilder = new StringBuilder();
 
                             errorBuilder.AppendLine($"Invalid configuration file '{configurationFilenameOrUrl}' at '{validationResults.InstanceLocation}'");
-                            errorBuilder.AppendLine($"{validationResults.ErrorMessage}");
+                            errorBuilder.AppendLine($"{validationResults.Message}");
                             errorBuilder.AppendLine($"Debug file created at '{debugFilename}'");
 
                             throw new ControllerException(errorBuilder.ToString());
