@@ -40,7 +40,7 @@ namespace Microsoft.Crank.Controller
         private static string _sqlConnectionString = "";
         private static string _indexName = "benchmarks";
         private static string _elasticSearchUrl = "";
-        private const string DefaultBenchmarkDotNetArguments = "--inProcess --cli {{benchmarks-cli}} --join --exporters briefjson markdown";
+        private const string DefaultBenchmarkDotNetArguments = "--inProcess --cli \"{{benchmarks-cli}}\" --join --exporters briefjson markdown";
 
         // Default to arguments which should be sufficient for collecting trace of default Plaintext run
         // c.f. https://github.com/Microsoft/perfview/blob/main/src/PerfView/CommandLineArgs.cs
