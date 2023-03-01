@@ -19,11 +19,6 @@
     <PackageReference Include="System.Linq.Async" Version="4.1.1" />
     <PackageReference Include="Fluid.Core" Version="2.2.6" />
     <PackageReference Include="MessagePack" Version="2.2.85" />
-    
-    <!-- Force version for Component Governance compliance -->    
-    <PackageReference Include="System.Text.Encodings.Web" Version="6.0.0">
-      <AllowExplicitReference>true</AllowExplicitReference>
-    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>

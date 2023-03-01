@@ -22,11 +22,6 @@
     <PackageReference Include="JsonSchema.Net" Version="3.3.2" />
     <PackageReference Include="NuGet.Versioning" Version="5.6.0" />
     <PackageReference Include="YamlDotNet" Version="8.1.2" />
-
-    <!-- Force version for Component Governance compliance -->
-    <PackageReference Include="System.Text.Encodings.Web" Version="6.0.0">
-      <AllowExplicitReference>true</AllowExplicitReference>
-    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
