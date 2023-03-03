@@ -6027,7 +6027,10 @@ namespace Microsoft.Crank.Agent
                 if (!File.Exists(_perfviewPath))
                 {
                     Log.Info($"Downloading PerfView to '{_perfviewPath}'");
-                    await DownloadFileAsync(_perfviewUrl, _perfviewPath, maxRetries: 5, timeout: 60);
+                    if (!await DownloadFileAsync(_perfviewUrl, _perfviewPath, maxRetries: 5, timeout: 60, throwOnError: false))
+                    {
+                        Log.Warning("Failed to download PerfView.exe");
+                    }
                 }
             }
 
