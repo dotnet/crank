@@ -82,9 +82,6 @@ ADD https://raw.githubusercontent.com/microsoft/perfview/main/src/perfcollect/pe
 RUN chmod +x /usr/bin/perfcollect
 RUN /usr/bin/perfcollect install
 
-# Rename whatever version of perf is installed to 'perf', e.g., perf_5.10 -> perf
-RUN cp /usr/bin/perf_* /usr/bin/perf
-
 COPY --from=build-env /app /app
 
 ENTRYPOINT [ "/app/crank-agent" ]
