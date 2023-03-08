@@ -4952,7 +4952,7 @@ namespace Microsoft.Crank.Agent
                         {
                             job.Measurements.Enqueue(new Measurement
                             {
-                                Timestamp = eventData.TimeStamp,
+                                Timestamp = eventData.TimeStamp.ToUniversalTime(),
                                 Name = eventData.PayloadByName("name").ToString(),
                                 Value = eventData.PayloadByName("value")
                             });
@@ -4974,10 +4974,10 @@ namespace Microsoft.Crank.Agent
                     else if (eventData.ProviderName == "System.Diagnostics.Metrics")
                     {
                         var sessionId = (string)eventData.PayloadValue(0);
-                        
+
                         var m = new Measurement
                         {
-                            Timestamp = eventData.TimeStamp
+                            Timestamp = eventData.TimeStamp.ToUniversalTime()
                         };
 
                         // Used when debugging metrics only
@@ -5061,7 +5061,7 @@ namespace Microsoft.Crank.Agent
                                 break;
                         }
 
-                        measurement.Timestamp = eventData.TimeStamp;
+                        measurement.Timestamp = eventData.TimeStamp.ToUniversalTime();
 
                         job.Measurements.Enqueue(measurement);
                     }
