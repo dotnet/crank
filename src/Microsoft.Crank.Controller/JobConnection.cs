@@ -1200,7 +1200,7 @@ namespace Microsoft.Crank.Controller
                     var uri = Combine(_serverJobUri, "/download?path=" + HttpUtility.UrlEncode(f));
                     Log.Verbose("GET " + uri);
 
-                    var filename = Path.Combine(output ?? "", Path.GetDirectoryName(file), f);
+                    var filename = Path.Combine(output ?? "", f);
                     filename = Path.GetFullPath(filename);
 
                     if (!Directory.Exists(Path.GetDirectoryName(filename)))
