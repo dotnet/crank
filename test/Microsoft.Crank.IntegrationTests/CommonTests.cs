@@ -189,6 +189,37 @@ namespace Microsoft.Crank.IntegrationTests
             Assert.True(File.Exists(expectedOutputFilename));
         }
 
+        [Fact]
+        public async Task DownloadFilesShouldNotDuplicatesFolderName()
+        {
+            _output.WriteLine($"[TEST] Starting controller");
+
+            // Create a local folder to download file into
+            var outputFileDirectory = Path.Combine(_crankTestsDirectory, "downloadfiles");
+            Directory.CreateDirectory(outputFileDirectory);
+
+            var expectedOutputFilename = Path.Combine(outputFileDirectory, "App_Data", "hello.benchmarks.yml");
+            var unexpectedOutputFilename = Path.Combine(outputFileDirectory, "App_Data", "App_Data", "hello.benchmarks.yml");
+
+            var result = await ProcessUtil.RunAsync(
+                "dotnet",
+                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --application.options.outputFiles ./assets/hello.benchmarks.yml;App_Data/ --application.options.downloadFiles App_Data/* --application.options.downloadFilesOutput {outputFileDirectory}",
+                workingDirectory: _crankTestsDirectory,
+                captureOutput: true,
+                timeout: DefaultTimeOut,
+                throwOnError: false,
+                outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); }
+            );
+
+            Assert.Equal(0, result.ExitCode);
+
+            _output.WriteLine(_agent.FlushOutput());
+
+            Assert.Contains("Uploading", result.StandardOutput);
+            Assert.True(File.Exists(expectedOutputFilename));
+            Assert.False(File.Exists(unexpectedOutputFilename));
+        }
+
         [SkipOnMacOs]
         public async Task CollectDump()
         {
