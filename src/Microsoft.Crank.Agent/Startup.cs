@@ -573,6 +573,12 @@ namespace Microsoft.Crank.Agent
                             {
                                 continue;
                             }
+                            
+                            var realCpuCount = Environment.ProcessorCount;
+                            if (!string.IsNullOrEmpty(job.CpuSet))
+                            {
+                                realCpuCount = CalculateCpuList(job.CpuSet).Count;
+                            }
 
                             var context = group[job];
 
@@ -1050,7 +1056,7 @@ namespace Microsoft.Crank.Agent
                                                                     // On Windows the CPU already takes the number or HT into account
                                                                     if (OperatingSystem == OperatingSystem.Linux)
                                                                     {
-                                                                        cpu = cpu / Environment.ProcessorCount;
+                                                                        cpu = cpu / realCpuCount;
                                                                     }
 
                                                                     cpu = Math.Round(cpu);
@@ -1194,7 +1200,7 @@ namespace Microsoft.Crank.Agent
                                                                                                                         
                                                                 var elapsed = now.Subtract(lastMonitorTime).TotalMilliseconds;
                                                                 var rawCpu = (newCPUTime - oldCPUTime).TotalMilliseconds / elapsed * 100;
-                                                                var cpu = Math.Round(rawCpu / Environment.ProcessorCount);
+                                                                var cpu = Math.Round(rawCpu / realCpuCount);
                                                                 lastMonitorTime = now;
 
                                                                 // Ignore first measure
@@ -4744,25 +4750,7 @@ namespace Microsoft.Crank.Agent
 
                 if (!String.IsNullOrWhiteSpace(job.CpuSet))
                 {
-                    var cpuSet = new List<int>();
-
-                    var ranges = job.CpuSet.Split(',', StringSplitOptions.RemoveEmptyEntries);
-                    foreach (var r in ranges)
-                    {
-                        var bounds = r.Split('-', 2);
-
-                        if (r.Length == 1)
-                        {
-                            cpuSet.Add(int.Parse(bounds[0]));
-                        }
-                        else
-                        {
-                            for (var i = int.Parse(bounds[0]); i<= int.Parse(bounds[1]); i++)
-                            {
-                                cpuSet.Add(i);
-                            }                            
-                        }
-                    }
+                    var cpuSet = CalculateCpuList(job.CpuSet);
 
                     var ssi = Kernel32.GetSystemCpuSetInformation(safeProcess).ToArray();
                     var cpuSets = cpuSet.Select(i => ssi[i].CpuSet.Id).ToArray();
@@ -4806,6 +4794,31 @@ namespace Microsoft.Crank.Agent
                     }
                 }
             }
+        }
+        
+        public static List<int> CalculateCpuList(string cpuSet)
+        {
+            var result = new List<int>();
+
+            var ranges = cpuSet.Split(',', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var r in ranges)
+            {
+                var bounds = r.Split('-', 2);
+
+                if (r.Length == 1)
+                {
+                    result.Add(int.Parse(bounds[0]));
+                }
+                else
+                {
+                    for (var i = int.Parse(bounds[0]); i <= int.Parse(bounds[1]); i++)
+                    {
+                        result.Add(i);
+                    }
+                }
+            }
+
+            return result;
         }
 
         private static string GetCGroupController(Job job)
