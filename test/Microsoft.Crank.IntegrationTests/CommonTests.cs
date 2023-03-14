@@ -220,6 +220,28 @@ namespace Microsoft.Crank.IntegrationTests
             Assert.False(File.Exists(unexpectedOutputFilename));
         }
 
+        [Fact]
+        public async Task BuildFilesShouldSucceed()
+        {
+            _output.WriteLine($"[TEST] Starting controller");
+
+            var result = await ProcessUtil.RunAsync(
+                "dotnet",
+                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --application.options.buildFiles https://raw.githubusercontent.com/dotnet/crank/main/build.sh;dest --application.options.buildFiles ./assets/hello.benchmarks.yml;dest",
+                workingDirectory: _crankTestsDirectory,
+                captureOutput: true,
+                timeout: DefaultTimeOut,
+                throwOnError: false,
+                outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); }
+            );
+
+            Assert.Equal(0, result.ExitCode);
+
+            Assert.Contains("Downloading build file from", result.StandardOutput);
+            Assert.Contains("dest/build.sh", result.StandardOutput);
+            Assert.Contains("dest/hello.benchmarks.yml", result.StandardOutput);
+        }
+
         [SkipOnMacOs]
         public async Task CollectDump()
         {

@@ -262,26 +262,7 @@ namespace Microsoft.Crank.Controller
                     {
                         foreach (var buildFileValue in Job.Options.BuildFiles)
                         {
-                            var buildFileSegments = buildFileValue.Split(';', 2, StringSplitOptions.RemoveEmptyEntries);
-
-                            var shouldSearchRecursively = buildFileSegments[0].Contains("**");
-                            buildFileSegments[0] = buildFileSegments[0].Replace("**\\", "").Replace("**/", "");
-
-                            foreach (var resolvedFile in Directory.GetFiles(Path.GetDirectoryName(buildFileSegments[0]), Path.GetFileName(buildFileSegments[0]), shouldSearchRecursively ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly))
-                            {                                var resolvedFileWithDestination = resolvedFile;
-
-                                if (buildFileSegments.Length > 1)
-                                {
-                                    resolvedFileWithDestination += ";" + buildFileSegments[1] + Path.GetDirectoryName(resolvedFile).Substring(Path.GetDirectoryName(buildFileSegments[0]).Length) + "/" + Path.GetFileName(resolvedFileWithDestination);
-                                }
-
-                                var result = await UploadFileAsync(resolvedFileWithDestination, _serverJobUri + "/build");
-
-                                if (result != 0)
-                                {
-                                    throw new Exception("Error while uploading build files");
-                                }
-                            }
+                            await HandleBuildFileAsync(buildFileValue);
                         }
                     }
 
@@ -413,6 +394,60 @@ namespace Microsoft.Crank.Controller
                 else
                 {
                     await Task.Delay(1000);
+                }
+            }
+        }
+
+        private async Task HandleBuildFileAsync(string buildFileValue)
+        {
+            var buildFileSegments = buildFileValue.Split(';', 2, StringSplitOptions.RemoveEmptyEntries);
+
+            var isRemoteFile = buildFileSegments[0].StartsWith("http", StringComparison.OrdinalIgnoreCase);
+
+            if (isRemoteFile)
+            {
+                var downloadFiles = buildFileSegments[0];
+
+                var fileName = downloadFiles[(downloadFiles.LastIndexOf('/') + 1)..];
+                var downDestination = Path.Combine(Path.GetTempPath(), fileName);
+
+                Log.Write($"Downloading build file from '{downloadFiles}' to '{downDestination}'");
+
+                await _httpClient.DownloadFileAsync(downloadFiles, _serverJobUri, downDestination);
+
+                if (buildFileSegments.Length > 1)
+                {
+                    downDestination += ";" + buildFileSegments[1] + "/" + Path.GetFileName(downDestination);
+                }
+
+                var result = await UploadFileAsync(downDestination, _serverJobUri + "/build");
+
+                if (result != 0)
+                {
+                    throw new Exception("Error while uploading build files");
+                }
+            }
+            else
+            {
+                var localFiles = buildFileSegments[0];
+                var shouldSearchRecursively = localFiles.Contains("**");
+                localFiles = localFiles.Replace("**\\", "").Replace("**/", "");
+
+                foreach (var resolvedFile in Directory.GetFiles(Path.GetDirectoryName(localFiles), Path.GetFileName(localFiles), shouldSearchRecursively ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly))
+                {
+                    var resolvedFileWithDestination = resolvedFile;
+
+                    if (buildFileSegments.Length > 1)
+                    {
+                        resolvedFileWithDestination += ";" + buildFileSegments[1] + Path.GetDirectoryName(resolvedFile).Substring(Path.GetDirectoryName(localFiles).Length) + "/" + Path.GetFileName(resolvedFileWithDestination);
+                    }
+
+                    var result = await UploadFileAsync(resolvedFileWithDestination, _serverJobUri + "/build");
+
+                    if (result != 0)
+                    {
+                        throw new Exception("Error while uploading build files");
+                    }
                 }
             }
         }
