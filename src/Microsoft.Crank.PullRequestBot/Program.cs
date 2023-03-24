@@ -331,7 +331,7 @@ namespace Microsoft.Crank.PullRequestBot
                             }
                             else
                             {
-                                Console.WriteLine("Error while publishing a result {owner}/{name}/{command.PullRequest.Number}");
+                                Console.WriteLine($"Error while publishing a result {owner}/{name}/{command.PullRequest.Number}");
                             }                            
                         }
                         else
