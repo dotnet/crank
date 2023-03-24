@@ -321,7 +321,7 @@ namespace Microsoft.Crank.PullRequestBot
                                 text.AppendLine(FormatResult(result));
                             }
 
-                            Console.WriteLine($"Creating result:\n{text.ToString()});
+                            Console.WriteLine($"Creating result:\n{text.ToString()}");
 
                             var newComment = await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint(text.ToString()));
                             
