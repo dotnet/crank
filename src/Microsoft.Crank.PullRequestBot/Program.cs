@@ -307,6 +307,7 @@ namespace Microsoft.Crank.PullRequestBot
                         {
                             startComment += $". Logs: [link]({_options.ExternalLogUri.OriginalString})";
                         }
+                        
                         await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint(startComment));
 
                         var results = await RunBenchmark(command, options.AccessToken);
@@ -320,7 +321,22 @@ namespace Microsoft.Crank.PullRequestBot
                                 text.AppendLine(FormatResult(result));
                             }
 
-                            await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint(text.ToString()));
+                            Console.WriteLine($"Creating result:\n{text.ToString()}");
+
+                            var newComment = await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint(text.ToString()));
+                            
+                            if (newComment != null)
+                            {
+                                Console.WriteLine($"Result published for {owner}/{name}/{command.PullRequest.Number}");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"Error while publishing a result {owner}/{name}/{command.PullRequest.Number}");
+                            }                            
+                        }
+                        else
+                        {
+                            Console.WriteLine("Skipping publishing results.");
                         }
                     }
                     catch (Exception ex)
