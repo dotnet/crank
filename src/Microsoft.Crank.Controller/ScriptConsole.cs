@@ -53,7 +53,7 @@ namespace Microsoft.Crank.Controller
             }
 
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine(String.Join(" ", args.Select(x => x?.ToString())));
+            Console.WriteLine(String.Join(" ", args));
             Console.ResetColor();
 
             HasErrors = true;
