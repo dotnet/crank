@@ -29,7 +29,7 @@ namespace Microsoft.Crank.Controller
             }
 
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine(String.Join(" ", args.Select(x => x?.ToString())));
+            Console.WriteLine(String.Join(" ", args));
             Console.ResetColor();
         }
 
