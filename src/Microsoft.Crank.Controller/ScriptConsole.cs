@@ -18,7 +18,7 @@ namespace Microsoft.Crank.Controller
                 return;
             }
 
-            Console.WriteLine(String.Join(" ", args.Select(x => x?.ToString())));
+            Console.WriteLine(String.Join(" ", args));
         }
 
         public void Info(params object[] args)
