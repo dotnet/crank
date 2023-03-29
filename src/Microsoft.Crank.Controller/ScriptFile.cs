@@ -11,7 +11,7 @@ namespace Microsoft.Crank.Controller
     {
         public string ReadFile(string filename)
         {
-            if (String.IsNullOrEmpty(filename))
+            if (string.IsNullOrEmpty(filename))
             {
                 return null;
             }
