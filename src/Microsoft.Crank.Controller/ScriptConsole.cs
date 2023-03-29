@@ -41,7 +41,7 @@ namespace Microsoft.Crank.Controller
             }
 
             Console.ForegroundColor = ConsoleColor.DarkYellow;
-            Console.WriteLine(String.Join(" ", args.Select(x => x?.ToString())));
+            Console.WriteLine(String.Join(" ", args));
             Console.ResetColor();
         }
 
