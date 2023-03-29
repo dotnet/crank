@@ -44,7 +44,8 @@ namespace Microsoft.Crank.Controller
         // c.f. https://github.com/Microsoft/perfview/blob/main/src/PerfView/CommandLineArgs.cs
         private const string _defaultTraceArguments = "BufferSizeMB=1024;CircularMB=4096;TplEvents=None;Providers=Microsoft-Diagnostics-DiagnosticSource:0:0;KernelEvents=default+ThreadTime-NetworkTCPIP";
 
-        private static readonly ScriptConsole _scriptConsole = new ScriptConsole();
+        private static readonly ScriptConsole _scriptConsole = new();
+        private static readonly ScriptFile _scriptFile = new();
 
         private static CommandOption
             _configOption,
@@ -1930,6 +1931,7 @@ namespace Microsoft.Crank.Controller
             var engine = new Engine();
 
             engine.SetValue("console", _scriptConsole);
+            engine.SetValue("fs", _scriptFile);
             engine.SetValue("configuration", result);
 
             foreach (var jobName in dependencies)
@@ -2363,14 +2365,15 @@ namespace Microsoft.Crank.Controller
 
             engine.SetValue("benchmarks", jobResults);
             engine.SetValue("console", _scriptConsole);
+            engine.SetValue("fs", _scriptFile);
             engine.SetValue("require", new Action<string>(ImportScript));
 
             void ImportScript(string s)
             {
                 if (!configuration.Scripts.ContainsKey(s))
                 {
-                    var availablescripts = String.Join("', '", configuration.Scripts.Keys);
-                    throw new ControllerException($"Could not find a script named '{s}'. Possible values: '{availablescripts}'");
+                    var availableScripts = String.Join("', '", configuration.Scripts.Keys);
+                    throw new ControllerException($"Could not find a script named '{s}'. Possible values: '{availableScripts}'");
                 }
 
                 engine.Execute(configuration.Scripts[s]);

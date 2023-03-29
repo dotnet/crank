@@ -78,9 +78,19 @@ onResultsCreated:
 
 A custom `console` object is made available and support the following methods:
 
-- log(message)
-- info(message)
-- warn(message)
-- error(message)
+- `log(message)`
+- `info(message)`
+- `warn(message)`
+- `error(message)`
 
 These methods will use different colors to render the message, respectively neutral, green, yellow and red.
+
+
+## Files
+
+A custom `fs` object is made available and support the following methods:
+
+- `readFile(filename) : string`
+- `writeFile(filename, data)`
+- `exists(filename) : bool`
+

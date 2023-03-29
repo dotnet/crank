@@ -13,27 +13,47 @@ namespace Microsoft.Crank.Controller
 
         public void Log(params object[] args)
         {
-            Console.WriteLine(String.Join(" ", args.Select(x => x.ToString())));
+            if (args == null || args.Length == 0)
+            {
+                return;
+            }
+
+            Console.WriteLine(String.Join(" ", args));
         }
 
         public void Info(params object[] args)
         {
+            if (args == null || args.Length == 0)
+            {
+                return;
+            }
+
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine(String.Join(" ", args.Select(x => x.ToString())));
+            Console.WriteLine(String.Join(" ", args));
             Console.ResetColor();
         }
 
         public void Warn(params object[] args)
         {
+            if (args == null || args.Length == 0)
+            {
+                return;
+            }
+
             Console.ForegroundColor = ConsoleColor.DarkYellow;
-            Console.WriteLine(String.Join(" ", args.Select(x => x.ToString())));
+            Console.WriteLine(String.Join(" ", args));
             Console.ResetColor();
         }
 
         public void Error(params object[] args)
         {
+            if (args == null || args.Length == 0)
+            {
+                return;
+            }
+
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine(String.Join(" ", args.Select(x => x.ToString())));
+            Console.WriteLine(String.Join(" ", args));
             Console.ResetColor();
 
             HasErrors = true;
