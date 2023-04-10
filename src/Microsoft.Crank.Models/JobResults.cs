@@ -20,6 +20,8 @@ namespace Microsoft.Crank.Models
         public Dependency[] Dependencies { get; set; } = Array.Empty<Dependency>();
         public List<Measurement[]> Measurements { get; set; } = new List<Measurement[]>();
         public Dictionary<string, object> Environment { get; set; } = new Dictionary<string, object>();
+
+        public Dictionary<string, object> Variables { get; set; } = new Dictionary<string, object>();
         public Benchmark[] Benchmarks { get; set; } = Array.Empty<Benchmark>();
     }
 

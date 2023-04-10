@@ -314,6 +314,38 @@ namespace Microsoft.Crank.IntegrationTests
             Assert.Contains("Requests/sec", result.StandardOutput);
         }
 
+        [Fact]
+        public async Task ResultShouldContainVariables()
+        {
+            _output.WriteLine($"[TEST] Starting controller");
+
+            var outputFileDirectory = Path.Combine(_crankTestsDirectory, "outputfiles");
+            Directory.CreateDirectory(outputFileDirectory);
+
+            var outputJsonFile = Path.Combine(outputFileDirectory, $"{Guid.NewGuid()}.json");
+
+            var result = await ProcessUtil.RunAsync(
+                "dotnet",
+                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --variable v1=abc --json {outputJsonFile}",
+                workingDirectory: _crankTestsDirectory,
+                captureOutput: true,
+                timeout: DefaultTimeOut,
+                throwOnError: false,
+                outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); }
+            );
+
+            Assert.Equal(0, result.ExitCode);
+
+            Assert.True(File.Exists(outputJsonFile));
+
+            var res = Newtonsoft.Json.JsonConvert.DeserializeObject<Controller.ExecutionResult>(File.ReadAllText(outputJsonFile));
+
+            Assert.True(res.JobResults.Jobs.TryGetValue("load", out var job));
+            Assert.NotEmpty(job.Variables);
+            Assert.True(job.Variables.ContainsKey("v1"));
+            Assert.True(job.Variables.ContainsKey("connections"));
+        }
+
         public void Dispose()
         {
             _output.WriteLine(_agent.FlushOutput());
