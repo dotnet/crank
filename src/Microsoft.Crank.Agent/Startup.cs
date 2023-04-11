@@ -4805,7 +4805,7 @@ namespace Microsoft.Crank.Agent
             {
                 var bounds = r.Split('-', 2);
 
-                if (r.Length == 1)
+                if (bounds.Length == 1)
                 {
                     result.Add(int.Parse(bounds[0]));
                 }
