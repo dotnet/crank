@@ -1269,7 +1269,7 @@ namespace Microsoft.Crank.Controller
 
             bool SpanShouldKeepJobRunning(string jobName)
             {
-                if (IsRepeatOver() || IsRepeatOver())
+                if (IsRepeatOver())
                 {
                     return false;
                 }
