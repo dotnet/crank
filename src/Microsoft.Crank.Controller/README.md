@@ -65,6 +65,7 @@ Options:
   --[JOB].framework <tfm>                                                  The framework version to use in case it can't be assumed from the .NET runtime version. e.g., netcoreapp3.1
   --[JOB].buildArguments <argument>                                        An argument to pass to msbuild. Can be used multiple times to define multiple values.
   --[JOB].selfContained <true|false>                                       Whether to deploy the app as stand-alone. Default is true.
+  --[JOB].publishAot <true|false>                                          Whether to deploy the app as native aot. Default is false.
   --[JOB].useMonoRuntime <jit|llvm-jit|llvm-aot>                           Use a specific mono runtime instead of the dotnet core runtime.
   --[JOB].packageReferences <package=version>                              A package reference to add to the csproj. Can be used multiple times to define multiple values.
   --[JOB].patchReferences <true|false>                                     Whether to patch the TFM of project references. Default is false.

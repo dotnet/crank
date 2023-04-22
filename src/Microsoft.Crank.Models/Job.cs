@@ -144,6 +144,7 @@ namespace Microsoft.Crank.Models
         [JsonIgnore]
         public RollingLog Output { get; set; } = new RollingLog(10000);
         public bool SelfContained { get; set; }
+        public bool PublishAot { get; set; }
         public string BeforeScript { get; set; }
         public string AfterScript { get; set; }
         public string StoppingScript { get; set; }
