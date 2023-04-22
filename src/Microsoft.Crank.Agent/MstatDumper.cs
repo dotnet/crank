@@ -21,7 +21,7 @@ namespace Microsoft.Crank.Agent
                 return new DumperResults();
             }
 
-            var asm = AssemblyDefinition.ReadAssembly(mstats.First());
+            using var asm = AssemblyDefinition.ReadAssembly(mstats.First());
             var globalType = (TypeDefinition)asm.MainModule.LookupToken(0x02000001);
 
             var types = globalType.Methods.First(x => x.Name == "Types");
