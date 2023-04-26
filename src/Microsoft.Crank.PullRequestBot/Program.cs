@@ -716,8 +716,6 @@ namespace Microsoft.Crank.PullRequestBot
 
         private static async Task<IEnumerable<Result>> RunBenchmark(Command command, string accessToken)
         {
-            Console.WriteLine($"Starting benchmark for {command}.");
-
             var results = new List<Result>();
 
             var runs = command.Profiles.SelectMany(x => command.Benchmarks.Select(y => new Run(x, y)));
