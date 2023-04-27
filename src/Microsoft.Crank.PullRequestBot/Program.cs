@@ -296,6 +296,8 @@ namespace Microsoft.Crank.PullRequestBot
 
                     var pr = command.PullRequest;
 
+                    Console.WriteLine($"Scanning for benchmark requests in {owner}/{name}.");
+
                     try
                     {
                         var startComment = $"Benchmark started for __{string.Join(", ", command.Benchmarks)}__ on __{string.Join(", ", command.Profiles)}__ with __{string.Join(", ", command.Components)}__";
@@ -314,25 +316,34 @@ namespace Microsoft.Crank.PullRequestBot
 
                         if (options.PublishResults)
                         {
-                            var text = new StringBuilder();
+                            Console.WriteLine("Publishing results");
 
-                            foreach (var result in results)
+                            try
                             {
-                                text.AppendLine(FormatResult(result));
+                                var text = new StringBuilder();
+
+                                foreach (var result in results)
+                                {
+                                    text.AppendLine(FormatResult(result));
+                                }
+
+                                Console.WriteLine($"Creating result:\n{text}");
+
+                                var newComment = await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint(text.ToString()));
+
+                                if (newComment != null)
+                                {
+                                    Console.WriteLine($"Result published for {owner}/{name}/{command.PullRequest.Number}");
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"Error while publishing a result {owner}/{name}/{command.PullRequest.Number}");
+                                }
                             }
-
-                            Console.WriteLine($"Creating result:\n{text.ToString()}");
-
-                            var newComment = await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint(text.ToString()));
-                            
-                            if (newComment != null)
+                            catch (Exception ex)
                             {
-                                Console.WriteLine($"Result published for {owner}/{name}/{command.PullRequest.Number}");
+                                Console.WriteLine($"An error occured: {ex}");
                             }
-                            else
-                            {
-                                Console.WriteLine($"Error while publishing a result {owner}/{name}/{command.PullRequest.Number}");
-                            }                            
                         }
                         else
                         {
@@ -835,10 +846,12 @@ namespace Microsoft.Crank.PullRequestBot
                     RunCrank(runOptions, _configuration.Defaults, benchmark.Arguments, profile.Arguments, buildArguments, $@"--json ""{prResultsFilename}""", command.Arguments, _options.Arguments);
 
                     // Compare benchmarks
-                    var result = RunCrank($"compare", $"{baseResultsFilename}", $"{prResultsFilename}");
+                    var result = RunCrank($"compare", baseResultsFilename, prResultsFilename);
 
                     results.Add(new Result(run.Profile, run.Benchmark, result));
                 }
+
+                return results;
             }
             finally
             {
@@ -868,8 +881,6 @@ namespace Microsoft.Crank.PullRequestBot
                     Console.WriteLine($"Failed to clean {cloneFolder}. Ignoring...");
                 }
             }
-
-            return results;
         }
 
         private static string RunCrank(params string[] args)
