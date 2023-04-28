@@ -170,6 +170,7 @@ namespace Microsoft.Crank.PullRequestBot
 
             _configuration = await LoadConfigurationAsync(_options.Config);
 
+            // Compute a thumbprint for this run before anything uses it
             CreateThumbprint();
 
             string host = "github.com", owner = null, name = null;
