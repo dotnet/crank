@@ -170,6 +170,9 @@ namespace Microsoft.Crank.PullRequestBot
 
             _configuration = await LoadConfigurationAsync(_options.Config);
 
+            // Compute a thumbprint for this run before anything uses it
+            CreateThumbprint();
+
             string host = "github.com", owner = null, name = null;
 
             if (options.Repository != null)
@@ -249,8 +252,6 @@ namespace Microsoft.Crank.PullRequestBot
                     Console.WriteLine("Arguments don't match a valid command.");
                     return 0;
                 }
-
-                CreateThumbprint();
 
                 var command = new Command { PullRequest = pr, Benchmarks = benchmarkNames, Profiles = profileNames, Components = componentNames };
 
