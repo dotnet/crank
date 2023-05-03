@@ -1171,6 +1171,11 @@ namespace Microsoft.Crank.Controller
                                 {
                                     yield return job.Key + "." + e.Key;
                                 }
+
+                                foreach (var e in job.Value.Variables)
+                                {
+                                    yield return job.Key + "." + e.Key;
+                                }
                             }
 
                             foreach (var p in result.JobResults.Properties)
@@ -1196,6 +1201,11 @@ namespace Microsoft.Crank.Controller
                                 }
 
                                 foreach (var e in job.Value.Environment)
+                                {
+                                    yield return Convert.ToString(e.Value, System.Globalization.CultureInfo.InvariantCulture);
+                                }
+
+                                foreach (var e in job.Value.Variables)
                                 {
                                     yield return Convert.ToString(e.Value, System.Globalization.CultureInfo.InvariantCulture);
                                 }
@@ -2499,6 +2509,15 @@ namespace Microsoft.Crank.Controller
                     .ToArray();
 
                 jobResult.Results = AggregateAndReduceResults(jobConnections, engine, resultDefinitions.Values.ToList());
+
+                configuration.Jobs.TryGetValue(jobName, out var job);
+                if (job != null)
+                {
+                    foreach (var variable in job.Variables)
+                    {
+                        jobResult.Variables.Add(variable.Key, variable.Value);
+                    }
+                }
 
                 foreach (var jobConnection in jobConnections)
                 {
