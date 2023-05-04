@@ -41,17 +41,18 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
         public static int ExecutionTimeSeconds { get; set; }
         public static int Connections { get; set; }
         public static List<string> Headers { get; set; }
+        public static string Body { get; set; }
         public static Version Version { get; set; }
         public static string CertPath { get; set; }
         public static string CertPassword { get; set; }
         public static X509Certificate2 Certificate { get; set; }
         public static bool Quiet { get; set; }
-        public static bool SendCookies { get; set; } = true;
         public static string Format { get; set; }
         public static bool Local { get; set; }
         public static Timeline[] Timelines {  get; set; }
         public static string Script { get; set; }  
         public static bool NoHarDelay {  get; set; }
+        public static HashSet<string> Errors { get; set; } = new();
 
 
         static Program()
@@ -74,12 +75,12 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
             var optionWarmup = app.Option<int>("-w|--warmup <N>", "Duration of the warmup in seconds. Default is 5.", CommandOptionType.SingleValue);
             var optionDuration = app.Option<int>("-d|--duration <N>", "Duration of the test in seconds. Default is 5.", CommandOptionType.SingleValue);
             var optionHeaders = app.Option("-H|--header <HEADER>", "HTTP header to add to request, e.g. \"User-Agent: edge\"", CommandOptionType.MultipleValue);
-            var optionVersion = app.Option("-v|--version <1.0,1.1,2.0>", "HTTP version, e.g. \"2.0\". Default is 1.1", CommandOptionType.SingleValue);
+            var optionVersion = app.Option("-v|--version <1.0,1.1,2.0,3.0>", "HTTP version, e.g. \"2.0\". Default is 1.1", CommandOptionType.SingleValue);
+            var optionBody = app.Option("-b|--body <content>", "The request body", CommandOptionType.SingleValue);
             var optionCertPath = app.Option("-t|--cert <filepath>", "The path to a cert pfx file.", CommandOptionType.SingleValue);
             var optionCertPwd = app.Option("-p|--certpwd <password>", "The password for the cert pfx file.", CommandOptionType.SingleValue);
             var optionFormat = app.Option("-f|--format <format>", "The format of the output, e.g., text, json. Default is text.", CommandOptionType.SingleValue);
             var optionQuiet = app.Option("-q|--quiet", "When set, nothing is rendered on stsdout but the results.", CommandOptionType.NoValue);
-            var optionCookies = app.Option("-c|--cookies", "When set, cookies are ignored.", CommandOptionType.NoValue);
             var optionHar = app.Option("-h|--har <filename>", "A .har file representing the urls to request.", CommandOptionType.SingleValue);
             var optionHarNoDelay = app.Option("--har-no-delay", "when set, delays between HAR requests are not followed.", CommandOptionType.NoValue);
             var optionScript = app.Option("-s|--script <filename>", "A .js script file altering the current client.", CommandOptionType.SingleValue);
@@ -98,8 +99,6 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
             app.OnExecuteAsync(async cancellationToken =>
             {
                 NoHarDelay = optionHarNoDelay.HasValue();
-
-                SendCookies = !optionCookies.HasValue();
 
                 Quiet = optionQuiet.HasValue();
 
@@ -176,6 +175,11 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
 
                 Headers = new List<string>(optionHeaders.Values);
 
+                if (optionBody.HasValue())
+                {
+                    Body = optionBody.Value();
+                }
+
                 if (!optionVersion.HasValue())
                 {
                     Version = HttpVersion.Version11;
@@ -187,6 +191,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                         case "1.0" : Version = HttpVersion.Version10; break;
                         case "1.1" : Version = HttpVersion.Version11; break;
                         case "2.0" : Version = HttpVersion.Version20; break;
+                        case "3.0" : Version = HttpVersion.Version30; break;
                         default:
                             Log("Unkown HTTP version: {0}", optionVersion.Value());
                             break;
@@ -271,6 +276,11 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
         public static async Task RunAsync()
         {
             Log($"Running {ExecutionTimeSeconds}s test @ {ServerUrl}");
+            
+            if (Body != null)
+            {
+                Log($"Body size: {Body.Length}B");
+            }
 
             DateTime startTime = default, stopTime = default;
 
@@ -370,6 +380,19 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                 Console.WriteLine($"Latency mean (ms): {result.LatencyMeanMs:N3}");
                 Console.WriteLine($"Latency max (ms):  {result.LatencyMaxMs:N3}");
                 Console.WriteLine($"Throughput (MB/s): {(double)result.ThroughputBps / 1024 / 1024:N3}");
+
+                // Display the error messages (10 max)
+                var MaxErrorMessages = 10;
+
+                foreach (var error in Errors.Take(MaxErrorMessages))
+                {
+                    Console.WriteLine(error);
+                }
+
+                if (Errors.Count > MaxErrorMessages)
+                {
+                    Console.WriteLine("...");
+                }
             }
             else if (Format == "json")
             {
@@ -489,9 +512,18 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                 // Apply the command-line headers
                 foreach (var header in Headers)
                 {
-                    var headerNameValue = header.Split(" ", 2, StringSplitOptions.RemoveEmptyEntries);
-                    requestMessage.Headers.Remove(headerNameValue[0]);
-                    requestMessage.Headers.TryAddWithoutValidation(headerNameValue[0], headerNameValue[1]);
+                    var headerNameValue = header.Split(':', 2, StringSplitOptions.RemoveEmptyEntries);
+                    try
+                    {
+                        requestMessage.Headers.Remove(headerNameValue[0]);
+                    }
+                    catch
+                    {
+                        // A header could not be removed, which can happen if it's an invalida request header.
+                        // There is no TryRemove so we just ignore exceptions here.
+                    }
+
+                    requestMessage.Headers.TryAddWithoutValidation(headerNameValue[0], headerNameValue[1].TrimStart());
                 }
 
                 var uri = timeline.Uri;
@@ -499,6 +531,12 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                 requestMessage.Headers.Host = uri.Authority;
                 requestMessage.RequestUri = uri;
                 requestMessage.Version = Version;
+                requestMessage.VersionPolicy = HttpVersionPolicy.RequestVersionExact;
+
+                if (Body != null)
+                {
+                    requestMessage.Content = new StringContent(Body);
+                }
 
                 requests.Add(requestMessage);
             }
@@ -540,7 +578,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                 try
                 {
                     // Add cookies for this domain
-                    if (SendCookies)
+                    if (cookieContainer.Count > 0)
                     {
                         requestMessage.Headers.TryAddWithoutValidation("Cookie", cookieContainer.GetCookieHeader(new Uri(requestMessage.RequestUri.AbsoluteUri)));
                     }
@@ -584,9 +622,16 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
 
                         var status = (int)responseMessage.StatusCode;
 
-                        if (status < 100 && status >= 600)
+                        if (status < 100 || status >= 600)
                         {
                             socketErrors++;
+                        }
+                        else if (status >= 300 && status < 600)
+                        {
+                            var error = await responseMessage.Content.ReadAsStringAsync();
+                            error = $"{status}: {error.Trim()}";
+
+                            Errors.Add(error);
                         }
 
                         counters[status / 100 - 1]++;
