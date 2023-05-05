@@ -41,13 +41,14 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
         public static int ExecutionTimeSeconds { get; set; }
         public static int Connections { get; set; }
         public static List<string> Headers { get; set; }
-        public static string Body { get; set; }
+        public static byte[] Body { get; set; }
         public static Version Version { get; set; }
         public static string CertPath { get; set; }
         public static string CertPassword { get; set; }
         public static X509Certificate2 Certificate { get; set; }
         public static bool Quiet { get; set; }
         public static string Format { get; set; }
+        public static HttpMethod Method { get; set; } = HttpMethod.Get;
         public static bool Local { get; set; }
         public static Timeline[] Timelines {  get; set; }
         public static string Script { get; set; }  
@@ -76,7 +77,8 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
             var optionDuration = app.Option<int>("-d|--duration <N>", "Duration of the test in seconds. Default is 5.", CommandOptionType.SingleValue);
             var optionHeaders = app.Option("-H|--header <HEADER>", "HTTP header to add to request, e.g. \"User-Agent: edge\"", CommandOptionType.MultipleValue);
             var optionVersion = app.Option("-v|--version <1.0,1.1,2.0,3.0>", "HTTP version, e.g. \"2.0\". Default is 1.1", CommandOptionType.SingleValue);
-            var optionBody = app.Option("-b|--body <content>", "The request body", CommandOptionType.SingleValue);
+            var optionBody = app.Option("-b|--body <content>", "The request body. If valid base-64 it will be decoded as binary.", CommandOptionType.SingleValue);
+            var optionMethod = app.Option("-m|--method <method>", "The HTTP method. Default is GET", CommandOptionType.SingleValue);
             var optionCertPath = app.Option("-t|--cert <filepath>", "The path to a cert pfx file.", CommandOptionType.SingleValue);
             var optionCertPwd = app.Option("-p|--certpwd <password>", "The password for the cert pfx file.", CommandOptionType.SingleValue);
             var optionFormat = app.Option("-f|--format <format>", "The format of the output, e.g., text, json. Default is text.", CommandOptionType.SingleValue);
@@ -108,13 +110,18 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
 
                 ServerUrl = optionUrl.Value();
 
+                if (optionMethod.HasValue())
+                {
+                    Method = new HttpMethod(optionMethod.Value());
+                }
+
                 if (optionHar.HasValue())
                 {
                     var harFilename = optionHar.Value();
 
                     if (harFilename.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                     {
-                        Console.WriteLine($"Downloading har file {harFilename}");
+                        Log($"Downloading har file {harFilename}");
                         var tempFile = Path.GetTempFileName();
 
                         using (var downloadStream = await _httpClient.GetStreamAsync(harFilename))
@@ -128,7 +135,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
 
                     if (!File.Exists(harFilename))
                     {
-                        Console.WriteLine($"HAR file not found: '{Path.GetFullPath(harFilename)}'");
+                        Log($"HAR file not found: '{Path.GetFullPath(harFilename)}'");
                         return;
                     }
 
@@ -154,7 +161,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                 }
                 else
                 {
-                    Timelines = new[] { new Timeline { Method = "GET", Uri = new Uri(ServerUrl) } };
+                    Timelines = new[] { new Timeline { Method = Method, Uri = new Uri(ServerUrl) } };
                 }
 
                 ServerUrl = optionUrl.Value();
@@ -177,7 +184,14 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
 
                 if (optionBody.HasValue())
                 {
-                    Body = optionBody.Value();
+                    try
+                    {
+                        Body = Convert.FromBase64String(optionBody.Value());
+                    }
+                    catch
+                    {
+                        Body = System.Text.Encoding.UTF8.GetBytes(optionBody.Value());
+                    }
                 }
 
                 if (!optionVersion.HasValue())
@@ -231,7 +245,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
 
                     if (scriptFilename.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                     {
-                        Console.WriteLine($"Downloading script file {scriptFilename}");
+                        Log($"Downloading script file {scriptFilename}");
                         var tempFile = Path.GetTempFileName();
 
                         using (var downloadStream = await _httpClient.GetStreamAsync(scriptFilename))
@@ -245,7 +259,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
 
                     if (!File.Exists(scriptFilename))
                     {
-                        Console.WriteLine($"Script file not found: '{Path.GetFullPath(scriptFilename)}'");
+                        Log($"Script file not found: '{Path.GetFullPath(scriptFilename)}'");
                         return;
                     }
 
@@ -500,30 +514,33 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
             {
                 var requestMessage = new HttpRequestMessage
                 {
-                    Method = new HttpMethod(timeline.Method),
+                    Method = timeline.Method,
                     Content = timeline.HttpContent
                 };
 
+                if (Body != null)
+                {
+                    requestMessage.Content = new ByteArrayContent(Body);
+                }
+
                 foreach (var header in timeline.Headers)
                 {
-                    requestMessage.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                    if (!requestMessage.Headers.TryAddWithoutValidation(header.Key, header.Value.TrimStart()))
+                    {
+                        requestMessage.Content.Headers.TryAddWithoutValidation(header.Key, header.Value.TrimStart());
+                    }
                 }
 
                 // Apply the command-line headers
                 foreach (var header in Headers)
                 {
-                    var headerNameValue = header.Split(':', 2, StringSplitOptions.RemoveEmptyEntries);
-                    try
+                    if (header.Split(':', 2, StringSplitOptions.RemoveEmptyEntries) is [var key, var value])
                     {
-                        requestMessage.Headers.Remove(headerNameValue[0]);
+                        if (!requestMessage.Headers.TryAddWithoutValidation(key, value.TrimStart()))
+                        {
+                            requestMessage.Content.Headers.TryAddWithoutValidation(key, value.TrimStart());
+                        }
                     }
-                    catch
-                    {
-                        // A header could not be removed, which can happen if it's an invalida request header.
-                        // There is no TryRemove so we just ignore exceptions here.
-                    }
-
-                    requestMessage.Headers.TryAddWithoutValidation(headerNameValue[0], headerNameValue[1].TrimStart());
                 }
 
                 var uri = timeline.Uri;
@@ -532,11 +549,6 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                 requestMessage.RequestUri = uri;
                 requestMessage.Version = Version;
                 requestMessage.VersionPolicy = HttpVersionPolicy.RequestVersionExact;
-
-                if (Body != null)
-                {
-                    requestMessage.Content = new StringContent(Body);
-                }
 
                 requests.Add(requestMessage);
             }
