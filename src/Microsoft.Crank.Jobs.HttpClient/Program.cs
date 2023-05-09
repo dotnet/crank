@@ -527,7 +527,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                 {
                     if (!requestMessage.Headers.TryAddWithoutValidation(header.Key, header.Value.TrimStart()))
                     {
-                        requestMessage.Content.Headers.TryAddWithoutValidation(header.Key, header.Value.TrimStart());
+                        requestMessage.Content?.Headers.TryAddWithoutValidation(header.Key, header.Value.TrimStart());
                     }
                 }
 
@@ -538,7 +538,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                     {
                         if (!requestMessage.Headers.TryAddWithoutValidation(key, value.TrimStart()))
                         {
-                            requestMessage.Content.Headers.TryAddWithoutValidation(key, value.TrimStart());
+                            requestMessage.Content?.Headers.TryAddWithoutValidation(key, value.TrimStart());
                         }
                     }
                 }
