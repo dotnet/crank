@@ -4,6 +4,7 @@
 
 using Mono.Cecil;
 using Mono.Cecil.Rocks;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -14,98 +15,107 @@ namespace Microsoft.Crank.Agent
     {
         internal static DumperResults GetInfo(string path)
         {
-            var mstats = Directory.EnumerateFiles(path, "*.mstat");
+            var mstats = Directory.EnumerateFiles(path, "*.mstat", SearchOption.AllDirectories);
 
             if (mstats == null || !mstats.Any())
             {
-                return new DumperResults();
+                return null;
             }
 
-            using var asm = AssemblyDefinition.ReadAssembly(mstats.First());
-            var globalType = (TypeDefinition)asm.MainModule.LookupToken(0x02000001);
+            var fileName = mstats.First();
 
-            var types = globalType.Methods.First(x => x.Name == "Types");
-            var typeStats = GetTypes(types).ToList();
-            var typeSize = typeStats.Sum(x => x.Size);
-            var typesByModules = typeStats.GroupBy(x => x.Type.Scope).Select(x => new { x.Key.Name, Sum = x.Sum(x => x.Size) }).ToList();
-            var typeResult = new List<DumperResultItem>();
-            foreach (var m in typesByModules.OrderByDescending(x => x.Sum))
+            try
             {
-                typeResult.Add(new DumperResultItem
-                {
-                    Name = m.Name.Replace("`", "\\`"),
-                    Size = m.Sum
-                });
-            }
+                using var asm = AssemblyDefinition.ReadAssembly(fileName);
+                var globalType = (TypeDefinition)asm.MainModule.LookupToken(0x02000001);
 
-            var methods = globalType.Methods.First(x => x.Name == "Methods");
-            var methodStats = GetMethods(methods).ToList();
-            var methodSize = methodStats.Sum(x => x.Size + x.GcInfoSize + x.EhInfoSize);
-            var methodsByModules = methodStats.GroupBy(x => x.Method.DeclaringType.Scope).Select(x => new { x.Key.Name, Sum = x.Sum(x => x.Size + x.GcInfoSize + x.EhInfoSize) }).ToList();
-            var methodResult = new List<DumperResultItem>();
-            foreach (var m in methodsByModules.OrderByDescending(x => x.Sum))
-            {
-                methodResult.Add(new DumperResultItem
+                var types = globalType.Methods.First(x => x.Name == "Types");
+                var typeStats = GetTypes(types).ToList();
+                var typeSize = typeStats.Sum(x => x.Size);
+                var typesByModules = typeStats.GroupBy(x => x.Type.Scope).Select(x => new { x.Key.Name, Sum = x.Sum(x => x.Size) }).ToList();
+                var typeResult = new List<DumperResultItem>();
+                foreach (var m in typesByModules.OrderByDescending(x => x.Sum))
                 {
-                    Name = m.Name.Replace("`", "\\`"),
-                    Size = m.Sum
-                });
-            }
-
-            string FindNamespace(TypeReference type)
-            {
-                var current = type;
-                while (true)
-                {
-                    if (!string.IsNullOrEmpty(current.Namespace))
+                    typeResult.Add(new DumperResultItem
                     {
-                        return current.Namespace;
-                    }
-
-                    if (current.DeclaringType == null)
-                    {
-                        return current.Name;
-                    }
-
-                    current = current.DeclaringType;
+                        Name = m.Name.Replace("`", "\\`"),
+                        Size = m.Sum
+                    });
                 }
-            }
 
-            var methodsByNamespace = methodStats.Select(x => new TypeStats { Type = x.Method.DeclaringType, Size = x.Size + x.GcInfoSize + x.EhInfoSize }).Concat(typeStats).GroupBy(x => FindNamespace(x.Type)).Select(x => new { x.Key, Sum = x.Sum(x => x.Size) }).ToList();
-            var namespaceResult = new List<DumperResultItem>();
-            foreach (var m in methodsByNamespace.OrderByDescending(x => x.Sum))
-            {
-                namespaceResult.Add(new DumperResultItem
+                var methods = globalType.Methods.First(x => x.Name == "Methods");
+                var methodStats = GetMethods(methods).ToList();
+                var methodSize = methodStats.Sum(x => x.Size + x.GcInfoSize + x.EhInfoSize);
+                var methodsByModules = methodStats.GroupBy(x => x.Method.DeclaringType.Scope).Select(x => new { x.Key.Name, Sum = x.Sum(x => x.Size + x.GcInfoSize + x.EhInfoSize) }).ToList();
+                var methodResult = new List<DumperResultItem>();
+                foreach (var m in methodsByModules.OrderByDescending(x => x.Sum))
                 {
-                    Name = m.Key.Replace("`", "\\`"),
-                    Size = m.Sum
-                });
-            }
+                    methodResult.Add(new DumperResultItem
+                    {
+                        Name = m.Name.Replace("`", "\\`"),
+                        Size = m.Sum
+                    });
+                }
 
-            var blobs = globalType.Methods.First(x => x.Name == "Blobs");
-            var blobStats = GetBlobs(blobs).ToList();
-            var blobSize = blobStats.Sum(x => x.Size);
-
-            var blobResult = new List<DumperResultItem>();
-            foreach (var m in blobStats.OrderByDescending(x => x.Size))
-            {
-                blobResult.Add(new DumperResultItem
+                string FindNamespace(TypeReference type)
                 {
-                    Name = m.Name.Replace("`", "\\`"),
-                    Size = m.Size
-                });
-            }
+                    var current = type;
+                    while (true)
+                    {
+                        if (!string.IsNullOrEmpty(current.Namespace))
+                        {
+                            return current.Namespace;
+                        }
 
-            return new DumperResults 
+                        if (current.DeclaringType == null)
+                        {
+                            return current.Name;
+                        }
+
+                        current = current.DeclaringType;
+                    }
+                }
+
+                var methodsByNamespace = methodStats.Select(x => new TypeStats { Type = x.Method.DeclaringType, Size = x.Size + x.GcInfoSize + x.EhInfoSize }).Concat(typeStats).GroupBy(x => FindNamespace(x.Type)).Select(x => new { x.Key, Sum = x.Sum(x => x.Size) }).ToList();
+                var namespaceResult = new List<DumperResultItem>();
+                foreach (var m in methodsByNamespace.OrderByDescending(x => x.Sum))
+                {
+                    namespaceResult.Add(new DumperResultItem
+                    {
+                        Name = m.Key.Replace("`", "\\`"),
+                        Size = m.Sum
+                    });
+                }
+
+                var blobs = globalType.Methods.First(x => x.Name == "Blobs");
+                var blobStats = GetBlobs(blobs).ToList();
+                var blobSize = blobStats.Sum(x => x.Size);
+                var blobResult = new List<DumperResultItem>();
+                foreach (var m in blobStats.OrderByDescending(x => x.Size))
+                {
+                    blobResult.Add(new DumperResultItem
+                    {
+                        Name = m.Name.Replace("`", "\\`"),
+                        Size = m.Size
+                    });
+                }
+
+                return new DumperResults
+                {
+                    TypeTotalSize = typeSize,
+                    TypeStats = typeResult,
+                    MethodTotalSize = methodSize,
+                    MethodStats = methodResult,
+                    BlobTotalSize = blobSize,
+                    BlobStats = blobResult,
+                    NamespaceStats = namespaceResult,
+                };
+            }
+            catch (Exception e)
             {
-                TypeTotalSize =typeSize,
-                TypeStats = typeResult,
-                MethodTotalSize = methodSize,
-                MethodStats = methodResult,
-                BlobTotalSize = blobSize,
-                BlobStats = blobResult,
-                NamespaceStats = namespaceResult,
-            };
+                Log.Error(e, $"Read mstat file [{fileName}] failed");
+                return null;
+            }
         }
 
         private static IEnumerable<TypeStats> GetTypes(MethodDefinition types)

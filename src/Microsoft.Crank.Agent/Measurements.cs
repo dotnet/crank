@@ -9,7 +9,6 @@
         public const string BenchmarksBuildTime = "benchmarks/build-time";
         public const string BenchmarksStartTime = "benchmarks/start-time";
         public const string BenchmarksPublishedSize = "benchmarks/published-size";
-        public const string BenchmarksPublishedNativeAOTSize = "benchmarks/published-nativeaot-size";
         public const string BenchmarksPublishedNativeAOTSizeRaw = "benchmarks/published-nativeaot-size/raw";
         public const string BenchmarksSymbolsSize = "benchmarks/symbols-size";
         public const string BenchmarksMemorySwap = "benchmarks/memory/swap";

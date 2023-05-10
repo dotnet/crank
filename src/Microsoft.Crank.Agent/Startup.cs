@@ -759,35 +759,18 @@ namespace Microsoft.Crank.Agent
                                         });
                                     }
 
-                                    if (job.PublishAot)
+                                    if (!job.Metadata.Any(x => x.Name == Measurements.BenchmarksPublishedNativeAOTSizeRaw))
                                     {
-                                        if (!job.Metadata.Any(x => x.Name == Measurements.BenchmarksPublishedNativeAOTSize))
+                                        job.Metadata.Enqueue(new MeasurementMetadata
                                         {
-                                            job.Metadata.Enqueue(new MeasurementMetadata
-                                            {
-                                                Source = "Host Process",
-                                                Name = Measurements.BenchmarksPublishedNativeAOTSize,
-                                                Aggregate = Operation.Max,
-                                                Reduce = Operation.Max,
-                                                Format = "n0",
-                                                LongDescription = "The size of the published native aot application (KB)",
-                                                ShortDescription = "Published Native Aot Size (KB)"
-                                            });
-                                        }
-
-                                        if (!job.Metadata.Any(x => x.Name == Measurements.BenchmarksPublishedNativeAOTSizeRaw))
-                                        {
-                                            job.Metadata.Enqueue(new MeasurementMetadata
-                                            {
-                                                Source = "Host Process",
-                                                Name = Measurements.BenchmarksPublishedNativeAOTSizeRaw,
-                                                Aggregate = Operation.All,
-                                                Reduce = Operation.All,
-                                                Format = "json",
-                                                LongDescription = "The size summary of the published native aot application",
-                                                ShortDescription = "Native Aot Size summary"
-                                            });
-                                        }
+                                            Source = "Host Process",
+                                            Name = Measurements.BenchmarksPublishedNativeAOTSizeRaw,
+                                            Aggregate = Operation.All,
+                                            Reduce = Operation.All,
+                                            Format = "json",
+                                            LongDescription = "The size summary of the published native aot application",
+                                            ShortDescription = "Native Aot Size summary"
+                                        });
                                     }
 
                                     if (!job.Metadata.Any(x => x.Name == Measurements.BenchmarksSymbolsSize))
@@ -3137,13 +3120,6 @@ namespace Microsoft.Crank.Agent
                 buildParameters += $"/p:MicrosoftNETPlatformLibrary=Microsoft.NETCore.App ";
             }
 
-            if (job.PublishAot)
-            {
-                buildParameters += $"/p:PublishAot=true ";
-                buildParameters += $"/p:IlcGenerateMstatFile=true ";
-                buildParameters += $"/p:BaseIntermediateOutputPath={Path.Combine(benchmarkedApp, "obj") + Path.DirectorySeparatorChar} ";
-            }
-
             // Apply custom build arguments sent from the driver
             foreach (var argument in job.BuildArguments)
             {
@@ -3265,42 +3241,16 @@ namespace Microsoft.Crank.Agent
 
             Log.Info($"Published size: {job.PublishedSize}");
 
-            if (job.PublishAot)
-            {
-                var mstatFilePath = Path.Combine(benchmarkedApp, "obj", "Release", targetFramework, GetPlatformMoniker(), "native");
-                var dumperResult = MstatDumper.GetInfo(mstatFilePath);
+            var dumperResult = MstatDumper.GetInfo(path);
 
+            if (dumperResult != null)
+            {
                 job.Measurements.Enqueue(new Measurement
                 {
                     Name = Measurements.BenchmarksPublishedNativeAOTSizeRaw,
                     Timestamp = DateTime.UtcNow,
                     Value = dumperResult
                 });
-
-                var excutedFilename = Path.Combine(benchmarkedApp, "published");
-                var assemblyName = GetAssemblyName(job, Path.Combine(benchmarkedApp, FormatPathSeparators(job.Source.Project)));
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                {
-                    excutedFilename = Path.Combine(excutedFilename, $"{assemblyName}.exe");
-                }
-                else
-                {
-                    excutedFilename = Path.Combine(excutedFilename, assemblyName);
-                }
-
-                if (File.Exists(excutedFilename))
-                {
-                    var size = new FileInfo(excutedFilename).Length / 1024;
-
-                    job.Measurements.Enqueue(new Measurement
-                    {
-                        Name = Measurements.BenchmarksPublishedNativeAOTSize,
-                        Timestamp = DateTime.UtcNow,
-                        Value = size
-                    });
-
-                    Log.Info($"Published Native Aot size: {size}");
-                }
             }
 
             // Copy crossgen in the app folder
@@ -4570,7 +4520,7 @@ namespace Microsoft.Crank.Agent
 
             var commandLine = benchmarksDll ?? "";
 
-            if (job.SelfContained || job.PublishAot)
+            if (job.SelfContained)
             {
                 workingDirectory = Path.Combine(workingDirectory, "published");
 
