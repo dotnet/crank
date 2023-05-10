@@ -29,8 +29,10 @@ namespace Microsoft.Crank.Agent
                 using var asm = AssemblyDefinition.ReadAssembly(fileName);
                 var globalType = (TypeDefinition)asm.MainModule.LookupToken(0x02000001);
 
+                int versionMajor = asm.Name.Version.Major;
+
                 var types = globalType.Methods.First(x => x.Name == "Types");
-                var typeStats = GetTypes(types).ToList();
+                var typeStats = GetTypes(versionMajor, types).ToList();
                 var typeSize = typeStats.Sum(x => x.Size);
                 var typesByModules = typeStats.GroupBy(x => x.Type.Scope).Select(x => new { x.Key.Name, Sum = x.Sum(x => x.Size) }).ToList();
                 var typeResult = new List<DumperResultItem>();
@@ -44,7 +46,7 @@ namespace Microsoft.Crank.Agent
                 }
 
                 var methods = globalType.Methods.First(x => x.Name == "Methods");
-                var methodStats = GetMethods(methods).ToList();
+                var methodStats = GetMethods(versionMajor, methods).ToList();
                 var methodSize = methodStats.Sum(x => x.Size + x.GcInfoSize + x.EhInfoSize);
                 var methodsByModules = methodStats.GroupBy(x => x.Method.DeclaringType.Scope).Select(x => new { x.Key.Name, Sum = x.Sum(x => x.Size + x.GcInfoSize + x.EhInfoSize) }).ToList();
                 var methodResult = new List<DumperResultItem>();
@@ -118,11 +120,13 @@ namespace Microsoft.Crank.Agent
             }
         }
 
-        private static IEnumerable<TypeStats> GetTypes(MethodDefinition types)
+        private static IEnumerable<TypeStats> GetTypes(int formatVersion, MethodDefinition types)
         {
+            int entrySize = formatVersion == 1 ? 2 : 3;
+
             types.Body.SimplifyMacros();
             var il = types.Body.Instructions;
-            for (int i = 0; i + 2 < il.Count; i += 2)
+            for (int i = 0; i + entrySize < il.Count; i += entrySize)
             {
                 var type = (TypeReference)il[i + 0].Operand;
                 var size = (int)il[i + 1].Operand;
@@ -134,11 +138,13 @@ namespace Microsoft.Crank.Agent
             }
         }
 
-        private static IEnumerable<MethodStats> GetMethods(MethodDefinition methods)
+        private static IEnumerable<MethodStats> GetMethods(int formatVersion, MethodDefinition methods)
         {
+            int entrySize = formatVersion == 1 ? 4 : 5;
+
             methods.Body.SimplifyMacros();
             var il = methods.Body.Instructions;
-            for (int i = 0; i + 4 < il.Count; i += 4)
+            for (int i = 0; i + entrySize < il.Count; i += entrySize)
             {
                 var method = (MethodReference)il[i + 0].Operand;
                 var size = (int)il[i + 1].Operand;
