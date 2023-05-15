@@ -24,6 +24,8 @@ namespace Microsoft.Crank.Agent
 
             var fileName = mstats.First();
 
+            Log.Info($"Begin read mstat file [{fileName}]");
+
             try
             {
                 using var asm = AssemblyDefinition.ReadAssembly(fileName);
