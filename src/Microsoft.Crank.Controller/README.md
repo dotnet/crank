@@ -62,7 +62,7 @@ Options:
   --[JOB].runtimeVersion <version>                                         The version of the .NET runtime to install and use. It is defined as MicrosoftNETCoreAppPackageVersion in the build arguments. By default the latest available build is used. Setting this value forces the app to be deployed as stand-alone.
   --[JOB].aspNetCoreVersion <version>                                      The version of the ASP.NET runtime to install and use. It is defined as MicrosoftAspNetCoreAppPackageVersion in the build arguments. By default the latest available build is used.  Setting this value forces the app to be deployed as stand-alone.
   --[JOB].noGlobalJson <true|false>                                        Whether to not emit any global.json file to force the .NET SDK version to use. Default is false, meaning whatever version of the .NET SDK is chosen, it will be set in a global.json file.
-  --[JOB].framework <tfm>                                                  The framework version to use in case it can't be assumed from the .NET runtime version. e.g., netcoreapp3.1
+  --[JOB].framework <tfm>                                                  The framework version to use in case it can't be assumed from the .NET runtime version. e.g., net8.0
   --[JOB].buildArguments <argument>                                        An argument to pass to msbuild. Can be used multiple times to define multiple values.
   --[JOB].selfContained <true|false>                                       Whether to deploy the app as stand-alone. Default is true.
   --[JOB].useMonoRuntime <jit|llvm-jit|llvm-aot>                           Use a specific mono runtime instead of the dotnet core runtime.
@@ -76,6 +76,7 @@ Options:
   --[JOB].source.dockerContextDirectory                                    The folder in which the Docker file is built relative to, e.g., frameworks/Rust/actix/
   --[JOB].source.dockerFetchPath                                           The path in the Docker container that contains the base path for the --fetch option, e.g., ./output
   --[JOB].source.dockerLoad                                                The path of an image to use for 'docker load', e.g, "./myimage.tar"
+  --[JOB].source.dockerPull                                                The image name to pull and run, e.g, "redis", "mcr.microsoft.com/dotnet/aspnet:7.0"
   --[JOB].source.dockerCommand                                             The 'docker run' command, e.g, "./startup.sh"
   --[JOB].buildArguments <argument>                                        An argument to pass to 'docker build' as a '--build-arg' value. Can be used multiple times to define multiple values.
 

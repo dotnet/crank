@@ -17,6 +17,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -2040,12 +2041,12 @@ namespace Microsoft.Crank.Agent
                 srcDir = path;
             }
 
-            if (String.IsNullOrEmpty(source.DockerContextDirectory))
+            if (String.IsNullOrEmpty(source.DockerContextDirectory) && !String.IsNullOrEmpty(source.DockerFile))
             {
                 source.DockerContextDirectory = Path.GetDirectoryName(source.DockerFile).Replace("\\", "/");
             }
 
-            var workingDirectory = Path.Combine(srcDir, source.DockerContextDirectory);
+            var workingDirectory = Path.Combine(srcDir, source.DockerContextDirectory ?? "");
 
             job.BasePath = workingDirectory;
 
@@ -2077,55 +2078,88 @@ namespace Microsoft.Crank.Agent
                 Log.Info("Skipping build step, reusing previous build");
             }
             else
+            {
+                if (!string.IsNullOrEmpty(source.DockerLoad))
                 {
-                // The DockerLoad argument contains the path of a tar file that can be loaded
-                if (String.IsNullOrEmpty(source.DockerLoad))
-                {
-                    string buildParameters = "";
+                    // The DockerLoad argument contains the path of a tar file that can be loaded
 
-                    // Apply custom build arguments sent from the driver
-                    foreach (var argument in job.BuildArguments)
-                    {
-                        buildParameters += $"--build-arg {argument} ";
-                    }
+                    Log.Info($"Loading docker image {source.DockerLoad} from {srcDir}");
 
-                    var dockerBuildArguments = $"build --pull {buildParameters} -t {imageName} -f {source.DockerFile} {workingDirectory}";
+                    var dockerLoadArguments = $"load -i {source.DockerLoad} ";
 
-                    job.BuildLog.AddLine("docker " + dockerBuildArguments);
+                    job.BuildLog.AddLine("docker " + dockerLoadArguments);
 
-                    var buildResults = await ProcessUtil.RunAsync("docker", dockerBuildArguments,
+                    await ProcessUtil.RunAsync("docker", dockerLoadArguments,
                         workingDirectory: srcDir,
                         cancellationToken: cancellationToken,
                         log: true,
-                        outputDataReceived: text => job.BuildLog.AddLine(text)
-                        );
+                        outputDataReceived: job.BuildLog.AddLine
+                    );
+                }
+                else
+                {
+                    var imageToRun = imageName;
+                    string buildParameters = "";
 
-                    stopwatch.Stop();
-
-                    job.BuildTime = stopwatch.Elapsed;
-
-                    job.Measurements.Enqueue(new Measurement
+                    if (!string.IsNullOrWhiteSpace(source.DockerPull))
                     {
-                        Name = Measurements.BenchmarksBuildTime,
-                        Timestamp = DateTime.UtcNow,
-                        Value = stopwatch.ElapsedMilliseconds
-                    });
+                        imageToRun = source.DockerPull;
 
-                    stopwatch.Reset();
+                        Log.Info($"Pulling docker image '{source.DockerPull}'");
 
-                    if (buildResults.ExitCode != 0)
+                        await ProcessUtil.RunAsync("docker", $"image pull {source.DockerPull}",
+                            workingDirectory: srcDir,
+                            cancellationToken: cancellationToken,
+                            log: true,
+                            outputDataReceived: job.BuildLog.AddLine
+                            );
+                    }
+                    else
                     {
-                        job.Error = job.BuildLog.ToString();
+                        // Apply custom build arguments sent from the driver
+                        foreach (var argument in job.BuildArguments)
+                        {
+                            buildParameters += $"--build-arg {argument} ";
+                        }
+
+                        var dockerBuildArguments = $"build --pull {buildParameters} -t {imageName} -f {source.DockerFile} {workingDirectory}";
+
+                        job.BuildLog.AddLine("docker " + dockerBuildArguments);
+
+                        var buildResults = await ProcessUtil.RunAsync("docker", dockerBuildArguments,
+                            workingDirectory: srcDir,
+                            cancellationToken: cancellationToken,
+                            log: true,
+                            outputDataReceived: job.BuildLog.AddLine
+                            );
+
+                        stopwatch.Stop();
+
+                        job.BuildTime = stopwatch.Elapsed;
+
+                        job.Measurements.Enqueue(new Measurement
+                        {
+                            Name = Measurements.BenchmarksBuildTime,
+                            Timestamp = DateTime.UtcNow,
+                            Value = stopwatch.ElapsedMilliseconds
+                        });
+
+                        stopwatch.Reset();
+
+                        if (buildResults.ExitCode != 0)
+                        {
+                            job.Error = job.BuildLog.ToString();
+                        }
                     }
 
-                    var dockerInspectArguments = $"inspect -f \"{{{{ .Size }}}}\" {imageName}";
+                    var dockerInspectArguments = $"inspect -f \"{{{{ .Size }}}}\" {imageToRun}";
 
                     var inspectResults = await ProcessUtil.RunAsync("docker", dockerInspectArguments,
                         workingDirectory: srcDir,
                         cancellationToken: cancellationToken,
                         captureOutput: true,
                         log: true,
-                        outputDataReceived: text => job.BuildLog.AddLine(text));
+                        outputDataReceived: job.BuildLog.AddLine);
 
                     if (long.TryParse(inspectResults.StandardOutput.Trim(), out var imageSize))
                     {
@@ -2141,21 +2175,6 @@ namespace Microsoft.Crank.Agent
                             });
                         }
                     }
-                }
-                else
-                {
-                    Log.Info($"Loading docker image {source.DockerLoad} from {srcDir}");
-
-                    var dockerLoadArguments = $"load -i {source.DockerLoad} ";
-
-                    job.BuildLog.AddLine("docker " + dockerLoadArguments);
-
-                    await ProcessUtil.RunAsync("docker", dockerLoadArguments,
-                        workingDirectory: srcDir,
-                        cancellationToken: cancellationToken,
-                        log: true,
-                        outputDataReceived: text => job.BuildLog.AddLine(text)
-                    );
                 }
             }
 
@@ -2183,12 +2202,12 @@ namespace Microsoft.Crank.Agent
                 environmentArguments += $"--env {env.Key}={env.Value} ";
             }
 
-            var containerName = $"{imageName}-{job.Id}";
+            var containerName = Regex.Replace(imageName, @"[^\w]", "_")+ $"-{job.Id}";
 
             // TODO: Clean previous images 
 
             // Stop container in case it failed to stop earlier
-            // await ProcessUtil.RunAsync("docker", $"stop {cont}", throwOnError: false);
+            // await ProcessUtil.RunAsync("docker", $"stop {containerName}", throwOnError: false);
 
             // Delete container if the same name already exists
             // await ProcessUtil.RunAsync("docker", $"rm {imageName}", throwOnError: false);
@@ -2208,9 +2227,7 @@ namespace Microsoft.Crank.Agent
                 environmentArguments += $"--memory=\"{job.MemoryLimitInBytes}b\" ";
             }
 
-            var command = OperatingSystem == OperatingSystem.Linux
-                ? $"run -d {environmentArguments} {job.Arguments} --label benchmarks --name {containerName} --privileged --network host {imageName} {source.DockerCommand}"
-                : $"run -d {environmentArguments} {job.Arguments} --label benchmarks --name {containerName} --network SELF --ip {hostname} {imageName} {source.DockerCommand}";
+            var command = $"run -d {environmentArguments} {job.Arguments} --label benchmarks --name {containerName} --privileged --network host {imageName} {source.DockerCommand}";
 
             if (job.Collect && job.CollectStartup)
             {
@@ -2224,7 +2241,7 @@ namespace Microsoft.Crank.Agent
                 onStart: _ => stopwatch.Start(), 
                 captureOutput: true,
                 log: true,
-                outputDataReceived: text => job.BuildLog.AddLine(text)
+                outputDataReceived: job.BuildLog.AddLine
             );
 
             var containerId = result.StandardOutput.Trim();
@@ -2581,25 +2598,33 @@ namespace Microsoft.Crank.Agent
                             return null;
                         }
 
-                        var branchAndCommit = source.BranchOrCommit.Split('#', 2);
-
-                        var dir = await Git.CloneAsync(path, source.Repository, shallow: branchAndCommit.Length == 1, branch: branchAndCommit[0], cancellationToken);
-
-                        var srcDir = Path.Combine(path, dir);
-
-                        if (SourceRepoComparer.Instance.Equals(source, job.Source))
+                        if (string.IsNullOrEmpty(source.Repository))
                         {
-                            benchmarkedDir = dir;
+                            benchmarkedDir = Path.Combine(path, Path.GetRandomFileName());
+                            Directory.CreateDirectory(benchmarkedDir);
                         }
-
-                        if (branchAndCommit.Length > 1)
+                        else
                         {
-                            await Git.CheckoutAsync(srcDir, branchAndCommit[1], cancellationToken);
-                        }
+                            var branchAndCommit = source.BranchOrCommit.Split('#', 2);
 
-                        if (source.InitSubmodules)
-                        {
-                            await Git.InitSubModulesAsync(srcDir, cancellationToken);
+                            var dir = await Git.CloneAsync(path, source.Repository, shallow: branchAndCommit.Length == 1, branch: branchAndCommit[0], cancellationToken);
+
+                            var srcDir = Path.Combine(path, dir);
+
+                            if (SourceRepoComparer.Instance.Equals(source, job.Source))
+                            {
+                                benchmarkedDir = dir;
+                            }
+
+                            if (branchAndCommit.Length > 1)
+                            {
+                                await Git.CheckoutAsync(srcDir, branchAndCommit[1], cancellationToken);
+                            }
+
+                            if (source.InitSubmodules)
+                            {
+                                await Git.InitSubModulesAsync(srcDir, cancellationToken);
+                            }
                         }
                     }
                 }
@@ -5624,6 +5649,11 @@ namespace Microsoft.Crank.Agent
 
         private static string GetRepoName(Source source)
         {
+            if (string.IsNullOrEmpty(source.Repository))
+            {
+                return "";
+            }
+
             // Attempt to parse a string like
             // - http://<host>.com/<user>/<repo>.git OR
             // - http://<host>.com/<user>/<repo>
