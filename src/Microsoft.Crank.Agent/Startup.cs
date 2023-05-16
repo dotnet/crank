@@ -404,6 +404,7 @@ namespace Microsoft.Crank.Agent
                 hostTask = host.WaitForShutdownAsync();
             }
 
+            Log.Info($"Starting agent on {url}...");
 
             _processJobsCts = new CancellationTokenSource();
             _processJobsTask = ProcessJobs(hostname, dockerHostname, _processJobsCts.Token);
@@ -487,7 +488,6 @@ namespace Microsoft.Crank.Agent
 
         private static async Task ProcessJobs(string hostname, string dockerHostname, CancellationToken cancellationToken)
         {
-
             try
             {
                 CreateTemporaryFolders();
