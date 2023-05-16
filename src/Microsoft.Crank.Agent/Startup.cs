@@ -3566,6 +3566,9 @@ namespace Microsoft.Crank.Agent
                     {
                         var targetFrameworksElement = targetFrameworksElements.First();
                         targetFrameworksElement.Value = targetFramework;
+
+                        // Replace <TargetFrameworks> by <TargetFramework> to circumvent https://github.com/dotnet/sdk/issues/32536
+                        targetFrameworksElement.Name = "TargetFramework";
                     }
                     else
                     {
