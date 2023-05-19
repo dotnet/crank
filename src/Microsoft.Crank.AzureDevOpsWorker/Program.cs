@@ -17,6 +17,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
     {
         private static TimeSpan TaskLogFeedDelay = TimeSpan.FromSeconds(2);
         private static Engine Engine = new Engine();
+        private static bool Verbose = false;
 
         public static int Main(string[] args)
         {
@@ -25,6 +26,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             app.HelpOption("-h|--help");
             var connectionStringOption = app.Option("-c|--connection-string <string>", "The Azure Service Bus connection string. Can be an environment variable name.", CommandOptionType.SingleValue).IsRequired();
             var queueOption = app.Option("-q|--queue <string>", "The Azure Service Bus queue name. Can be an environment variable name.", CommandOptionType.SingleValue).IsRequired();
+            var verboseOption = app.Option("-v|--verbose", "Display verbose log.", CommandOptionType.NoValue);
 
             app.OnExecuteAsync(async cancellationToken =>
             {
@@ -35,6 +37,8 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 {
                     connectionString = Environment.GetEnvironmentVariable(connectionString);
                 }
+
+                Verbose = verboseOption.HasValue();
 
                 var queue = queueOption.Value();
 
@@ -89,7 +93,13 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
                 // The Body contains the parameters for the application to run
                 // We can't use message.Body.FromObjectAsJson since the raw json returned by AzDo is not valid
-                jobPayload = JobPayload.Deserialize(message.Body.ToArray());
+                var bodyArray = message.Body.ToArray();
+                jobPayload = JobPayload.Deserialize(bodyArray);
+
+                if (Verbose)
+                {
+                    Console.WriteLine($"{LogNow} Payload (Base64): {Convert.ToBase64String(bodyArray)}");
+                }
 
                 // The only way to detect if a Task still needs to be executed is to download all the details of all tasks (there is no API to retrieve the status of a single task.
 
@@ -134,7 +144,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                         }
                         catch
                         {
-                            Console.WriteLine($"{LogNow} Could not evaluate codition [{jobPayload.Condition}], ignoring ...");
+                            Console.WriteLine($"{LogNow} Could not evaluate condition [{jobPayload.Condition}], ignoring ...");
                         }
                     }
 
@@ -144,6 +154,11 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                     var arguments = String.Join(' ', jobPayload.Args);
 
                     Console.WriteLine($"{LogNow} Invoking crank with arguments: {arguments}");
+                    
+                    if (Verbose)
+                    {
+                        Console.WriteLine($"{LogNow} Invoking crank with timeout: {jobPayload.Timeout}");
+                    }                       
 
                     // The DriverJob manages the application's lifetime and standard output
                     driverJob = new Job("crank", arguments);
