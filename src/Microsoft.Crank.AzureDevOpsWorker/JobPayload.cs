@@ -5,17 +5,21 @@
 using System;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 
 namespace Microsoft.Crank.AzureDevOpsWorker
 {
 
     public class JobPayload
     {
-        private static TimeSpan DefaultJobTimeout = TimeSpan.FromMinutes(10);
-        private static readonly JsonSerializerOptions _serializationOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        private static readonly TimeSpan DefaultJobTimeout = TimeSpan.FromMinutes(10);
+        private static readonly JsonSerializerOptions _serializationOptions;
 
-        [JsonConverter(typeof(TimeSpanConverter))]
+        static JobPayload()
+        {
+            _serializationOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _serializationOptions.Converters.Add(new TimeSpanConverter());
+        }
+
         public TimeSpan Timeout { get; set; } = DefaultJobTimeout;
 
         public string Name { get; set; }
