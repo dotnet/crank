@@ -15,7 +15,7 @@ namespace Microsoft.Crank.Agent
         private static readonly TimeSpan CheckoutTimeout = TimeSpan.FromSeconds(30);
         private static readonly TimeSpan SubModuleTimeout = TimeSpan.FromSeconds(30);
 
-        public static async Task<string> CloneAsync(string path, string repository, bool shallow = true, string branch = null, CancellationToken cancellationToken = default)
+        public static async Task<string> CloneAsync(string path, string repository, bool shallow = true, string branch = null, bool intoCurrentDir = false, CancellationToken cancellationToken = default)
         {
             Log.Info($"Cloning {repository} with branch '{branch}'");
 
@@ -23,7 +23,9 @@ namespace Microsoft.Crank.Agent
 
             var depth = shallow ? "--depth 1" : "";
 
-            var result = await RunGitCommandAsync(path, $"clone -c core.longpaths=true {depth} {branchParam} {repository}", CloneTimeout, retries: 5, cancellationToken: cancellationToken);
+            var existingDir = intoCurrentDir ? "." : "";
+
+            var result = await RunGitCommandAsync(path, $"clone -c core.longpaths=true {depth} {branchParam} {repository} {existingDir}", CloneTimeout, retries: 5, cancellationToken: cancellationToken);
 
             var match = Regex.Match(result.StandardError, @"'(.*)'");
             if (match.Success && match.Groups.Count == 2)

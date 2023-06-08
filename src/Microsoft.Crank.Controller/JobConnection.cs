@@ -162,25 +162,30 @@ namespace Microsoft.Crank.Controller
                     StartKeepAlive();
 
                     // Uploading source code
-                    if (!String.IsNullOrEmpty(Job.Source.LocalFolder))
+                    // TODO: Do this asynchronously
+                    foreach (var (sourceName, source) in Job.Sources)
                     {
-                        // Zipping the folder
-                        var tempFilename = Path.GetTempFileName();
-                        File.Delete(tempFilename);
-
-                        Log.Write($"Using local folder: \"{Job.Source.LocalFolder}\"");
-
-                        var sourceDir = Job.Source.LocalFolder;
-
-                        DoCreateFromDirectory(sourceDir, tempFilename);
-
-                        var result = await UploadFileAsync(tempFilename, Combine(_serverJobUri, "/source"), gzipped: false);
-
-                        File.Delete(tempFilename);
-
-                        if (result != 0)
+                        if (!String.IsNullOrEmpty(source.LocalFolder))
                         {
-                            throw new Exception("Error while uploading source files");
+                            // Zipping the folder
+                            var tempFilename = Path.GetTempFileName();
+                            File.Delete(tempFilename);
+
+                            var sourceDir = source.LocalFolder;
+
+                            Log.Write($"Using local folder: \"{sourceDir}\"");
+
+                            DoCreateFromDirectory(sourceDir, tempFilename);
+
+                            var uploadUri = $"{Combine(_serverJobUri, "/source")}?sourceName={sourceName}";
+                            var result = await UploadFileAsync(tempFilename, uploadUri, gzipped: false);
+
+                            File.Delete(tempFilename);
+
+                            if (result != 0)
+                            {
+                                throw new Exception("Error while uploading source files");
+                            }
                         }
                     }
 

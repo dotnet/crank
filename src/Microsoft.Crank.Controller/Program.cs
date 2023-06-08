@@ -541,9 +541,9 @@ namespace Microsoft.Crank.Controller
                     service.Origin = Environment.MachineName;
                     service.CrankArguments = _commandLineProperty;
 
-                    if (String.IsNullOrEmpty(service.Source.Project) &&
-                        String.IsNullOrEmpty(service.Source.DockerFile) &&
-                        String.IsNullOrEmpty(service.Source.DockerLoad) &&
+                    if (String.IsNullOrEmpty(service.Project) &&
+                        String.IsNullOrEmpty(service.DockerFile) &&
+                        String.IsNullOrEmpty(service.DockerLoad) &&
                         String.IsNullOrEmpty(service.Executable))
                     {
                         Console.WriteLine($"The service '{jobName}' is missing some properties to start the job.");
@@ -1974,29 +1974,24 @@ namespace Microsoft.Crank.Controller
 
                 if (job.Options.ReuseSource || job.Options.ReuseBuild)
                 {
-                    var source = job.Source;
-
-                    // Compute a custom source key
-                    source.SourceKey = source.Repository
-                        + source.Project
-                        + source.LocalFolder
-                        + source.BranchOrCommit
-                        + source.DockerImageName
-                        + source.DockerFile
-                        + source.InitSubmodules.ToString()
-                        + source.Repository
-                        ;
-
-                    using (var sha1 = SHA1.Create())
+                    foreach (var (sourceName, source) in job.Sources)
                     {
+                        // No SourceKey support for local folders at the moment
+                        if (source.LocalFolder != null)
+                            continue;
+
+                        // Compute a custom source key
+                        var sourceKey = source.Repository + source.BranchOrCommit + source.InitSubmodules.ToString();
+
+                        using var sha1 = SHA1.Create();
                         // Assume no collision since it's verified on the server
-                        var bytes = sha1.ComputeHash(Encoding.UTF8.GetBytes(job.Source.SourceKey));
-                        source.SourceKey = String.Concat(bytes.Select(b => b.ToString("x2"))).Substring(0, 8);
+                        var bytes = sha1.ComputeHash(Encoding.UTF8.GetBytes(sourceKey));
+                        source.SourceKey = string.Concat(bytes.Select(b => b.ToString("x2"))).Substring(0, 8);
                     }
 
                     if (job.Options.ReuseBuild)
                     {
-                        source.NoBuild = true;
+                        job.NoBuild = true;
                     }
                 }
 
