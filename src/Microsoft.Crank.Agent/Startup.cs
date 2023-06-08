@@ -2210,7 +2210,9 @@ namespace Microsoft.Crank.Agent
 
             var command = OperatingSystem == OperatingSystem.Linux
                 ? $"run -d {environmentArguments} {job.Arguments} --label benchmarks --name {containerName} --privileged --network host {imageName} {source.DockerCommand}"
-                : $"run -d {environmentArguments} {job.Arguments} --label benchmarks --name {containerName} --network SELF --ip {hostname} {imageName} {source.DockerCommand}";
+                : string.Equals(hostname, "localhost", StringComparison.OrdinalIgnoreCase)
+                    ? $"run -d {environmentArguments} {job.Arguments} --label benchmarks --name {containerName} -p {job.Port}:{job.Port} {imageName} {source.DockerCommand}"
+                    : $"run -d {environmentArguments} {job.Arguments} --label benchmarks --name {containerName} --network SELF --ip {hostname} {imageName} {source.DockerCommand}";
 
             if (job.Collect && job.CollectStartup)
             {
