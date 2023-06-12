@@ -854,7 +854,7 @@ onResultsCreating:
     }
 
     function min(values) {
-      return Math.max(...values);
+      return Math.min(...values);
     }
 
     function last(values) {
