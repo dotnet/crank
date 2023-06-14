@@ -671,7 +671,7 @@ namespace Microsoft.Crank.Agent
                                             Reduce = Operation.Max,
                                             Format = "n0",
                                             LongDescription = "Amount of time the process has utilized the CPU out of 100%",
-                                            ShortDescription = "CPU Usage (%)"
+                                            ShortDescription = "Max CPU Usage (%)"
                                         });
                                     }
 
@@ -685,7 +685,7 @@ namespace Microsoft.Crank.Agent
                                             Reduce = Operation.Max,
                                             Format = "n0",
                                             LongDescription = "Raw CPU value (not normalized by number of cores)",
-                                            ShortDescription = "Cores usage (%)"
+                                            ShortDescription = "Max Cores usage (%)"
                                         });
                                     }
 
@@ -699,7 +699,7 @@ namespace Microsoft.Crank.Agent
                                             Reduce = Operation.Max,
                                             Format = "n0",
                                             LongDescription = "Amount of working set used by the process (MB)",
-                                            ShortDescription = "Working Set (MB)"
+                                            ShortDescription = "Max Working Set (MB)"
                                         });
                                     }
 
@@ -713,7 +713,7 @@ namespace Microsoft.Crank.Agent
                                             Reduce = Operation.Max,
                                             Format = "n0",
                                             LongDescription = "Amount of private memory used by the process (MB)",
-                                            ShortDescription = "Private Memory (MB)"
+                                            ShortDescription = "Max Private Memory (MB)"
                                         });
                                     }
 
