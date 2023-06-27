@@ -419,8 +419,8 @@ results: # creates results from measurements
 
 - name: runtime-counter/gc-fragmentation
   measurement: runtime-counter/gc-fragmentation
-  description: Max GC Heap Fragmentation
-  format: n0
+  description: Max GC Heap Fragmentation (%)
+  format: p0
   aggregate: max
   reduce: max
 
@@ -854,7 +854,7 @@ onResultsCreating:
     }
 
     function min(values) {
-      return Math.max(...values);
+      return Math.min(...values);
     }
 
     function last(values) {

@@ -16,7 +16,6 @@ jobs:
     readyStateText: Pipelining Client
     isConsoleApp: true
     waitForExit: true
-    framework: net5.0
     variables:
       connections: 256
       warmup: 15
