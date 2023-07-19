@@ -1974,19 +1974,43 @@ namespace Microsoft.Crank.Controller
 
                 if (job.Options.ReuseSource || job.Options.ReuseBuild)
                 {
+                    // If all the sources have source keys, then we can also make a source key for
+                    using var sha1 = SHA1.Create();
+
+                    var allSourcesHaveCaching = true;
                     foreach (var (sourceName, source) in job.Sources)
                     {
-                        // No SourceKey support for local folders at the moment
-                        if (source.LocalFolder != null)
+                        if (!source.CacheOnAgent)
+                        {
                             continue;
+                        }
 
                         // Compute a custom source key
-                        var sourceKey = source.Repository + source.BranchOrCommit + source.InitSubmodules.ToString();
+                        var sourceKey = source.LocalFolder + source.Repository + source.BranchOrCommit + source.InitSubmodules.ToString();
 
-                        using var sha1 = SHA1.Create();
                         // Assume no collision since it's verified on the server
                         var bytes = sha1.ComputeHash(Encoding.UTF8.GetBytes(sourceKey));
                         source.SourceKey = string.Concat(bytes.Select(b => b.ToString("x2"))).Substring(0, 8);
+                    }
+
+                    if (job.Sources.Count > 0 && allSourcesHaveCaching)
+                    {
+                        if (job.Sources.Count == 1)
+                        {
+                            job.SourceKey = job.Sources.Values.First().SourceKey;
+                        }
+                        else
+                        {
+                            var sourceKeyBuilder = new StringBuilder();
+                            foreach (var (sourceName, source) in job.Sources)
+                            {
+                                sourceKeyBuilder.Append(sourceName);
+                                sourceKeyBuilder.Append(source.SourceKey);
+                            }
+
+                            var bytes = sha1.ComputeHash(Encoding.UTF8.GetBytes(sourceKeyBuilder.ToString()));
+                            job.SourceKey = string.Concat(bytes.Select(b => b.ToString("x2"))).Substring(0, 8);
+                        }
                     }
 
                     if (job.Options.ReuseBuild)

@@ -2,10 +2,14 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using System;
+
 namespace Microsoft.Crank.Models
 {
     public class Source
     {
+        public const string DefaultSource = "default";
+
         /// <summary>
         /// The name of a branch, or a commit hash starting with '#'
         /// </summary>
@@ -21,6 +25,11 @@ namespace Microsoft.Crank.Models
         public string DestinationFolder { get; set; }
 
         /// <summary>
+        /// When true, the crank agent will cache the source so it doesn't need to be uploaded each time.
+        /// </summary>
+        public bool CacheOnAgent { get; set; } = true;
+
+        /// <summary>
         /// When set by the controller, the server uses it to reuse the same source folder.
         /// The value should vary when the source does. When the server can't find the source folder, the LocalFolder property is cleared
         /// such that the controller doesn't send any local source.
@@ -34,5 +43,22 @@ namespace Microsoft.Crank.Models
 
         // When set, contains the location of the uploaded source code
         public Attachment SourceCode { get; set; }
+
+        [Obsolete("Now stored against the Job, rather than the Source")]
+        public string Project { get; set; }
+        [Obsolete("Now stored against the Job, rather than the Source")]
+        public string DockerFile { get; set; }
+        [Obsolete("Now stored against the Job, rather than the Source")]
+        public string DockerImageName { get; set; }
+        [Obsolete("Now stored against the Job, rather than the Source")]
+        public string DockerLoad { get; set; } // Relative to the docker folder
+        [Obsolete("Now stored against the Job, rather than the Source")]
+        public string DockerCommand { get; set; } // Optional command arguments for 'docker run'
+        [Obsolete("Now stored against the Job, rather than the Source")]
+        public string DockerContextDirectory { get; set; }
+        [Obsolete("Now stored against the Job, rather than the Source")]
+        public string DockerFetchPath { get; set; }
+        [Obsolete("Now stored against the Job, rather than the Source")]
+        public bool NoBuild { get; set; }
     }
 }

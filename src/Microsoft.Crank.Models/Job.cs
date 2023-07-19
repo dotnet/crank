@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
@@ -70,10 +71,53 @@ namespace Microsoft.Crank.Models
         public TimeSpan BuildTime { get; set; }
         public long PublishedSize { get; set; }
 
+        [Obsolete("Source should be stored in Sources dictionary instead")]
+        [JsonProperty(Order = 999, ObjectCreationHandling = ObjectCreationHandling.Replace)]
+        // Getter and Setter is implemented for backwards compatibility with older configs and agents
+        public Source Source
+        {
+            get
+            {
+                if (Sources.Count == 0)
+                {
+                    return new Source();
+                }
+                else if (Sources.Count == 1)
+                {
+                    return Sources.Values.Single();
+                }
+                else
+                {
+                    return null;
+                }
+            }
+            set
+            {
+                if (value == null)
+                {
+                    return;
+                }
+
+                // Since source was intended to be cloned to the root of the working directory, set the destination to empty
+                value.DestinationFolder = "";
+                Sources = new Dictionary<string, Source> { [Source.DefaultSource] = value };
+                SourceKey = value.SourceKey;
+                Project = value.Project;
+                DockerFile = value.DockerFile;
+                DockerImageName = value.DockerImageName;
+                DockerCommand = value.DockerCommand;
+                DockerLoad = value.DockerLoad;
+                DockerContextDirectory = value.DockerContextDirectory;
+                DockerFetchPath = value.DockerFetchPath;
+                NoBuild = value.NoBuild;
+            }
+        }
+
         /// <summary>
         /// The source information for the benchmarked application
         /// </summary>
         public Dictionary<string, Source> Sources { get; set; } = new Dictionary<string, Source>();
+        public string SourceKey { get; set; }
         public string Project { get; set; }
         public string DockerFile { get; set; }
         public string DockerImageName { get; set; }

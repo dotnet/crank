@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,6 +27,8 @@ namespace Microsoft.Crank.Agent
         public DateTime NextMeasurement { get; set; } = DateTime.UtcNow;
 
         public string TempDir { get; set; }
+        public bool TempDirUsesSourceKey { get; set; }
+        public Dictionary<string, string> SourceDirs { get; set; } = new();
         public string DockerImage { get; set; }
         public string DockerContainerId { get; set; }
 

@@ -23,9 +23,9 @@ namespace Microsoft.Crank.Agent
 
             var depth = shallow ? "--depth 1" : "";
 
-            var existingDir = intoCurrentDir ? "." : "";
+            var cloneDir = intoCurrentDir ? "." : ""; // Empty string uses the default git clone directory
 
-            var result = await RunGitCommandAsync(path, $"clone -c core.longpaths=true {depth} {branchParam} {repository} {existingDir}", CloneTimeout, retries: 5, cancellationToken: cancellationToken);
+            var result = await RunGitCommandAsync(path, $"clone -c core.longpaths=true {depth} {branchParam} {repository} {cloneDir}", CloneTimeout, retries: 5, cancellationToken: cancellationToken);
 
             var match = Regex.Match(result.StandardError, @"'(.*)'");
             if (match.Success && match.Groups.Count == 2)

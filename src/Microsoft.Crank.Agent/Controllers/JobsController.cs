@@ -398,7 +398,7 @@ namespace Microsoft.Crank.Agent.Controllers
         [HttpPost("{id}/source")]
         [RequestSizeLimit(10_000_000_000)]
         [RequestFormLimits(MultipartBodyLengthLimit = 10_000_000_000)]
-        public async Task<IActionResult> UploadSource(int id, string sourceName)
+        public async Task<IActionResult> UploadSource(int id, string sourceName = Source.DefaultSource)
         {
             var destinationFilename = Request.Headers["destinationFilename"].ToString();
 
