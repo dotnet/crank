@@ -4034,7 +4034,12 @@ namespace Microsoft.Crank.Agent
             }
             else if (String.Equals(sdkVersion, "Edge", StringComparison.OrdinalIgnoreCase))
             {
-                (sdkVersion, _) = await ParseVersionsFile(_latestSdkVersionUrl, "installer");
+                // Pinning to the latest working SDK until https://github.com/dotnet/roslyn/pull/69186
+                // makes it to dotnet/roslyn -> dotnet/sdk -> dotnet/installer
+                // (sdkVersion, _) = await ParseVersionsFile(_latestSdkVersionUrl, "installer");
+
+                sdkVersion = "8.0.100-preview.7.23369.1";
+                
                 Log.Info($"SDK: {sdkVersion} (Edge)");
             }
             else
