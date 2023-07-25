@@ -40,16 +40,30 @@ RUN apt-get update \
 
 # Install HTTP/3 support
 
-# msquic 1.9 for .NET 6
-RUN if [ "$(uname -m)" != "aarch64" ] ; then curl -O https://packages.microsoft.com/debian/10/prod/pool/main/libm/libmsquic/libmsquic_1.9.1_amd64.deb ; fi
-RUN if [ "$(uname -m)" != "aarch64" ] ; then dpkg -i libmsquic_1.9.1_amd64.deb ; fi
+# msquic 2+ for .NET 7+
+ENV MSQUIC_VERSION 2.2.1
+RUN test "$(uname -m)" != 'aarch64' && \
+    cd /tmp && \
+    curl -O "https://packages.microsoft.com/debian/10/prod/pool/main/libm/libmsquic/libmsquic_${MSQUIC_VERSION}_amd64.deb" && \
+    dpkg -i "libmsquic_${MSQUIC_VERSION}_amd64.deb" && \
+    rm "libmsquic_${MSQUIC_VERSION}_amd64.deb" || true
 
-# msquic 2 for .NET 7 
-RUN if [ "$(uname -m)" != "aarch64" ] ; then curl -O https://packages.microsoft.com/debian/10/prod/pool/main/libm/libmsquic/libmsquic_2.1.7_amd64.deb ; fi
-RUN if [ "$(uname -m)" != "aarch64" ] ; then dpkg -i libmsquic_2.1.7_amd64.deb ; fi
+RUN test "$(uname -m)" = 'aarch64' && \
+    cd /tmp && \
+    curl -O "https://packages.microsoft.com/debian/10/prod/pool/main/libm/libmsquic/libmsquic_${MSQUIC_VERSION}_arm64.deb" && \
+    dpkg -i "libmsquic_${MSQUIC_VERSION}_arm64.deb" && \
+    rm "libmsquic_${MSQUIC_VERSION}_arm64.deb" || true
 
-RUN if [ "$(uname -m)" == "aarch64" ] ; then curl -O https://packages.microsoft.com/debian/10/prod/pool/main/libm/libmsquic/libmsquic_2.1.7_arm64.deb ; fi
-RUN if [ "$(uname -m)" == "aarch64" ] ; then dpkg -i libmsquic_2.1.7_arm64.deb ; fi
+# msquic 1.9 for .NET 6 (hack to have both versions available)
+RUN test "$(uname -m)" != 'aarch64' && \
+    cd /tmp && \
+    curl -O "https://packages.microsoft.com/debian/10/prod/pool/main/libm/libmsquic/libmsquic_1.9.1_amd64.deb" && \
+    mkdir libmsquic_1.9 && \
+    dpkg-deb -x libmsquic_1.9.1_amd64.deb libmsquic_1.9 && \
+    cp libmsquic_1.9/usr/lib/x86_64-linux-gnu/libmsquic.so /usr/lib/x86_64-linux-gnu/ && \
+    cp libmsquic_1.9/usr/lib/x86_64-linux-gnu/libmsquic.lttng.so /usr/lib/x86_64-linux-gnu/ && \
+    rm -rf libmsquic_1.9* || true
+
 
 # Build and install h2load. Required as there isn't a way to distribute h2load as a single file to download
 RUN apt-get update \

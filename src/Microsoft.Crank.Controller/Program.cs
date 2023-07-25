@@ -544,10 +544,11 @@ namespace Microsoft.Crank.Controller
                     if (String.IsNullOrEmpty(service.Source.Project) &&
                         String.IsNullOrEmpty(service.Source.DockerFile) &&
                         String.IsNullOrEmpty(service.Source.DockerLoad) &&
+                        String.IsNullOrEmpty(service.Source.DockerPull) &&
                         String.IsNullOrEmpty(service.Executable))
                     {
                         Console.WriteLine($"The service '{jobName}' is missing some properties to start the job.");
-                        Console.WriteLine($"Check that any of these properties is set: project, executable, dockerFile, dockerLoad");
+                        Console.WriteLine($"Check that any of these properties is set: project, executable, dockerFile, dockerLoad, dockerPull");
                         return -1;
                     }
 
@@ -1171,6 +1172,11 @@ namespace Microsoft.Crank.Controller
                                 {
                                     yield return job.Key + "." + e.Key;
                                 }
+
+                                foreach (var e in job.Value.Variables)
+                                {
+                                    yield return job.Key + "." + e.Key;
+                                }
                             }
 
                             foreach (var p in result.JobResults.Properties)
@@ -1196,6 +1202,11 @@ namespace Microsoft.Crank.Controller
                                 }
 
                                 foreach (var e in job.Value.Environment)
+                                {
+                                    yield return Convert.ToString(e.Value, System.Globalization.CultureInfo.InvariantCulture);
+                                }
+
+                                foreach (var e in job.Value.Variables)
                                 {
                                     yield return Convert.ToString(e.Value, System.Globalization.CultureInfo.InvariantCulture);
                                 }
@@ -2499,6 +2510,15 @@ namespace Microsoft.Crank.Controller
                     .ToArray();
 
                 jobResult.Results = AggregateAndReduceResults(jobConnections, engine, resultDefinitions.Values.ToList());
+
+                configuration.Jobs.TryGetValue(jobName, out var job);
+                if (job != null)
+                {
+                    foreach (var variable in job.Variables)
+                    {
+                        jobResult.Variables.Add(variable.Key, variable.Value);
+                    }
+                }
 
                 foreach (var jobConnection in jobConnections)
                 {

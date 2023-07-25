@@ -40,7 +40,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                     {
                         Delay = delay,
                         Uri = new Uri(requestElement.GetProperty("url").GetString()),
-                        Method = requestElement.GetProperty("method").GetString(),
+                        Method = new HttpMethod(requestElement.GetProperty("method").GetString()),
                         Headers = new Dictionary<string, string>(requestElement.GetProperty("headers").EnumerateArray().Select(x => new KeyValuePair<string, string>(x.GetProperty("name").GetString(), x.GetProperty("value").GetString())))
                     };
 
@@ -62,7 +62,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
 
             foreach (var line in File.ReadAllLines(filePath))
             {
-                timelines.Add(new Timeline { Uri = new Uri(line), Method = "GET" });
+                timelines.Add(new Timeline { Uri = new Uri(line), Method = HttpMethod.Get });
             }
 
             return timelines.ToArray();
