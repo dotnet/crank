@@ -1993,7 +1993,7 @@ namespace Microsoft.Crank.Agent
                 job.DockerContextDirectory = Path.GetDirectoryName(job.DockerFile).Replace("\\", "/");
             }
 
-            var workingDirectory = Path.Combine(srcDir, job.DockerContextDirectory ?? "");
+            var workingDirectory = Path.Combine(path, job.DockerContextDirectory ?? "");
 
             job.BasePath = workingDirectory;
 
@@ -2026,18 +2026,18 @@ namespace Microsoft.Crank.Agent
             }
             else
             {
-                if (!string.IsNullOrEmpty(source.DockerLoad))
+                if (!string.IsNullOrEmpty(job.DockerLoad))
                 {
                     // The DockerLoad argument contains the path of a tar file that can be loaded
 
-                    Log.Info($"Loading docker image {source.DockerLoad} from {srcDir}");
+                    Log.Info($"Loading docker image {job.DockerLoad} from {path}");
 
-                    var dockerLoadArguments = $"load -i {source.DockerLoad} ";
+                    var dockerLoadArguments = $"load -i {job.DockerLoad} ";
 
                     job.BuildLog.AddLine("docker " + dockerLoadArguments);
 
                     await ProcessUtil.RunAsync("docker", dockerLoadArguments,
-                        workingDirectory: srcDir,
+                        workingDirectory: path,
                         cancellationToken: cancellationToken,
                         log: true,
                         outputDataReceived: job.BuildLog.AddLine
@@ -2048,14 +2048,14 @@ namespace Microsoft.Crank.Agent
                     var imageToRun = imageName;
                     string buildParameters = "";
 
-                    if (!string.IsNullOrWhiteSpace(source.DockerPull))
+                    if (!string.IsNullOrWhiteSpace(job.DockerPull))
                     {
-                        imageToRun = source.DockerPull;
+                        imageToRun = job.DockerPull;
 
-                        Log.Info($"Pulling docker image '{source.DockerPull}'");
+                        Log.Info($"Pulling docker image '{job.DockerPull}'");
 
-                        await ProcessUtil.RunAsync("docker", $"image pull {source.DockerPull}",
-                            workingDirectory: srcDir,
+                        await ProcessUtil.RunAsync("docker", $"image pull {job.DockerPull}",
+                            workingDirectory: path,
                             cancellationToken: cancellationToken,
                             log: true,
                             outputDataReceived: job.BuildLog.AddLine
@@ -2174,7 +2174,7 @@ namespace Microsoft.Crank.Agent
                 environmentArguments += $"--memory=\"{job.MemoryLimitInBytes}b\" ";
             }
 
-            var command = $"run -d {environmentArguments} {job.Arguments} --label benchmarks --name {containerName} --privileged --network host {imageName} {source.DockerCommand}";
+            var command = $"run -d {environmentArguments} {job.Arguments} --label benchmarks --name {containerName} --privileged --network host {imageName} {job.DockerCommand}";
 
             if (job.Collect && job.CollectStartup)
             {

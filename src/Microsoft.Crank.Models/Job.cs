@@ -104,6 +104,7 @@ namespace Microsoft.Crank.Models
                 SourceKey = value.SourceKey;
                 Project = value.Project;
                 DockerFile = value.DockerFile;
+                DockerPull = value.DockerPull;
                 DockerImageName = value.DockerImageName;
                 DockerCommand = value.DockerCommand;
                 DockerLoad = value.DockerLoad;
