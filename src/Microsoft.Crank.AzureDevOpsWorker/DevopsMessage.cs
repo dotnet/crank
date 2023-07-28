@@ -10,7 +10,6 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Azure.Messaging.ServiceBus;
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Options;
 
 namespace Microsoft.Crank.AzureDevOpsWorker
 {
