@@ -544,10 +544,11 @@ namespace Microsoft.Crank.Controller
                     if (String.IsNullOrEmpty(service.Project) &&
                         String.IsNullOrEmpty(service.DockerFile) &&
                         String.IsNullOrEmpty(service.DockerLoad) &&
+                        String.IsNullOrEmpty(service.DockerPull) &&
                         String.IsNullOrEmpty(service.Executable))
                     {
                         Console.WriteLine($"The service '{jobName}' is missing some properties to start the job.");
-                        Console.WriteLine($"Check that any of these properties is set: project, executable, dockerFile, dockerLoad");
+                        Console.WriteLine($"Check that any of these properties is set: project, executable, dockerFile, dockerLoad, dockerPull");
                         return -1;
                     }
 

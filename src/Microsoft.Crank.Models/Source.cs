@@ -49,6 +49,8 @@ namespace Microsoft.Crank.Models
         [Obsolete("Now stored against the Job, rather than the Source")]
         public string DockerFile { get; set; }
         [Obsolete("Now stored against the Job, rather than the Source")]
+        public string DockerPull { get; set; }
+        [Obsolete("Now stored against the Job, rather than the Source")]
         public string DockerImageName { get; set; }
         [Obsolete("Now stored against the Job, rather than the Source")]
         public string DockerLoad { get; set; } // Relative to the docker folder

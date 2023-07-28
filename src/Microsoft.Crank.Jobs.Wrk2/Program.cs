@@ -384,13 +384,13 @@ namespace Microsoft.Crank.Jobs.Wrk2
             var httpClientHandler = new HttpClientHandler();
             httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
             httpClientHandler.MaxConnectionsPerServer = 1;
-            using(var httpClient = new HttpClient(httpClientHandler))
+            
+            using (var httpClient = new HttpClient(httpClientHandler))
             {
                 var cts = new CancellationTokenSource(30000);
                 var httpMessage = new HttpRequestMessage(HttpMethod.Get, url);
 
-                var stopwatch = new Stopwatch();
-                stopwatch.Start();
+                var stopwatch = Stopwatch.StartNew();
 
                 try
                 {
@@ -406,6 +406,15 @@ namespace Microsoft.Crank.Jobs.Wrk2
                 catch (OperationCanceledException)
                 {
                     Console.WriteLine("A timeout occurred while measuring the first request");
+                }
+                catch (HttpRequestException)
+                {
+                    Console.WriteLine("A connection exception occurred while measuring the first request");
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("An unexpected exception occurred while measuring the first request:");
+                    Console.WriteLine(e.ToString());
                 }
             }
         }

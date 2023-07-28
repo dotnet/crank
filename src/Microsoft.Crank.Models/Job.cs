@@ -120,6 +120,7 @@ namespace Microsoft.Crank.Models
         public string SourceKey { get; set; }
         public string Project { get; set; }
         public string DockerFile { get; set; }
+        public string DockerPull { get; set; }
         public string DockerImageName { get; set; }
         public string DockerCommand { get; set; } // Optional command arguments for 'docker run'
         public string DockerLoad { get; set; } // Relative to the docker folder
@@ -282,11 +283,16 @@ namespace Microsoft.Crank.Models
 
         public bool IsDocker()
         {
-            return !String.IsNullOrEmpty(DockerFile) || !String.IsNullOrEmpty(DockerImageName);
+            return !String.IsNullOrEmpty(DockerFile) || !String.IsNullOrEmpty(DockerImageName) || !String.IsNullOrEmpty(DockerPull);
         }
 
         public string GetNormalizedImageName()
         {
+            if (!string.IsNullOrEmpty(DockerPull))
+            {
+                return DockerPull.ToLowerInvariant();
+            }
+
             // If DockerLoad option is used, the image must be set to the one used to build it
             if (!string.IsNullOrEmpty(DockerLoad))
             {

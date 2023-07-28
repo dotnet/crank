@@ -503,7 +503,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                 }
                 catch (Exception ex)
                 {
-                    Log("An error occured while running a 'initialize' script: {0}", ex.Message);
+                    Log("An error occurred while running a 'initialize' script: {0}", ex.Message);
                 }
             }
 
@@ -561,7 +561,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                 }
                 catch (Exception ex)
                 {
-                    Log("An error occured while running a 'start' script: {0}", ex.Message);
+                    Log("An error occurred while running a 'start' script: {0}", ex.Message);
                 }
             }
 
@@ -671,7 +671,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                         }
                         catch (Exception er)
                         {
-                            Log("An error occured while running a 'error' script: {0}", er.Message);
+                            Log("An error occurred while running a 'error' script: {0}", er.Message);
                         }
                     }
                 }
@@ -691,7 +691,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                 }
                 catch (Exception ex)
                 {
-                    Log("An error occured while running a 'stop' script: {0}", ex.Message);
+                    Log("An error occurred while running a 'stop' script: {0}", ex.Message);
                 }                
             }
 

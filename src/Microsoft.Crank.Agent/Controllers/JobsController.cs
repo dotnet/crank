@@ -180,7 +180,8 @@ namespace Microsoft.Crank.Agent.Controllers
                     return NotFound();
                 }
 
-                if (job.State == JobState.Stopped || job.State == JobState.Failed)
+                if (job.State == JobState.Stopped || job.State == JobState.Failed
+                    || job.State == JobState.Deleting || job.State == JobState.Deleted)
                 {
                     // The job might have already been stopped, or deleted.
                     // Can happen if the server stops the job, then the driver does it.
