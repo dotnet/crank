@@ -343,7 +343,7 @@ namespace Microsoft.Crank.PullRequestBot
                             }
                             catch (Exception ex)
                             {
-                                Console.WriteLine($"An error occured: {ex}");
+                                Console.WriteLine($"An error occurred: {ex}");
                             }
                         }
                         else
@@ -355,7 +355,7 @@ namespace Microsoft.Crank.PullRequestBot
                     {
                         var errorCommentText = $"Failed to benchmark PR #{command.PullRequest.Number}. Skipping... Details:\n```\n{ex}\n```";
                         Console.WriteLine($"Benchmark error comment: {errorCommentText}");
-                        await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint("An error occured, please check the logs"));
+                        await _githubClient.Issue.Comment.Create(owner, name, command.PullRequest.Number, ApplyThumbprint("An error occurred, please check the logs"));
                     }
                 }
 
