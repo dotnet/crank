@@ -271,7 +271,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                     
                     var content = await result.Content.ReadAsStringAsync();
 
-                    var records = JsonSerializer.Deserialize<Records>(content, _serializationOptions); ;
+                    var records = JsonSerializer.Deserialize<Records>(content, _serializationOptions);
                     entry.Value = records;
                     entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60);
 
