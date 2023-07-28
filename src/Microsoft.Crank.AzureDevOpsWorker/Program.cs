@@ -107,10 +107,12 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
                 if (records == null)
                 {
-                    Console.ForegroundColor = ConsoleColor.DarkRed;
-                    Console.WriteLine($"{LogNow} Could not retrieve records...");
-                    Console.ResetColor();
+                    await devopsMessage?.SendTaskCompletedEventAsync(DevopsMessage.ResultTypes.Skipped);
 
+                    Console.WriteLine($"{LogNow} Could not retrieve Records, skipping...");
+
+                    // Release the message for further processing
+                    await args.AbandonMessageAsync(message);
                     return;
                 }
 
@@ -195,6 +197,9 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                         // Check if task is still active (not canceled)
 
                         records = await devopsMessage.GetRecordsAsync();
+
+                        // This can return a stale value (see DevopsMessage.RecordsCacheTimeSpan)
+
                         record = records.Value.FirstOrDefault(x => x.Id == devopsMessage.TaskInstanceId);
 
                         if (record != null && record?.State == "completed")
@@ -247,7 +252,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
                 try
                 {
-                    await devopsMessage?.SendTaskCompletedEventAsync(DevopsMessage.ResultTypes.Failed);
+                    await devopsMessage?.SendTaskCompletedEventAsync(DevopsMessage.ResultTypes.SucceededWithIssues);
                 }
                 catch (Exception f)
                 {
@@ -256,7 +261,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
                 try
                 {
-                    // TODO: Should the message still be copmleted instead of abandonned?
+                    // TODO: Should the message still be completed instead of abandoned?
                     await args.AbandonMessageAsync(message);
                 }
                 catch (Exception f)

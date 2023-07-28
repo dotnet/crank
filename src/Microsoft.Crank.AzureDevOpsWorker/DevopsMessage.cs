@@ -9,6 +9,8 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Azure.Messaging.ServiceBus;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 
 namespace Microsoft.Crank.AzureDevOpsWorker
 {
@@ -34,9 +36,9 @@ namespace Microsoft.Crank.AzureDevOpsWorker
         public string TaskInstanceId { get; set; }
         public string AuthToken { get; set; }
 
-        public Records Records { get; set; }
-        private DateTime _lastRecordsRefresh = DateTime.UtcNow;
         private static readonly JsonSerializerOptions _serializationOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+        private MemoryCache _memoryCache = new MemoryCache(new MemoryCacheOptions());
 
         public DevopsMessage(ServiceBusReceivedMessage message)
         {
@@ -254,28 +256,30 @@ namespace Microsoft.Crank.AzureDevOpsWorker
         public async Task<Records> GetRecordsAsync()
         {
             // NOTE: There is no API that allows to retrieve a single task details. Only the whole list.
-            // So we cache the results to prevent rate limitting.
+            // So we cache the results to prevent rate limiting.
 
             var getRecordsUrl = $"{PlanUrl}/{ProjectId}/_apis/distributedtask/hubs/{HubName}/plans/{PlanId}/timelines/{TimelineId}/records?api-version=4.1";
             
             try
             {
-                if (DateTime.UtcNow - _lastRecordsRefresh > TimeSpan.FromSeconds(60))
-                {
-                    _lastRecordsRefresh = DateTime.UtcNow;
-                    return Records;
-                }
+                // The application is single-threaded
 
-                var result = await GetDataAsync(getRecordsUrl);
-
-                if (result.IsSuccessStatusCode)
+                var records = await _memoryCache.GetOrCreateAsync(getRecordsUrl, async entry =>
                 {
+                    var result = await GetDataAsync(getRecordsUrl);
+
+                    result.EnsureSuccessStatusCode(); 
+                    
                     var content = await result.Content.ReadAsStringAsync();
 
-                    Records = JsonSerializer.Deserialize<Records>(content, _serializationOptions);
-                }
+                    var records = JsonSerializer.Deserialize<Records>(content, _serializationOptions); ;
+                    entry.Value = records;
+                    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60);
 
-                return Records;
+                    return records;
+                });
+
+                return records;
             }
             catch (Exception e)
             {
