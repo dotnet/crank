@@ -541,10 +541,10 @@ namespace Microsoft.Crank.Controller
                     service.Origin = Environment.MachineName;
                     service.CrankArguments = _commandLineProperty;
 
-                    if (String.IsNullOrEmpty(service.Source.Project) &&
-                        String.IsNullOrEmpty(service.Source.DockerFile) &&
-                        String.IsNullOrEmpty(service.Source.DockerLoad) &&
-                        String.IsNullOrEmpty(service.Source.DockerPull) &&
+                    if (String.IsNullOrEmpty(service.Project) &&
+                        String.IsNullOrEmpty(service.DockerFile) &&
+                        String.IsNullOrEmpty(service.DockerLoad) &&
+                        String.IsNullOrEmpty(service.DockerPull) &&
                         String.IsNullOrEmpty(service.Executable))
                     {
                         Console.WriteLine($"The service '{jobName}' is missing some properties to start the job.");
@@ -1975,29 +1975,48 @@ namespace Microsoft.Crank.Controller
 
                 if (job.Options.ReuseSource || job.Options.ReuseBuild)
                 {
-                    var source = job.Source;
+                    // If all the sources have source keys, then we can also make a source key for
+                    using var sha1 = SHA1.Create();
 
-                    // Compute a custom source key
-                    source.SourceKey = source.Repository
-                        + source.Project
-                        + source.LocalFolder
-                        + source.BranchOrCommit
-                        + source.DockerImageName
-                        + source.DockerFile
-                        + source.InitSubmodules.ToString()
-                        + source.Repository
-                        ;
-
-                    using (var sha1 = SHA1.Create())
+                    var allSourcesHaveCaching = true;
+                    foreach (var (sourceName, source) in job.Sources)
                     {
+                        if (!source.CacheOnAgent)
+                        {
+                            continue;
+                        }
+
+                        // Compute a custom source key
+                        var sourceKey = source.LocalFolder + source.Repository + source.BranchOrCommit + source.InitSubmodules.ToString();
+
                         // Assume no collision since it's verified on the server
-                        var bytes = sha1.ComputeHash(Encoding.UTF8.GetBytes(job.Source.SourceKey));
-                        source.SourceKey = String.Concat(bytes.Select(b => b.ToString("x2"))).Substring(0, 8);
+                        var bytes = sha1.ComputeHash(Encoding.UTF8.GetBytes(sourceKey));
+                        source.SourceKey = string.Concat(bytes.Select(b => b.ToString("x2"))).Substring(0, 8);
+                    }
+
+                    if (job.Sources.Count > 0 && allSourcesHaveCaching)
+                    {
+                        if (job.Sources.Count == 1)
+                        {
+                            job.SourceKey = job.Sources.Values.First().SourceKey;
+                        }
+                        else
+                        {
+                            var sourceKeyBuilder = new StringBuilder();
+                            foreach (var (sourceName, source) in job.Sources)
+                            {
+                                sourceKeyBuilder.Append(sourceName);
+                                sourceKeyBuilder.Append(source.SourceKey);
+                            }
+
+                            var bytes = sha1.ComputeHash(Encoding.UTF8.GetBytes(sourceKeyBuilder.ToString()));
+                            job.SourceKey = string.Concat(bytes.Select(b => b.ToString("x2"))).Substring(0, 8);
+                        }
                     }
 
                     if (job.Options.ReuseBuild)
                     {
-                        source.NoBuild = true;
+                        job.NoBuild = true;
                     }
                 }
 

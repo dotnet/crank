@@ -162,27 +162,16 @@ namespace Microsoft.Crank.Controller
                     StartKeepAlive();
 
                     // Uploading source code
-                    if (!String.IsNullOrEmpty(Job.Source.LocalFolder))
+                    var uploadLocalSourceTasks = new List<Task>(Job.Sources.Count);
+                    foreach (var (sourceName, source) in Job.Sources)
                     {
-                        // Zipping the folder
-                        var tempFilename = Path.GetTempFileName();
-                        File.Delete(tempFilename);
-
-                        Log.Write($"Using local folder: \"{Job.Source.LocalFolder}\"");
-
-                        var sourceDir = Job.Source.LocalFolder;
-
-                        DoCreateFromDirectory(sourceDir, tempFilename);
-
-                        var result = await UploadFileAsync(tempFilename, Combine(_serverJobUri, "/source"), gzipped: false);
-
-                        File.Delete(tempFilename);
-
-                        if (result != 0)
+                        if (!String.IsNullOrEmpty(source.LocalFolder))
                         {
-                            throw new Exception("Error while uploading source files");
+                            uploadLocalSourceTasks.Add(UploadLocalSourceAsync(sourceName, source.LocalFolder));
                         }
                     }
+
+                    await Task.WhenAll(uploadLocalSourceTasks);
 
                     // Upload custom package contents
                     foreach (var outputArchiveValue in Job.Options.OutputArchives)
@@ -395,6 +384,27 @@ namespace Microsoft.Crank.Controller
                 {
                     await Task.Delay(1000);
                 }
+            }
+        }
+
+        private async Task UploadLocalSourceAsync(string sourceName, string sourceDir)
+        {
+            // Zipping the folder
+            var tempFilename = Path.GetTempFileName();
+            File.Delete(tempFilename);
+
+            Log.Write($"Using local folder: \"{sourceDir}\"");
+
+            DoCreateFromDirectory(sourceDir, tempFilename);
+
+            var uploadUri = $"{Combine(_serverJobUri, "/source")}?sourceName={sourceName}";
+            var result = await UploadFileAsync(tempFilename, uploadUri, gzipped: false);
+
+            File.Delete(tempFilename);
+
+            if (result != 0)
+            {
+                throw new Exception("Error while uploading source files");
             }
         }
 
@@ -960,6 +970,7 @@ namespace Microsoft.Crank.Controller
                 Console.WriteLine(markdownResult.Value.Replace("**", ""));
             }
         }
+
         private void DoCreateFromDirectory(string sourceDirectoryName, string destinationArchiveFileName)
         {
             sourceDirectoryName = Path.GetFullPath(sourceDirectoryName);
@@ -972,28 +983,30 @@ namespace Microsoft.Crank.Controller
 
             destinationArchiveFileName = Path.GetFullPath(destinationArchiveFileName);
 
-            var di = new DirectoryInfo(sourceDirectoryName);
+            using var archive = ZipFile.Open(destinationArchiveFileName, ZipArchiveMode.Create);
 
-            using (var archive = ZipFile.Open(destinationArchiveFileName, ZipArchiveMode.Create))
+            foreach (var (fullPath, relPath) in GetLocalFolderFilePaths(sourceDirectoryName))
             {
-                var basePath = di.FullName;
+                Log.Verbose($"Adding {relPath}");
+                archive.CreateEntryFromFile(fullPath, relPath);
+            }
+        }
 
-                var ignoreFile = Job.Options.NoGitIgnore
-                    ? new IgnoreFile()
-                    : IgnoreFile.Parse(Path.Combine(sourceDirectoryName, ".gitignore"))
-                    ;
+        private IEnumerable<(string FullPath, string RelativePath)> GetLocalFolderFilePaths(string sourceDirectoryPath)
+        {
+            var ignoreFile = Job.Options.NoGitIgnore
+                ? new IgnoreFile()
+                : IgnoreFile.Parse(Path.Combine(sourceDirectoryPath, ".gitignore"));
 
-                if (ignoreFile.Rules.Any())
-                {
-                    Log.Verbose(".gitignore file found");
-                }
+            if (ignoreFile.Rules.Any())
+            {
+                Log.Verbose(".gitignore file found");
+            }
 
-                foreach (var gitFile in ignoreFile.ListDirectory(sourceDirectoryName))
-                {
-                    var localPath = gitFile.Path.Substring(sourceDirectoryName.Length);
-                    Log.Verbose($"Adding {localPath}");
-                    archive.CreateEntryFromFile(gitFile.Path, localPath);
-                }
+            foreach (var gitFile in ignoreFile.ListDirectory(sourceDirectoryPath))
+            {
+                var localPath = gitFile.Path.Substring(sourceDirectoryPath.Length);
+                yield return (gitFile.Path, localPath);
             }
         }
 

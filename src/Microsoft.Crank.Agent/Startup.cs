@@ -601,6 +601,8 @@ namespace Microsoft.Crank.Agent
                             var startMonitorTime = context.StartMonitorTime;
 
                             var tempDir = context.TempDir;
+                            var tempDirUsesSourceKey = context.TempDirUsesSourceKey;
+                            var sourceDirs = context.SourceDirs;
                             var dockerImage = context.DockerImage;
                             var dockerContainerId = context.DockerContainerId;
 
@@ -622,37 +624,26 @@ namespace Microsoft.Crank.Agent
                                 }
                                 else
                                 {
-                                    tempDir = null;
-
-                                    if (!String.IsNullOrEmpty(job.Source.SourceKey))
+                                    foreach ((var sourceName, var source) in job.Sources)
                                     {
-                                        tempDir = Path.Combine(_rootTempDir, job.Source.SourceKey);
-
-                                        try
+                                        if (!String.IsNullOrEmpty(source.SourceKey))
                                         {
-                                            if (!Directory.Exists(tempDir))
-                                            {
-                                                Log.Info("Creating source folder: " + tempDir);
-                                                Directory.CreateDirectory(tempDir);
-                                            }
-                                            else
-                                            {
-                                                Log.Info("Found source folder: " + tempDir);
-
-                                                // Force the controller to not send the local folder
-                                                job.Source.LocalFolder = null;
-                                            }
-                                        }
-                                        catch
-                                        {
-                                            Log.Warning("[WARNING] Invalid source folder name: " + tempDir);
-                                            tempDir = null;
+                                            var sourceTempDir = Path.Combine(_rootTempDir, source.SourceKey);
+                                            sourceDirs[sourceName] = sourceTempDir;
+                                            EnsureSourceFolderExists(sourceTempDir, source);
                                         }
                                     }
 
-                                    if (tempDir == null)
+                                    if (!String.IsNullOrEmpty(job.SourceKey))
+                                    {
+                                        tempDir = Path.Combine(_rootTempDir, job.SourceKey);
+                                        tempDirUsesSourceKey = true;
+                                        EnsureSourceFolderExists(tempDir);
+                                    }
+                                    else
                                     {
                                         tempDir = GetTempDir();
+                                        tempDirUsesSourceKey = false;
                                     }
 
                                     startMonitorTime = DateTime.UtcNow;
@@ -893,7 +884,7 @@ namespace Microsoft.Crank.Agent
                                     var cts = new CancellationTokenSource();
                                     Task buildAndRunTask;
 
-                                    if (job.Source.IsDocker())
+                                    if (job.IsDocker())
                                     {
                                         buildAndRunTask = Task.Run(async () =>
                                         {
@@ -1027,7 +1018,7 @@ namespace Microsoft.Crank.Agent
                                                         }
                                                     }
 
-                                                    if (job.Source.IsDocker())
+                                                    if (job.IsDocker())
                                                     {
                                                         // Check the container is still running
                                                         var inspectResult = ProcessUtil.RunAsync("docker", "inspect -f {{.State.Running}} " + dockerContainerId,
@@ -1525,7 +1516,7 @@ namespace Microsoft.Crank.Agent
 
                                     string cpuStats;
 
-                                    if (job.Source.IsDocker())
+                                    if (job.IsDocker())
                                     {
                                         var result = await ProcessUtil.RunAsync("docker", $"exec {dockerContainerId} cat /sys/fs/cgroup/cpu/cpu.stat", throwOnError: false, captureOutput: true);
                                         cpuStats = result.StandardOutput;
@@ -1699,7 +1690,7 @@ namespace Microsoft.Crank.Agent
 
                                     process = null;
                                 }
-                                else if (job.Source.IsDocker())
+                                else if (job.IsDocker())
                                 {
                                     await DockerCleanUpAsync(dockerContainerId, dockerImage, job);
                                 }
@@ -1735,7 +1726,7 @@ namespace Microsoft.Crank.Agent
                                 }
                                 finally
                                 {
-                                    if (_cleanup && !job.NoClean && String.IsNullOrEmpty(job.Source.SourceKey) && tempDir != null)
+                                    if (_cleanup && !job.NoClean && !tempDirUsesSourceKey && tempDir != null)
                                     {
                                         // Delete traces
 
@@ -1743,7 +1734,6 @@ namespace Microsoft.Crank.Agent
                                         TryDeleteFile(job.PerfViewTraceFile);
 
                                         // Delete application folder
-
                                         await TryDeleteDirAsync(tempDir);
                                     }
 
@@ -1772,6 +1762,8 @@ namespace Microsoft.Crank.Agent
                             context.StartMonitorTime = startMonitorTime;
 
                             context.TempDir = tempDir;
+                            context.TempDirUsesSourceKey = tempDirUsesSourceKey;
+                            context.SourceDirs = sourceDirs;
                             context.DockerImage = dockerImage;
                             context.DockerContainerId = dockerContainerId;
 
@@ -1790,6 +1782,31 @@ namespace Microsoft.Crank.Agent
             catch (Exception e)
             {
                 Log.Error(e, $"Unexpected error");
+            }
+        }
+
+        private static void EnsureSourceFolderExists(string sourceTempDir, Source source = null)
+        {
+            try
+            {
+                if (!Directory.Exists(sourceTempDir))
+                {
+                    Log.Info("Creating source folder: " + sourceTempDir);
+                    Directory.CreateDirectory(sourceTempDir);
+                }
+                else
+                {
+                    Log.Info("Found source folder: " + sourceTempDir);
+                    if (source is not null)
+                    {
+                        // Force the controller to not send the local folder
+                        source.LocalFolder = null;
+                    }
+                }
+            }
+            catch
+            {
+                Log.Warning("[WARNING] Invalid source folder name: " + sourceTempDir);
             }
         }
 
@@ -1966,112 +1983,24 @@ namespace Microsoft.Crank.Agent
 
         private static async Task<(string containerId, string imageName, string workingDirectory)> DockerBuildAndRun(string path, Job job, string hostname, CancellationToken cancellationToken = default(CancellationToken))
         {
-            var source = job.Source;
-            string srcDir = path;
-
-            var reuseFolder = false;
-
-            // Is the path a previously created source folder?
-            if (!String.IsNullOrEmpty(job.Source.SourceKey))
-            {
-                // Check the source options are the same (repos, branch, ...)
-                var optionsPath = Path.Combine(path, "options.json");
-
-                if (File.Exists(optionsPath))
-                {
-                    var content = File.ReadAllText(optionsPath);
-                    var options = JsonConvert.DeserializeObject<Source>(content);
-
-                    if (options.Project != job.Source.Project
-                    || options.Repository != job.Source.Repository
-                    || options.BranchOrCommit != job.Source.BranchOrCommit)
-                    {
-                        Log.Info("[INFO] Ignoring existing source folder as it's not matching the request source settings");
-                        reuseFolder = false;
-                    }
-                    else
-                    {
-                        reuseFolder = true;
-
-                        var localRepositoryFolder = new DirectoryInfo(Directory.GetDirectories(path).FirstOrDefault(x => !x.EndsWith("buildtools"))).Name;
-                        srcDir = Path.Combine(path, localRepositoryFolder);
-
-                        Log.Info($"Reusing cloned repository in {srcDir}");
-                    }
-                }
-                else
-                {
-                    Log.Info($"Creating reuse options.json file");
-
-                    // First time using this folder
-                    File.WriteAllText(optionsPath, JsonConvert.SerializeObject(job.Source));
-                    reuseFolder = false;
-                }
-            }
-
             // Docker image names must be lowercase
-            var imageName = source.GetNormalizedImageName();
+            var imageName = job.GetNormalizedImageName();
 
-            if (source.SourceCode != null)
+            var reuseFolder = await RetrieveSourcesAsync(job, path);
+
+            if (String.IsNullOrEmpty(job.DockerContextDirectory) && !String.IsNullOrEmpty(job.DockerFile))
             {
-                srcDir = Path.Combine(path, "src");
-
-                if (!reuseFolder)
-                {
-                    Log.Info($"Extracting source code to {srcDir}");
-
-                    ZipFile.ExtractToDirectory(job.Source.SourceCode.TempFilename, srcDir);
-
-                    // Convert CRLF to LF on Linux
-                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                    {
-                        Log.Info($"Converting text files ...");
-
-                        foreach (var file in Directory.GetFiles(srcDir + Path.DirectorySeparatorChar, "*.*", SearchOption.AllDirectories))
-                        {
-                            ConvertLines(file);
-                        }
-                    }
-
-                    File.Delete(job.Source.SourceCode.TempFilename);
-                }
-            }
-            else if (!String.IsNullOrEmpty(source.Repository) && !reuseFolder)
-            {
-                var branchAndCommit = source.BranchOrCommit.Split('#', 2);
-
-                var dir = await Git.CloneAsync(path, source.Repository, shallow: branchAndCommit.Length == 1, branch: branchAndCommit[0]);
-
-                srcDir = Path.Combine(path, dir);
-
-                if (branchAndCommit.Length > 1)
-                {
-                    await Git.CheckoutAsync(srcDir, branchAndCommit[1]);
-                }
-
-                if (source.InitSubmodules)
-                {
-                    await Git.InitSubModulesAsync(srcDir);
-                }
-            }
-            else if (!reuseFolder)
-            {
-                srcDir = path;
+                job.DockerContextDirectory = Path.GetDirectoryName(job.DockerFile).Replace("\\", "/");
             }
 
-            if (String.IsNullOrEmpty(source.DockerContextDirectory) && !String.IsNullOrEmpty(source.DockerFile))
-            {
-                source.DockerContextDirectory = Path.GetDirectoryName(source.DockerFile).Replace("\\", "/");
-            }
-
-            var workingDirectory = Path.Combine(srcDir, source.DockerContextDirectory ?? "");
+            var workingDirectory = Path.Combine(path, job.DockerContextDirectory ?? "");
 
             job.BasePath = workingDirectory;
 
             // Copy build files before building/publishing
             foreach (var attachment in job.BuildAttachments)
             {
-                var filename = Path.Combine(srcDir, attachment.Filename.Replace("\\", "/"));
+                var filename = Path.Combine(path, attachment.Filename.Replace("\\", "/"));
 
                 Log.Info($"Creating build file: {filename}");
 
@@ -2089,7 +2018,7 @@ namespace Microsoft.Crank.Agent
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            var requireBuild = !reuseFolder || !job.Source.NoBuild;
+            var requireBuild = !reuseFolder || !job.NoBuild;
 
             if (!requireBuild)
             {
@@ -2097,18 +2026,18 @@ namespace Microsoft.Crank.Agent
             }
             else
             {
-                if (!string.IsNullOrEmpty(source.DockerLoad))
+                if (!string.IsNullOrEmpty(job.DockerLoad))
                 {
                     // The DockerLoad argument contains the path of a tar file that can be loaded
 
-                    Log.Info($"Loading docker image {source.DockerLoad} from {srcDir}");
+                    Log.Info($"Loading docker image {job.DockerLoad} from {path}");
 
-                    var dockerLoadArguments = $"load -i {source.DockerLoad} ";
+                    var dockerLoadArguments = $"load -i {job.DockerLoad} ";
 
                     job.BuildLog.AddLine("docker " + dockerLoadArguments);
 
                     await ProcessUtil.RunAsync("docker", dockerLoadArguments,
-                        workingDirectory: srcDir,
+                        workingDirectory: path,
                         cancellationToken: cancellationToken,
                         log: true,
                         outputDataReceived: job.BuildLog.AddLine
@@ -2119,14 +2048,14 @@ namespace Microsoft.Crank.Agent
                     var imageToRun = imageName;
                     string buildParameters = "";
 
-                    if (!string.IsNullOrWhiteSpace(source.DockerPull))
+                    if (!string.IsNullOrWhiteSpace(job.DockerPull))
                     {
-                        imageToRun = source.DockerPull;
+                        imageToRun = job.DockerPull;
 
-                        Log.Info($"Pulling docker image '{source.DockerPull}'");
+                        Log.Info($"Pulling docker image '{job.DockerPull}'");
 
-                        await ProcessUtil.RunAsync("docker", $"image pull {source.DockerPull}",
-                            workingDirectory: srcDir,
+                        await ProcessUtil.RunAsync("docker", $"image pull {job.DockerPull}",
+                            workingDirectory: path,
                             cancellationToken: cancellationToken,
                             log: true,
                             outputDataReceived: job.BuildLog.AddLine
@@ -2140,12 +2069,12 @@ namespace Microsoft.Crank.Agent
                             buildParameters += $"--build-arg {argument} ";
                         }
 
-                        var dockerBuildArguments = $"build --pull {buildParameters} -t {imageName} -f {source.DockerFile} {workingDirectory}";
+                        var dockerBuildArguments = $"build --pull {buildParameters} -t {imageName} -f {job.DockerFile} {workingDirectory}";
 
                         job.BuildLog.AddLine("docker " + dockerBuildArguments);
 
                         var buildResults = await ProcessUtil.RunAsync("docker", dockerBuildArguments,
-                            workingDirectory: srcDir,
+                            workingDirectory: path,
                             cancellationToken: cancellationToken,
                             log: true,
                             outputDataReceived: job.BuildLog.AddLine
@@ -2173,7 +2102,7 @@ namespace Microsoft.Crank.Agent
                     var dockerInspectArguments = $"inspect -f \"{{{{ .Size }}}}\" {imageToRun}";
 
                     var inspectResults = await ProcessUtil.RunAsync("docker", dockerInspectArguments,
-                        workingDirectory: srcDir,
+                        workingDirectory: path,
                         cancellationToken: cancellationToken,
                         captureOutput: true,
                         log: true,
@@ -2245,7 +2174,7 @@ namespace Microsoft.Crank.Agent
                 environmentArguments += $"--memory=\"{job.MemoryLimitInBytes}b\" ";
             }
 
-            var command = $"run -d {environmentArguments} {job.Arguments} --label benchmarks --name {containerName} --privileged --network host {imageName} {source.DockerCommand}";
+            var command = $"run -d {environmentArguments} {job.Arguments} --label benchmarks --name {containerName} --privileged --network host {imageName} {job.DockerCommand}";
 
             if (job.Collect && job.CollectStartup)
             {
@@ -2380,6 +2309,187 @@ namespace Microsoft.Crank.Agent
             return (containerId, imageName, workingDirectory);
         }
 
+        private static async Task<bool> RetrieveSourcesAsync(Job job, string path)
+        {
+            if (!string.IsNullOrEmpty(job.SourceKey) && (job.Sources.Count > 1 || !job.Sources.First().Value.SourceKey.Equals(job.SourceKey)))
+            {
+                var optionsDir = Path.Combine(_rootTempDir, "_options");
+                if (!Directory.Exists(optionsDir))
+                    Directory.CreateDirectory(optionsDir);
+
+                var optionsPath = Path.Combine(optionsDir, $"{job.SourceKey}.json");
+
+                if (File.Exists(optionsPath))
+                {
+                    var content = File.ReadAllText(optionsPath);
+                    var options = JsonConvert.DeserializeObject<Dictionary<string, Source>>(content);
+
+                    if (options.Count == job.Sources.Count)
+                    {
+                        bool allSourcesEqual = true;
+                        foreach ((var sourceName, var source) in job.Sources)
+                        {
+                            if (!options.TryGetValue(sourceName, out var optionsSource) || !AreSourcesEquivalent(source, optionsSource))
+                            {
+                                allSourcesEqual = false;
+                                Log.Info("[INFO] Ignoring existing source folder as it's not matching the request source settings");
+                                break;
+                            }
+                        }
+
+                        if (allSourcesEqual)
+                        {
+                            Log.Info($"Reusing source folder in {path}");
+                            return true;
+                        }
+                    }
+                }
+                else
+                {
+                    Log.Info($"Creating reuse options.json file");
+
+                    // First time using this folder
+                    File.WriteAllText(optionsPath, JsonConvert.SerializeObject(job.Sources));
+                }
+            }
+
+            foreach (var (sourceName, source) in job.Sources)
+            {
+                var destinationFolder = Path.Combine(path, source.DestinationFolder ?? sourceName);
+                await RetrieveSourceAsync(source, destinationFolder);
+            }
+
+            return false;
+        }
+
+        private static async Task RetrieveSourceAsync(Source source, string destinationFolder)
+        {
+            if (!Directory.Exists(destinationFolder))
+                Directory.CreateDirectory(destinationFolder);
+
+            string targetDir = destinationFolder;
+
+            if (!String.IsNullOrEmpty(source.SourceKey))
+            {
+                var sourceFolder = Path.Combine(_rootTempDir, source.SourceKey);
+
+                var optionsDir = Path.Combine(_rootTempDir, "_options");
+                if (!Directory.Exists(optionsDir))
+                    Directory.CreateDirectory(optionsDir);
+
+                // An options file stores information about what is currently stored inside the folder with the given source key
+                var optionsPath = Path.Combine(optionsDir, $"{source.SourceKey}.json");
+
+                if (File.Exists(optionsPath))
+                {
+                    var content = File.ReadAllText(optionsPath);
+                    var options = JsonConvert.DeserializeObject<Source>(content);
+
+                    if (!AreSourcesEquivalent(source, options))
+                    {
+                        Log.Info("[INFO] Ignoring existing source folder as it's not matching the request source settings");
+                    }
+                    else
+                    {
+                        CopyDirectory(sourceFolder, destinationFolder);
+                        return;
+                    }
+                }
+                else
+                {
+                    // First time using this folder
+                    File.WriteAllText(optionsPath, JsonConvert.SerializeObject(source));
+                    targetDir = sourceFolder;
+                }
+            }
+
+            if (source.SourceCode != null)
+            {
+                Log.Info($"Extracting source code to {targetDir}");
+
+                ZipFile.ExtractToDirectory(source.SourceCode.TempFilename, targetDir);
+
+                // Convert CRLF to LF on Linux
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                {
+                    Log.Info($"Converting text files ...");
+
+                    foreach (var file in Directory.GetFiles(targetDir + Path.DirectorySeparatorChar, "*.*", SearchOption.AllDirectories))
+                    {
+                        ConvertLines(file);
+                    }
+                }
+
+                File.Delete(source.SourceCode.TempFilename);
+            }
+            else if (!String.IsNullOrEmpty(source.Repository))
+            {
+                var branchAndCommit = source.BranchOrCommit.Split('#', 2);
+
+                await Git.CloneAsync(targetDir, source.Repository, shallow: branchAndCommit.Length == 1, branch: branchAndCommit[0], intoCurrentDir: true);
+
+                if (branchAndCommit.Length > 1)
+                {
+                    await Git.CheckoutAsync(targetDir, branchAndCommit[1]);
+                }
+
+                if (source.InitSubmodules)
+                {
+                    await Git.InitSubModulesAsync(targetDir);
+                }
+            }
+
+            if (!targetDir.Equals(destinationFolder))
+            {
+                CopyDirectory(targetDir, destinationFolder);
+            }
+        }
+
+        private static bool AreSourcesEquivalent(Source source, Source options)
+        {
+            return string.Equals(options.Repository, source.Repository) &&
+                string.Equals(options.BranchOrCommit, source.BranchOrCommit) &&
+                options.InitSubmodules == source.InitSubmodules &&
+                string.Equals(options.LocalFolder, source.LocalFolder);
+        }
+
+        // https://learn.microsoft.com/en-us/dotnet/standard/io/how-to-copy-directories
+        static void CopyDirectory(string sourceDir, string destinationDir, bool recursive = true)
+        {
+            if (string.Equals(sourceDir, destinationDir))
+                return;
+
+            // Get information about the source directory
+            var dir = new DirectoryInfo(sourceDir);
+
+            // Check if the source directory exists
+            if (!dir.Exists)
+                throw new DirectoryNotFoundException($"Source directory not found: {dir.FullName}");
+
+            // Cache directories before we start copying
+            DirectoryInfo[] dirs = dir.GetDirectories();
+
+            // Create the destination directory
+            Directory.CreateDirectory(destinationDir);
+
+            // Get the files in the source directory and copy to the destination directory
+            foreach (FileInfo file in dir.GetFiles())
+            {
+                string targetFilePath = Path.Combine(destinationDir, file.Name);
+                file.CopyTo(targetFilePath);
+            }
+
+            // If recursive and copying subdirectories, recursively call this method
+            if (recursive)
+            {
+                foreach (DirectoryInfo subDir in dirs)
+                {
+                    string newDestinationDir = Path.Combine(destinationDir, subDir.Name);
+                    CopyDirectory(subDir.FullName, newDestinationDir, true);
+                }
+            }
+        }
+
         private static void ParseMeasurementOutput(Job job, RollingLog standardOutput)
         {
 
@@ -2507,7 +2617,7 @@ namespace Microsoft.Crank.Agent
 
                     await ProcessUtil.RunAsync("docker", $"rm --force {containerId}", throwOnError: false);
 
-                    if (!String.IsNullOrEmpty(job.Source.SourceKey) && job.Source.NoBuild)
+                    if (!String.IsNullOrEmpty(job.SourceKey) && job.NoBuild)
                     {
                         Log.Info($"Keeping image {imageName}");
                     }
@@ -2538,149 +2648,37 @@ namespace Microsoft.Crank.Agent
 
         private static async Task<string> CloneRestoreAndBuild(string path, Job job, string dotnetHome, CancellationToken cancellationToken = default)
         {
-            // Clone
-            string benchmarkedDir = null;
-            var reuseFolder = false;
-
-            // Is the path a previously created source folder?
-            if (!String.IsNullOrEmpty(job.Source.SourceKey))
-            {
-                // Check the source options are the same (repos, branch, ...)
-                var optionsPath = Path.Combine(path, "options.json");
-
-                if (File.Exists(optionsPath))
-                {
-                    var content = File.ReadAllText(optionsPath);
-                    var options = JsonConvert.DeserializeObject<Source>(content);
-
-                    if (options.Project != job.Source.Project
-                    || options.Repository != job.Source.Repository
-                    || options.BranchOrCommit != job.Source.BranchOrCommit)
-                    {
-                        Log.Info("[INFO] Ignoring existing source folder as it's not matching the request source settings");
-                        reuseFolder = false;
-                    }
-                    else
-                    {
-                        reuseFolder = true;
-
-                        // benchmarkedDir can be "src" or a local git clone folder
-                        benchmarkedDir = new DirectoryInfo(Directory.GetDirectories(path).FirstOrDefault(x => !x.EndsWith("buildtools"))).Name;
-                    }
-                }
-                else
-                {
-                    // First time using this folder
-                    File.WriteAllText(optionsPath, JsonConvert.SerializeObject(job.Source));
-                    reuseFolder = false;
-                }
-            }
-
-            if (!reuseFolder)
-            {
-                if (job.Source.SourceCode != null)
-                {
-                    benchmarkedDir = "src";
-
-                    var src = Path.Combine(path, benchmarkedDir);
-                    var published = Path.Combine(src, "published");
-
-                    if (String.IsNullOrEmpty(job.Executable))
-                    {
-                        Log.Info($"Extracting files to {src}");
-                        ZipFile.ExtractToDirectory(job.Source.SourceCode.TempFilename, src);
-                    }
-                    else
-                    {
-                        Log.Info($"Extracting files to {published}");
-                        ZipFile.ExtractToDirectory(job.Source.SourceCode.TempFilename, published);
-                    }
-
-                    File.Delete(job.Source.SourceCode.TempFilename);
-                }
-                else
-                {
-                    // It's possible that the user specified a custom branch/commit for the benchmarks repo,
-                    // so we need to add that to the set of sources to restore if it's not already there.
-                    //
-                    // Note that this is also going to de-dupe the repos if the same one was specified twice at
-                    // the command-line (last first to support overrides).
-                    var repositories = new HashSet<Source>(SourceRepoComparer.Instance);
-
-                    repositories.Add(job.Source);
-
-                    foreach (var source in repositories)
-                    {
-                        if (cancellationToken.IsCancellationRequested)
-                        {
-                            return null;
-                        }
-
-                        if (string.IsNullOrEmpty(source.Repository))
-                        {
-                            benchmarkedDir = Path.Combine(path, Path.GetRandomFileName());
-                            Directory.CreateDirectory(benchmarkedDir);
-                        }
-                        else
-                        {
-                            var branchAndCommit = source.BranchOrCommit.Split('#', 2);
-
-                            var dir = await Git.CloneAsync(path, source.Repository, shallow: branchAndCommit.Length == 1, branch: branchAndCommit[0], cancellationToken);
-
-                            var srcDir = Path.Combine(path, dir);
-
-                            if (SourceRepoComparer.Instance.Equals(source, job.Source))
-                            {
-                                benchmarkedDir = dir;
-                            }
-
-                            if (branchAndCommit.Length > 1)
-                            {
-                                await Git.CheckoutAsync(srcDir, branchAndCommit[1], cancellationToken);
-                            }
-
-                            if (source.InitSubmodules)
-                            {
-                                await Git.InitSubModulesAsync(srcDir, cancellationToken);
-                            }
-                        }
-                    }
-                }
-            }
-
-            Debug.Assert(benchmarkedDir != null);
+            var reuseFolder = await RetrieveSourcesAsync(job, path);
 
             // Computes the location of the benchmarked app
-            var benchmarkedApp = Path.Combine(path, benchmarkedDir);
+            var benchmarkedApp = path;
 
-            if (!String.IsNullOrEmpty(job.Source.Project))
+            if (!String.IsNullOrEmpty(job.Project))
             {
-                benchmarkedApp = Path.Combine(benchmarkedApp, Path.GetDirectoryName(FormatPathSeparators(job.Source.Project)));
+                benchmarkedApp = Path.Combine(benchmarkedApp, Path.GetDirectoryName(FormatPathSeparators(job.Project)));
             }
 
             Log.Info($"Benchmarked Application in {benchmarkedApp}");
 
-            var commitHash = await Git.CommitHashAsync(benchmarkedApp, cancellationToken);
-
             // Skip installing dotnet or building project if not necessary
             var requireDotnetBuild =
-                !String.IsNullOrEmpty(job.Source.Project) ||
+                !String.IsNullOrEmpty(job.Project) ||
                 String.Equals("dotnet", job.Executable, StringComparison.OrdinalIgnoreCase)
             ;
 
             if (!requireDotnetBuild)
             {
                 Log.Info("Skipping build step, no required");
-                return benchmarkedDir;
+                return path;
             }
 
             // Skip installing dotnet or building project if already built and build is not requested
-            requireDotnetBuild = !reuseFolder || !job.Source.NoBuild;
+            requireDotnetBuild = !reuseFolder || !job.NoBuild;
 
             if (!requireDotnetBuild)
             {
                 Log.Info("Skipping build step, reusing previous build");
-                return benchmarkedDir;
+                return path;
             }
 
             var env = new Dictionary<string, string>
@@ -2714,7 +2712,7 @@ namespace Microsoft.Crank.Agent
 
             ConvertLegacyVersions(ref targetFramework, ref runtimeVersion, ref aspNetCoreVersion);
 
-            var projectFileName = Path.Combine(benchmarkedApp, Path.GetFileName(FormatPathSeparators(job.Source.Project)));
+            var projectFileName = Path.Combine(benchmarkedApp, Path.GetFileName(FormatPathSeparators(job.Project)));
 
             // If a specific framework is set, use it instead of the detected one
             if (!String.IsNullOrEmpty(job.Framework))
@@ -3182,13 +3180,13 @@ namespace Microsoft.Crank.Agent
                 File.Delete(attachment.TempFilename);
             }
 
-            var outputFolder = Path.Combine(benchmarkedApp);
+            var outputFolder = benchmarkedApp;
 
             if (String.IsNullOrEmpty(job.Executable))
             {
                 outputFolder = Path.Combine(benchmarkedApp, "published");
 
-                var projectName = Path.GetFileName(FormatPathSeparators(job.Source.Project));
+                var projectName = Path.GetFileName(FormatPathSeparators(job.Project));
 
                 var arguments = $"publish {projectName} -c Release -o {outputFolder} {buildParameters}";
 
@@ -3417,14 +3415,19 @@ namespace Microsoft.Crank.Agent
 
             if (job.CollectDependencies)
             {
-                job.Dependencies = GetDependencies(job, outputFolder, aspNetCoreVersion, runtimeVersion, commitHash);
+                // This stores the git commit hash for where the project file is located
+                string projectGitCommitHash = string.IsNullOrEmpty(job.Project) ?
+                    null
+                    : await Git.CommitHashAsync(benchmarkedApp, cancellationToken);
+
+                job.Dependencies = GetDependencies(job, outputFolder, aspNetCoreVersion, runtimeVersion, projectGitCommitHash);
 
                 job.Dependencies.AddRange(knownDependencies);
 
                 CreateDependenciesHash();
             }
 
-            return benchmarkedDir;
+            return path;
 
             void CreateDependenciesHash()
             {
@@ -3519,7 +3522,7 @@ namespace Microsoft.Crank.Agent
                 }
             }
 
-            return Path.GetFileNameWithoutExtension(FormatPathSeparators(job.Source.Project));
+            return Path.GetFileNameWithoutExtension(FormatPathSeparators(job.Project));
         }
         private static string ResolveProjectTFM(Job job, string projectFileName, string targetFramework)
         {
@@ -3906,8 +3909,8 @@ namespace Microsoft.Crank.Agent
 
                         if (informationalVersionAttribute != null)
                         {
-                            var argumentValule = informationalVersionAttribute.ConstructorArguments[0].Value.ToString();
-                            var versions = argumentValule.Split('+', 2, StringSplitOptions.RemoveEmptyEntries);
+                            var argumentValue = informationalVersionAttribute.ConstructorArguments[0].Value.ToString();
+                            var versions = argumentValue.Split('+', 2, StringSplitOptions.RemoveEmptyEntries);
 
                             dependency.Version = versions[0];
 
@@ -3982,18 +3985,6 @@ namespace Microsoft.Crank.Agent
                 {
                     projectDependency.CommitHash = projectHash;
                 }
-
-                if (!String.IsNullOrEmpty(job.Source.Repository))
-                {
-                    projectDependency.RepositoryUrl = job.Source.Repository;
-
-                    // Remove trailing .git from repository url
-                    if (projectDependency.RepositoryUrl.EndsWith(".git", StringComparison.OrdinalIgnoreCase)
-                        && projectDependency.RepositoryUrl.Contains("github.com", StringComparison.OrdinalIgnoreCase))
-                    {
-                        projectDependency.RepositoryUrl = projectDependency.RepositoryUrl[0..^4];
-                    }
-                }
             }
 
             // Group by repository/hash/hash, then reduce names
@@ -4014,7 +4005,7 @@ namespace Microsoft.Crank.Agent
 
             bool IsProjectAssembly(Dependency d)
             {
-                return d.Names.Any(x => Path.GetFileNameWithoutExtension(x) == Path.GetFileNameWithoutExtension(job.Source.Project ?? ""));
+                return d.Names.Any(x => Path.GetFileNameWithoutExtension(x) == Path.GetFileNameWithoutExtension(job.Project ?? ""));
             }
 
             bool IsAspNetCoreDependency(Dependency d)
@@ -4524,8 +4515,8 @@ namespace Microsoft.Crank.Agent
 
         private static async Task<Process> StartProcess(string hostname, string benchmarksRepo, Job job, string dotnetHome, JobContext context)
         {
-            var workingDirectory = !String.IsNullOrEmpty(job.Source.Project)
-                ? Path.Combine(benchmarksRepo, Path.GetDirectoryName(FormatPathSeparators(job.Source.Project)))
+            var workingDirectory = !String.IsNullOrEmpty(job.Project)
+                ? Path.Combine(benchmarksRepo, Path.GetDirectoryName(FormatPathSeparators(job.Project)))
                 : benchmarksRepo
                 ;
 
@@ -4533,7 +4524,7 @@ namespace Microsoft.Crank.Agent
             var serverUrl = $"{scheme}://{hostname}:{job.Port}";
             var executable = GetDotNetExecutable(dotnetHome);
 
-            var projectFileName = Path.Combine(benchmarksRepo, FormatPathSeparators(job.Source.Project));
+            var projectFileName = Path.Combine(benchmarksRepo, FormatPathSeparators(job.Project));
             var assemblyName = GetAssemblyName(job, projectFileName);
 
             var benchmarksDll = !String.IsNullOrEmpty(assemblyName)
@@ -5204,7 +5195,7 @@ namespace Microsoft.Crank.Agent
             await context.CountersTask;
 
             // The event pipe session needs to be disposed after the source is interrupted
-            context.EventPipeSession.Dispose();
+            context.EventPipeSession?.Dispose();
             context.EventPipeSession = null;
 
             Log.Info($"Event pipes terminated ({job.Service}:{job.Id})");

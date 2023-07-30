@@ -399,18 +399,21 @@ namespace Microsoft.Crank.Agent.Controllers
         [HttpPost("{id}/source")]
         [RequestSizeLimit(10_000_000_000)]
         [RequestFormLimits(MultipartBodyLengthLimit = 10_000_000_000)]
-        public async Task<IActionResult> UploadSource(int id)
+        public async Task<IActionResult> UploadSource(int id, string sourceName = Source.DefaultSource)
         {
             var destinationFilename = Request.Headers["destinationFilename"].ToString();
 
             Log.Info($"Uploading source code");
 
             var job = _jobs.Find(id);
-            var tempFilename = Path.GetTempFileName();
 
+            if (!job.Sources.TryGetValue(sourceName, out var source))
+                return NotFound("Source does not exist on job");
+
+            var tempFilename = Path.GetTempFileName();
             await SaveBodyAsync(tempFilename);
 
-            job.Source.SourceCode = new Attachment
+            source.SourceCode = new Attachment
             {
                 TempFilename = tempFilename,
                 Filename = destinationFilename,
@@ -600,7 +603,7 @@ namespace Microsoft.Crank.Agent.Controllers
 
                 Log.Info($"Driver fetching published application '{id}'");
 
-                if (String.IsNullOrEmpty(job.Source.DockerFile))
+                if (String.IsNullOrEmpty(job.DockerFile))
                 {
                     var zipPath = Path.Combine(Directory.GetParent(job.BasePath).FullName, "published.zip");
                     ZipFile.CreateFromDirectory(job.BasePath, zipPath);
@@ -616,15 +619,15 @@ namespace Microsoft.Crank.Agent.Controllers
                     {
                         // docker cp mycontainer:/src/. target
 
-                        if (String.IsNullOrEmpty(job.Source.DockerFetchPath))
+                        if (String.IsNullOrEmpty(job.DockerFetchPath))
                         {
                             return BadRequest("The Docker fetch path was not provided in the job");
                         }
 
-                        var sourceFolder = Path.Combine(job.Source.DockerFetchPath, ".");
+                        var sourceFolder = Path.Combine(job.DockerFetchPath, ".");
 
                         // Delete container if the same name already exists
-                        await ProcessUtil.RunAsync("docker", $"cp {job.Source.GetNormalizedImageName()}:{sourceFolder} {tempDirectory}", throwOnError: false);
+                        await ProcessUtil.RunAsync("docker", $"cp {job.GetNormalizedImageName()}:{sourceFolder} {tempDirectory}", throwOnError: false);
 
                         var zipPath = Path.Combine(Directory.GetParent(job.BasePath).FullName, "fetch.zip");
                         ZipFile.CreateFromDirectory(tempDirectory, zipPath);
@@ -659,7 +662,7 @@ namespace Microsoft.Crank.Agent.Controllers
                 var rootPath = Directory.GetParent(job.BasePath).FullName;
 
                 // Assume ~/ means relative to the project, otherwise it's relative to the application folder (job.BasePath)
-                var isRelativeToProject = String.IsNullOrEmpty(job.Source.DockerFile) && (path.StartsWith("~/") || path.StartsWith("~\\"));
+                var isRelativeToProject = String.IsNullOrEmpty(job.DockerFile) && (path.StartsWith("~/") || path.StartsWith("~\\"));
                 
                 if (isRelativeToProject)
                 {
@@ -678,7 +681,7 @@ namespace Microsoft.Crank.Agent.Controllers
                     return BadRequest("Attempts to access a path outside of the job.");
                 }
 
-                if (String.IsNullOrEmpty(job.Source.DockerFile))
+                if (String.IsNullOrEmpty(job.DockerFile))
                 {
                     if (!System.IO.File.Exists(fullPath))
                     {
@@ -701,7 +704,7 @@ namespace Microsoft.Crank.Agent.Controllers
                         var destinationFilename = Path.Combine(tempDirectory, Path.GetFileName(path));
 
                         // Delete container if the same name already exists
-                        var result = await ProcessUtil.RunAsync("docker", $"cp {job.Source.GetNormalizedImageName()}:{path} {destinationFilename}", throwOnError: false, log: true);
+                        var result = await ProcessUtil.RunAsync("docker", $"cp {job.GetNormalizedImageName()}:{path} {destinationFilename}", throwOnError: false, log: true);
 
                         return new GZipFileResult(destinationFilename);
                     }
@@ -733,7 +736,7 @@ namespace Microsoft.Crank.Agent.Controllers
                 var rootPath = Directory.GetParent(job.BasePath).FullName;
 
                 // Assume ~/ means relative to the project, otherwise it's relative to the application folder (job.BasePath)
-                var isRelativeToProject = String.IsNullOrEmpty(job.Source.DockerFile) && (path.StartsWith("~/") || path.StartsWith("~\\"));
+                var isRelativeToProject = String.IsNullOrEmpty(job.DockerFile) && (path.StartsWith("~/") || path.StartsWith("~\\"));
 
                 if (isRelativeToProject)
                 {
