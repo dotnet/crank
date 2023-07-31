@@ -2,5 +2,6 @@
   <PropertyGroup Label="Package Versions">
     <JsonNetVersion>13.0.1</JsonNetVersion>
     <OctokitVersion>5.0.4</OctokitVersion>
+    <MicrosoftDataSqlClientVersion>5.1.0</MicrosoftDataSqlClientVersion>
   </PropertyGroup>
 </Project>
