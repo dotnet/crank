@@ -23,7 +23,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             Failed
         }
 
-        private static readonly HttpClient _httpClient = new HttpClient();
+        private static readonly HttpClient _httpClient = new HttpClient(new RetryHandler(new HttpClientHandler()));
 
         public string PlanUrl { get; set; }
         public string ProjectId { get; set; }
