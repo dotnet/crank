@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using System;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,13 +22,18 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             CancellationToken cancellationToken)
         {
             HttpResponseMessage response = null;
-            for (int i = 0; i < MaxRetries; i++)
+            for (var i = 0; i < MaxRetries; i++)
             {
                 response = await base.SendAsync(request, cancellationToken);
                 if (response.IsSuccessStatusCode)
                 {
                     return response;
                 }
+
+                Console.WriteLine($"Request failed ({response.StatusCode}), retrying...");
+
+                // Wait 1 second before retrying
+                await Task.Delay(1000, cancellationToken);
             }
 
             return response;
