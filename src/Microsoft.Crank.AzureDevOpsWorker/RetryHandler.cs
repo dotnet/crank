@@ -32,6 +32,8 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
                 Console.WriteLine($"Request failed ({response.StatusCode}), retrying...");
 
+                response.Dispose();
+
                 // Wait 1 second before retrying
                 await Task.Delay(1000, cancellationToken);
             }
