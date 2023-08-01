@@ -24,6 +24,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
         public string Name { get; set; }
         public string[] Args { get; set; }
+        public int Retries { get; set; } = 0;
 
         // A JavaScript condition that must evaluate to true. "job" 
         public string Condition { get; set; }
