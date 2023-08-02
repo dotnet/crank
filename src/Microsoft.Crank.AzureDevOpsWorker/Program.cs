@@ -181,12 +181,18 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                         // Pump application standard output while it's running
                         while (driverJob.IsRunning)
                         {
+                            var logs = driverJob.FlushStandardOutput().ToList();
+
+                            // Has the job run for too long?
                             if ((DateTime.UtcNow - driverJob.StartTimeUtc) > jobPayload.Timeout)
                             {
-                                throw new Exception($"{LogNow} Job timed out ({jobPayload.Timeout}). The timeout can be increased in the queued message.");
-                            }
+                                var timeoutMessage = $"{LogNow} Job timed out ({jobPayload.Timeout}). The timeout can be increased in the payload message.";
 
-                            var logs = driverJob.FlushStandardOutput().ToArray();
+                                Console.WriteLine(timeoutMessage);
+                                logs.Add(timeoutMessage);
+
+                                driverJob.Stop();
+                            }
 
                             // Send any page of logs to the AzDo task log feed
                             if (logs.Any())
@@ -198,8 +204,6 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                                     Console.ForegroundColor = ConsoleColor.DarkYellow;
                                     Console.WriteLine($"{LogNow} SendTaskLogFeedsAsync failed. If the task was canceled, this jobs should be stopped.");
                                     Console.ResetColor();
-
-                                    driverJob.Stop();
                                 }
                             }
 
@@ -217,8 +221,10 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
                                 driverJob.Stop();
                             }
-
-                            await Task.Delay(TaskLogFeedDelay);
+                            else
+                            {
+                                await Task.Delay(TaskLogFeedDelay);
+                            }
                         }
 
                         retries++;
