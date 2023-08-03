@@ -14,6 +14,7 @@ Options:
   --scenario <scenario>                                          Scenario to execute.
   --profile <profile>                                            Profiles to apply. Can be used multiple times.
   --variable <key=value>                                         A global variable. can be used multiple times.
+  --variable-json <key=value>                                    A global typed variable. can be used multiple times.
   --compare <filename>                                           An optional filename to compare the results to. Can be used multiple times.
   
   --session                                                      A logical identifier to group related jobs.

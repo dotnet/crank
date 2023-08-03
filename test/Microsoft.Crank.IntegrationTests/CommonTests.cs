@@ -346,6 +346,31 @@ namespace Microsoft.Crank.IntegrationTests
             Assert.True(job.Variables.ContainsKey("connections"));
         }
 
+        [Fact]
+        public async Task TypedVariableShouldSucced()
+        {
+            _output.WriteLine($"[TEST] Starting controller");
+
+            var result = await ProcessUtil.RunAsync(
+                "dotnet",
+                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --variable warmup=2 --variable-json \"customHeaders=['accept-encoding:deflate','x-header:demo']\" --variable-json \"duration=2\"",
+                workingDirectory: _crankTestsDirectory,
+                captureOutput: true,
+                timeout: DefaultTimeOut,
+                throwOnError: false,
+                outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); }
+            );
+
+            Assert.Equal(0, result.ExitCode);
+
+            var agentLog = _agent.FlushOutput();
+
+            Assert.Contains("-w 2", agentLog);
+            Assert.Contains("-d 2", agentLog);
+            Assert.Contains("--header \"accept-encoding: deflate\"", agentLog);
+            Assert.Contains("--header \"x-header: demo\"", agentLog);
+        }
+
         public void Dispose()
         {
             _output.WriteLine(_agent.FlushOutput());

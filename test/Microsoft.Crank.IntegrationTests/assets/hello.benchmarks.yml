@@ -21,7 +21,8 @@ jobs:
       serverScheme: http
       serverAddress: localhost
       serverPort: 5000
-    arguments: "-c {{connections}} -w {{warmup}} -d {{duration}} -n {{requests}} --insecure -l {% if rate != 0 %} --rate {{ rate }} {% endif %} {% if transport %} --{{ transport}} {% endif %} {{headers[presetHeaders]}} {{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}"
+      customHeaders: [ ] # list of headers with the format: '<name1>: <value1>', e.g. [ 'content-type: application/json' ]
+    arguments: "-c {{connections}} -w {{warmup}} -d {{duration}} -n {{requests}} --insecure -l {% if rate != 0 %} --rate {{ rate }} {% endif %} {% if transport %} --{{ transport}} {% endif %} {{headers[presetHeaders]}} {% for h in customHeaders %}{% assign s = h | split : ':' %}--header \"{{ s[0] }}: {{ s[1] | strip }}\" {% endfor %} {{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}"
 
 scenarios:
   hello:
