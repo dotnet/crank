@@ -83,6 +83,9 @@ namespace Microsoft.Crank.Controller
             _commandLinePropertyOption
             ;
 
+        private static CommandOption<ValueTuple<string, JToken>>
+            _variableJsonOption;
+
         // The dynamic arguments that will alter the configurations
         private static readonly List<KeyValuePair<string, string>> Arguments = new List<KeyValuePair<string, string>>();
 
@@ -147,6 +150,7 @@ namespace Microsoft.Crank.Controller
                 OptionsComparison = StringComparison.OrdinalIgnoreCase,
             };
 
+            app.ValueParsers.Add(new VariableParser());
             app.HelpOption("-?|-h|--help", true);
 
             _configOption = app.Option("-c|--config", "Configuration file or url.", CommandOptionType.MultipleValue);
@@ -158,6 +162,7 @@ namespace Microsoft.Crank.Controller
             _csvOption = app.Option("--csv", "Saves the results as csv in the specified file.", CommandOptionType.SingleValue);
             _compareOption = app.Option("--compare", "An optional filename to compare the results to. Can be used multiple times.", CommandOptionType.MultipleValue);
             _variableOption = app.Option("--variable", "Variable", CommandOptionType.MultipleValue);
+            _variableJsonOption = app.Option<ValueTuple<string, JToken>>("--variable-json", "Typed Variable", CommandOptionType.MultipleValue);
             _sqlConnectionStringOption = app.Option("--sql",
                 "Connection string or environment variable name of the SQL Server Database to store results in.", CommandOptionType.SingleValue);
             _sqlTableOption = app.Option("--table",
@@ -504,6 +509,14 @@ namespace Microsoft.Crank.Controller
                     else
                     {
                         variables[segments[0]] = segments[1];
+                    }
+                }
+
+                if (_variableJsonOption.HasValue())
+                {
+                    foreach (var variable in _variableJsonOption.ParsedValues)
+                    {
+                        variables[variable.Item1] = variable.Item2;
                     }
                 }
 
