@@ -20,13 +20,12 @@ namespace Microsoft.Crank.Controller
                 return default(ValueTuple<string, JToken>);
             }
 
-            var fragments = value!.Split('=');
+            var fragments = value!.Split('=', 2);
 
+            var variableKey = fragments[0].Trim();
+            
             try
             {
-                // variable key
-                var variableKey = fragments[0].Trim();
-
                 // variable value, a json format value, such as json object, array, number, etc.
                 var variableValue = JToken.Parse(fragments[1].Trim());
 
@@ -35,7 +34,7 @@ namespace Microsoft.Crank.Controller
             catch (Exception ex)
             {
                 throw new FormatException(
-                $"Invalid {argName} argument: '{value}', format is \"[NAME]=[VALUE]\"",
+                $"Invalid {argName} argument: '{variableKey}' is not a valid JSON value.",
                 ex);
             }
         }
