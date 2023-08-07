@@ -161,10 +161,13 @@ namespace Microsoft.Crank.RegressionBot
                 {
                     var configuration = await LoadConfigurationAsync(configurationFilenameOrUrl);
                     sources.AddRange(configuration.Sources);
-                    
-                    foreach (var template in configuration.Templates)
+
+                    if (configuration.Templates != null)
                     {
-                        templates[template.Key] = template.Value;
+                        foreach (var template in configuration.Templates)
+                        {
+                            templates[template.Key] = template.Value;
+                        }
                     }
                 }
                 catch (RegressionBotException e)
@@ -198,7 +201,7 @@ namespace Microsoft.Crank.RegressionBot
 
             Console.WriteLine("Looking for regressions...");
 
-            foreach (var s in sources)
+            foreach (var s in sources ?? Enumerable.Empty<Source>())
             {
                 if (!String.IsNullOrEmpty(s.Name))
                 {
@@ -603,7 +606,7 @@ namespace Microsoft.Crank.RegressionBot
                 // Resolve path for the metric
                 var results = resultsByScenario[descriptor];
 
-                foreach (var probe in source.Regressions.Probes)
+                foreach (var probe in source.Regressions.Probes ?? Enumerable.Empty<Probe>())
                 {
                     if (_options.Verbose)
                     {
@@ -765,23 +768,23 @@ namespace Microsoft.Crank.RegressionBot
 
                             foreach (var rule in rules)
                             {
-                                foreach (var label in rule.Labels)
+                                foreach (var label in rule.Labels ?? Enumerable.Empty<string>())
                                 {
                                     regression.Labels.Add(label);
                                 }
 
-                                foreach(var owner in rule.Owners)
+                                foreach(var owner in rule.Owners ?? Enumerable.Empty<string>())
                                 {
                                     regression.Owners.Add(owner);
                                 }
                             }
 
-                            foreach (var label in source.Regressions.Labels)
+                            foreach (var label in source.Regressions.Labels ?? Enumerable.Empty<string>())
                             {
                                 regression.Labels.Add(label);
                             }
 
-                            foreach(var owner in source.Regressions.Owners)
+                            foreach(var owner in source.Regressions.Owners ?? Enumerable.Empty<string>())
                             {
                                 regression.Owners.Add(owner);
                             }
@@ -941,23 +944,23 @@ namespace Microsoft.Crank.RegressionBot
 
                             foreach (var rule in rules)
                             {
-                                foreach (var label in rule.Labels)
+                                foreach (var label in rule.Labels ?? Enumerable.Empty<string>())
                                 {
                                     regression.Labels.Add(label);
                                 }
 
-                                foreach (var owner in rule.Owners)
+                                foreach (var owner in rule.Owners ?? Enumerable.Empty<string>())
                                 {
                                     regression.Owners.Add(owner);
                                 }
                             }
 
-                            foreach (var label in source.Regressions.Labels)
+                            foreach (var label in source.Regressions.Labels ?? Enumerable.Empty<string>())
                             {
                                 regression.Labels.Add(label);
                             }
 
-                            foreach (var owner in source.Regressions.Owners)
+                            foreach (var owner in source.Regressions.Owners ?? Enumerable.Empty<string>())
                             {
                                 regression.Owners.Add(owner);
                             }
@@ -1139,7 +1142,7 @@ namespace Microsoft.Crank.RegressionBot
 
             foreach (var regression in regressions)
             {
-                foreach (var label in regression.Labels)
+                foreach (var label in regression.Labels ?? Enumerable.Empty<string>())
                 {
                     if (!String.IsNullOrWhiteSpace(label))
                     {
