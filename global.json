@@ -1,13 +1,6 @@
 {
   "tools": {
-    "dotnet": "7.0.306",
-    "runtimes": {
-      "dotnet": [
-        "7.0.9"
-      ],
-      "aspnetcore": [
-        "7.0.9"
-      ]
+    "dotnet": "7.0.306"
     }
   },
   "msbuild-sdks": {
