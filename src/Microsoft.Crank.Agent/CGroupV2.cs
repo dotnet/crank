@@ -11,7 +11,7 @@ namespace Microsoft.Crank.Agent
 {
     internal class CGroupV2 : CGroup
     {
-        public override async Task Set(Job job)
+        public override async Task SetAsync(Job job)
         {
             var controller = GetCGroupController(job);
 

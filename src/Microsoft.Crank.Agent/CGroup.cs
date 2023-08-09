@@ -28,9 +28,9 @@ namespace Microsoft.Crank.Agent
             return isV2 ? new CGroupV2() : new CGroupV1();
         }
 
-        public abstract async Task SetAsync(Job job);
+        public abstract Task SetAsync(Job job);
 
-        public abstract async Task<string> GetCpuStatAsync(Job job);
+        public abstract Task<string> GetCpuStatAsync(Job job);
 
         public virtual async Task DeleteAsync(Job job)
         {
