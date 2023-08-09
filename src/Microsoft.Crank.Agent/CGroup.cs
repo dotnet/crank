@@ -51,7 +51,7 @@ namespace Microsoft.Crank.Agent
                 return (null, null);
             }
 
-            await SetAsync(controller, job);
+            await SetAsync(job);
 
             return ("cgexec", $"-g memory,cpu,cpuset:{controller}");
         }
