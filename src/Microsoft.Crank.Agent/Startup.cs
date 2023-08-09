@@ -144,6 +144,7 @@ namespace Microsoft.Crank.Agent
         public static TimeSpan CollectTimeout = TimeSpan.FromMinutes(5);
         public static CancellationTokenSource _processJobsCts;
         public static Task _processJobsTask;
+        public static CGroup CGroupVersion { get; private set; }
 
         private static string _startPerfviewArguments;
 
@@ -1507,7 +1508,10 @@ namespace Microsoft.Crank.Agent
                                 // Delete the benchmarks group
                                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && (job.MemoryLimitInBytes > 0 || job.CpuLimitRatio > 0 || !String.IsNullOrEmpty(job.CpuSet)))
                                 {
-                                    var controller = CGroupUtil.GetCGroupController(job);
+                                    if (CGroupVersion == null)
+                                    {
+                                        CGroupVersion = await CGroup.GetCGroupVersionAsync();
+                                    }
 
                                     // Read cpu throttling stats
 
@@ -1520,12 +1524,12 @@ namespace Microsoft.Crank.Agent
                                     }
                                     else
                                     {
-                                        cpuStats = await CGroupUtil.GetCpuStat(controller);
+                                        cpuStats = await CGroupVersion.GetCpuStatAsync(job);
                                     }
 
                                     MeasureCpuStats(cpuStats, job);
 
-                                    await CGroupUtil.Delete(controller);
+                                    await CGroupVersion.DeleteAsync(job);
                                 }
 
                                 StopCounters();
@@ -2162,7 +2166,7 @@ namespace Microsoft.Crank.Agent
 
             if (job.CpuLimitRatio > 0)
             {
-                environmentArguments += $"--cpu-quota=\"{Math.Floor(job.CpuLimitRatio * CGroupUtil.DefaultDockerCfsPeriod)}\" ";
+                environmentArguments += $"--cpu-quota=\"{Math.Floor(job.CpuLimitRatio * CGroup.DefaultDockerCfsPeriod)}\" ";
             }
 
             if (job.MemoryLimitInBytes > 0)
@@ -4596,7 +4600,12 @@ namespace Microsoft.Crank.Agent
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && (job.MemoryLimitInBytes > 0 || job.CpuLimitRatio > 0 || !String.IsNullOrEmpty(job.CpuSet)))
             {
-                var (cgExec, cgArg) = await CGroupUtil.InitAndGetCGroupCmd(job);
+                if (CGroupVersion == null)
+                {
+                    CGroupVersion = await CGroup.GetCGroupVersionAsync();
+                }
+
+                var (cgExec, cgArg) = await CGroupVersion.CreateAsync(job);
 
                 commandLine = $"{cgArg} {executable} {commandLine}";
                 executable = cgExec;
@@ -4818,12 +4827,6 @@ namespace Microsoft.Crank.Agent
             }
 
             return result;
-        }
-
-        private static string GetCGroupController(Job job)
-        {
-            // Create a unique cgroup controller per agent
-            return $"benchmarks-{Environment.ProcessId}-{job.Id}";
         }
 
         private static async Task StartCountersAsync(Job job, JobContext context)
