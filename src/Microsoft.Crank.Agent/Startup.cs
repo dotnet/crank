@@ -120,9 +120,6 @@ namespace Microsoft.Crank.Agent
         private static string _perfviewPath;
         private static string _dotnetInstallPath;
 
-        // https://docs.docker.com/config/containers/resource_constraints/
-        private const double _defaultDockerCfsPeriod = 100000;
-
         private static readonly IJobRepository _jobs = new InMemoryJobRepository();
         private static string _rootTempDir;
 
@@ -1510,7 +1507,7 @@ namespace Microsoft.Crank.Agent
                                 // Delete the benchmarks group
                                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && (job.MemoryLimitInBytes > 0 || job.CpuLimitRatio > 0 || !String.IsNullOrEmpty(job.CpuSet)))
                                 {
-                                    var controller = GetCGroupController(job);
+                                    var controller = CGroupUtil.GetCGroupController(job);
 
                                     // Read cpu throttling stats
 
@@ -1523,13 +1520,12 @@ namespace Microsoft.Crank.Agent
                                     }
                                     else
                                     {
-                                        var result = await ProcessUtil.RunAsync("cat", $"/sys/fs/cgroup/cpu/{controller}/cpu.stat", throwOnError: false, captureOutput: true);
-                                        cpuStats = result.StandardOutput;
+                                        cpuStats = await CGroupUtil.GetCpuStat(controller);
                                     }
 
                                     MeasureCpuStats(cpuStats, job);
 
-                                    await ProcessUtil.RunAsync("cgdelete", $"cpu,memory,cpuset:{controller}", log: true, throwOnError: false);
+                                    await CGroupUtil.Delete(controller);
                                 }
 
                                 StopCounters();
@@ -2166,7 +2162,7 @@ namespace Microsoft.Crank.Agent
 
             if (job.CpuLimitRatio > 0)
             {
-                environmentArguments += $"--cpu-quota=\"{Math.Floor(job.CpuLimitRatio * _defaultDockerCfsPeriod)}\" ";
+                environmentArguments += $"--cpu-quota=\"{Math.Floor(job.CpuLimitRatio * CGroupUtil.DefaultDockerCfsPeriod)}\" ";
             }
 
             if (job.MemoryLimitInBytes > 0)
@@ -4600,56 +4596,10 @@ namespace Microsoft.Crank.Agent
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && (job.MemoryLimitInBytes > 0 || job.CpuLimitRatio > 0 || !String.IsNullOrEmpty(job.CpuSet)))
             {
-                var controller = GetCGroupController(job);
+                var (cgExec, cgArg) = await CGroupUtil.InitAndGetCGroupCmd(job);
 
-                var cgcreate = await ProcessUtil.RunAsync("cgcreate", $"-g memory,cpu,cpuset:{controller}", log: true);
-
-                if (cgcreate.ExitCode > 0)
-                {
-                    job.Error += "Could not create cgroup";
-                    return null;
-                }
-
-                if (job.MemoryLimitInBytes > 0)
-                {
-                    await ProcessUtil.RunAsync("cgset", $"-r memory.limit_in_bytes={job.MemoryLimitInBytes} {controller}", log: true);
-                }
-                else
-                {
-                    await ProcessUtil.RunAsync("cgset", $"-r memory.limit_in_bytes=-1 {controller}", log: true);
-                }
-
-                if (job.CpuLimitRatio > 0)
-                {
-                    // Ensure the cfs_period_us is the same as what docker would use
-                    await ProcessUtil.RunAsync("cgset", $"-r cpu.cfs_period_us={_defaultDockerCfsPeriod} {controller}", log: true);
-                    await ProcessUtil.RunAsync("cgset", $"-r cpu.cfs_quota_us={Math.Floor(job.CpuLimitRatio * _defaultDockerCfsPeriod)} {controller}", log: true);
-                }
-                else
-                {
-                    await ProcessUtil.RunAsync("cgset", $"-r cpu.cfs_quota_us=-1 {controller}", log: true);
-                }
-
-
-                if (!String.IsNullOrEmpty(job.CpuSet))
-                {
-
-                    await ProcessUtil.RunAsync("cgset", $"-r cpuset.cpus={job.CpuSet} {controller}", log: true);
-                }
-                else
-                {
-                    await ProcessUtil.RunAsync("cgset", $"-r cpuset.cpus=0-{Environment.ProcessorCount - 1} {controller}", log: true);
-                }
-
-                // The cpuset.mems value for the 'benchmarks' controller needs to match the root one
-                // to be compatible with the allowed nodes
-                var memsRoot = File.ReadAllText("/sys/fs/cgroup/cpuset/cpuset.mems");
-
-                // Both cpus and mems need to be initialized
-                await ProcessUtil.RunAsync("cgset", $"-r cpuset.mems={memsRoot} {controller}", log: true);
-
-                commandLine = $"-g memory,cpu,cpuset:{controller} {executable} {commandLine}";
-                executable = "cgexec";
+                commandLine = $"{cgArg} {executable} {commandLine}";
+                executable = cgExec;
             }
 
             Log.Info($"Invoking executable: {executable}");
