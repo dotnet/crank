@@ -33,6 +33,10 @@ counters:
     measurement: runtime-counter/gen-2-gc-count
     description: Number of Gen 2 GCs / sec
 
+  - name: gen-0-gc-budget
+    measurement: runtime-counter/gen-0-gc-budget
+    description: Gen 0 GC Budget (MB)
+
   - name: time-in-gc
     measurement: runtime-counter/time-in-gc
     description: '% time in GC since the last GC'
@@ -365,6 +369,13 @@ results: # creates results from measurements
   measurement: runtime-counter/gen-2-gc-count
   description: Max Number of Gen 2 GCs / sec
   format: n2
+  aggregate: max
+  reduce: max
+
+- name: runtime-counter/gen-0-gc-budget
+  measurement: runtime-counter/gen-0-gc-budget
+  description: Max Gen 0 GC Budget (MB)
+  format: n0
   aggregate: max
   reduce: max
 
