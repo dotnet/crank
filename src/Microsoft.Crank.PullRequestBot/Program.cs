@@ -274,6 +274,10 @@ namespace Microsoft.Crank.PullRequestBot
 
                         Console.WriteLine($"Results published at {issueComment.HtmlUrl}");
                     }
+                    else
+                    {
+                        Console.WriteLine("Skipping publishing results.");
+                    }
                 }
                 catch (Exception ex)
                 {
