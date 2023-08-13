@@ -206,18 +206,21 @@ namespace Microsoft.Crank.Controller
             {
                 foreach (var benchmark in benchmarks)
                 {
-                    summaries[benchmark.FullName].Add(new BenchmarkSummary()
+                    if (summaries.TryGetValue(benchmark.FullName, out var summary))
                     {
-                        Name = benchmark.FullName,
-                        MeanNanoseconds = benchmark.Statistics.Mean,
-                        StandardErrorNanoseconds = benchmark.Statistics.StandardError,
-                        StandardDeviationNanoseconds = benchmark.Statistics.StandardDeviation,
-                        MedianNanoseconds = benchmark.Statistics.Median,
-                        Gen0 = benchmark.Memory?.Gen0Collections ?? 0,
-                        Gen1 = benchmark.Memory?.Gen1Collections ?? 0,
-                        Gen2 = benchmark.Memory?.Gen2Collections ?? 0,
-                        AllocatedBytes = benchmark.Memory?.BytesAllocatedPerOperation ?? 0
-                    });
+                        summary.Add(new BenchmarkSummary()
+                        {
+                            Name = benchmark.FullName,
+                            MeanNanoseconds = benchmark.Statistics.Mean,
+                            StandardErrorNanoseconds = benchmark.Statistics.StandardError,
+                            StandardDeviationNanoseconds = benchmark.Statistics.StandardDeviation,
+                            MedianNanoseconds = benchmark.Statistics.Median,
+                            Gen0 = benchmark.Memory?.Gen0Collections ?? 0,
+                            Gen1 = benchmark.Memory?.Gen1Collections ?? 0,
+                            Gen2 = benchmark.Memory?.Gen2Collections ?? 0,
+                            AllocatedBytes = benchmark.Memory?.BytesAllocatedPerOperation ?? 0
+                        });
+                    }
                 }
             }
 
