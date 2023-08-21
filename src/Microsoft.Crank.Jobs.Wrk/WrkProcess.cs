@@ -19,6 +19,7 @@ namespace Microsoft.Crank.Wrk
     static class WrkProcess
     {
         private static string _wrkFilename;
+        private static string _wrkUrl;
         const string WrkLinuxAmd64 = "https://aspnetbenchmarks.blob.core.windows.net/tools/wrk-linux-amd64";
         const string WrkLinuxArm64 =  "https://aspnetbenchmarks.blob.core.windows.net/tools/wrk-linux-arm64";
 
@@ -100,20 +101,22 @@ namespace Microsoft.Crank.Wrk
             if (RuntimeInformation.ProcessArchitecture == Architecture.X64)
             {
                 _wrkFilename = Path.Combine(Path.GetTempPath(), ".crank", Path.GetFileName(WrkLinuxAmd64));
+                _wrkUrl = WrkLinuxAmd64;
             }
             else
             {
                 _wrkFilename = Path.Combine(Path.GetTempPath(), ".crank", Path.GetFileName(WrkLinuxArm64));
+                _wrkUrl = WrkLinuxArm64;
             }
 
             if (!File.Exists(_wrkFilename))
             {            
                 Directory.CreateDirectory(Path.GetDirectoryName(_wrkFilename));
             
-                Console.WriteLine($"Downloading wrk from {WrkUrl} to {_wrkFilename}");
+                Console.WriteLine($"Downloading wrk from {_wrkUrl} to {_wrkFilename}");
                 
                 using (var httpClient = new HttpClient())
-                using (var downloadStream = await httpClient.GetStreamAsync(WrkUrl))
+                using (var downloadStream = await httpClient.GetStreamAsync(_wrkUrl))
                 using (var fileStream = File.Create(_wrkFilename))
                 {
                     await downloadStream.CopyToAsync(fileStream);
