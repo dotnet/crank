@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -18,7 +19,9 @@ namespace Microsoft.Crank.Wrk
     static class WrkProcess
     {
         private static string _wrkFilename;
-        const string WrkUrl = "https://aspnetbenchmarks.blob.core.windows.net/tools/wrk";
+
+        const string WrkLinuxAmd64 = "https://aspnetbenchmarks.blob.core.windows.net/tools/wrk-linux-amd64";
+        const string WrkLinuxArm64 =  "https://aspnetbenchmarks.blob.core.windows.net/tools/wrk-linux-arm64";
 
         public static async Task MeasureFirstRequest(string[] args)
         {
@@ -95,16 +98,21 @@ namespace Microsoft.Crank.Wrk
 
         public static async Task DownloadWrkAsync()
         {
-            _wrkFilename = Path.Combine(Path.GetTempPath(), ".crank", Path.GetFileName(WrkUrl));
+            string _wrkUrl = RuntimeInformation.ProcessArchitecture == Architecture.X64
+                ? WrkLinuxAmd64
+                : WrkLinuxArm64
+                ;
+
+            _wrkFilename = Path.Combine(Path.GetTempPath(), ".crank", Path.GetFileName(_wrkUrl));
 
             if (!File.Exists(_wrkFilename))
             {            
                 Directory.CreateDirectory(Path.GetDirectoryName(_wrkFilename));
             
-                Console.WriteLine($"Downloading wrk from {WrkUrl} to {_wrkFilename}");
+                Console.WriteLine($"Downloading wrk from {_wrkUrl} to {_wrkFilename}");
                 
                 using (var httpClient = new HttpClient())
-                using (var downloadStream = await httpClient.GetStreamAsync(WrkUrl))
+                using (var downloadStream = await httpClient.GetStreamAsync(_wrkUrl))
                 using (var fileStream = File.Create(_wrkFilename))
                 {
                     await downloadStream.CopyToAsync(fileStream);
