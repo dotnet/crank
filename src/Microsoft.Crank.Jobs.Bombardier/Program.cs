@@ -48,6 +48,8 @@ namespace Microsoft.Crank.Jobs.Bombardier
             TryGetArgumentValue("-n", argsList, out int requests);
             TryGetArgumentValue("-o", argsList, out string outputFormat);
             TryGetArgumentValue("-f", argsList, out string bodyFile);
+            TryGetArgumentValue("--cert", argsList, out string certFile);
+            TryGetArgumentValue("--key", argsList, out string keyFile);
 
             if (duration == 0 && requests == 0)
             {
@@ -135,20 +137,30 @@ namespace Microsoft.Crank.Jobs.Bombardier
             {
                 if (bodyFile.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                 {
-                    Console.WriteLine($"Downloading body file {bodyFile}");
-                    var tempFile = Path.GetTempFileName();
-
-                    using (var downloadStream = await _httpClient.GetStreamAsync(bodyFile))
-                    using (var fileStream = File.Create(tempFile))
-                    {
-                        await downloadStream.CopyToAsync(fileStream);
-                    }
-
-                    bodyFile = tempFile;
+                    bodyFile = await DownloadToTempFile(bodyFile);
                 }
 
                 argsList.Add("-f");
                 argsList.Add(bodyFile);
+            }
+
+            if (!String.IsNullOrEmpty(certFile) && !String.IsNullOrEmpty(keyFile))
+            {
+                if (certFile.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    certFile = await DownloadToTempFile(certFile);
+                }
+
+                argsList.Add("--cert");
+                argsList.Add(certFile);
+
+                if (keyFile.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    keyFile = await DownloadToTempFile(keyFile);
+                }
+
+                argsList.Add("--key");
+                argsList.Add(keyFile);
             }
 
             args = argsList.Select(Quote).ToArray();
@@ -299,15 +311,36 @@ namespace Microsoft.Crank.Jobs.Bombardier
             }
 
             // Clean temporary files
+            CleanTempFile(bodyFile);
+            CleanTempFile(certFile);
+            CleanTempFile(keyFile);
+
+            return 0;
+        }
+
+        private static async Task<string> DownloadToTempFile(string url)
+        {
+            Console.WriteLine($"Downloading file {url}");
+            var tempFile = Path.GetTempFileName();
+
+            using (var downloadStream = await _httpClient.GetStreamAsync(url))
+            using (var fileStream = File.Create(tempFile))
+            {
+                await downloadStream.CopyToAsync(fileStream);
+            }
+
+            return tempFile;
+        }
+
+        private static void CleanTempFile(string path)
+        {
             try
             {
-                File.Delete(bodyFile);
+                File.Delete(path);
             }
             catch
             {
             }
-
-            return 0;
         }
 
         private static async Task StartProcessWithRetriesAsync(Process process)
