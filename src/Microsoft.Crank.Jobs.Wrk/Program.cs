@@ -12,9 +12,9 @@ namespace Microsoft.Crank.Wrk
     {
         static async Task<int> Main(string[] args)
         {
-            if (Environment.OSVersion.Platform != PlatformID.Unix || RuntimeInformation.ProcessArchitecture != Architecture.X64)
+            if (Environment.OSVersion.Platform != PlatformID.Unix)
             {
-                Console.WriteLine($"Platform not supported: {Environment.OSVersion.Platform}/{RuntimeInformation.ProcessArchitecture}");
+                Console.WriteLine($"Platform not supported: {Environment.OSVersion.Platform}");
                 return -1;
             }
 
