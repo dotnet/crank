@@ -68,6 +68,7 @@ namespace Microsoft.Crank.Agent
 
         private static readonly string DefaultTargetFramework = "net6.0";
         private static readonly string DefaultChannel = "current";
+        private const int CommitHashLength = 12;
 
         private const string PerfViewVersion = "v3.0.7";
 
@@ -3083,7 +3084,7 @@ namespace Microsoft.Crank.Agent
                     {
                         Name = Measurements.BenchmarksAspNetCoreVersion,
                         Timestamp = DateTime.UtcNow,
-                        Value = $"{aspNetCoreVersion}+{aspnetCoreCommitHash.Substring(0, 7)}"
+                        Value = $"{aspNetCoreVersion}+{aspnetCoreCommitHash.Substring(0, CommitHashLength)}"
                     });
 
                     knownDependencies.Add(new Dependency { Names = new[] { "Microsoft.AspNetCore.App" }, CommitHash = aspnetCoreCommitHash, RepositoryUrl = "https://github.com/dotnet/aspnetcore", Version = aspNetCoreVersion });
@@ -3116,7 +3117,7 @@ namespace Microsoft.Crank.Agent
                     {
                         Name = Measurements.BenchmarksNetCoreAppVersion,
                         Timestamp = DateTime.UtcNow,
-                        Value = $"{runtimeVersion}+{netCoreAppCommitHash.Substring(0, 7)}"
+                        Value = $"{runtimeVersion}+{netCoreAppCommitHash.Substring(0, CommitHashLength)}"
                     });
 
                     knownDependencies.Add(new Dependency { Names = new[] { "Microsoft.NETCore.App" }, CommitHash = netCoreAppCommitHash, RepositoryUrl = "https://github.com/dotnet/runtime", Version = runtimeVersion });
