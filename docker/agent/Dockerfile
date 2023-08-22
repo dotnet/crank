@@ -39,31 +39,13 @@ RUN apt-get update \
         libkrb5-dev
 
 # Install HTTP/3 support
-
-# msquic 2+ for .NET 7+
-ENV MSQUIC_VERSION 2.2.1
-RUN test "$(uname -m)" != 'aarch64' && \
-    cd /tmp && \
-    curl -O "https://packages.microsoft.com/debian/10/prod/pool/main/libm/libmsquic/libmsquic_${MSQUIC_VERSION}_amd64.deb" && \
-    dpkg -i "libmsquic_${MSQUIC_VERSION}_amd64.deb" && \
-    rm "libmsquic_${MSQUIC_VERSION}_amd64.deb" || true
-
-RUN test "$(uname -m)" = 'aarch64' && \
-    cd /tmp && \
-    curl -O "https://packages.microsoft.com/debian/10/prod/pool/main/libm/libmsquic/libmsquic_${MSQUIC_VERSION}_arm64.deb" && \
-    dpkg -i "libmsquic_${MSQUIC_VERSION}_arm64.deb" && \
-    rm "libmsquic_${MSQUIC_VERSION}_arm64.deb" || true
-
-# msquic 1.9 for .NET 6 (hack to have both versions available)
-RUN test "$(uname -m)" != 'aarch64' && \
-    cd /tmp && \
-    curl -O "https://packages.microsoft.com/debian/10/prod/pool/main/libm/libmsquic/libmsquic_1.9.1_amd64.deb" && \
-    mkdir libmsquic_1.9 && \
-    dpkg-deb -x libmsquic_1.9.1_amd64.deb libmsquic_1.9 && \
-    cp libmsquic_1.9/usr/lib/x86_64-linux-gnu/libmsquic.so /usr/lib/x86_64-linux-gnu/ && \
-    cp libmsquic_1.9/usr/lib/x86_64-linux-gnu/libmsquic.lttng.so /usr/lib/x86_64-linux-gnu/ && \
-    rm -rf libmsquic_1.9* || true
-
+RUN curl -LO https://packages.microsoft.com/keys/microsoft.asc && \
+    echo 2cfd20a306b2fa5e25522d78f2ef50a1f429d35fd30bd983e2ebffc2b80944fa microsoft.asc| sha256sum --check - && \
+    apt-key add microsoft.asc && \
+    apt-add-repository https://packages.microsoft.com/debian/11/prod && \
+    apt-get update && \
+    apt-get install -y libmsquic && \
+    rm -rf /var/lib/apt/lists/* microsoft.asc
 
 # Build and install h2load. Required as there isn't a way to distribute h2load as a single file to download
 RUN apt-get update \
