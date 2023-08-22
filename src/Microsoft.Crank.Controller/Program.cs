@@ -3228,7 +3228,7 @@ namespace Microsoft.Crank.Controller
 
             if (string.IsNullOrEmpty(original))
             {
-                return original;
+                return "";
             }
 
             var value = Regex.Replace(original, @"(\\*)" + "\"", @"$1\$0");
