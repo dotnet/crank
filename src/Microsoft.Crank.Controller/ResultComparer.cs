@@ -246,6 +246,12 @@ namespace Microsoft.Crank.Controller
                 {
                     nameSegments[pair.Key] = pair.Value.Skip(1).ToArray();
                 }
+
+                // single benchmark with same full name
+                if (nameSegments.Count == 1 && nameSegments.First().Value.Length <= 1)
+                {
+                    break;
+                }
             }
 
             // Map the full names to their simplified name
