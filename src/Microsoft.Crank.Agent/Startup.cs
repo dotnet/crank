@@ -70,7 +70,7 @@ namespace Microsoft.Crank.Agent
         private static readonly string DefaultChannel = "current";
         private const int CommitHashLength = 12;
 
-        private const string PerfViewVersion = "v3.0.7";
+        private const string PerfViewVersion = "v3.1.5";
 
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
@@ -82,13 +82,11 @@ namespace Microsoft.Crank.Agent
         private static readonly string _aspNetCoreDependenciesUrl = "https://raw.githubusercontent.com/aspnet/AspNetCore/{0}";
         private static readonly string _perfviewUrl = $"https://github.com/Microsoft/perfview/releases/download/{PerfViewVersion}/PerfView.exe";
 
-        private static readonly string _aspnet5FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
         private static readonly string _aspnet6FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
         private static readonly string _aspnet7FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet7/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
         private static readonly string _aspnet8FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
         private static readonly string _aspnet9FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
 
-        private static readonly string _netcore5FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.linux-x64/index.json";
         private static readonly string _netcore6FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.linux-x64/index.json";
         private static readonly string _netcore7FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet7/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.linux-x64/index.json";
         private static readonly string _netcore8FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.linux-x64/index.json";
@@ -2786,8 +2784,6 @@ namespace Microsoft.Crank.Agent
             sdkVersion = PatchOrCreateGlobalJson(job, benchmarkedApp, sdkVersion);
 
             var installAspNetSharedFramework = job.UseRuntimeStore
-                || aspNetCoreVersion.StartsWith("3.1")
-                || aspNetCoreVersion.StartsWith("5.0")
                 || aspNetCoreVersion.StartsWith("6.0")
                 || aspNetCoreVersion.StartsWith("7.0")
                 || aspNetCoreVersion.StartsWith("8.0")
@@ -3720,42 +3716,22 @@ namespace Microsoft.Crank.Agent
         {
             // Converting legacy values
 
-            if (runtimeVersion.EndsWith("*")) // 2.1.*, 2.*, 5.0.*
+            if (runtimeVersion.EndsWith("*")) // 6.0.*
             {
-                var major = int.Parse(runtimeVersion.Split('.')[0]);
-
-                if (major >= 5)
-                {
-                    targetFramework = "net" + runtimeVersion.Substring(0, 3);
-                }
-                else
-                {
-                    targetFramework = "netcoreapp" + runtimeVersion.Substring(0, 3);
-                }
-                
+                targetFramework = "net" + runtimeVersion.Substring(0, 3);
                 runtimeVersion = "edge";
             }
-            else if (runtimeVersion.Split('.').Length == 2) // 2.1, 5.0
+            else if (runtimeVersion.Split('.').Length == 2) // 6.0
             {
-                var major = int.Parse(runtimeVersion.Split('.')[0]);
-
-                if (major >= 5)
-                {
-                    targetFramework = "net" + runtimeVersion.Substring(0, 3);
-                }
-                else
-                {
-                    targetFramework = "netcoreapp" + runtimeVersion.Substring(0, 3);
-                }
-                
+                targetFramework = "net" + runtimeVersion.Substring(0, 3);
                 runtimeVersion = "current";
             }
 
-            if (aspNetCoreVersion.EndsWith("*")) // 2.1.*, 2.*
+            if (aspNetCoreVersion.EndsWith("*")) // 6.*
             {
                 aspNetCoreVersion = "edge";
             }
-            else if (aspNetCoreVersion.Split('.').Length == 2) // 2.1, 5.0
+            else if (aspNetCoreVersion.Split('.').Length == 2) // 6.0
             {
                 aspNetCoreVersion = "current";
             }
@@ -3812,10 +3788,6 @@ namespace Microsoft.Crank.Agent
                         case "6.0":
                             aspNetCoreVersion = await GetFlatContainerVersion(_aspnet6FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
                             Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - From 6.0 feed)");
-                            break;
-                        case "5.0":
-                            aspNetCoreVersion = await GetFlatContainerVersion(_aspnet5FlatContainerUrl, versionPrefix);
-                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - From 5.0 feed)");
                             break;
                         default:
                             aspNetCoreVersion = currentAspNetCoreVersion;
@@ -4163,11 +4135,6 @@ namespace Microsoft.Crank.Agent
                     runtimeVersion = await GetFlatContainerVersion(_netcore6FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
                     Log.Info($"Runtime: {runtimeVersion} (Latest - From 6.0 feed)");
                 }
-                else if (versionPrefix == "5.0")
-                {
-                    runtimeVersion = await GetFlatContainerVersion(_netcore5FlatContainerUrl, versionPrefix);
-                    Log.Info($"Runtime: {runtimeVersion} (Latest - From 5.0 feed)");
-                }
                 else
                 {
                     runtimeVersion = currentRuntimeVersion;
@@ -4229,36 +4196,12 @@ namespace Microsoft.Crank.Agent
 
             switch (targetFramework)
             {
-                case "netcoreapp3.1":
-
-                    await DownloadFileAsync(String.Format(_aspNetCoreDependenciesUrl, "release/3.1/eng/Versions.props"), aspNetCoreDependenciesPath, maxRetries: 5, timeout: 10);
-                    latestRuntimeVersion = XDocument.Load(aspNetCoreDependenciesPath).Root
-                        .Elements("PropertyGroup")
-                        .Select(x => x.Element("MicrosoftNETCoreAppRuntimewinx64PackageVersion"))
-                        .Where(x => x != null)
-                        .FirstOrDefault()
-                        .Value;
-
-                    break;
-
-                case "net5.0":
-
-                    await DownloadFileAsync(String.Format(_aspNetCoreDependenciesUrl, "release/5.0/eng/Versions.props"), aspNetCoreDependenciesPath, maxRetries: 5, timeout: 10);
-                    latestRuntimeVersion = XDocument.Load(aspNetCoreDependenciesPath).Root
-                        .Elements("PropertyGroup")
-                        .Select(x => x.Element("MicrosoftNETCoreAppRuntimewinx64PackageVersion"))
-                        .Where(x => x != null)
-                        .FirstOrDefault()
-                        .Value;
-
-                    break;
-
                 case "net6.0":
 
                     await DownloadFileAsync(String.Format(_aspNetCoreDependenciesUrl, "release/6.0/eng/Versions.props"), aspNetCoreDependenciesPath, maxRetries: 5, timeout: 10);
                     latestRuntimeVersion = XDocument.Load(aspNetCoreDependenciesPath).Root
                         .Elements("PropertyGroup")
-                        .Select(x => x.Element("MicrosoftNETCoreAppRuntimewinx64Version")) // WARNING: This tag changed in 6.0
+                        .Select(x => x.Element("MicrosoftNETCoreAppRuntimewinx64Version"))
                         .Where(x => x != null)
                         .FirstOrDefault()
                         .Value;
@@ -4318,7 +4261,7 @@ namespace Microsoft.Crank.Agent
                 return (null, null, null, null);
             }
 
-            var frameworkVersion = targetFramework.Substring(targetFramework.Length - 3); // 3.1
+            var frameworkVersion = targetFramework.Substring(targetFramework.Length - 3); // 6.0
             var metadataUrl = $"https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/{frameworkVersion}/releases.json";
 
             try
@@ -6035,10 +5978,6 @@ namespace Microsoft.Crank.Agent
     <add key=""benchmarks-dotnet7-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet7-transport/nuget/v3/index.json"" />
     <add key=""benchmarks-dotnet6"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/index.json"" />
     <add key=""benchmarks-dotnet6-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6-transport/nuget/v3/index.json"" />
-    <add key=""benchmarks-dotnet5"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/index.json"" />
-    <add key=""benchmarks-dotnet5-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5-transport/nuget/v3/index.json"" />
-    <add key=""benchmarks-dotnet3.1"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet3.1/nuget/v3/index.json"" />
-    <add key=""benchmarks-dotnet3.1-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet3.1-transport/nuget/v3/index.json"" />
     <add key=""benchmarks-aspnetcore"" value=""https://dotnetfeed.blob.core.windows.net/aspnet-aspnetcore/index.json"" />
     <add key=""benchmarks-dotnet-core"" value=""https://dotnetfeed.blob.core.windows.net/dotnet-core/index.json"" />
     <add key=""benchmarks-extensions"" value=""https://dotnetfeed.blob.core.windows.net/aspnet-extensions/index.json"" />
