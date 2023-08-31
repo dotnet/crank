@@ -3655,7 +3655,6 @@ namespace Microsoft.Crank.Agent
                         }
                     }
 
-                   
                     if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
                     {
                         project.Root.Add(
