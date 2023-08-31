@@ -3700,9 +3700,19 @@ namespace Microsoft.Crank.Agent
                             new XElement("PackageReference",
                                 new XAttribute("Include", packageEntry.Key),
                                 new XAttribute("Version", packageEntry.Value)
-                                )
+                            )
                         );
                     }
+
+                    // Exclude "published" folder from content to prevent recursively copying it after each cached build
+                    project.Root.Add(
+                        new XElement("ItemGroup",
+                            new XElement("Content",
+                                new XAttribute("Update", "published\\**"),
+                                new XAttribute("CopyToPublishDirectory", "Never")
+                            )
+                        )
+                    );
 
                     using (var projectFileStream = File.CreateText(projectFileName))
                     {
@@ -4501,22 +4511,6 @@ namespace Microsoft.Crank.Agent
 
             var commandLine = benchmarksDll ?? "";
 
-            if (job.SelfContained)
-            {
-                workingDirectory = Path.Combine(workingDirectory, "published");
-
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                {
-                    executable = Path.Combine(workingDirectory, $"{assemblyName}.exe");
-                }
-                else
-                {
-                    executable = Path.Combine(workingDirectory, assemblyName);
-                }
-
-                commandLine = "";
-            }
-
             if (!String.IsNullOrEmpty(job.Executable))
             {
                 executable = job.Executable;
@@ -4530,6 +4524,21 @@ namespace Microsoft.Crank.Agent
                     // we need the full path to run this, as it is not in the path
                     executable = Path.Combine(workingDirectory, executable);
                 }
+            }
+            else if (job.SelfContained)
+            {
+                workingDirectory = Path.Combine(workingDirectory, "published");
+
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    executable = Path.Combine(workingDirectory, $"{assemblyName}.exe");
+                }
+                else
+                {
+                    executable = Path.Combine(workingDirectory, assemblyName);
+                }
+
+                commandLine = "";
             }
 
             job.BasePath = workingDirectory;
