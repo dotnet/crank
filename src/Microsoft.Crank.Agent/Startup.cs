@@ -34,14 +34,12 @@ using Microsoft.Diagnostics.Tools.Trace;
 using Microsoft.Diagnostics.Tracing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NuGet.Versioning;
 using Repository;
 using Serilog;
 using Serilog.Events;
-using Serilog.Filters;
 using Serilog.Sinks.SystemConsole.Themes;
 using Vanara.PInvoke;
 using OperatingSystem = Microsoft.Crank.Models.OperatingSystem;
@@ -5861,12 +5859,6 @@ namespace Microsoft.Crank.Agent
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern bool GenerateConsoleCtrlEvent(CtrlTypes dwCtrlEvent, uint dwProcessGroupId);
 
-        [DllImport("kernel32.dll", SetLastError = true)]
-        private static extern bool AttachConsole(uint dwProcessId);
-
-        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
-        private static extern bool FreeConsole();
-
         [DllImport("Kernel32", SetLastError = true)]
         private static extern bool SetConsoleCtrlHandler(HandlerRoutine handler, bool add);
 
@@ -5875,10 +5867,6 @@ namespace Microsoft.Crank.Agent
         enum CtrlTypes
         {
             CTRL_C_EVENT = 0,
-            CTRL_BREAK_EVENT = 1,
-            CTRL_CLOSE_EVENT,
-            CTRL_LOGOFF_EVENT = 5,
-            CTRL_SHUTDOWN_EVENT
         }
 
         /// <param name="providers">
