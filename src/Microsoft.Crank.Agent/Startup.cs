@@ -5796,21 +5796,19 @@ namespace Microsoft.Crank.Agent
         {
             try
             {
-                if (process != null && !process.HasExited)
+                // Prevent concurrent apps from removing the CTRL handler
+                lock (_consoleLock)
                 {
-                    // Try to let the agent process know that we are stopping
-                    // Attach agent process to console of the process. This is needed,
-                    // because windows service doesn't use its own console.
-
-                    // Prevent two parallel running apps from removing the CTRL handler
-                    lock (_consoleLock)
+                    if (process != null && !process.HasExited)
                     {
-                        // Prevent the agent process from stopping because of Ctrl + C event with SetConsoleCtrlHandler
-                        // by removing the console CTRL handler
+                        // Prevent the agent process from stopping because of Ctrl + C event with SetConsoleCtrlHandler.
+                        // This removes the console CTRL handler.
+
                         SetConsoleCtrlHandler(null, true);
                         try
                         {
-                            // Generate console event for current console with GenerateConsoleCtrlEvent (processGroupId should be zero)
+                            // Generate console event for current console with GenerateConsoleCtrlEvent (processGroupId should be zero).
+                            // Only the benchmarked apps are attached to the console at this point.
                             GenerateConsoleCtrlEvent(CtrlTypes.CTRL_C_EVENT, 0);
 
                             // Wait for the process to finish (give it up to 20 seconds)
@@ -5829,10 +5827,10 @@ namespace Microsoft.Crank.Agent
                             SetConsoleCtrlHandler(null, false);
                         }
                     }
-                }
-                else 
-                {
-                    Log.Info($"Skipping signal since process has already exited");
+                    else
+                    {
+                        Log.Info($"Skipping signal since process has already exited");
+                    }
                 }
             }
             catch (Exception exception)
