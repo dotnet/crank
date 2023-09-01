@@ -1606,7 +1606,7 @@ namespace Microsoft.Crank.Agent
                                     {
                                         if (!process.HasExited)
                                         {
-                                            Log.Info($"Sending CTRL+C ...");
+                                            Log.Info("Sending CTRL+C ...");
 
                                             SendCtrlCSignalToProcess(process);
                                         }
@@ -1626,7 +1626,7 @@ namespace Microsoft.Crank.Agent
 
                                                 do
                                                 {
-                                                    Log.Info($"Shutdown successfully invoked, waiting for graceful shutdown ...");
+                                                    Log.Info("Shutdown successfully invoked, waiting for graceful shutdown ...");
                                                     await Task.Delay(1000);
 
                                                 } while (!process.HasExited && (DateTime.UtcNow - epoch < TimeSpan.FromSeconds(5)));
@@ -5814,11 +5814,11 @@ namespace Microsoft.Crank.Agent
                             // Wait for the process to finish (give it up to 20 seconds)
                             if (process.WaitForExit(20000))
                             {
-                                Log.Info($"Process has exited");
+                                Log.Info("Process has exited");
                             }
                             else
                             {
-                                Log.Info($"Process did not exit from the CTRL+C");
+                                Log.Info("Process did not exit from the CTRL+C");
                             }
                         }
                         finally
@@ -5829,7 +5829,7 @@ namespace Microsoft.Crank.Agent
                     }
                     else
                     {
-                        Log.Info($"Skipping signal since process has already exited");
+                        Log.Info("Skipping signal since process has already exited");
                     }
                 }
             }
