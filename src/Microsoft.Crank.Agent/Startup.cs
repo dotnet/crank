@@ -1547,7 +1547,7 @@ namespace Microsoft.Crank.Agent
                                     {
                                         if (job.Collect)
                                         {
-                                            // Abort all perfview processes
+                                            // Abort all Perfview processes
                                             if (OperatingSystem == OperatingSystem.Windows)
                                             {
                                                 var perfViewProcess = RunPerfview("abort", Path.GetPathRoot(_perfviewPath));
@@ -1610,18 +1610,14 @@ namespace Microsoft.Crank.Agent
                                         {
                                             Log.Info($"Sending CTRL+C ...");
 
-                                            // Disable CTRL handling for the Agent, or the CTRL+C would stop it too
-                                            SetConsoleCtrlHandler(null, true);
-                                            GenerateConsoleCtrlEvent(CtrlTypes.CTRL_C_EVENT, (uint)process.Id);
+                                            SendCtrlSignalToProcess(CtrlTypes.CTRL_C_EVENT, process);
 
-                                            var waitForShutdownDelay = Task.Delay(TimeSpan.FromSeconds(5));
-                                            while (!process.HasExited && !waitForShutdownDelay.IsCompletedSuccessfully)
+                                            if (!process.HasExited)
                                             {
-                                                await Task.Delay(200);
-                                            }
+                                                Log.Info($"Sending CTRL+BREAK ...");
 
-                                            // Enable CTRL handling for the Agent
-                                            SetConsoleCtrlHandler(null, false);
+                                                SendCtrlSignalToProcess(CtrlTypes.CTRL_BREAK_EVENT, process);
+                                            }
                                         }
                                     }
 
@@ -1633,7 +1629,7 @@ namespace Microsoft.Crank.Agent
                                             var response = await _httpClient.GetAsync(new Uri(new Uri(job.Url), "/shutdown"));
 
                                             // Shutdown invoked successfully, wait for the application to stop by itself
-                                            if (response.StatusCode == System.Net.HttpStatusCode.OK)
+                                            if (response.StatusCode == HttpStatusCode.OK)
                                             {
                                                 var epoch = DateTime.UtcNow;
 
@@ -5805,6 +5801,50 @@ namespace Microsoft.Crank.Agent
             }
         }
 
+        private static void SendCtrlSignalToProcess(CtrlTypes signal, Process process)
+        {
+            try
+            {
+                if (process != null && !process.HasExited)
+                {
+                    // Try to let the agent process know that we are stopping
+                    // Attach agent process to console of the process. This is needed,
+                    // because windows service doesn't use its own console.
+                    
+                    if (AttachConsole((uint)process.Id))
+                    {
+                        // Prevent main service process from stopping because of Ctrl + C event with SetConsoleCtrlHandler
+                        SetConsoleCtrlHandler(null, true);
+                        try
+                        {
+                            // Generate console event for current console with GenerateConsoleCtrlEvent (processGroupId should be zero)
+                            GenerateConsoleCtrlEvent(signal, 0);
+
+                            // Wait for the process to finish (give it up to 20 seconds)
+                            process.WaitForExit(20000);
+                        }
+                        finally
+                        {
+                            // Disconnect from console and restore Ctrl+C handling by main process
+                            FreeConsole();
+                            SetConsoleCtrlHandler(null, false);
+                        }
+                    }
+
+                    if (process.HasExited)
+                    {
+                        Log.Info($"Process has stopped");
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                // InvalidOperationException is thrown when there is no process associated to the process object. 
+                // There is no process to kill, Log the exception and shutdown the service. 
+                Log.Error(exception);
+            }
+        }
+
         public enum ErrorModes : uint
         {
             SYSTEM_DEFAULT = 0x0,
@@ -5821,6 +5861,12 @@ namespace Microsoft.Crank.Agent
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern bool GenerateConsoleCtrlEvent(CtrlTypes dwCtrlEvent, uint dwProcessGroupId);
 
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool AttachConsole(uint dwProcessId);
+
+        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        private static extern bool FreeConsole();
+
         [DllImport("Kernel32", SetLastError = true)]
         private static extern bool SetConsoleCtrlHandler(HandlerRoutine handler, bool add);
 
@@ -5829,7 +5875,7 @@ namespace Microsoft.Crank.Agent
         enum CtrlTypes
         {
             CTRL_C_EVENT = 0,
-            CTRL_BREAK_EVENT,
+            CTRL_BREAK_EVENT = 1,
             CTRL_CLOSE_EVENT,
             CTRL_LOGOFF_EVENT = 5,
             CTRL_SHUTDOWN_EVENT
