@@ -5818,7 +5818,7 @@ namespace Microsoft.Crank.Agent
                         try
                         {
                             // Generate console event for current console with GenerateConsoleCtrlEvent (processGroupId should be zero)
-                            GenerateConsoleCtrlEvent(signal, 0);
+                            GenerateConsoleCtrlEvent(signal, (uint)process.Id);
 
                             // Wait for the process to finish (give it up to 20 seconds)
                             process.WaitForExit(20000);
