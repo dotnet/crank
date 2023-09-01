@@ -130,8 +130,8 @@ namespace Microsoft.Crank.Agent
         private static string _dotnethome;
         private static bool _cleanup = true;
         private static Process perfCollectProcess;
-        private static readonly object v = new();
-        private static readonly object _synLock = v;
+        private static readonly object _synLock = new();
+        private static object _consoleLock = new();
 
         private static Task dotnetTraceTask;
         private static ManualResetEvent dotnetTraceManualReset;
@@ -1610,14 +1610,7 @@ namespace Microsoft.Crank.Agent
                                         {
                                             Log.Info($"Sending CTRL+C ...");
 
-                                            SendCtrlSignalToProcess(CtrlTypes.CTRL_C_EVENT, process);
-
-                                            if (!process.HasExited)
-                                            {
-                                                Log.Info($"Sending CTRL+BREAK ...");
-
-                                                SendCtrlSignalToProcess(CtrlTypes.CTRL_BREAK_EVENT, process);
-                                            }
+                                            SendCtrlCSignalToProcess(process);
                                         }
                                     }
 
@@ -5801,7 +5794,7 @@ namespace Microsoft.Crank.Agent
             }
         }
 
-        private static void SendCtrlSignalToProcess(CtrlTypes signal, Process process)
+        private static void SendCtrlCSignalToProcess(Process process)
         {
             try
             {
@@ -5810,34 +5803,38 @@ namespace Microsoft.Crank.Agent
                     // Try to let the agent process know that we are stopping
                     // Attach agent process to console of the process. This is needed,
                     // because windows service doesn't use its own console.
-                    
-                    if (AttachConsole((uint)process.Id))
+
+                    // Prevent two parallel running apps from removing the CTRL handler
+                    lock (_consoleLock)
                     {
-                        // Prevent main service process from stopping because of Ctrl + C event with SetConsoleCtrlHandler
+                        // Prevent the agent process from stopping because of Ctrl + C event with SetConsoleCtrlHandler
+                        // by removing the console CTRL handler
                         SetConsoleCtrlHandler(null, true);
                         try
                         {
                             // Generate console event for current console with GenerateConsoleCtrlEvent (processGroupId should be zero)
-                            GenerateConsoleCtrlEvent(signal, 0);
+                            GenerateConsoleCtrlEvent(CtrlTypes.CTRL_C_EVENT, 0);
 
                             // Wait for the process to finish (give it up to 20 seconds)
                             if (process.WaitForExit(20000))
                             {
                                 Log.Info($"Process has exited");
                             }
+                            else
+                            {
+                                Log.Info($"Process did not exit from the CTRL+C");
+                            }
                         }
                         finally
                         {
-                            // Disconnect from console and restore Ctrl+C handling by main process
-                            FreeConsole();
+                            // Restore the console CTRL handler of the agent
                             SetConsoleCtrlHandler(null, false);
                         }
                     }
-
-                    if (process.HasExited)
-                    {
-                        Log.Info($"Process has stopped");
-                    }
+                }
+                else 
+                {
+                    Log.Info($"Skipping signal since process has already exited");
                 }
             }
             catch (Exception exception)
