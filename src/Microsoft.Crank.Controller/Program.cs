@@ -1988,47 +1988,32 @@ namespace Microsoft.Crank.Controller
 
                 if (job.Options.ReuseSource || job.Options.ReuseBuild)
                 {
-                    // If all the sources have source keys, then we can also make a source key for
-                    using var sha1 = SHA1.Create();
-
+                    // If all the sources have source keys, then we can also make a build key for the job
                     var allSourcesHaveCaching = true;
                     foreach (var (sourceName, source) in job.Sources)
                     {
                         if (!source.CacheOnAgent)
                         {
+                            allSourcesHaveCaching = false;
                             continue;
                         }
 
-                        // Compute a custom source key
-                        var sourceKey = source.LocalFolder + source.Repository + source.BranchOrCommit + source.InitSubmodules.ToString();
-
-                        // Assume no collision since it's verified on the server
-                        var bytes = sha1.ComputeHash(Encoding.UTF8.GetBytes(sourceKey));
-                        source.SourceKey = string.Concat(bytes.Select(b => b.ToString("x2"))).Substring(0, 8);
-                    }
-
-                    if (job.Sources.Count > 0 && allSourcesHaveCaching)
-                    {
-                        if (job.Sources.Count == 1)
+                        // If there is already a source key set, just use that
+                        if (string.IsNullOrEmpty(source.SourceKey))
                         {
-                            job.SourceKey = job.Sources.Values.First().SourceKey;
-                        }
-                        else
-                        {
-                            var sourceKeyBuilder = new StringBuilder();
-                            foreach (var (sourceName, source) in job.Sources)
-                            {
-                                sourceKeyBuilder.Append(sourceName);
-                                sourceKeyBuilder.Append(source.SourceKey);
-                            }
-
-                            var bytes = sha1.ComputeHash(Encoding.UTF8.GetBytes(sourceKeyBuilder.ToString()));
-                            job.SourceKey = string.Concat(bytes.Select(b => b.ToString("x2"))).Substring(0, 8);
+                            source.SourceKey = HashKeyData(source.GetSourceKeyData());
                         }
                     }
 
-                    if (job.Options.ReuseBuild)
+                    // If a source doesn't have caching enabled, then we can't use NoBuild
+                    if (job.Options.ReuseBuild && allSourcesHaveCaching)
                     {
+                        // If the job has a build key set, use that
+                        if (string.IsNullOrEmpty(job.BuildKey))
+                        {
+                            job.BuildKey = HashKeyData(job.GetBuildKeyData());
+                        }
+
                         job.NoBuild = true;
                     }
                 }
@@ -2081,6 +2066,14 @@ namespace Microsoft.Crank.Controller
             }
 
             return result;
+        }
+
+        private static string HashKeyData<T>(T KeyData)
+        {
+            using var sha1 = SHA1.Create();
+            var keyDataStr = JsonConvert.SerializeObject(KeyData);
+            var hashedKeyDataBytes = sha1.ComputeHash(Encoding.UTF8.GetBytes(keyDataStr.ToString()));
+            return string.Concat(hashedKeyDataBytes.Select(b => b.ToString("x2"))).Substring(0, 8);
         }
 
         private static void ApplyTemplates(JToken node, TemplateContext templateContext)

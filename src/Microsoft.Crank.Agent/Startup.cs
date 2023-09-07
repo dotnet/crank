@@ -635,9 +635,9 @@ namespace Microsoft.Crank.Agent
                                         }
                                     }
 
-                                    if (!String.IsNullOrEmpty(job.SourceKey))
+                                    if (!String.IsNullOrEmpty(job.BuildKey))
                                     {
-                                        tempDir = Path.Combine(_rootTempDir, job.SourceKey);
+                                        tempDir = Path.Combine(_rootTempDir, job.BuildKey);
                                         tempDirUsesSourceKey = true;
                                         EnsureSourceFolderExists(tempDir);
                                     }
@@ -2314,37 +2314,27 @@ namespace Microsoft.Crank.Agent
 
         private static async Task<bool> RetrieveSourcesAsync(Job job, string path)
         {
-            if (!string.IsNullOrEmpty(job.SourceKey) && (job.Sources.Count > 1 || !job.Sources.First().Value.SourceKey.Equals(job.SourceKey)))
+            if (!string.IsNullOrEmpty(job.BuildKey))
             {
                 var optionsDir = Path.Combine(_rootTempDir, "_options");
                 if (!Directory.Exists(optionsDir))
                     Directory.CreateDirectory(optionsDir);
 
-                var optionsPath = Path.Combine(optionsDir, $"{job.SourceKey}.json");
+                var optionsPath = Path.Combine(optionsDir, $"{job.BuildKey}.json");
+                var optionsData = JsonConvert.SerializeObject(job.GetBuildKeyData());
 
                 if (File.Exists(optionsPath))
                 {
-                    var content = File.ReadAllText(optionsPath);
-                    var options = JsonConvert.DeserializeObject<Dictionary<string, Source>>(content);
+                    var cachedOptionsContent = File.ReadAllText(optionsPath);
 
-                    if (options.Count == job.Sources.Count)
+                    if (!String.Equals(optionsData, cachedOptionsContent))
                     {
-                        bool allSourcesEqual = true;
-                        foreach ((var sourceName, var source) in job.Sources)
-                        {
-                            if (!options.TryGetValue(sourceName, out var optionsSource) || !AreSourcesEquivalent(source, optionsSource))
-                            {
-                                allSourcesEqual = false;
-                                Log.Info("[INFO] Ignoring existing source folder as it's not matching the request source settings");
-                                break;
-                            }
-                        }
-
-                        if (allSourcesEqual)
-                        {
-                            Log.Info($"Reusing source folder in {path}");
-                            return true;
-                        }
+                        Log.Info("[INFO] Ignoring existing build folder as it's not matching the request build settings");
+                    }
+                    else
+                    {
+                        Log.Info($"Reusing source folder in {path}");
+                        return true;
                     }
                 }
                 else
@@ -2352,7 +2342,7 @@ namespace Microsoft.Crank.Agent
                     Log.Info($"Creating reuse options.json file");
 
                     // First time using this folder
-                    File.WriteAllText(optionsPath, JsonConvert.SerializeObject(job.Sources));
+                    File.WriteAllText(optionsPath, optionsData);
                 }
             }
 
@@ -2382,13 +2372,14 @@ namespace Microsoft.Crank.Agent
 
                 // An options file stores information about what is currently stored inside the folder with the given source key
                 var optionsPath = Path.Combine(optionsDir, $"{source.SourceKey}.json");
+                var optionsData = JsonConvert.SerializeObject(source.GetSourceKeyData());
 
                 if (File.Exists(optionsPath))
                 {
-                    var content = File.ReadAllText(optionsPath);
-                    var options = JsonConvert.DeserializeObject<Source>(content);
-
-                    if (!AreSourcesEquivalent(source, options))
+                    // Verify that the cached options are equal, this prevents multiple users that have set explicit source keys
+                    // from reusing each other's sources
+                    var cachedOptionsContent = File.ReadAllText(optionsPath);
+                    if (!String.Equals(optionsData, cachedOptionsContent))
                     {
                         Log.Info("[INFO] Ignoring existing source folder as it's not matching the request source settings");
                     }
@@ -2401,7 +2392,7 @@ namespace Microsoft.Crank.Agent
                 else
                 {
                     // First time using this folder
-                    File.WriteAllText(optionsPath, JsonConvert.SerializeObject(source));
+                    File.WriteAllText(optionsPath, optionsData);
                     targetDir = sourceFolder;
                 }
             }
@@ -2446,14 +2437,6 @@ namespace Microsoft.Crank.Agent
             {
                 CopyDirectory(targetDir, destinationFolder);
             }
-        }
-
-        private static bool AreSourcesEquivalent(Source source, Source options)
-        {
-            return string.Equals(options.Repository, source.Repository) &&
-                string.Equals(options.BranchOrCommit, source.BranchOrCommit) &&
-                options.InitSubmodules == source.InitSubmodules &&
-                string.Equals(options.LocalFolder, source.LocalFolder);
         }
 
         // https://learn.microsoft.com/en-us/dotnet/standard/io/how-to-copy-directories
@@ -2620,7 +2603,7 @@ namespace Microsoft.Crank.Agent
 
                     await ProcessUtil.RunAsync("docker", $"rm --force {containerId}", throwOnError: false);
 
-                    if (!String.IsNullOrEmpty(job.SourceKey) && job.NoBuild)
+                    if (!String.IsNullOrEmpty(job.BuildKey) && job.NoBuild)
                     {
                         Log.Info($"Keeping image {imageName}");
                     }
