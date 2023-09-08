@@ -2006,7 +2006,7 @@ namespace Microsoft.Crank.Controller
                     }
 
                     // If a source doesn't have caching enabled, then we can't use NoBuild
-                    if (job.Options.ReuseBuild && allSourcesHaveCaching)
+                    if (allSourcesHaveCaching)
                     {
                         // If the job has a build key set, use that
                         if (string.IsNullOrEmpty(job.BuildKey))
@@ -2014,7 +2014,10 @@ namespace Microsoft.Crank.Controller
                             job.BuildKey = HashKeyData(job.GetBuildKeyData());
                         }
 
-                        job.NoBuild = true;
+                        if (job.Options.ReuseBuild)
+                        {
+                            job.NoBuild = true;
+                        }
                     }
                 }
 
