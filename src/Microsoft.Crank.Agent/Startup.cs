@@ -34,14 +34,12 @@ using Microsoft.Diagnostics.Tools.Trace;
 using Microsoft.Diagnostics.Tracing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NuGet.Versioning;
 using Repository;
 using Serilog;
 using Serilog.Events;
-using Serilog.Filters;
 using Serilog.Sinks.SystemConsole.Themes;
 using Vanara.PInvoke;
 using OperatingSystem = Microsoft.Crank.Models.OperatingSystem;
@@ -130,8 +128,8 @@ namespace Microsoft.Crank.Agent
         private static string _dotnethome;
         private static bool _cleanup = true;
         private static Process perfCollectProcess;
-        private static readonly object v = new();
-        private static readonly object _synLock = v;
+        private static readonly object _synLock = new();
+        private static object _consoleLock = new();
 
         private static Task dotnetTraceTask;
         private static ManualResetEvent dotnetTraceManualReset;
@@ -1547,7 +1545,7 @@ namespace Microsoft.Crank.Agent
                                     {
                                         if (job.Collect)
                                         {
-                                            // Abort all perfview processes
+                                            // Abort all Perfview processes
                                             if (OperatingSystem == OperatingSystem.Windows)
                                             {
                                                 var perfViewProcess = RunPerfview("abort", Path.GetPathRoot(_perfviewPath));
@@ -1608,20 +1606,9 @@ namespace Microsoft.Crank.Agent
                                     {
                                         if (!process.HasExited)
                                         {
-                                            Log.Info($"Sending CTRL+C ...");
+                                            Log.Info("Sending CTRL+C ...");
 
-                                            // Disable CTRL handling for the Agent, or the CTRL+C would stop it too
-                                            SetConsoleCtrlHandler(null, true);
-                                            GenerateConsoleCtrlEvent(CtrlTypes.CTRL_C_EVENT, (uint)process.Id);
-
-                                            var waitForShutdownDelay = Task.Delay(TimeSpan.FromSeconds(5));
-                                            while (!process.HasExited && !waitForShutdownDelay.IsCompletedSuccessfully)
-                                            {
-                                                await Task.Delay(200);
-                                            }
-
-                                            // Enable CTRL handling for the Agent
-                                            SetConsoleCtrlHandler(null, false);
+                                            SendCtrlCSignalToProcess(process);
                                         }
                                     }
 
@@ -1633,13 +1620,13 @@ namespace Microsoft.Crank.Agent
                                             var response = await _httpClient.GetAsync(new Uri(new Uri(job.Url), "/shutdown"));
 
                                             // Shutdown invoked successfully, wait for the application to stop by itself
-                                            if (response.StatusCode == System.Net.HttpStatusCode.OK)
+                                            if (response.StatusCode == HttpStatusCode.OK)
                                             {
                                                 var epoch = DateTime.UtcNow;
 
                                                 do
                                                 {
-                                                    Log.Info($"Shutdown successfully invoked, waiting for graceful shutdown ...");
+                                                    Log.Info("Shutdown successfully invoked, waiting for graceful shutdown ...");
                                                     await Task.Delay(1000);
 
                                                 } while (!process.HasExited && (DateTime.UtcNow - epoch < TimeSpan.FromSeconds(5)));
@@ -5805,6 +5792,55 @@ namespace Microsoft.Crank.Agent
             }
         }
 
+        private static void SendCtrlCSignalToProcess(Process process)
+        {
+            try
+            {
+                // Prevent concurrent apps from removing the CTRL handler
+                lock (_consoleLock)
+                {
+                    if (process != null && !process.HasExited)
+                    {
+                        // Prevent the agent process from stopping because of Ctrl + C event with SetConsoleCtrlHandler.
+                        // This removes the console CTRL handler.
+
+                        SetConsoleCtrlHandler(null, true);
+                        try
+                        {
+                            // Generate console event for current console with GenerateConsoleCtrlEvent (processGroupId should be zero).
+                            // Only the benchmarked apps are attached to the console at this point.
+                            GenerateConsoleCtrlEvent(CtrlTypes.CTRL_C_EVENT, 0);
+
+                            // Wait for the process to finish (give it up to 20 seconds)
+                            if (process.WaitForExit(20000))
+                            {
+                                Log.Info("Process has exited");
+                            }
+                            else
+                            {
+                                Log.Info("Process did not exit from the CTRL+C");
+                            }
+                        }
+                        finally
+                        {
+                            // Restore the console CTRL handler of the agent
+                            SetConsoleCtrlHandler(null, false);
+                        }
+                    }
+                    else
+                    {
+                        Log.Info("Skipping signal since process has already exited");
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                // InvalidOperationException is thrown when there is no process associated to the process object. 
+                // There is no process to kill, Log the exception and shutdown the service. 
+                Log.Error(exception);
+            }
+        }
+
         public enum ErrorModes : uint
         {
             SYSTEM_DEFAULT = 0x0,
@@ -5829,10 +5865,6 @@ namespace Microsoft.Crank.Agent
         enum CtrlTypes
         {
             CTRL_C_EVENT = 0,
-            CTRL_BREAK_EVENT,
-            CTRL_CLOSE_EVENT,
-            CTRL_LOGOFF_EVENT = 5,
-            CTRL_SHUTDOWN_EVENT
         }
 
         /// <param name="providers">
