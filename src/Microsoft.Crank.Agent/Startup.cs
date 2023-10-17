@@ -3144,12 +3144,6 @@ namespace Microsoft.Crank.Agent
                 buildParameters += $"{argument} ";
             }
 
-            // net9.0 is not yet supported 
-            if (targetFramework == "net9.0")
-            {
-                targetFramework = "net8.0";
-            }
-
             // Specify tfm in case the project targets multiple one
             buildParameters += $"--framework {targetFramework} ";
 
@@ -3572,12 +3566,6 @@ namespace Microsoft.Crank.Agent
         /// </summary>
         private static async Task PatchProjectFrameworkReferenceAsync(Job job, string projectFileName, string targetFramework, HashSet<string> processed = null)
         {
-            // net9.0 is not yet supported 
-            if (targetFramework == "net9.0")
-            {
-                targetFramework = "net8.0";
-            }
-
             // Normalize the project filename
             projectFileName = Path.GetFullPath(projectFileName);
 
