@@ -4657,42 +4657,16 @@ namespace Microsoft.Crank.Agent
                 RunAndTrace();
             }
 
-            if ((job.MemoryLimitInBytes > 0 || !String.IsNullOrWhiteSpace(job.CpuSet)) && RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            if ((job.MemoryLimitInBytes > 0 || job.CpuLimitRatio > 0 || !String.IsNullOrWhiteSpace(job.CpuSet)) && RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                var safeProcess = Kernel32.OpenProcess(ACCESS_MASK.MAXIMUM_ALLOWED, false, (uint)process.Id);
+                var limiter = new WindowsLimiter(job, (uint)process.Id);
 
-                if (job.MemoryLimitInBytes > 0)
+                limiter.LimitProcess();
+
+                process.Exited += (sender, e) =>
                 {
-                    Log.Info($"Creating Job Object with memory limits: {job.MemoryLimitInBytes / 1024 / 1024:n0} MB");
-
-                    var hJob = Kernel32.CreateJobObject(null, job.RunId);
-                    var bi = Kernel32.QueryInformationJobObject<Kernel32.JOBOBJECT_EXTENDED_LIMIT_INFORMATION>(hJob, Kernel32.JOBOBJECTINFOCLASS.JobObjectExtendedLimitInformation);
-                    bi.BasicLimitInformation.LimitFlags |= Kernel32.JOBOBJECT_LIMIT_FLAGS.JOB_OBJECT_LIMIT_JOB_MEMORY;
-                    bi.JobMemoryLimit = job.MemoryLimitInBytes;
-
-                    Kernel32.SetInformationJobObject(hJob, Kernel32.JOBOBJECTINFOCLASS.JobObjectExtendedLimitInformation, bi);
-                    Kernel32.AssignProcessToJobObject(hJob, safeProcess);
-
-                    process.Exited += (sender, e) =>
-                    {
-                        Log.Info("Releasing job object");
-                        Kernel32.TerminateJobObject(hJob, 0);
-                        safeProcess.Dispose();
-                    };
-                }
-
-                if (!String.IsNullOrWhiteSpace(job.CpuSet))
-                {
-                    var cpuSet = CalculateCpuList(job.CpuSet);
-
-                    var ssi = Kernel32.GetSystemCpuSetInformation(safeProcess).ToArray();
-                    var cpuSets = cpuSet.Select(i => ssi[i].CpuSet.Id).ToArray();
-
-                    Log.Info($"Limiting CpuSet ids: {String.Join(',', cpuSets)}");
-
-                    var result = Kernel32.SetProcessDefaultCpuSets(safeProcess, cpuSets, (uint)cpuSets.Length);
-                }              
-                
+                    limiter.Dispose();
+                };
             }
 
             // We try to detect an endpoint is ready if we are running in IIS (no console logs)
