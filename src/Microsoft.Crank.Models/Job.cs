@@ -101,7 +101,6 @@ namespace Microsoft.Crank.Models
                 // Since source was intended to be cloned to the root of the working directory, set the destination to empty
                 value.DestinationFolder = "";
                 Sources = new Dictionary<string, Source> { [Source.DefaultSource] = value };
-                SourceKey = value.SourceKey;
                 Project = value.Project;
                 DockerFile = value.DockerFile;
                 DockerPull = value.DockerPull;
@@ -118,7 +117,7 @@ namespace Microsoft.Crank.Models
         /// The source information for the benchmarked application
         /// </summary>
         public Dictionary<string, Source> Sources { get; set; } = new Dictionary<string, Source>();
-        public string SourceKey { get; set; }
+        public string BuildKey { get; set; }
         public string Project { get; set; }
         public string DockerFile { get; set; }
         public string DockerPull { get; set; }
@@ -318,6 +317,40 @@ namespace Microsoft.Crank.Models
                 return $"benchmarks_{System.IO.Path.GetFileNameWithoutExtension(DockerFile)}".ToLowerInvariant();
             }
         }
+
+        public BuildKeyData GetBuildKeyData()
+        {
+            return new BuildKeyData
+            {
+                Sources = Sources.ToDictionary(s => s.Key, s => (s.Value.DestinationFolder, s.Value.GetSourceKeyData())),
+                Project = Project,
+                RuntimeVersion = RuntimeVersion,
+                DesktopVersion = DesktopVersion,
+                AspNetCoreVersion = AspNetCoreVersion,
+                SdkVersion = SdkVersion,
+                Framework = Framework,
+                Channel = Channel,
+                PatchReferences = PatchReferences,
+                PackageReferences = PackageReferences,
+                NoGlobalJson = NoGlobalJson,
+                UseRuntimeStore = UseRuntimeStore,
+                BuildArguments = BuildArguments,
+                SelfContained = SelfContained,
+                Executable = Executable,
+                Collect = Collect,
+                UseMonoRuntime = UseMonoRuntime,
+                BuildFiles = Options.BuildFiles,
+                BuildArchives = Options.BuildArchives,
+                OutputFiles = Options.OutputFiles,
+                OutputArchives = Options.OutputArchives,
+                CollectDependencies = CollectDependencies,
+                DockerLoad = DockerLoad,
+                DockerPull = DockerPull,
+                DockerFile = DockerFile,
+                DockerImageName = DockerImageName,
+                DockerContextDirectory = DockerContextDirectory
+            };
+        }
     }
 
     /// <summary>
@@ -360,6 +393,39 @@ namespace Microsoft.Crank.Models
         public string DumpType { get; set; }
         public string DumpOutput { get; set; }
         public bool NoGitIgnore { get; set; }
+    }
 
+    /// <summary>
+    /// A class that stores all the properties that can be used as part of a cache key for the build.
+    /// </summary>
+    public class BuildKeyData
+    {
+        public Dictionary<string, (string DestinationFolder, SourceKeyData SourceKeyData)> Sources { get; set; }
+        public string Project { get; set; }
+        public string RuntimeVersion { get; set; }
+        public string DesktopVersion { get; set; }
+        public string AspNetCoreVersion { get; set; }
+        public string SdkVersion { get; set; }
+        public string Framework { get; set; }
+        public string Channel { get; set; }
+        public bool PatchReferences { get; set; }
+        public Dictionary<string, string> PackageReferences { get; set; }
+        public bool NoGlobalJson { get; set; }
+        public bool UseRuntimeStore { get; set; }
+        public List<string> BuildArguments { get; set; }
+        public bool SelfContained { get; set; }
+        public string Executable { get; set; }
+        public bool Collect { get; set; }
+        public string UseMonoRuntime { get; set; }
+        public List<string> BuildFiles { get; set; }
+        public List<string> BuildArchives { get; set; }
+        public List<string> OutputFiles { get; set; }
+        public List<string> OutputArchives { get; set; }
+        public bool CollectDependencies { get; set; }
+        public string DockerLoad { get; set; }
+        public string DockerPull { get; set; }
+        public string DockerFile { get; set; }
+        public string DockerImageName { get; set; }
+        public string DockerContextDirectory { get; set; }
     }
 }

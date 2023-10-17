@@ -36,11 +36,6 @@ namespace Microsoft.Crank.Models
         /// </summary>
         public string SourceKey { get; set; }
 
-        /// <summary>
-        /// Set in the agent to indicate that the source is cached in the given directory.
-        /// </summary>
-        public string CacheDirectory { get; set; }
-
         // When set, contains the location of the uploaded source code
         public Attachment SourceCode { get; set; }
 
@@ -62,5 +57,27 @@ namespace Microsoft.Crank.Models
         public string DockerFetchPath { get; set; }
         [Obsolete("Now stored against the Job, rather than the Source")]
         public bool NoBuild { get; set; }
+
+        public SourceKeyData GetSourceKeyData()
+        {
+            return new SourceKeyData
+            {
+                BranchOrCommit = BranchOrCommit,
+                Repository = Repository,
+                InitSubmodules = InitSubmodules,
+                LocalFolder = LocalFolder
+            };
+        }
+    }
+
+    /// <summary>
+    /// A class that stores all the properties that can be used as part of a cache key for the source.
+    /// </summary>
+    public class SourceKeyData
+    {
+        public string BranchOrCommit { get; set; }
+        public string Repository { get; set; }
+        public bool InitSubmodules { get; set; }
+        public string LocalFolder { get; set; }
     }
 }
