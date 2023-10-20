@@ -465,13 +465,14 @@ namespace Microsoft.Crank.Controller
         /// <summary>
         /// Stops the job on the server without deleting it.
         /// </summary>
-        public async Task StopAsync()
+        public async Task StopAsync(bool collectDump = false)
         {
             StopKeepAlive();
 
             Log.Write($"Stopping job '{_jobName}' ...");
 
-            var response = await _httpClient.PostAsync(Combine(_serverJobUri, "/stop"), new StringContent(""));
+            var dumpQuery = collectDump ? "?collectDump=true" : "";
+            var response = await _httpClient.PostAsync(Combine(_serverJobUri, $"/stop{dumpQuery}"), new StringContent(""));
             Log.Verbose($"{(int)response.StatusCode} {response.StatusCode}");
             var jobStoppedUtc = DateTime.UtcNow;
 
@@ -650,7 +651,7 @@ namespace Microsoft.Crank.Controller
                         if (Job.Timeout > 0 && _runningUtc != null && DateTime.UtcNow - _runningUtc > TimeSpan.FromSeconds(Job.Timeout))
                         {
                             Log.Write($"'{_jobName}' has timed out, stopping...");
-                            await StopAsync();
+                            await StopAsync(collectDump: true);
                         }
 
                         var timeTakenForPing = (int)(DateTime.UtcNow - start).TotalMilliseconds;
