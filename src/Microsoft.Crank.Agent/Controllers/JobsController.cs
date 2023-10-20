@@ -166,7 +166,7 @@ namespace Microsoft.Crank.Agent.Controllers
         }
 
         [HttpPost("{id}/stop")]
-        public IActionResult Stop(int id)
+        public IActionResult Stop(int id, bool collectDump = false)
         {
             Log.Info($"Driver stopping job '{id}'");
 
@@ -187,6 +187,11 @@ namespace Microsoft.Crank.Agent.Controllers
                     // Can happen if the server stops the job, then the driver does it.
                     // If the benchmark failed, it will be marked as Stopping automatically.
                     return new StatusCodeResult((int)HttpStatusCode.Accepted);
+                }
+
+                if (collectDump)
+                {
+                    job.DumpProcess = true;
                 }
 
                 job.State = JobState.Stopping;
