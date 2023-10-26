@@ -4556,11 +4556,6 @@ namespace Microsoft.Crank.Agent
 
             process.StartInfo.Environment.Add("DOTNET_EXE", GetDotNetExecutable(dotnetHome));
 
-            process.StartInfo.Environment.Add("COREHOST_SERVER_GC", "1");
-
-            // Force Kestrel server urls
-            process.StartInfo.Environment.Add("ASPNETCORE_URLS", serverUrl);
-
             if (job.Collect && OperatingSystem == OperatingSystem.Linux)
             {
                 // c.f. https://github.com/dotnet/coreclr/blob/master/Documentation/project-docs/linux-performance-tracing.md#collecting-a-trace
