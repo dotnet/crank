@@ -91,7 +91,7 @@ namespace Microsoft.Crank.Agent
                 var cpuSets = _cpuSet.Select(i => ssi[i].CpuSet.Id).ToArray();
 
                 var result = SetProcessDefaultCpuSets(_safeProcess, cpuSets, (uint)cpuSets.Length);
-                Log.Info($"Limiting CpuSet ids: {String.Join(',', cpuSets)}, {result} ({_job.Service}:{_job.Id})");
+                Log.Info($"Limiting CpuSet ids: {String.Join(',', cpuSets)}, for ({_job.Service}:{_job.Id}): {(result ? "SUCCESS" : "FAILED")}");
 
                 foreach (var csi in ssi)
                 {

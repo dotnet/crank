@@ -4619,6 +4619,7 @@ namespace Microsoft.Crank.Agent
                     {
                         Log.Info($"Tracking child process id: {childProcessId}");
                         job.ChildProcessId = childProcessId;
+                        stopwatch.Restart();
                     }
                 }
             };
@@ -4643,6 +4644,33 @@ namespace Microsoft.Crank.Agent
                 process.WaitForExit();
             };
 
+            var useWindowsLimiter = (job.MemoryLimitInBytes > 0 || job.CpuLimitRatio > 0 || !String.IsNullOrWhiteSpace(job.CpuSet)) && RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+
+            // If useWindowsLimiter is true we need to use a proxy app that will get a JobObject attached such that the actual application can account for the limits
+            // when it starts. Otherwise the dotnet app would start while the JobOject is not yet defined.
+
+            if (useWindowsLimiter)
+            {
+                // This won't be necessary once https://github.com/dotnet/runtime/issues/94127 is implemented.
+                // At that point the process can be started suspended while the JobObject is assigned to it.
+
+                Console.WriteLine("Invoking JobObject Wrapper");
+
+                var filename = process.StartInfo.FileName;
+                var arguments = process.StartInfo.Arguments;
+
+                // The executable should be in the same folder as the agent since it references the Console project
+                process.StartInfo.FileName = "Microsoft.Crank.JobObjectWrapper.exe";
+                process.StartInfo.Arguments = filename + " " + arguments;
+
+                // .NET doesn't respect a cpu affinity if a ratio is not set too. https://github.com/dotnet/runtime/issues/94364
+                if (!String.IsNullOrWhiteSpace(job.CpuSet) && job.CpuLimitRatio == 0)
+                {
+                    process.StartInfo.EnvironmentVariables.Add("DOTNET_PROCESSOR_COUNT", CalculateCpuList(job.CpuSet).Count.ToString(CultureInfo.InvariantCulture));
+                    process.StartInfo.EnvironmentVariables.Add("DOTNET_Thread_AssignCpuGroups", "0");
+                }
+            }
+
             stopwatch.Start();
             process.Start();
 
@@ -4657,7 +4685,7 @@ namespace Microsoft.Crank.Agent
                 RunAndTrace();
             }
 
-            if ((job.MemoryLimitInBytes > 0 || job.CpuLimitRatio > 0 || !String.IsNullOrWhiteSpace(job.CpuSet)) && RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            if (useWindowsLimiter)
             {
                 var limiter = new WindowsLimiter(job, (uint)process.Id);
 
