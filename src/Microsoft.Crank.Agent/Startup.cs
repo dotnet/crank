@@ -4446,8 +4446,6 @@ namespace Microsoft.Crank.Agent
                 : benchmarksRepo
                 ;
 
-            var scheme = (job.Scheme == Scheme.H2 || job.Scheme == Scheme.Https) ? "https" : "http";
-            var serverUrl = $"{scheme}://{hostname}:{job.Port}";
             var executable = GetDotNetExecutable(dotnetHome);
 
             var projectFileName = Path.Combine(benchmarksRepo, FormatPathSeparators(job.Project));
@@ -4555,11 +4553,6 @@ namespace Microsoft.Crank.Agent
             };
 
             process.StartInfo.Environment.Add("DOTNET_EXE", GetDotNetExecutable(dotnetHome));
-
-            process.StartInfo.Environment.Add("COREHOST_SERVER_GC", "1");
-
-            // Force Kestrel server urls
-            process.StartInfo.Environment.Add("ASPNETCORE_URLS", serverUrl);
 
             if (job.Collect && OperatingSystem == OperatingSystem.Linux)
             {
