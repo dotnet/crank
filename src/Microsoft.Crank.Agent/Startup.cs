@@ -4446,8 +4446,6 @@ namespace Microsoft.Crank.Agent
                 : benchmarksRepo
                 ;
 
-            var scheme = (job.Scheme == Scheme.H2 || job.Scheme == Scheme.Https) ? "https" : "http";
-            var serverUrl = $"{scheme}://{hostname}:{job.Port}";
             var executable = GetDotNetExecutable(dotnetHome);
 
             var projectFileName = Path.Combine(benchmarksRepo, FormatPathSeparators(job.Project));
