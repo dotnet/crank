@@ -4644,7 +4644,7 @@ namespace Microsoft.Crank.Agent
                 process.WaitForExit();
             };
 
-            var useWindowsLimiter = (job.MemoryLimitInBytes > 0 || job.CpuLimitRatio > 0 || !String.IsNullOrWhiteSpace(job.CpuSet)) && RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+            var useWindowsLimiter = OperatingSystem.IsWindows() && (job.MemoryLimitInBytes > 0 || job.CpuLimitRatio > 0 || !String.IsNullOrWhiteSpace(job.CpuSet));
 
             // If useWindowsLimiter is true we need to use a proxy app that will get a JobObject attached such that the actual application can account for the limits
             // when it starts. Otherwise the dotnet app would start while the JobOject is not yet defined.
