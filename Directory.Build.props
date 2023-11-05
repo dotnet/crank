@@ -25,7 +25,7 @@
 
     <!-- Lots of our dependencies are not strong-named -->
     <NoWarn>$(NoWarn);8002</NoWarn>
-    <LangVersion>8.0</LangVersion>    
+    <LangVersion>latest</LangVersion>    
   </PropertyGroup>
 
 </Project>
