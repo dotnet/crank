@@ -4660,7 +4660,6 @@ namespace Microsoft.Crank.Agent
                 if (!String.IsNullOrWhiteSpace(job.CpuSet) && job.CpuLimitRatio == 0)
                 {
                     process.StartInfo.EnvironmentVariables.Add("DOTNET_PROCESSOR_COUNT", CalculateCpuList(job.CpuSet).Count.ToString(CultureInfo.InvariantCulture));
-                    process.StartInfo.EnvironmentVariables.Add("DOTNET_Thread_AssignCpuGroups", "0");
                 }
             }
 
