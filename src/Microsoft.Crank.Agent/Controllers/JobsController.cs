@@ -325,7 +325,7 @@ namespace Microsoft.Crank.Agent.Controllers
 
             var tempFilename = Path.GetTempFileName();
 
-            await SaveBodyAsync(tempFilename);
+            await SaveBodyAsync(job, tempFilename);
 
             job.Attachments.Add(new Attachment
             {
@@ -367,7 +367,7 @@ namespace Microsoft.Crank.Agent.Controllers
 
             var tempFilename = Path.GetTempFileName() + ".zip";
 
-            await SaveBodyAsync(tempFilename);
+            await SaveBodyAsync(job, tempFilename);
 
             job.LastDriverCommunicationUtc = DateTime.UtcNow;
 
@@ -416,7 +416,7 @@ namespace Microsoft.Crank.Agent.Controllers
                 return NotFound("Source does not exist on job");
 
             var tempFilename = Path.GetTempFileName();
-            await SaveBodyAsync(tempFilename);
+            await SaveBodyAsync(job, tempFilename);
 
             source.SourceCode = new Attachment
             {
@@ -441,7 +441,7 @@ namespace Microsoft.Crank.Agent.Controllers
             var job = _jobs.Find(id);
             var tempFilename = Path.GetTempFileName();
 
-            await SaveBodyAsync(tempFilename);
+            await SaveBodyAsync(job, tempFilename);
 
             job.BuildAttachments.Add(new Attachment
             {
@@ -454,20 +454,31 @@ namespace Microsoft.Crank.Agent.Controllers
             return Ok();
         }
 
-        private async Task SaveBodyAsync(string filename)
+        private async Task SaveBodyAsync(Job job, string filename)
         {
             using var outputFileStream = System.IO.File.Create(filename);
+
+            Task task = null;
 
             if (Request.Headers.TryGetValue("Content-Encoding", out var encoding) && encoding.Contains("gzip"))
             {
                 Log.Info($"Received gzipped file content");
                 using var decompressor = new GZipStream(Request.Body, CompressionMode.Decompress);
-                await decompressor.CopyToAsync(outputFileStream, Request.HttpContext.RequestAborted);
+                task = decompressor.CopyToAsync(outputFileStream, Request.HttpContext.RequestAborted);
             }
             else
             {
                 Log.Info($"Received uncompressed file content");
-                await Request.Body.CopyToAsync(outputFileStream, Request.HttpContext.RequestAborted);
+                task = Request.Body.CopyToAsync(outputFileStream, Request.HttpContext.RequestAborted);
+            }
+
+            // Keeps controller's connection alive as PINGs might not be accepted
+            // by the agent while big files are uploaded.
+
+            while (!Request.HttpContext.RequestAborted.IsCancellationRequested && !task.IsCompleted)
+            {
+                await Task.Delay(500);
+                job.LastDriverCommunicationUtc = DateTime.UtcNow;
             }
         }
 
