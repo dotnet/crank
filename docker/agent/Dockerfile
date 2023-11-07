@@ -36,7 +36,9 @@ RUN apt-get update \
         # NativeAOT requirements
         clang \
         zlib1g-dev \
-        libkrb5-dev
+        libkrb5-dev \
+        # .NET 9.0 requirement
+        libc6 
 
 # Install HTTP/3 support
 RUN curl -LO https://packages.microsoft.com/keys/microsoft.asc && \
