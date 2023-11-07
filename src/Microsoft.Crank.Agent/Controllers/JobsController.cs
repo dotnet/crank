@@ -325,7 +325,15 @@ namespace Microsoft.Crank.Agent.Controllers
 
             var tempFilename = Path.GetTempFileName();
 
-            await SaveBodyAsync(job, tempFilename);
+            try
+            {
+                job.LastDriverCommunicationUtc = DateTime.UtcNow;
+                await SaveBodyAsync(job, tempFilename);
+            }
+            catch
+            {
+                return StatusCode(500, "Error while saving file");
+            }
 
             job.Attachments.Add(new Attachment
             {
@@ -367,14 +375,17 @@ namespace Microsoft.Crank.Agent.Controllers
 
             var tempFilename = Path.GetTempFileName() + ".zip";
 
-            await SaveBodyAsync(job, tempFilename);
-
-            job.LastDriverCommunicationUtc = DateTime.UtcNow;
-
             try
             {
+                job.LastDriverCommunicationUtc = DateTime.UtcNow;
+                await SaveBodyAsync(job, tempFilename);
+
                 // Extract the zip file in a temporary folder
                 ZipFile.ExtractToDirectory(tempFilename, destinationTempFilename);
+            }
+            catch
+            {
+                return StatusCode(500, "Error while saving file");
             }
             finally
             {
@@ -416,7 +427,16 @@ namespace Microsoft.Crank.Agent.Controllers
                 return NotFound("Source does not exist on job");
 
             var tempFilename = Path.GetTempFileName();
-            await SaveBodyAsync(job, tempFilename);
+
+            try
+            {
+                job.LastDriverCommunicationUtc = DateTime.UtcNow;
+                await SaveBodyAsync(job, tempFilename);
+            }
+            catch
+            {
+                return StatusCode(500, "Error while saving file");
+            }
 
             source.SourceCode = new Attachment
             {
@@ -441,7 +461,15 @@ namespace Microsoft.Crank.Agent.Controllers
             var job = _jobs.Find(id);
             var tempFilename = Path.GetTempFileName();
 
-            await SaveBodyAsync(job, tempFilename);
+            try
+            {
+                job.LastDriverCommunicationUtc = DateTime.UtcNow;
+                await SaveBodyAsync(job, tempFilename);
+            }
+            catch
+            {
+                return StatusCode(500, "Error while saving file");
+            }
 
             job.BuildAttachments.Add(new Attachment
             {
@@ -480,6 +508,8 @@ namespace Microsoft.Crank.Agent.Controllers
                 await Task.Delay(500);
                 job.LastDriverCommunicationUtc = DateTime.UtcNow;
             }
+
+            await task;
         }
 
         [HttpGet("{id}/trace")]
