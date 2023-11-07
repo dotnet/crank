@@ -371,6 +371,29 @@ namespace Microsoft.Crank.IntegrationTests
             Assert.Contains("--header \"x-header: demo\"", agentLog);
         }
 
+        [Fact]
+        public async Task BenchmarkHelloWithCpuSetSingleCore()
+        {
+            _output.WriteLine($"[TEST] Starting controller");
+
+            var result = await ProcessUtil.RunAsync(
+                "dotnet",
+                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --application.cpuSet 0",
+                workingDirectory: _crankTestsDirectory,
+                captureOutput: true,
+                timeout: DefaultTimeOut,
+                throwOnError: false,
+                outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); }
+            );
+
+            Assert.Equal(0, result.ExitCode);
+
+            Assert.Contains("Requests/sec", result.StandardOutput);
+            Assert.Contains(".NET Core SDK Version", result.StandardOutput);
+            Assert.Contains(".NET Runtime Version", result.StandardOutput);
+            Assert.Contains("ASP.NET Core Version", result.StandardOutput);
+        }
+
         public void Dispose()
         {
             _output.WriteLine(_agent.FlushOutput());
