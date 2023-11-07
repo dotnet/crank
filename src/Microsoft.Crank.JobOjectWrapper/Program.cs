@@ -20,9 +20,7 @@ var process = new Process()
     StartInfo = {
         FileName = args[0],
         Arguments = string.Join(" ", args[1..]),
-        UseShellExecute = false,
-        RedirectStandardOutput = true,
-        RedirectStandardError = true,
+        UseShellExecute = false
     }
 };
 
@@ -30,28 +28,8 @@ Console.WriteLine("Starting process...");
 Console.WriteLine($"Filename: {process.StartInfo.FileName}");
 Console.WriteLine($"Args: {process.StartInfo.Arguments}");
 
-process.OutputDataReceived += (_, e) =>
-{
-    if (e != null && e.Data != null)
-    {
-        Console.WriteLine(e.Data);
-    }
-};
-
-process.ErrorDataReceived += (_, e) =>
-{
-    if (e != null && e.Data != null)
-    {
-        Console.WriteLine(e.Data);
-    }
-};
-
 process.Start();
 Console.WriteLine($"##ChildProcessId:{process.Id}");
-process.BeginOutputReadLine();
-process.BeginErrorReadLine();
 process.WaitForExit();
-
-Console.WriteLine(process.StandardOutput.ReadToEnd());
 
 await Task.Delay(1000);
