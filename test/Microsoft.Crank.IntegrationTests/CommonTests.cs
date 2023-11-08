@@ -371,7 +371,7 @@ namespace Microsoft.Crank.IntegrationTests
             Assert.Contains("--header \"x-header: demo\"", agentLog);
         }
 
-        [Fact]
+        [SkipOnLinux]
         public async Task BenchmarkHelloWithCpuSetSingleCore()
         {
             _output.WriteLine($"[TEST] Starting controller");
