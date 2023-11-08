@@ -20,9 +20,7 @@ var process = new Process()
     StartInfo = {
         FileName = args[0],
         Arguments = string.Join(" ", args[1..]),
-        UseShellExecute = false,
-        RedirectStandardOutput = true,
-        RedirectStandardError = true,
+        UseShellExecute = false
     }
 };
 
@@ -33,7 +31,5 @@ Console.WriteLine($"Args: {process.StartInfo.Arguments}");
 process.Start();
 Console.WriteLine($"##ChildProcessId:{process.Id}");
 process.WaitForExit();
-
-Console.WriteLine(process.StandardOutput.ReadToEnd());
 
 await Task.Delay(1000);
