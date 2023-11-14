@@ -95,7 +95,6 @@ namespace Microsoft.Crank.Agent
         //private static readonly string _latestDesktopApiUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.win-x64/index.json";
         //private static readonly string _releaseMetadata = "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/releases-index.json";
 
-        private static readonly string _latestSdk80VersionUrl = "https://aka.ms/dotnet/8.0.1xx/daily/productCommit-win-x64.txt";
         private static readonly string _latestSdk90VersionUrl = "https://aka.ms/dotnet/9.0.1xx/daily/productCommit-win-x64.txt";
 
         private static readonly string _aspnetSdkVersionUrl = "https://raw.githubusercontent.com/dotnet/aspnetcore/main/global.json";
@@ -2709,13 +2708,6 @@ namespace Microsoft.Crank.Agent
             }
             else
             {
-                // Until there is a GA version of net8.0, use "edge"
-
-                if (targetFramework.Equals("net8.0"))
-                {
-                    channel = "edge";
-                }
-                
                 if (targetFramework.Equals("net9.0"))
                 {
                     channel = "edge";
@@ -4049,11 +4041,6 @@ namespace Microsoft.Crank.Agent
                     (sdkVersion, _) = await ParseVersionsFile(_latestSdk90VersionUrl, "installer");
                     Log.Info($"SDK: {sdkVersion} (Edge)");
                 }
-                else
-                {
-                    (sdkVersion, _) = await ParseVersionsFile(_latestSdk80VersionUrl, "installer");
-                    Log.Info($"SDK: {sdkVersion} (Edge)");
-                }
             }
             else
             {
@@ -4120,7 +4107,7 @@ namespace Microsoft.Crank.Agent
 
         private static async Task<string> ResolveDesktopVersion(string desktopVersion, string currentDesktopVersion, string targetFramework)
         {
-            var latestSdkUrl = targetFramework == "net9.0" ? _latestSdk90VersionUrl : _latestSdk80VersionUrl;
+            var latestSdkUrl = _latestSdk90VersionUrl;
 
             if (String.Equals(desktopVersion, "Current", StringComparison.OrdinalIgnoreCase))
             {
@@ -5629,7 +5616,7 @@ namespace Microsoft.Crank.Agent
             const string internalFeed = "https://dotnetbuilds.azureedge.net/public";
             const string publicFeed = "https://dotnetcli.azureedge.net/dotnet";
             
-            var dotnetFeeds = version.StartsWith("8.0") || version.StartsWith("9.0")
+            var dotnetFeeds = version.StartsWith("9.0")
                 ? new string[] { internalFeed, publicFeed } // for vnext and preview versions we check on the internal feed first
                 : new string[] { publicFeed, internalFeed } // for older versions odds are that we are looking for a public package
                 ;
