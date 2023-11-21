@@ -68,7 +68,7 @@ namespace Microsoft.Crank.Agent
         private static readonly string DefaultChannel = "current";
         private const int CommitHashLength = 12;
 
-        private const string PerfViewVersion = "v3.1.5";
+        private const string PerfViewVersion = "v3.1.6";
 
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
@@ -1320,7 +1320,8 @@ namespace Microsoft.Crank.Agent
                                 {
                                     if (OperatingSystem == OperatingSystem.Windows)
                                     {
-                                        RunPerfview($"stop /AcceptEula /NoNGenRundown /NoView {_startPerfviewArguments}", Path.Combine(tempDir, benchmarksDir));
+                                        var logFilename = Path.Combine(workingDirectory, "perfview.log");
+                                        RunPerfview($"stop /AcceptEula /NoNGenRundown /NoView /LogFile:\"{logFilename}\" {_startPerfviewArguments}", Path.Combine(tempDir, benchmarksDir));
                                     }
                                     else if (OperatingSystem == OperatingSystem.Linux)
                                     {
@@ -1547,7 +1548,8 @@ namespace Microsoft.Crank.Agent
                                             // Abort all Perfview processes
                                             if (OperatingSystem == OperatingSystem.Windows)
                                             {
-                                                var perfViewProcess = RunPerfview("abort", Path.GetPathRoot(_perfviewPath));
+                                                var logFilename = Path.Combine(workingDirectory, "perfview.log");
+                                                RunPerfview($"abort /LogFile:\"{logFilename}\"", Path.GetPathRoot(_perfviewPath));
                                             }
                                             else if (OperatingSystem == OperatingSystem.Linux)
                                             {
@@ -1799,12 +1801,12 @@ namespace Microsoft.Crank.Agent
             }
         }
 
-        private static string RunPerfview(string arguments, string workingDirectory)
+        private static bool RunPerfview(string arguments, string workingDirectory)
         {
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 Log.Info($"PerfView is only supported on Windows");
-                return null;
+                return false;
             }
 
             Log.Info($"Starting process '{_perfviewPath} {arguments}' in '{workingDirectory}'");
@@ -1822,35 +1824,13 @@ namespace Microsoft.Crank.Agent
                 EnableRaisingEvents = true
             };
 
-            var perfviewDoneEvent = new ManualResetEvent(false);
-            var output = new StringBuilder();
-
-            process.OutputDataReceived += (_, e) =>
-            {
-                if (e != null && e.Data != null)
-                {
-                    Log.Info(e.Data);
-
-                    if (e.Data.Contains("Press enter to close window"))
-                    {
-                        perfviewDoneEvent.Set();
-                    }
-
-                    output.Append(e.Data);
-                }
-            };
-
             process.Start();
-            process.BeginOutputReadLine();
-
-            // Wait until PerfView is done
-            perfviewDoneEvent.WaitOne();
-
-            // Perfview is waiting for a keystroke to stop
-            process.StandardInput.WriteLine();
-
+            process.WaitForExit();
+            
+            var success = process.ExitCode == 0;
+            
             process.Close();
-            return output.ToString();
+            return success;            
         }
 
         private static Process RunPerfcollect(string arguments, string workingDirectory)
@@ -5084,8 +5064,27 @@ namespace Microsoft.Crank.Agent
                     _startPerfviewArguments += $" /{customArg.Key}{value}";
                 }
 
-                RunPerfview($"start /AcceptEula /NoGui {_startPerfviewArguments} \"{job.PerfViewTraceFile}\"", workingDirectory);
+                var logFilename = Path.Combine(workingDirectory, "perfview.log");
+
+                var success = RunPerfview($"start /AcceptEula /NoGui /LogFile:\"{logFilename}\" {_startPerfviewArguments} \"{job.PerfViewTraceFile}\"", workingDirectory);
                 Log.Info($"Starting PerfView {_startPerfviewArguments}");
+
+                if (!success)
+                {
+                    // PerfView could not start
+                    Log.Info($"PerfView failed.");
+                    Log.Info($"{job.State} -> Failed ({job.Service}:{job.Id})");
+
+                    if (File.Exists(logFilename))
+                    {
+                        var perfviewLog = File.ReadAllText(logFilename);
+
+                        Log.Info(perfviewLog);
+                        job.Error = perfviewLog;
+                    }
+
+                    job.State = JobState.Failed;
+                }
 
                 // PerfView adds ".etl.zip" to the requested filename
                 job.PerfViewTraceFile = job.PerfViewTraceFile + ".etl.zip";
