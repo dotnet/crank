@@ -18,6 +18,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Fluid;
+using Microsoft.Crank.Controller;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Octokit;

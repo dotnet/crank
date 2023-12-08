@@ -281,6 +281,14 @@ namespace Microsoft.Crank.Models
         /// </summary>
         public bool PatchReferences { get; set; } = false;
 
+        public Dictionary<string, List<CommandDefinition>> Commands { get; set; }
+        
+        public List<string> PreCommandOrder { get; set; } = new();
+        
+        public List<string> PostCommandOrder { get; set; } = new();
+        
+        public EnvironmentData Environment { get; set; } = new EnvironmentData();
+
         public bool IsDocker()
         {
             return !String.IsNullOrEmpty(DockerFile) || !String.IsNullOrEmpty(DockerImageName) || !String.IsNullOrEmpty(DockerPull);

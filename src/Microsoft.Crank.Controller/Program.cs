@@ -627,6 +627,21 @@ namespace Microsoft.Crank.Controller
                 VersionChecker.CheckUpdateAsync(_httpClient);
 #pragma warning restore CS4014
 
+                var engine = new Engine();
+
+                engine.SetValue("console", _scriptConsole);
+                engine.SetValue("fs", _scriptFile);
+                engine.SetValue("configuration", configuration);
+
+                foreach (var dependency in dependencies)
+                {
+                    var job = configuration.Jobs[dependency];
+                    if (job.PreCommandOrder != null && job.PreCommandOrder.Any())
+                    {
+                        await RunCommands(job, engine, job.PreCommandOrder);
+                    }
+                }
+
                 Log.Write($"Running session '{session}' with description '{_descriptionOption.Value()}'");
 
                 var isBenchmarkDotNet = dependencies.Any(x => configuration.Jobs[x].Options.BenchmarkDotNet);
@@ -661,6 +676,16 @@ namespace Microsoft.Crank.Controller
                         exclude,
                         _scriptOption.Values
                         );
+                }
+
+                foreach (var dependency in dependencies)
+                {
+                    var job = configuration.Jobs[dependency];
+                    if (job.PostCommandOrder != null && job.PostCommandOrder.Any())
+                    {
+                        engine.SetValue("job", job);
+                        await RunCommands(job, engine, job.PostCommandOrder);
+                    }
                 }
 
                 // Display diff
@@ -1916,6 +1941,7 @@ namespace Microsoft.Crank.Controller
             // Evaluate templates
 
             var rootVariables = configuration["Variables"];
+            var rootCommands = configuration["Commands"];
 
             foreach (JProperty property in configuration["Jobs"] ?? new JObject())
             {
@@ -1924,6 +1950,7 @@ namespace Microsoft.Crank.Controller
                 var jobVariables = job["Variables"];
 
                 var variables = MergeVariables(rootVariables, jobVariables, commandLineVariables);
+                job["Commands"] = MergeVariables(rootCommands, job["Commands"]);
 
                 // Apply templates on variables first
                 ApplyTemplates(variables, new TemplateContext(variables.DeepClone()));
@@ -2069,6 +2096,87 @@ namespace Microsoft.Crank.Controller
             }
 
             return result;
+        }
+
+        private static async Task RunCommands(Job job, Engine engine, List<string> commands)
+        {
+            engine.SetValue("job", job);
+            foreach (var command in commands)
+            {
+                if (!job.Commands.TryGetValue(command, out var definitions))
+                {
+                    var availableCommands = String.Join("', '", job.Commands.Keys);
+                    throw new ControllerException($"Could not find a command named '{command}'. Possible values: '{availableCommands}'");
+                }
+
+                foreach (var definition in definitions)
+                {
+                    if (string.IsNullOrEmpty(definition.Condition) || engine.Execute(definition.Condition).GetCompletionValue().AsBoolean())
+                    {
+                        await RunCommand(command, definition);
+                        break;
+                    }
+                }
+            }
+        }
+
+        private static async Task RunCommand(string commandName, CommandDefinition definition)
+        {
+            var usesTempFile = false;
+            var fileName = definition.File;
+            if (string.IsNullOrEmpty(definition.File))
+            {
+                fileName = Path.Combine(Path.GetTempPath(), "run.bat");
+                await File.WriteAllTextAsync(fileName, definition.Script);
+                usesTempFile = true;
+            }
+
+            string executable;
+            string arguments;
+            switch (definition.Shell)
+            {
+                case ShellType.Batch:
+                    executable = fileName;
+                    arguments = "";
+                    break;
+                case ShellType.Bash:
+                    executable = "/bin/bash";
+                    arguments = fileName;
+                    break;
+                case ShellType.Powershell:
+                    executable = "powershell.exe";
+                    arguments = $"-ExecutionPolicy Bypass -NoProfile -NoLogo -File {fileName}";
+                    break;
+                default:
+                    throw new ControllerException($"Invalid shell type '{definition.Shell}' for command '{commandName}'");
+            }
+
+            try
+            {
+                var result = await ProcessUtil.RunAsync(executable, arguments, log: true);
+                if (!definition.ContinueOnError)
+                {
+                    var successfulExit = false;
+                    foreach (var exitCode in definition.SuccessExitCodes)
+                    {
+                        if (result.ExitCode == exitCode)
+                        {
+                            successfulExit = true;
+                            break;
+                        }
+                    }
+
+                    if (!successfulExit)
+                        throw new ControllerException($"Command '{commandName}' returned exit code {result.ExitCode}");
+                }
+            }
+            finally
+            {
+                if (usesTempFile)
+                {
+                    File.Delete(fileName);
+                }
+            }
         }
 
         private static string HashKeyData<T>(T KeyData)
