@@ -13,6 +13,6 @@ namespace Microsoft.Crank.Models
         public string Script { get; set; }
         public string File { get; set; }
         public bool ContinueOnError { get; set; } = false;
-        public List<int> SuccessExitCodes { get; set; } = [0];
+        public List<int> SuccessExitCodes { get; set; } = new List<int> { 0 };
     }
 }
