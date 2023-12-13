@@ -4616,8 +4616,9 @@ namespace Microsoft.Crank.Agent
                 var arguments = process.StartInfo.Arguments;
 
                 // The executable should be in the same folder as the agent since it references the Console project
-                process.StartInfo.FileName = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Microsoft.Crank.JobObjectWrapper.exe");
-                process.StartInfo.Arguments = filename + " " + arguments;
+                // Use 'dotnet exe .dll' to use the current default dotnet version or the tests could fail if the .exe doesn't match what version is available locally
+                process.StartInfo.FileName = "dotnet";
+                process.StartInfo.Arguments = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Microsoft.Crank.JobObjectWrapper.exe") + " " + filename + " " + arguments;
 
                 // .NET doesn't respect a cpu affinity if a ratio is not set too. https://github.com/dotnet/runtime/issues/94364
                 if (!String.IsNullOrWhiteSpace(job.CpuSet) && job.CpuLimitRatio == 0)
