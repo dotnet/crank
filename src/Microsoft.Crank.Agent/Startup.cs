@@ -41,7 +41,6 @@ using Repository;
 using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.SystemConsole.Themes;
-using Vanara.PInvoke;
 using OperatingSystem = Microsoft.Crank.Models.OperatingSystem;
 
 namespace Microsoft.Crank.Agent
@@ -68,7 +67,7 @@ namespace Microsoft.Crank.Agent
         private static readonly string DefaultChannel = "current";
         private const int CommitHashLength = 12;
 
-        private const string PerfViewVersion = "v3.1.5";
+        private const string PerfViewVersion = "v3.1.6";
 
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
@@ -80,19 +79,22 @@ namespace Microsoft.Crank.Agent
         private static readonly string _aspNetCoreDependenciesUrl = "https://raw.githubusercontent.com/aspnet/AspNetCore/{0}";
         private static readonly string _perfviewUrl = $"https://github.com/Microsoft/perfview/releases/download/{PerfViewVersion}/PerfView.exe";
 
-        private static readonly string _aspnet6FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
-        private static readonly string _aspnet7FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet7/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
         private static readonly string _aspnet8FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
         private static readonly string _aspnet9FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
 
-        private static readonly string _netcore6FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.linux-x64/index.json";
-        private static readonly string _netcore7FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet7/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.linux-x64/index.json";
         private static readonly string _netcore8FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.linux-x64/index.json";
         private static readonly string _netcore9FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.linux-x64/index.json";
 
+        private static readonly string additionalProjectSources = """
+                https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9/nuget/v3/index.json;
+                https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9-transport/nuget/v3/index.json;
+                https://dotnetfeed.blob.core.windows.net/aspnet-extensions/index.json;
+                https://dotnetfeed.blob.core.windows.net/aspnet-aspnetcore-tooling/index.json;
+                https://dotnetfeed.blob.core.windows.net/aspnet-entityframeworkcore/index.json;
+                https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-public/nuget/v3/index.json;
+            """;
+
         // Safe-keeping these urls
-        //private static readonly string _latestRuntimeApiUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.linux-x64/index.json";
-        //private static readonly string _latestDesktopApiUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.win-x64/index.json";
         //private static readonly string _releaseMetadata = "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/releases-index.json";
 
         private static readonly string _latestSdk90VersionUrl = "https://aka.ms/dotnet/9.0.1xx/daily/productCommit-win-x64.txt";
@@ -101,9 +103,6 @@ namespace Microsoft.Crank.Agent
         private static readonly string[] _runtimeFeedUrls = new string[] {
             "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9/nuget/v3/flat2",
             "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8/nuget/v3/flat2",
-            "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet7/nuget/v3/flat2",
-            "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/flat2",
-            "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2",
             "https://dotnetfeed.blob.core.windows.net/dotnet-core/flatcontainer",
             "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-public/nuget/v3/flat2" };
 
@@ -1320,7 +1319,8 @@ namespace Microsoft.Crank.Agent
                                 {
                                     if (OperatingSystem == OperatingSystem.Windows)
                                     {
-                                        RunPerfview($"stop /AcceptEula /NoNGenRundown /NoView {_startPerfviewArguments}", Path.Combine(tempDir, benchmarksDir));
+                                        var logFilename = Path.Combine(workingDirectory, "perfview.log");
+                                        RunPerfview($"stop /AcceptEula /NoNGenRundown /NoView /LogFile:\"{logFilename}\" {_startPerfviewArguments}", Path.Combine(tempDir, benchmarksDir));
                                     }
                                     else if (OperatingSystem == OperatingSystem.Linux)
                                     {
@@ -1547,7 +1547,8 @@ namespace Microsoft.Crank.Agent
                                             // Abort all Perfview processes
                                             if (OperatingSystem == OperatingSystem.Windows)
                                             {
-                                                var perfViewProcess = RunPerfview("abort", Path.GetPathRoot(_perfviewPath));
+                                                var logFilename = Path.Combine(workingDirectory, "perfview.log");
+                                                RunPerfview($"abort /LogFile:\"{logFilename}\"", Path.GetPathRoot(_perfviewPath));
                                             }
                                             else if (OperatingSystem == OperatingSystem.Linux)
                                             {
@@ -1799,12 +1800,12 @@ namespace Microsoft.Crank.Agent
             }
         }
 
-        private static string RunPerfview(string arguments, string workingDirectory)
+        private static bool RunPerfview(string arguments, string workingDirectory)
         {
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 Log.Info($"PerfView is only supported on Windows");
-                return null;
+                return false;
             }
 
             Log.Info($"Starting process '{_perfviewPath} {arguments}' in '{workingDirectory}'");
@@ -1822,35 +1823,13 @@ namespace Microsoft.Crank.Agent
                 EnableRaisingEvents = true
             };
 
-            var perfviewDoneEvent = new ManualResetEvent(false);
-            var output = new StringBuilder();
-
-            process.OutputDataReceived += (_, e) =>
-            {
-                if (e != null && e.Data != null)
-                {
-                    Log.Info(e.Data);
-
-                    if (e.Data.Contains("Press enter to close window"))
-                    {
-                        perfviewDoneEvent.Set();
-                    }
-
-                    output.Append(e.Data);
-                }
-            };
-
             process.Start();
-            process.BeginOutputReadLine();
-
-            // Wait until PerfView is done
-            perfviewDoneEvent.WaitOne();
-
-            // Perfview is waiting for a keystroke to stop
-            process.StandardInput.WriteLine();
-
+            process.WaitForExit();
+            
+            var success = process.ExitCode == 0;
+            
             process.Close();
-            return output.ToString();
+            return success;            
         }
 
         private static Process RunPerfcollect(string arguments, string workingDirectory)
@@ -3605,6 +3584,21 @@ namespace Microsoft.Crank.Agent
                         }
                     }
 
+                    // Inject additional NuGet feeds directly in the csproj file.
+                    // The global NuGet.config file created by crank may be ignored if the local project has 
+                    // a custom one with a <clear /> statement.
+
+                    var propertyGroup = project.Root.Elements("PropertyGroup").FirstOrDefault(); ;
+
+                    if (propertyGroup == null)
+                    {
+                        project.Root.Add(propertyGroup = new XElement("PropertyGroup"));
+                    }
+
+                    propertyGroup.Add(new XElement("RestoreAdditionalProjectSources", additionalProjectSources));
+
+                    // Add FrameworkReference tags
+
                     if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
                     {
                         project.Root.Add(
@@ -3740,14 +3734,6 @@ namespace Microsoft.Crank.Agent
                         case "8.0":
                             aspNetCoreVersion = await GetFlatContainerVersion(_aspnet8FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
                             Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - From 8.0 feed)");
-                            break;
-                        case "7.0":
-                            aspNetCoreVersion = await GetFlatContainerVersion(_aspnet7FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
-                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - From 7.0 feed)");
-                            break;
-                        case "6.0":
-                            aspNetCoreVersion = await GetFlatContainerVersion(_aspnet6FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
-                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - From 6.0 feed)");
                             break;
                         default:
                             aspNetCoreVersion = currentAspNetCoreVersion;
@@ -4079,16 +4065,6 @@ namespace Microsoft.Crank.Agent
                 {
                     runtimeVersion = await GetFlatContainerVersion(_netcore8FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
                     Log.Info($"Runtime: {runtimeVersion} (Latest - From 8.0 feed)");
-                }
-                else if (versionPrefix == "7.0")
-                {
-                    runtimeVersion = await GetFlatContainerVersion(_netcore7FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
-                    Log.Info($"Runtime: {runtimeVersion} (Latest - From 7.0 feed)");
-                }
-                else if (versionPrefix == "6.0")
-                {
-                    runtimeVersion = await GetFlatContainerVersion(_netcore6FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
-                    Log.Info($"Runtime: {runtimeVersion} (Latest - From 6.0 feed)");
                 }
                 else
                 {
@@ -4640,8 +4616,9 @@ namespace Microsoft.Crank.Agent
                 var arguments = process.StartInfo.Arguments;
 
                 // The executable should be in the same folder as the agent since it references the Console project
-                process.StartInfo.FileName = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Microsoft.Crank.JobObjectWrapper.exe");
-                process.StartInfo.Arguments = filename + " " + arguments;
+                // Use 'dotnet exec .dll' to use the current default dotnet version or the tests could fail if the .exe doesn't match what version is available locally
+                process.StartInfo.FileName = "dotnet";
+                process.StartInfo.Arguments = "exec" + " " + Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Microsoft.Crank.JobObjectWrapper.dll") + " " + filename + " " + arguments;
 
                 // .NET doesn't respect a cpu affinity if a ratio is not set too. https://github.com/dotnet/runtime/issues/94364
                 if (!String.IsNullOrWhiteSpace(job.CpuSet) && job.CpuLimitRatio == 0)
@@ -5084,8 +5061,27 @@ namespace Microsoft.Crank.Agent
                     _startPerfviewArguments += $" /{customArg.Key}{value}";
                 }
 
-                RunPerfview($"start /AcceptEula /NoGui {_startPerfviewArguments} \"{job.PerfViewTraceFile}\"", workingDirectory);
+                var logFilename = Path.Combine(workingDirectory, "perfview.log");
+
+                var success = RunPerfview($"start /AcceptEula /NoGui /LogFile:\"{logFilename}\" {_startPerfviewArguments} \"{job.PerfViewTraceFile}\"", workingDirectory);
                 Log.Info($"Starting PerfView {_startPerfviewArguments}");
+
+                if (!success)
+                {
+                    // PerfView could not start
+                    Log.Info($"PerfView failed.");
+                    Log.Info($"{job.State} -> Failed ({job.Service}:{job.Id})");
+
+                    if (File.Exists(logFilename))
+                    {
+                        var perfviewLog = File.ReadAllText(logFilename);
+
+                        Log.Info(perfviewLog);
+                        job.Error = perfviewLog;
+                    }
+
+                    job.State = JobState.Failed;
+                }
 
                 // PerfView adds ".etl.zip" to the requested filename
                 job.PerfViewTraceFile = job.PerfViewTraceFile + ".etl.zip";
@@ -5956,7 +5952,7 @@ namespace Microsoft.Crank.Agent
             // This is not taken into account however if the source folder contains its own with a <clear /> statement as this one
             // is defined in the root benchmarks agent folder.
 
-            var rootNugetConfig = Path.Combine(_rootTempDir, "NuGet.Config");
+            var rootNugetConfig = Path.Combine(_rootTempDir, "NuGet.config");
 
             if (!File.Exists(rootNugetConfig))
             {
@@ -5967,10 +5963,6 @@ namespace Microsoft.Crank.Agent
     <add key=""benchmarks-dotnet9-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9-transport/nuget/v3/index.json"" />
     <add key=""benchmarks-dotnet8"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8/nuget/v3/index.json"" />
     <add key=""benchmarks-dotnet8-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8-transport/nuget/v3/index.json"" />
-    <add key=""benchmarks-dotnet7"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet7/nuget/v3/index.json"" />
-    <add key=""benchmarks-dotnet7-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet7-transport/nuget/v3/index.json"" />
-    <add key=""benchmarks-dotnet6"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/index.json"" />
-    <add key=""benchmarks-dotnet6-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6-transport/nuget/v3/index.json"" />
     <add key=""benchmarks-aspnetcore"" value=""https://dotnetfeed.blob.core.windows.net/aspnet-aspnetcore/index.json"" />
     <add key=""benchmarks-dotnet-core"" value=""https://dotnetfeed.blob.core.windows.net/dotnet-core/index.json"" />
     <add key=""benchmarks-extensions"" value=""https://dotnetfeed.blob.core.windows.net/aspnet-extensions/index.json"" />
