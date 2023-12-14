@@ -1537,15 +1537,13 @@ namespace Microsoft.Crank.Agent
 
                                 if (process != null && !process.HasExited)
                                 {
-                                    // var processId = process.Id;
-
                                     // Invoking Stop should also abort collection only the job failed.
                                     // The normal workflow is to stop collection using the TraceCollecting state
                                     if (abortCollection)
                                     {
                                         if (job.Collect)
                                         {
-                                            // Abort all Perfview processes
+                                            // Abort all PerfView processes
                                             if (OperatingSystem == OperatingSystem.Windows)
                                             {
                                                 var logFilename = Path.Combine(workingDirectory, "perfview.log");
