@@ -4558,6 +4558,8 @@ namespace Microsoft.Crank.Agent
 
             process.ErrorDataReceived += (_, e) =>
             {
+                const string processIdMarker = "##ChildProcessId:";
+
                 if (e != null && e.Data != null)
                 {
                     var log = "[STDERR] " + e.Data;
@@ -4573,7 +4575,6 @@ namespace Microsoft.Crank.Agent
                     }
 
                     // Detect the app is wrapping a child process
-                    var processIdMarker = "##ChildProcessId:";
                     if (e.Data.StartsWith(processIdMarker) 
                         && int.TryParse(e.Data.Substring(processIdMarker.Length), out var childProcessId))
                     {
