@@ -29,7 +29,7 @@ Console.WriteLine($"Filename: {process.StartInfo.FileName}");
 Console.WriteLine($"Args: {process.StartInfo.Arguments}");
 
 process.Start();
-Console.WriteLine($"##ChildProcessId:{process.Id}");
+Console.Error.WriteLine($"##ChildProcessId:{process.Id}");
 process.WaitForExit();
 
 await Task.Delay(1000);
