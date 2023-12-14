@@ -4594,7 +4594,7 @@ namespace Microsoft.Crank.Agent
 
                 if (job.DotNetTrace)
                 {
-                    StartDotNetTrace(process.Id, job);
+                    StartDotNetTrace(job);
                 }
             }
 
@@ -4684,7 +4684,7 @@ namespace Microsoft.Crank.Agent
 
                         if (job.DotNetTrace)
                         {
-                            StartDotNetTrace(process.Id, job);
+                            StartDotNetTrace(job);
                         }
                     }
                 }
@@ -4718,16 +4718,16 @@ namespace Microsoft.Crank.Agent
 
         private static async Task StartCountersAsync(Job job, JobContext context)
         {
-            if (job.ProcessId == 0)
+            if (job.ActiveProcessId == 0)
             {
                 throw new ArgumentException($"Undefined process id for '{job.Service}'");
             }
 
-            Log.Info("Starting counters");
+            Log.Info($"Starting counters for process {job.ActiveProcessId}");
 
             var metricsEventSourceSessionId = Guid.NewGuid().ToString();
 
-            var client = new DiagnosticsClient(job.ProcessId);
+            var client = new DiagnosticsClient(job.ActiveProcessId);
 
             var providerNames = job.Counters.Select(x => x.Provider).Distinct().ToArray();
 
@@ -4755,9 +4755,6 @@ namespace Microsoft.Crank.Agent
             const long TimeSeriesValues = 0x2;
             var metrics = string.Join(",", providerNames);
 
-            var defaultMaxHitograms = 10;
-            var defaultMaxTimeSeries = 1000;
-
             var metricsEventSourceProvider =
                 new EventPipeProvider("System.Diagnostics.Metrics", EventLevel.Informational, TimeSeriesValues,
                     new Dictionary<string, string>()
@@ -4765,8 +4762,8 @@ namespace Microsoft.Crank.Agent
                         { "SessionId", metricsEventSourceSessionId },
                         { "Metrics", metrics },
                         { "RefreshInterval", job.MeasurementsIntervalSec.ToString() },
-                        { "MaxTimeSeries", defaultMaxHitograms.ToString() },
-                        { "MaxHistograms", defaultMaxTimeSeries.ToString() }
+                        { "MaxTimeSeries", "10" },
+                        { "MaxHistograms", "1000" }
                     }
                 );
 
@@ -5116,12 +5113,12 @@ namespace Microsoft.Crank.Agent
             }
         }
 
-        private static void StartDotNetTrace(int processId, Job job)
+        private static void StartDotNetTrace(Job job)
         {
             job.PerfViewTraceFile = Path.Combine(job.BasePath, "trace.nettrace");
 
             dotnetTraceManualReset = new ManualResetEvent(false);
-            dotnetTraceTask = Collect(dotnetTraceManualReset, processId, new FileInfo(job.PerfViewTraceFile), 256, job.DotNetTraceProviders, TimeSpan.MaxValue);
+            dotnetTraceTask = Collect(dotnetTraceManualReset, job.ActiveProcessId, new FileInfo(job.PerfViewTraceFile), 256, job.DotNetTraceProviders, TimeSpan.MaxValue);
         }
 
         private static async Task UseMonoRuntimeAsync(string runtimeVersion, string outputFolder, string mode)
