@@ -6,6 +6,7 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Net.Http.Headers;
 
@@ -20,7 +21,7 @@ public class GZipFileResult : ActionResult
 
     public override async Task ExecuteResultAsync(ActionContext context)
     {
-        context.HttpContext.Response.Headers.Add(HeaderNames.Vary, HeaderNames.ContentEncoding);
+        context.HttpContext.Response.Headers.Append(HeaderNames.Vary, HeaderNames.ContentEncoding);
         await using var stream = File.OpenRead(FileName);
         
         context.HttpContext.Response.Headers["FileLength"] = new FileInfo(FileName).Length.ToString(CultureInfo.InvariantCulture);

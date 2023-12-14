@@ -63,7 +63,7 @@ namespace Microsoft.Crank.Agent
             Based on the target framework
          */
 
-        private static readonly string DefaultTargetFramework = "net7.0";
+        private static readonly string DefaultTargetFramework = "net8.0";
         private static readonly string DefaultChannel = "current";
         private const int CommitHashLength = 12;
 
