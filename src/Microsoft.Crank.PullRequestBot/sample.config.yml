@@ -7,16 +7,16 @@ components:
             REM call taskkill /F /IM dotnet.exe # also kills main process in dotnet.exe
 
         arguments:
-            --application.options.outputFiles ./artifacts/bin/Microsoft.AspNetCore.Server.Kestrel/release/net7.0/
+            --application.options.outputFiles ./artifacts/bin/Microsoft.AspNetCore.Server.Kestrel/release/net8.0/
     mvc: 
         script: |
             echo FAKE MVC BUILD
             # ./src/Servers/Kestrel/build.sh -c release
         arguments: 
-            --application.options.outputFiles ./artifacts/bin/Microsoft.AspNetCore.MVC/release/net7.0/
+            --application.options.outputFiles ./artifacts/bin/Microsoft.AspNetCore.MVC/release/net8.0/
 
 # default arguments that are always used on crank commands
-defaults: --config https://github.com/aspnet/Benchmarks/blob/main/build/azure.profile.yml?raw=true --application.framework net7.0 # --relay AZURE_RELAY 
+defaults: --config https://github.com/aspnet/Benchmarks/blob/main/build/azure.profile.yml?raw=true --application.framework net8.0 # --relay AZURE_RELAY 
 
 # the first value is the default if none is specified
 profiles:

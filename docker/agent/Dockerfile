@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:7.0 as build-env
+FROM mcr.microsoft.com/dotnet/sdk:8.0 as build-env
 
 COPY . .
 
@@ -7,12 +7,12 @@ ENV DOTNET_CLI_TELEMETRY_OPTOUT 1
 
 # Build self contained
 
-RUN dotnet publish -c Release src/Microsoft.Crank.Agent --output /app --framework net7.0
+RUN dotnet publish -c Release src/Microsoft.Crank.Agent --output /app --framework net8.0
 
 # Build runtime image
-# FROM mcr.microsoft.com/dotnet/aspnet:7.0
+# FROM mcr.microsoft.com/dotnet/aspnet:8.0
 # Use SDK image as it is required for the dotnet tools
-FROM mcr.microsoft.com/dotnet/sdk:7.0
+FROM mcr.microsoft.com/dotnet/sdk:8.0
 
 ARG CPUNAME=x86_64
 
