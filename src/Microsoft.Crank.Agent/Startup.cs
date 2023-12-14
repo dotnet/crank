@@ -1537,7 +1537,7 @@ namespace Microsoft.Crank.Agent
 
                                 if (process != null && !process.HasExited)
                                 {
-                                    var processId = process.Id;
+                                    // var processId = process.Id;
 
                                     // Invoking Stop should also abort collection only the job failed.
                                     // The normal workflow is to stop collection using the TraceCollecting state
@@ -1577,104 +1577,123 @@ namespace Microsoft.Crank.Agent
                                         }
                                     }
 
-                                    if (OperatingSystem == OperatingSystem.Linux)
+                                    // Stop a child process first if any
+
+                                    foreach (var processId in job.AllProcessIds)
                                     {
-                                        Log.Info($"Invoking SIGTERM ...");
+                                        Process localProcess;
 
-                                        Mono.Unix.Native.Syscall.kill(process.Id, Mono.Unix.Native.Signum.SIGTERM);
-
-                                        var waitForShutdownDelay = Task.Delay(TimeSpan.FromSeconds(5));
-                                        while (!process.HasExited && !waitForShutdownDelay.IsCompletedSuccessfully)
-                                        {
-                                            await Task.Delay(200);
-                                        }
-
-                                        if (!process.HasExited)
-                                        {
-                                            Log.Info($"Invoking SIGINT ...");
-
-                                            Mono.Unix.Native.Syscall.kill(process.Id, Mono.Unix.Native.Signum.SIGINT);
-
-                                            waitForShutdownDelay = Task.Delay(TimeSpan.FromSeconds(5));
-                                            while (!process.HasExited && !waitForShutdownDelay.IsCompletedSuccessfully)
-                                            {
-                                                await Task.Delay(200);
-                                            }
-                                        }
-                                    }
-
-                                    if (OperatingSystem == OperatingSystem.Windows)
-                                    {
-                                        if (!process.HasExited)
-                                        {
-                                            Log.Info("Sending CTRL+C ...");
-
-                                            SendCtrlCSignalToProcess(process);
-                                        }
-                                    }
-
-                                    if (!process.HasExited)
-                                    {
                                         try
                                         {
-                                            // Tentatively invoke the shutdown endpoint on the client application
-                                            var response = await _httpClient.GetAsync(new Uri(new Uri(job.Url), "/shutdown"));
+                                            localProcess = Process.GetProcessById(processId);
+                                        }
+                                        catch (ArgumentException)
+                                        {
+                                            // Happens if the process is not running anymore
+                                            continue;
+                                        }
 
-                                            // Shutdown invoked successfully, wait for the application to stop by itself
-                                            if (response.StatusCode == HttpStatusCode.OK)
+                                        if (OperatingSystem == OperatingSystem.Linux)
+                                        {
+                                            Log.Info($"Invoking SIGTERM ...");
+
+                                            Mono.Unix.Native.Syscall.kill(processId, Mono.Unix.Native.Signum.SIGTERM);
+
+                                            var waitForShutdownDelay = Task.Delay(TimeSpan.FromSeconds(5));
+
+                                            while (!localProcess.HasExited && !waitForShutdownDelay.IsCompletedSuccessfully)
                                             {
-                                                var epoch = DateTime.UtcNow;
+                                                await Task.Delay(200);
+                                                localProcess.Refresh();
+                                            }
 
-                                                do
+                                            if (!localProcess.HasExited)
+                                            {
+                                                Log.Info($"Invoking SIGINT ...");
+
+                                                Mono.Unix.Native.Syscall.kill(localProcess.Id, Mono.Unix.Native.Signum.SIGINT);
+
+                                                waitForShutdownDelay = Task.Delay(TimeSpan.FromSeconds(5));
+                                                while (!localProcess.HasExited && !waitForShutdownDelay.IsCompletedSuccessfully)
                                                 {
-                                                    Log.Info("Shutdown successfully invoked, waiting for graceful shutdown ...");
-                                                    await Task.Delay(1000);
-
-                                                } while (!process.HasExited && (DateTime.UtcNow - epoch < TimeSpan.FromSeconds(5)));
+                                                    await Task.Delay(200);
+                                                    localProcess.Refresh();
+                                                }
                                             }
                                         }
-                                        catch
-                                        {
-                                            Log.Info($"/shutdown endpoint failed... '{job.Url}/shutdown'");
-                                        }
-                                    }
 
-                                    if (!process.HasExited)
-                                    {
-                                        Log.Info($"Forcing process to stop ...");
-                                        process.CloseMainWindow();
-
-                                        if (!process.HasExited)
+                                        if (OperatingSystem == OperatingSystem.Windows)
                                         {
-                                            process.Kill();
+                                            if (!localProcess.HasExited)
+                                            {
+                                                Log.Info("Sending CTRL+C ...");
+
+                                                SendCtrlCSignalToProcess(localProcess);
+                                            }
                                         }
 
-                                        process.Dispose();
-
-                                        do
+                                        if (!localProcess.HasExited)
                                         {
-                                            Log.Info($"Waiting for process {processId} to stop ...");
-
-                                            await Task.Delay(1000);
-
                                             try
                                             {
-                                                process = Process.GetProcessById(processId);
-                                                process.Refresh();
+                                                // Tentatively invoke the shutdown endpoint on the client application
+                                                var response = await _httpClient.GetAsync(new Uri(new Uri(job.Url), "/shutdown"));
+
+                                                // Shutdown invoked successfully, wait for the application to stop by itself
+                                                if (response.StatusCode == HttpStatusCode.OK)
+                                                {
+                                                    var epoch = DateTime.UtcNow;
+
+                                                    do
+                                                    {
+                                                        Log.Info("Shutdown successfully invoked, waiting for graceful shutdown ...");
+                                                        await Task.Delay(1000);
+
+                                                    } while (!localProcess.HasExited && (DateTime.UtcNow - epoch < TimeSpan.FromSeconds(5)));
+                                                }
                                             }
                                             catch
                                             {
-                                                process = null;
+                                                Log.Info($"/shutdown endpoint failed... '{job.Url}/shutdown'");
+                                            }
+                                        }
+
+                                        if (!localProcess.HasExited)
+                                        {
+                                            Log.Info($"Forcing process to stop ...");
+                                            localProcess.CloseMainWindow();
+
+                                            if (!localProcess.HasExited)
+                                            {
+                                                localProcess.Kill();
                                             }
 
-                                        } while (process != null && !process.HasExited);
-                                    }
-                                    else
-                                    {
-                                        job.ExitCode = process.ExitCode;
-                                    }
+                                            localProcess.Dispose();
 
-                                    Log.Info($"Process has stopped ({job.Service}:{job.Id})");
+                                            do
+                                            {
+                                                Log.Info($"Waiting for process {processId} to stop ...");
+
+                                                await Task.Delay(1000);
+
+                                                try
+                                                {
+                                                    localProcess.Refresh();
+                                                }
+                                                catch
+                                                {
+                                                    localProcess = null;
+                                                }
+
+                                            } while (localProcess != null && !localProcess.HasExited);
+                                        }
+                                        else
+                                        {
+                                            job.ExitCode = process.ExitCode;
+                                        }
+
+                                        Log.Info($"Process has stopped ({job.Service}:{job.Id})");
+                                    }
 
 
                                     job.State = JobState.Stopped;
