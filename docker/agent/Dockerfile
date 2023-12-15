@@ -40,14 +40,14 @@ RUN apt-get update \
         # .NET 9.0 requirement
         libc6 
 
-# Install HTTP/3 support
 RUN curl -LO https://packages.microsoft.com/keys/microsoft.asc && \
     echo 2cfd20a306b2fa5e25522d78f2ef50a1f429d35fd30bd983e2ebffc2b80944fa microsoft.asc| sha256sum --check - && \
     apt-key add microsoft.asc && \
-    apt-add-repository https://packages.microsoft.com/debian/11/prod && \
+    rm microsoft.asc && \
+    echo deb https://packages.microsoft.com/debian/12/prod bookworm main >> /etc/apt/sources.list.d/microsoft.list && \
     apt-get update && \
     apt-get install -y libmsquic && \
-    rm -rf /var/lib/apt/lists/* microsoft.asc
+    rm -rf /var/lib/apt/lists/*
 
 # Build and install h2load. Required as there isn't a way to distribute h2load as a single file to download
 RUN apt-get update \
@@ -55,7 +55,7 @@ RUN apt-get update \
         g++ make binutils autoconf automake autotools-dev libtool pkg-config \
         zlib1g-dev libcunit1-dev libssl-dev libxml2-dev libev-dev libevent-dev libjansson-dev \
         libc-ares-dev libjemalloc-dev libsystemd-dev \
-        python python3-dev python-setuptools
+        python-is-python3 python3-dev python3-setuptools
 
 # If nghttp2 build fail just ignore it
 ENV NGHTTP2_VERSION 1.46.0
