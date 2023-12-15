@@ -59,7 +59,7 @@ RUN apt-get update \
         python-is-python3 python3-dev python3-setuptools
 
 # If nghttp2 build fail just ignore it
-ENV NGHTTP2_VERSION 1.46.0
+ENV NGHTTP2_VERSION 1.58.0
 RUN cd /tmp \
     && curl -L "https://github.com/nghttp2/nghttp2/releases/download/v${NGHTTP2_VERSION}/nghttp2-${NGHTTP2_VERSION}.tar.gz" -o "nghttp2-${NGHTTP2_VERSION}.tar.gz" \
     && tar -zxvf "nghttp2-${NGHTTP2_VERSION}.tar.gz" \
