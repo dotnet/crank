@@ -40,6 +40,7 @@ RUN apt-get update \
         # .NET 9.0 requirement
         libc6 
 
+# Install HTTP/3 support
 RUN curl -LO https://packages.microsoft.com/keys/microsoft.asc && \
     echo 2cfd20a306b2fa5e25522d78f2ef50a1f429d35fd30bd983e2ebffc2b80944fa microsoft.asc| sha256sum --check - && \
     apt-key add microsoft.asc && \
