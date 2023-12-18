@@ -1666,23 +1666,6 @@ namespace Microsoft.Crank.Agent
                                             }
 
                                             localProcess.Dispose();
-
-                                            do
-                                            {
-                                                Log.Info($"Waiting for process {processId} to stop ...");
-
-                                                await Task.Delay(1000);
-
-                                                try
-                                                {
-                                                    localProcess.Refresh();
-                                                }
-                                                catch
-                                                {
-                                                    localProcess = null;
-                                                }
-
-                                            } while (localProcess != null && !localProcess.HasExited);
                                         }
                                         else
                                         {
