@@ -283,9 +283,9 @@ namespace Microsoft.Crank.Models
 
         public Dictionary<string, List<CommandDefinition>> Commands { get; set; }
         
-        public List<string> PreCommandOrder { get; set; } = new();
+        public List<string> BeforeJob { get; set; } = new();
         
-        public List<string> PostCommandOrder { get; set; } = new();
+        public List<string> AfterJob { get; set; } = new();
         
         public EnvironmentData Environment { get; set; } = new EnvironmentData();
 

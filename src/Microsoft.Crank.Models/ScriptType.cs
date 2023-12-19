@@ -4,7 +4,7 @@
 
 namespace Microsoft.Crank.Models
 {
-    public enum ShellType
+    public enum ScriptType
     {
         Batch,
         Bash,

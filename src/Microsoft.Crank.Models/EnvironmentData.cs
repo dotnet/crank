@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using System;
 using System.Runtime.InteropServices;
 
 namespace Microsoft.Crank.Models
@@ -12,8 +13,11 @@ namespace Microsoft.Crank.Models
     /// </summary>
     public class EnvironmentData
     {
-        public string Platform { get; set; } = GetCurrentPlatform();
-        public string Architecture { get; set; } = RuntimeInformation.OSArchitecture.ToString();
+        private static readonly string platform = GetCurrentPlatform();
+        private static readonly string architecture = RuntimeInformation.OSArchitecture.ToString();
+
+        public string Platform => platform;
+        public string Architecture => architecture;
         
         private static string GetCurrentPlatform()
         {

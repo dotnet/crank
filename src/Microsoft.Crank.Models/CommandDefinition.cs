@@ -8,10 +8,10 @@ namespace Microsoft.Crank.Models
 {
     public class CommandDefinition
     {
-        public string Condition { get; set; }
-        public ShellType Shell { get; set; }
+        public string Condition { get; set; } = "true";
+        public ScriptType ScriptType { get; set; } = ScriptType.Powershell;
         public string Script { get; set; }
-        public string File { get; set; }
+        public string FilePath { get; set; }
         public bool ContinueOnError { get; set; } = false;
         public List<int> SuccessExitCodes { get; set; } = new List<int> { 0 };
     }

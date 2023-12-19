@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -636,9 +637,9 @@ namespace Microsoft.Crank.Controller
                 foreach (var dependency in dependencies)
                 {
                     var job = configuration.Jobs[dependency];
-                    if (job.PreCommandOrder != null && job.PreCommandOrder.Any())
+                    if (job.BeforeJob != null && job.BeforeJob.Any())
                     {
-                        await RunCommands(job, engine, job.PreCommandOrder);
+                        await RunCommands(job, engine, job.BeforeJob);
                     }
                 }
 
@@ -681,10 +682,10 @@ namespace Microsoft.Crank.Controller
                 foreach (var dependency in dependencies)
                 {
                     var job = configuration.Jobs[dependency];
-                    if (job.PostCommandOrder != null && job.PostCommandOrder.Any())
+                    if (job.AfterJob != null && job.AfterJob.Any())
                     {
                         engine.SetValue("job", job);
-                        await RunCommands(job, engine, job.PostCommandOrder);
+                        await RunCommands(job, engine, job.AfterJob);
                     }
                 }
 
@@ -2109,70 +2110,122 @@ namespace Microsoft.Crank.Controller
                     throw new ControllerException($"Could not find a command named '{command}'. Possible values: '{availableCommands}'");
                 }
 
+                Log.Write($"Running command '{command}'");
+
+                var stopwatch = new Stopwatch();
+                stopwatch.Start();
+
+                var foundDefinition = false;
+
                 foreach (var definition in definitions)
                 {
-                    if (string.IsNullOrEmpty(definition.Condition) || engine.Execute(definition.Condition).GetCompletionValue().AsBoolean())
+                    if (!string.IsNullOrEmpty(definition.Condition))
                     {
-                        await RunCommand(command, definition);
-                        break;
+                        try
+                        {
+                            var shouldRun = engine.Execute(definition.Condition).GetCompletionValue().AsBoolean();
+                            if (!shouldRun)
+                                continue;
+                        }
+                        catch (Exception)
+                        {
+                            Log.WriteError($"Could not evaluate condition [{definition.Condition}], ignoring ...");
+                        }
                     }
+
+                    await RunCommand(command, definition);
+                    foundDefinition = true;
+                    break;
                 }
+
+                if (!foundDefinition)
+                    throw new ControllerException($"Unable to find valid definition of command '{command}' to run, stopping ...");
+
+                stopwatch.Stop();
+
+                Log.Write($"Completed running command '{command}' ... took {stopwatch.Elapsed}");
             }
         }
 
         private static async Task RunCommand(string commandName, CommandDefinition definition)
         {
             var usesTempFile = false;
-            var fileName = definition.File;
-            if (string.IsNullOrEmpty(definition.File))
+            var fileName = definition.FilePath;
+            if (string.IsNullOrEmpty(definition.FilePath))
             {
-                fileName = Path.Combine(Path.GetTempPath(), "run.bat");
+                var extension = definition.ScriptType switch
+                {
+                    ScriptType.Powershell => ".ps1",
+                    ScriptType.Batch => ".bat",
+                    ScriptType.Bash => ".sh",
+                    _ => null
+                };
+
+                fileName = Path.GetFullPath(Path.GetRandomFileName(), Path.GetTempPath());
+                if (extension != null)
+                    fileName += extension;
+
                 await File.WriteAllTextAsync(fileName, definition.Script);
+
                 usesTempFile = true;
             }
 
+            if (System.OperatingSystem.IsLinux() || System.OperatingSystem.IsMacOS())
+                await ProcessUtil.RunAsync("chmod", $"+x {fileName}");
+
             string executable;
             string arguments;
-            switch (definition.Shell)
+            switch (definition.ScriptType)
             {
-                case ShellType.Batch:
+                case ScriptType.Batch:
                     executable = fileName;
                     arguments = "";
                     break;
-                case ShellType.Bash:
+                case ScriptType.Bash:
                     executable = "/bin/bash";
                     arguments = fileName;
                     break;
-                case ShellType.Powershell:
+                case ScriptType.Powershell:
                     executable = "powershell.exe";
                     arguments = $"-ExecutionPolicy Bypass -NoProfile -NoLogo -File {fileName}";
                     break;
                 default:
-                    throw new ControllerException($"Invalid shell type '{definition.Shell}' for command '{commandName}'");
+                    throw new ControllerException($"Invalid script type '{definition.ScriptType}' for command '{commandName}'");
             }
 
             try
             {
                 var result = await ProcessUtil.RunAsync(executable, arguments, log: true);
-                if (!definition.ContinueOnError)
+                var successfulExit = false;
+                foreach (var exitCode in definition.SuccessExitCodes)
                 {
-                    var successfulExit = false;
-                    foreach (var exitCode in definition.SuccessExitCodes)
+                    if (result.ExitCode == exitCode)
                     {
-                        if (result.ExitCode == exitCode)
-                        {
-                            successfulExit = true;
-                            break;
-                        }
+                        successfulExit = true;
+                        break;
                     }
-
-                    if (!successfulExit)
-                        throw new ControllerException($"Command '{commandName}' returned exit code {result.ExitCode}");
                 }
+
+                if (!successfulExit)
+                {
+                    var logMessage = $"Command '{commandName}' returned exit code {result.ExitCode}";
+                    if (!definition.ContinueOnError)
+                        throw new ControllerException($"{logMessage}, stopping...");
+                    
+                    Log.WriteError($"{logMessage}, continuing ...");
+                }
+            }
+            catch (Exception ex) when (ex is not ControllerException)
+            {
+                var logMessage = $"Exception was thrown when trying to run command '{commandName}'";
+                if (!definition.ContinueOnError)
+                    throw new ControllerException($"{logMessage}, stopping...");
+
+                Log.WriteError($"{logMessage}, continuing ...");
             }
             finally
             {
-                if (usesTempFile)
+                if (usesTempFile && File.Exists(fileName))
                 {
                     File.Delete(fileName);
                 }
