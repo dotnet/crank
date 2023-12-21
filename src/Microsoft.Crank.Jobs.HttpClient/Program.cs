@@ -375,7 +375,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                 Started = startTime.ToLocalTime(),
                 ThroughputBps = workerTasks.Select(x => x.Result.ThroughputBps).Sum(),
                 LatencyMaxMs = Math.Round(workerTasks.Select(x => x.Result.LatencyMaxMs).Max(), 3),
-                LatencyMeanMs = workerTasks.Select(x => x.Result.TotalRequests).Sum() == 0 ? 0 : Math.Round((stopTime - startTime).TotalMilliseconds / workerTasks.Select(x => x.Result.TotalRequests).Sum(), 3),
+                LatencyMeanMs = Math.Round(workerTasks.Select(x => x.Result.LatencyMeanMs).Average(), 3),
                 Connections = Connections,
             };
 
@@ -569,6 +569,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
             var counters = new int[5];
             var socketErrors = 0;
             var maxLatency = 0D;
+            var totalLatency = 0D;
             var transferred = 0L;
             var measuringStart = 0L;
             var sw = new Stopwatch();
@@ -631,6 +632,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                         transferred += responseMessage.Content.Headers.ContentLength ?? 0;
                         var latency = sw.ElapsedTicks - start;
                         maxLatency = Math.Max(maxLatency, latency);
+                        totalLatency += latency;
 
                         var status = (int)responseMessage.StatusCode;
 
@@ -704,6 +706,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                 Status5xx = counters[4],
                 SocketErrors = socketErrors,
                 LatencyMaxMs = maxLatency / Stopwatch.Frequency * 1000,
+                LatencyMeanMs = (totalLatency / counters.Sum()) / Stopwatch.Frequency * 1000,
                 ThroughputBps = throughput
             };
         }
