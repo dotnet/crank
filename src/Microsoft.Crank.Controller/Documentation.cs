@@ -5,7 +5,7 @@
 internal class Documentation
 {
     internal const string Content = @"
-  These options are specific to a Job service named [JOB]
+    These options are specific to a job instance. Replace [JOB] by the name of the service in the scenario (usually "application").
 
   --[JOB].endpoints <url>                                       Adds an endpoint on which to deploy the job definition, e.g., http://asp-perf-lin:5001. 
 

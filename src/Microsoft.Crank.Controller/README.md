@@ -8,7 +8,7 @@ Usage: crank [options]
 Options:
   -?|-h|--help                                          Show help information
 
-  These options are not specific to a Job
+  These options are not specific to a job instance.
 
   --config <filename>                                            Configuration file or url. Can be used multiple times.
   --scenario <scenario>                                          Scenario to execute.
@@ -45,7 +45,7 @@ Options:
   --relay <connection_string>                                    Connection string or environment variable name of the Azure Relay namespace used to access the Crank Agent endpoints. e.g., 'Endpoint=sb://mynamespace.servicebus.windows.net;...', 'MY_AZURE_RELAY_ENV';
   --command-line-property                                        Saves the final crank command line in a custom 'command-line' property, excluding all unnecessary and security sensitive arguments.
 
-  These options are specific to a Job service named [JOB]
+  These options are specific to a job instance. Replace [JOB] by the name of the service in the scenario (usually "application").
 
   --[JOB].endpoints <url>                                                  An endpoint on which to deploy the job definition, e.g., http://asp-perf-lin:5001. Can be used multiple times.
 
