@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -145,34 +146,49 @@ namespace Microsoft.Crank.Wrk
             }
         }
 
-        static int RunCore(string fileName, string[] args, bool parseLatency)
+#nullable enable
+        private static readonly string[] durationNames = new string[] { "-d", "--duration" };
+        private static readonly string[] warmupNames = new string[] { "-w", "--warmup" };
+
+        private static string? findAndRemove(List<string> argsList, string[] altNames)
         {
-            // Extracting duration parameters
-            string warmup = "";
-            string duration = "";
-
-            var argsList = args.ToList();
-
-            var durationIndex = argsList.FindIndex(x => String.Equals(x, "-d", StringComparison.OrdinalIgnoreCase));
-            if (durationIndex >= 0)
+            string? recoveredArg = null;
+            var index = -1;
+            foreach (string argname in altNames)
             {
-                duration = argsList[durationIndex + 1];
-                argsList.RemoveAt(durationIndex);
-                argsList.RemoveAt(durationIndex);
+                index = argsList.FindIndex(x => String.Equals(x, argname, StringComparison.OrdinalIgnoreCase));
+                if (index >= 0)
+                {
+                    break;
+                }
+            }
+            if (index >= 0)
+            {
+                recoveredArg = argsList[index + 1];
+                argsList.RemoveAt(index);
+                argsList.RemoveAt(index);
             }
             else
             {
-                Console.WriteLine("Couldn't find -d argument");
-                return -1;
+                recoveredArg = null;
+                var message = string.Join(" or ", altNames);
+                Console.WriteLine($"Couldn't find {message} argument");
+            }
+            return recoveredArg;
+        }
+
+        static int RunCore(string fileName, string[] args, bool parseLatency)
+        {
+            // Extracting duration parameters
+            List<string> argsList = args.ToList();
+
+            string? duration = findAndRemove(argsList, durationNames);
+            if (String.IsNullOrEmpty(duration))
+            {
+               return -1;
             }
 
-            var warmupIndex = argsList.FindIndex(x => String.Equals(x, "-w", StringComparison.OrdinalIgnoreCase));
-            if (warmupIndex >= 0)
-            {
-                warmup = argsList[warmupIndex + 1];
-                argsList.RemoveAt(warmupIndex);
-                argsList.RemoveAt(warmupIndex);
-            }
+            string? warmup = findAndRemove(argsList, warmupNames);
 
             args = argsList.Select(Quote).ToArray();
 
@@ -326,6 +342,7 @@ namespace Microsoft.Crank.Wrk
 
             return 0;
         }
+#nullable disable
 
         private static int ReadRequests(Match responseCountMatch)
         {
