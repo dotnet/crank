@@ -2,12 +2,14 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using static Vanara.PInvoke.Kernel32;
-using Vanara.PInvoke;
-using Microsoft.Crank.Models;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
+using Microsoft.Crank.Models;
+using Vanara.PInvoke;
+using static Vanara.PInvoke.Kernel32;
 
 namespace Microsoft.Crank.Agent
 {
@@ -19,13 +21,14 @@ namespace Microsoft.Crank.Agent
         private readonly SafeHJOB _safeJob;
         
         private readonly Job _job;
+        private readonly Process _process;
         private readonly List<int> _cpuSet;
 
-        public WindowsLimiter(Job job, uint processId) 
+        public WindowsLimiter(Job job, Process process) 
         {
             _job = job;
-
-            _safeProcess = OpenProcess(ACCESS_MASK.MAXIMUM_ALLOWED, false, processId);
+            _process = process;
+            _safeProcess = OpenProcess(ACCESS_MASK.MAXIMUM_ALLOWED, false, (uint)process.Id);
             _safeJob = CreateJobObject(null, $"{job.RunId}-{job.Service}");
 
             if (!String.IsNullOrWhiteSpace(job.CpuSet))
@@ -88,14 +91,20 @@ namespace Microsoft.Crank.Agent
             if (_cpuSet != null && _cpuSet.Any())
             {
                 var ssi = GetSystemCpuSetInformation(_safeProcess).ToArray();
-                var cpuSets = _cpuSet.Select(i => ssi[i].CpuSet.Id).ToArray();
 
-                var result = SetProcessDefaultCpuSets(_safeProcess, cpuSets, (uint)cpuSets.Length);
-                Log.Info($"Limiting CpuSet ids: {String.Join(',', cpuSets)}, for ({_job.Service}:{_job.Id}): {(result ? "SUCCESS" : "FAILED")}");
+                Log.Info($"Limiting cpus: {String.Join(',', _cpuSet)}, for ({_job.Service}:{_job.Id}) Process: {_process.Id}");
 
-                foreach (var csi in ssi)
+                foreach (var c in _cpuSet)
                 {
+                    var csi = ssi[c];
                     Log.Info($"Id: {csi.CpuSet.Id}; NumaNodeIndex: {csi.CpuSet.NumaNodeIndex}; LogicalProcessorIndex: {csi.CpuSet.LogicalProcessorIndex}; CoreIndex: {csi.CpuSet.CoreIndex}; Group: {csi.CpuSet.Group}");
+                }
+
+                // Only supported on Linux and windows
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) || RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                {
+                    var mask = (int)_cpuSet.Sum(x => Math.Pow(2, x));
+                    _process.ProcessorAffinity = new IntPtr(mask);
                 }
             }
 

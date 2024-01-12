@@ -4603,31 +4603,6 @@ namespace Microsoft.Crank.Agent
 
             var useWindowsLimiter = OperatingSystem == OperatingSystem.Windows && (job.MemoryLimitInBytes > 0 || job.CpuLimitRatio > 0 || !String.IsNullOrWhiteSpace(job.CpuSet));
 
-            // If useWindowsLimiter is true we need to use a proxy app that will get a JobObject attached such that the actual application can account for the limits
-            // when it starts. Otherwise the dotnet app would start while the JobOject is not yet defined.
-
-            if (useWindowsLimiter)
-            {
-                // This won't be necessary once https://github.com/dotnet/runtime/issues/94127 is implemented.
-                // At that point the process can be started suspended while the JobObject is assigned to it.
-
-                Console.WriteLine("Invoking JobObject Wrapper");
-
-                var filename = process.StartInfo.FileName;
-                var arguments = process.StartInfo.Arguments;
-
-                // The executable should be in the same folder as the agent since it references the Console project
-                // Use 'dotnet exec .dll' to use the current default dotnet version or the tests could fail if the .exe doesn't match what version is available locally
-                process.StartInfo.FileName = "dotnet";
-                process.StartInfo.Arguments = "exec" + " " + Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Microsoft.Crank.JobObjectWrapper.dll") + " " + filename + " " + arguments;
-
-                // .NET doesn't respect a cpu affinity if a ratio is not set too. https://github.com/dotnet/runtime/issues/94364
-                if (!String.IsNullOrWhiteSpace(job.CpuSet) && job.CpuLimitRatio == 0)
-                {
-                    process.StartInfo.EnvironmentVariables.Add("DOTNET_PROCESSOR_COUNT", CalculateCpuList(job.CpuSet).Count.ToString(CultureInfo.InvariantCulture));
-                }
-            }
-
             stopwatch.Start();
             process.Start();
 
@@ -4644,7 +4619,7 @@ namespace Microsoft.Crank.Agent
 
             if (useWindowsLimiter)
             {
-                var limiter = new WindowsLimiter(job, (uint)process.Id);
+                var limiter = new WindowsLimiter(job, process);
 
                 limiter.LimitProcess();
 
