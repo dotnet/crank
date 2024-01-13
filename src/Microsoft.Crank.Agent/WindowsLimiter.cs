@@ -8,6 +8,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using Microsoft.Win32.SafeHandles;
 using Windows.Win32;
 using Windows.Win32.Foundation;
@@ -107,30 +108,43 @@ namespace Microsoft.Crank.Agent
                 }
 
                 var cpuSetGroups = information
-                    .Where(i => cpuSet.Contains(i.Anonymous.CpuSet.LogicalProcessorIndex))
-                    .GroupBy(x => x.Anonymous.CpuSet.Group, x => x.Anonymous.CpuSet)
+                    .Select((info, index) => new { Information = info, Index = index})
+                    .Where(i => cpuSet.Contains(i.Index))
+                    .GroupBy(x => x.Information.Anonymous.CpuSet.Group, x => x.Information.Anonymous.CpuSet)
                     .ToDictionary(x => x.Key)
                     ;
 
                 var groupsBuffer = stackalloc GROUP_AFFINITY[cpuSetGroups.Count];
                 var groupsBufferSize = Marshal.SizeOf(typeof(GROUP_AFFINITY)) * cpuSetGroups.Count;
+                
+                var groupsPtr = (nint)groupsBuffer;
 
-                IntPtr groupsPtr = (nint)groupsBuffer;
-
-                Log.Info("Setting Group Affinity...");
+                Log.Info($"Setting Group Affinity for CPUs {String.Join(',', cpuSet)}");
 
                 foreach (var group in cpuSetGroups)
                 {
+                    foreach (var cpu in group.Value)
+                    {
+                        Log.Info($"Group: {cpu.Group} Id: {cpu.Id} LogicalProcessorIndex: {cpu.LogicalProcessorIndex} CoreIndex: {cpu.CoreIndex} NumaNodeIndex: {cpu.NumaNodeIndex} ");
+                    }
+
+                    nuint mask = 0;
+
+                    foreach (var value in group.Value.Select(x => x.LogicalProcessorIndex))
+                    {
+                        mask += (nuint)Math.Pow(2, value);
+                    }
+
                     var groupAffinity = new GROUP_AFFINITY
                     {
                         Group = group.Key,
-                        Mask = (nuint)group.Value.Sum(x => Math.Pow(2, x.LogicalProcessorIndex - (group.Key * 32)))
+                        Mask = mask
                     };
 
                     Marshal.StructureToPtr(groupAffinity, groupsPtr, false);
                     groupsPtr += Marshal.SizeOf(typeof(GROUP_AFFINITY));
 
-                    Log.Info($"GROUP: {groupAffinity.Group}, MASK: {Convert.ToString((int)groupAffinity.Mask, 2)}");
+                    Log.Info($"GROUP_AFFINITY -> GROUP: {groupAffinity.Group}, MASK: {Convert.ToString((long)groupAffinity.Mask, 2)}");
                 }
 
                 CheckWin32Result(PInvoke.SetInformationJobObject(_jobHandle, JOBOBJECTINFOCLASS.JobObjectGroupInformationEx, groupsBuffer, (uint)groupsBufferSize));
