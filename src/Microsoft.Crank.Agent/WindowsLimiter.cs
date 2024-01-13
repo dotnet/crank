@@ -124,7 +124,7 @@ namespace Microsoft.Crank.Agent
                     var groupAffinity = new GROUP_AFFINITY
                     {
                         Group = group.Key,
-                        Mask = (nuint)group.Value.Sum(x => Math.Pow(2, x.LogicalProcessorIndex))
+                        Mask = (nuint)group.Value.Sum(x => Math.Pow(2, x.LogicalProcessorIndex - (group.Key * 32)))
                     };
 
                     Marshal.StructureToPtr(groupAffinity, groupsPtr, false);
