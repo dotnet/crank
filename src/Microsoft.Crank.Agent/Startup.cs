@@ -4601,6 +4601,12 @@ namespace Microsoft.Crank.Agent
                 process.WaitForExit();
             };
 
+            // .NET doesn't respect a cpu affinity if a ratio is not set too. https://github.com/dotnet/runtime/issues/94364
+            if (!String.IsNullOrWhiteSpace(job.CpuSet))
+            {
+                process.StartInfo.EnvironmentVariables.Add("DOTNET_PROCESSOR_COUNT", CalculateCpuList(job.CpuSet).Count.ToString(CultureInfo.InvariantCulture));
+            }
+
             stopwatch.Start();
             process.Start();
 

@@ -117,6 +117,8 @@ namespace Microsoft.Crank.Agent
 
                 IntPtr groupsPtr = (nint)groupsBuffer;
 
+                Log.Info("Setting Group Affinity...");
+
                 foreach (var group in cpuSetGroups)
                 {
                     var groupAffinity = new GROUP_AFFINITY
@@ -127,6 +129,8 @@ namespace Microsoft.Crank.Agent
 
                     Marshal.StructureToPtr(groupAffinity, groupsPtr, false);
                     groupsPtr += Marshal.SizeOf(typeof(GROUP_AFFINITY));
+
+                    Log.Info($"GROUP: {groupAffinity.Group}, MASK: {Convert.ToString((int)groupAffinity.Mask, 2)}");
                 }
 
                 CheckWin32Result(PInvoke.SetInformationJobObject(_jobHandle, JOBOBJECTINFOCLASS.JobObjectGroupInformationEx, groupsBuffer, (uint)groupsBufferSize));
