@@ -4601,10 +4601,23 @@ namespace Microsoft.Crank.Agent
                 process.WaitForExit();
             };
 
-            var useWindowsLimiter = OperatingSystem == OperatingSystem.Windows && (job.MemoryLimitInBytes > 0 || job.CpuLimitRatio > 0 || !String.IsNullOrWhiteSpace(job.CpuSet));
-
             stopwatch.Start();
             process.Start();
+
+            var useWindowsLimiter = OperatingSystem == OperatingSystem.Windows && (job.MemoryLimitInBytes > 0 || job.CpuLimitRatio > 0 || !String.IsNullOrWhiteSpace(job.CpuSet));
+
+            if (useWindowsLimiter)
+            {
+                var limiter = new WindowsLimiter(process);
+                limiter.SetCpuLimits(job.CpuLimitRatio, CalculateCpuList(job.CpuSet));
+                limiter.SetMemLimit(job.MemoryLimitInBytes);
+                limiter.Apply();
+
+                process.Exited += (sender, e) =>
+                {
+                    limiter.Dispose();
+                };
+            }
 
             job.ProcessId = process.Id;
             
@@ -4615,18 +4628,6 @@ namespace Microsoft.Crank.Agent
             if (String.IsNullOrEmpty(job.ReadyStateText) && job.IsConsoleApp)
             {
                 RunAndTrace();
-            }
-
-            if (useWindowsLimiter)
-            {
-                var limiter = new WindowsLimiter(job, process);
-
-                limiter.LimitProcess();
-
-                process.Exited += (sender, e) =>
-                {
-                    limiter.Dispose();
-                };
             }
 
             // We try to detect an endpoint is ready if we are running in IIS (no console logs)
