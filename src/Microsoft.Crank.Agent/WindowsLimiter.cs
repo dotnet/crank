@@ -4,122 +4,184 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
-using Microsoft.Crank.Models;
-using Vanara.PInvoke;
-using static Vanara.PInvoke.Kernel32;
+using System.Text.Json;
+using Microsoft.Win32.SafeHandles;
+using Windows.Win32;
+using Windows.Win32.Foundation;
+using Windows.Win32.Security;
+using Windows.Win32.System.JobObjects;
+using Windows.Win32.System.SystemInformation;
+using Windows.Win32.System.Threading;
 
 namespace Microsoft.Crank.Agent
 {
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Interoperability", "CA1416:Validate platform compatibility", Justification = "<Pending>")]
     public class WindowsLimiter : IDisposable
     {
         private bool _hasJobObj = false;
 
-        private readonly SafeHPROCESS _safeProcess;
-        private readonly SafeHJOB _safeJob;
-        
-        private readonly Job _job;
-        private readonly Process _process;
-        private readonly List<int> _cpuSet;
+        private readonly SafeFileHandle _processHandle;
+        private readonly SafeHandle _jobHandle;
 
-        public WindowsLimiter(Job job, Process process) 
+        public WindowsLimiter(Process process) 
         {
-            _job = job;
-            _process = process;
-            _safeProcess = OpenProcess(ACCESS_MASK.MAXIMUM_ALLOWED, false, (uint)process.Id);
-            _safeJob = CreateJobObject(null, $"{job.RunId}-{job.Service}");
+            _processHandle = CheckWin32Result(PInvoke.OpenProcess_SafeHandle(PROCESS_ACCESS_RIGHTS.PROCESS_ALL_ACCESS, false, (uint)process.Id));
 
-            if (!String.IsNullOrWhiteSpace(job.CpuSet))
-            {
-                _cpuSet = Startup.CalculateCpuList(job.CpuSet);
-            }
+            var securityAttributes = new SECURITY_ATTRIBUTES();
+            securityAttributes.nLength = (uint)Marshal.SizeOf(securityAttributes);
+
+            _jobHandle = CheckWin32Result(PInvoke.CreateJobObject(securityAttributes, $"job-{process.Id}"));
         }
 
-        private void SetMemLimit()
+        public unsafe void SetMemLimit(ulong memoryLimitInBytes)
         {
-            var bi = QueryInformationJobObject<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>(_safeJob, JOBOBJECTINFOCLASS.JobObjectExtendedLimitInformation);
-            bi.BasicLimitInformation.LimitFlags |= JOBOBJECT_LIMIT_FLAGS.JOB_OBJECT_LIMIT_JOB_MEMORY;
-            bi.JobMemoryLimit = _job.MemoryLimitInBytes;
+            if (memoryLimitInBytes == 0)
+            {
+                return;
+            }
 
-            SetInformationJobObject(_safeJob, JOBOBJECTINFOCLASS.JobObjectExtendedLimitInformation, bi);
-            Log.Info($"Creating Job Object with memory limits: {_job.MemoryLimitInBytes / 1024 / 1024:n0} MB, ({_job.Service}:{_job.Id})");
+            var limitInfo = new JOBOBJECT_EXTENDED_LIMIT_INFORMATION();
+            var size = (uint)Marshal.SizeOf(limitInfo);
+            var length = 0u;
+
+            CheckWin32Result(PInvoke.QueryInformationJobObject(_jobHandle, JOBOBJECTINFOCLASS.JobObjectExtendedLimitInformation, &limitInfo, size, &length));
+
+            limitInfo.BasicLimitInformation.LimitFlags |= JOB_OBJECT_LIMIT.JOB_OBJECT_LIMIT_JOB_MEMORY;
+            limitInfo.JobMemoryLimit = (nuint)memoryLimitInBytes;
+
+            CheckWin32Result(PInvoke.SetInformationJobObject(_jobHandle, JOBOBJECTINFOCLASS.JobObjectExtendedLimitInformation, &limitInfo, size));
             _hasJobObj = true;
         }
 
-        private void SetCpuRatio()
+        public unsafe void SetCpuLimits(double? cpuRatio = null, IList<int> cpuSet = null)
         {
-            // Set CpuRate to a percentage times 100. For example, to let the job use 20% of the CPU, 
-            // set CpuRate to 2,000.  0.2 -> 20(%) * 100
-            var cpuRate = (uint)(_job.CpuLimitRatio * 100 * 100);
-
-            // divide the rate accordingly
-            if (_cpuSet != null && _cpuSet.Count > 0)
+            if (cpuRatio != null && cpuRatio > 0)
             {
-                cpuRate /= ((uint)Environment.ProcessorCount / (uint)_cpuSet.Count);
+                // Set CpuRate to a percentage times 100. For example, to let the job use 20% of the CPU, 
+                // set CpuRate to 2,000.  0.2 -> 20(%) * 100
+                var cpuRate = (uint)(cpuRatio * 100 * 100);
+
+                // divide the rate accordingly
+                if (cpuSet != null && cpuSet.Count > 0)
+                {
+                    cpuRate /= (uint)Environment.ProcessorCount / (uint)cpuSet.Count;
+                }
+
+                cpuRate = Math.Min(10000U, cpuRate);
+                
+                var limitInfo = new JOBOBJECT_CPU_RATE_CONTROL_INFORMATION
+                {
+                    ControlFlags = JOB_OBJECT_CPU_RATE_CONTROL.JOB_OBJECT_CPU_RATE_CONTROL_ENABLE |
+                    JOB_OBJECT_CPU_RATE_CONTROL.JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP,
+                    Anonymous = new JOBOBJECT_CPU_RATE_CONTROL_INFORMATION._Anonymous_e__Union { CpuRate = cpuRate }
+                };
+
+                var size = (uint)Marshal.SizeOf(limitInfo);
+                CheckWin32Result(PInvoke.SetInformationJobObject(_jobHandle, JOBOBJECTINFOCLASS.JobObjectCpuRateControlInformation, &limitInfo, size));
+
+                _hasJobObj = true;
             }
 
-            cpuRate = Math.Min(10000U, cpuRate);
-            var info = new JOBOBJECT_CPU_RATE_CONTROL_INFORMATION
+            if (cpuSet != null && cpuSet.Count > 0)
             {
-                ControlFlags = JOB_OBJECT_CPU_RATE_CONTROL_FLAGS.JOB_OBJECT_CPU_RATE_CONTROL_ENABLE |
-                                JOB_OBJECT_CPU_RATE_CONTROL_FLAGS.JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP,
-                Union = new JOBOBJECT_CPU_RATE_CONTROL_INFORMATION.CPU_RATE_CONTROL_UNION
-                {
-                    CpuRate = cpuRate
-                }
-            };
+                // Calculate the required groups for the cpuSet
 
-            SetInformationJobObject(_safeJob, JOBOBJECTINFOCLASS.JobObjectCpuRateControlInformation, info);
-            Log.Info($"Creating Job Object with cpurate limits: {cpuRate}, ({_job.Service}:{_job.Id})");
-            _hasJobObj = true;
+                var cpuCount = Environment.ProcessorCount;
+                var bufferSize = (uint)(Marshal.SizeOf(typeof(SYSTEM_CPU_SET_INFORMATION)) * cpuCount);
+
+                var buffer = stackalloc SYSTEM_CPU_SET_INFORMATION[cpuCount];
+
+                CheckWin32Result(PInvoke.GetSystemCpuSetInformation(buffer, bufferSize, out uint returnedLength, _processHandle));
+
+                IntPtr pointer = (nint)buffer;
+
+                var information = new SYSTEM_CPU_SET_INFORMATION[cpuCount];
+
+                for (var i = 0; i < cpuCount; i++)
+                {
+                    information[i] = Marshal.PtrToStructure<SYSTEM_CPU_SET_INFORMATION>(pointer);
+                    pointer += (nint)information[i].Size;
+                }
+
+                var cpuSetGroups = information
+                    .Select((info, index) => new { Information = info, Index = index})
+                    .Where(i => cpuSet.Contains(i.Index))
+                    .GroupBy(x => x.Information.Anonymous.CpuSet.Group, x => x.Information.Anonymous.CpuSet)
+                    .ToDictionary(x => x.Key)
+                    ;
+
+                var groupsBuffer = stackalloc GROUP_AFFINITY[cpuSetGroups.Count];
+                var groupsBufferSize = Marshal.SizeOf(typeof(GROUP_AFFINITY)) * cpuSetGroups.Count;
+                
+                var groupsPtr = (nint)groupsBuffer;
+
+                Log.Info($"Setting Group Affinity for CPUs {String.Join(',', cpuSet)}");
+
+                foreach (var group in cpuSetGroups)
+                {
+                    foreach (var cpu in group.Value)
+                    {
+                        Log.Info($"Group: {cpu.Group} Id: {cpu.Id} LogicalProcessorIndex: {cpu.LogicalProcessorIndex} CoreIndex: {cpu.CoreIndex} NumaNodeIndex: {cpu.NumaNodeIndex} ");
+                    }
+
+                    nuint mask = 0;
+
+                    foreach (var value in group.Value.Select(x => x.LogicalProcessorIndex))
+                    {
+                        mask += (nuint)Math.Pow(2, value);
+                    }
+
+                    var groupAffinity = new GROUP_AFFINITY
+                    {
+                        Group = group.Key,
+                        Mask = mask
+                    };
+
+                    Marshal.StructureToPtr(groupAffinity, groupsPtr, false);
+                    groupsPtr += Marshal.SizeOf(typeof(GROUP_AFFINITY));
+
+                    Log.Info($"GROUP_AFFINITY -> GROUP: {groupAffinity.Group}, MASK: {Convert.ToString((long)groupAffinity.Mask, 2)}");
+                }
+
+                CheckWin32Result(PInvoke.SetInformationJobObject(_jobHandle, JOBOBJECTINFOCLASS.JobObjectGroupInformationEx, groupsBuffer, (uint)groupsBufferSize));
+
+                _hasJobObj = true;
+            }
         }
 
-        public void LimitProcess()
+        public unsafe void Apply()
         {
-            if (_job.MemoryLimitInBytes > 0)
-            {
-                SetMemLimit();
-            }
-
-            if (_job.CpuLimitRatio > 0)
-            {
-                SetCpuRatio();
-            }
-
-            if (_cpuSet != null && _cpuSet.Any())
-            {
-                var ssi = GetSystemCpuSetInformation(_safeProcess).ToArray();
-
-                Log.Info($"Limiting cpus: {String.Join(',', _cpuSet)}, for ({_job.Service}:{_job.Id}) Process: {_process.Id}");
-
-                foreach (var c in _cpuSet)
-                {
-                    var csi = ssi[c];
-                    Log.Info($"Id: {csi.CpuSet.Id}; NumaNodeIndex: {csi.CpuSet.NumaNodeIndex}; LogicalProcessorIndex: {csi.CpuSet.LogicalProcessorIndex}; CoreIndex: {csi.CpuSet.CoreIndex}; Group: {csi.CpuSet.Group}");
-                }
-
-                // Only supported on Linux and windows
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) || RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                {
-                    var mask = (int)_cpuSet.Sum(x => Math.Pow(2, x));
-                    _process.ProcessorAffinity = new IntPtr(mask);
-                }
-            }
-
             if (_hasJobObj)
             {
-                var result = AssignProcessToJobObject(_safeJob, _safeProcess);
-                Log.Info($"Assign Job Object {result}, ({_job.Service}:{_job.Id})");
+                CheckWin32Result(PInvoke.AssignProcessToJobObject(_jobHandle, _processHandle));
             }
         }
 
         public void Dispose()
         {
-            Log.Info($"Releasing job object ({_job.Service}:{_job.Id})");
-            TerminateJobObject(_safeJob, 0);
-            _safeProcess.Dispose();
+            _processHandle.Dispose();
+            _jobHandle.Dispose();
+        }
+
+        private static T CheckWin32Result<T>(T result)
+        {
+            return result switch
+            {
+                SafeHandle handle when !handle.IsInvalid => result,
+                HANDLE handle when (nint)WIN32_ERROR.ERROR_INVALID_HANDLE != handle.Value => result,
+                uint n when n != 0xffffffff => result,
+                bool b when b => result,
+                BOOL b when b => result,
+                WIN32_ERROR err when err == WIN32_ERROR.NO_ERROR => result,
+                WIN32_ERROR err => throw new Win32Exception((int)err),
+                NTSTATUS nt when nt.Value == 0 => result,
+                NTSTATUS nt => throw new Win32Exception(nt.Value),
+                _ => throw new Win32Exception()
+            };
         }
     }
 }
