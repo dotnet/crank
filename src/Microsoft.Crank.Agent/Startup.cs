@@ -401,6 +401,9 @@ namespace Microsoft.Crank.Agent
                 hostTask = host.WaitForShutdownAsync();
             }
 
+            var version = typeof(Startup).GetTypeInfo().Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+
+            Log.Info($"Crank Agent version {version}");
             Log.Info($"Starting agent on {url}...");
 
             _processJobsCts = new CancellationTokenSource();
