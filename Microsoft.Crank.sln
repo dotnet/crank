@@ -52,6 +52,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Crank.PullRequest
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Crank.JobObjectWrapper", "src\Microsoft.Crank.JobOjectWrapper\Microsoft.Crank.JobObjectWrapper.csproj", "{D02CC5A5-A6EA-42CF-9EA5-E3D1CE0FFBFE}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Crank.Jobs.K6", "src\Microsoft.Crank.Jobs.K6\Microsoft.Crank.Jobs.K6.csproj", "{D8DD4222-6929-46F3-A3F2-F38394AA1C72}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -122,6 +124,10 @@ Global
 		{D02CC5A5-A6EA-42CF-9EA5-E3D1CE0FFBFE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D02CC5A5-A6EA-42CF-9EA5-E3D1CE0FFBFE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D02CC5A5-A6EA-42CF-9EA5-E3D1CE0FFBFE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D8DD4222-6929-46F3-A3F2-F38394AA1C72}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D8DD4222-6929-46F3-A3F2-F38394AA1C72}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D8DD4222-6929-46F3-A3F2-F38394AA1C72}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D8DD4222-6929-46F3-A3F2-F38394AA1C72}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -143,6 +149,7 @@ Global
 		{C45AB9D7-5346-4610-8D44-C6F6B31BEC2D} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
 		{A2B9140B-46E5-451D-9246-ECA019487F5C} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
 		{D02CC5A5-A6EA-42CF-9EA5-E3D1CE0FFBFE} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
+		{D8DD4222-6929-46F3-A3F2-F38394AA1C72} = {995FCFF9-E5F6-4BDD-8E5B-FBDEA21145F9}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {C48AD7EE-82B1-4307-A869-3FC14AC9B21F}
