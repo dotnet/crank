@@ -223,7 +223,7 @@ namespace Microsoft.Crank.Jobs.K6
 
             BenchmarksEventSource.Measure("http/rps/mean", iterations.GetProperty("rate").GetDouble());
 
-            BenchmarksEventSource.Measure("k6/raw", output);
+            BenchmarksEventSource.Measure("k6/raw", summary);
 
             var dataReceived = metrics.GetProperty("data_received").GetProperty("values");
 
