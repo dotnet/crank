@@ -190,8 +190,10 @@ namespace Microsoft.Crank.Jobs.K6
             BenchmarksEventSource.Register("http/requests/badresponses", Operations.Max, Operations.Sum, "Bad responses", "Non-2xx or 3xx responses", "n0");
 
             BenchmarksEventSource.Register("http/latency/50", Operations.Max, Operations.Max, "Latency 50th (ms)", "Latency 50th (ms)", "n2");
+            BenchmarksEventSource.Register("http/latency/75", Operations.Max, Operations.Max, "Latency 75th (ms)", "Latency 75th (ms)", "n2");
             BenchmarksEventSource.Register("http/latency/90", Operations.Max, Operations.Max, "Latency 90th (ms)", "Latency 90th (ms)", "n2");
             BenchmarksEventSource.Register("http/latency/95", Operations.Max, Operations.Max, "Latency 95th (ms)", "Latency 95th (ms)", "n2");
+            BenchmarksEventSource.Register("http/latency/99", Operations.Max, Operations.Max, "Latency 99th (ms)", "Latency 99th (ms)", "n2");
 
             BenchmarksEventSource.Register("http/latency/mean", Operations.Max, Operations.Avg, "Mean latency (ms)", "Mean latency (ms)", "n2");
             BenchmarksEventSource.Register("http/latency/max", Operations.Max, Operations.Max, "Max latency (ms)", "Max latency (ms)", "n2");
@@ -211,10 +213,12 @@ namespace Microsoft.Crank.Jobs.K6
             BenchmarksEventSource.Measure("http/requests/badresponses", reqFailed.GetProperty("values").GetProperty("passes").GetInt64());
 
             var reqDurationValues = metrics.GetProperty("http_req_duration").GetProperty("values");
-            
-            BenchmarksEventSource.Measure("http/latency/50", reqDurationValues.GetProperty("med").GetDouble());
+
+            BenchmarksEventSource.Measure("http/latency/50", reqDurationValues.GetProperty("p(50)").GetDouble());
+            BenchmarksEventSource.Measure("http/latency/75", reqDurationValues.GetProperty("p(75)").GetDouble());
             BenchmarksEventSource.Measure("http/latency/90", reqDurationValues.GetProperty("p(90)").GetDouble());
             BenchmarksEventSource.Measure("http/latency/95", reqDurationValues.GetProperty("p(95)").GetDouble());
+            BenchmarksEventSource.Measure("http/latency/99", reqDurationValues.GetProperty("p(99)").GetDouble());
 
             BenchmarksEventSource.Measure("http/latency/mean", reqDurationValues.GetProperty("avg").GetDouble());
             BenchmarksEventSource.Measure("http/latency/max", reqDurationValues.GetProperty("max").GetDouble());
