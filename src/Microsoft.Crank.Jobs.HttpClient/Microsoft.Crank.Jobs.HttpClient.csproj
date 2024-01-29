@@ -13,6 +13,6 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="3.0.0" />
-    <PackageReference Include="Jint" Version="3.0.0-beta-1914" />
+    <PackageReference Include="Jint" Version="$(JintVersion)" />
   </ItemGroup>
 </Project>
