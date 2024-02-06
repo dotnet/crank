@@ -9,10 +9,12 @@
 
 jobs:
   httpclient:
-    source:
-      repository: https://github.com/dotnet/crank.git
-      branchOrCommit: main
-      project: src/Microsoft.Crank.Jobs.HttpClient/Microsoft.Crank.Jobs.HttpClient.csproj
+    sources:
+      crank:
+        repository: https://github.com/dotnet/crank.git
+        branchOrCommit: main
+        destinationFolder: ''
+    project: src/Microsoft.Crank.Jobs.HttpClient/Microsoft.Crank.Jobs.HttpClient.csproj
     readyStateText: Http Client
     isConsoleApp: true
     waitForExit: true

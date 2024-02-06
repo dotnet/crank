@@ -10,32 +10,36 @@ This tutorial explains how to send local source files to an agent instead of clo
 
 ## Define the scenario
 
-In the [Getting Started](getting_started.md) tutorial, the **hello** application is benchmarked. It's `source` section is pointing to the Crank repository to inform the Crank Agent to clone it and build it.
+In the [Getting Started](getting_started.md) tutorial, the **hello** application is benchmarked. It's `sources` section has a source named `crank` which is pointing to the Crank repository to inform the Crank Agent to clone it. By default, a source will be cloned to a directory with the same name as the source. 
+
+The `project` property defines a path to a .NET project file that should be built and run as the work carried out by this job. The project's path starts with `crank` because that is the folder that the source is cloned to, and `samples/hello/hello.csproj` is where the project file is located inside that source.
 
 ```yml
   server:
-    source:
-      repository: https://github.com/dotnet/crank
-      branchOrCommit: main
-      project: samples/hello/hello.csproj
+    sources:
+      crank:
+        repository: https://github.com/dotnet/crank
+        branchOrCommit: main
+    project: crank/samples/hello/hello.csproj
     readyStateText: Application started.
 ```
 
 In cases where you want to iterate quickly on an application, it's easier to do changes locally and send the source file to the agent instead of having it clone changes what you would have to push.
 
-The `source` property of a job has a `localFolder` property that can be set to a local folder. 
+A source inside the `sources` property can specify a `localFolder` property that can be set to a local folder.
 
 The file `/crank/samples/local/local.benchmarks.yml` demonstrates how to use this property instead.
 
 ```yml
   server:
-    source:
-      localFolder: ../../samples/hello
-      project: hello.csproj
+    sources:
+      hello-sample:
+        localFolder: ../../samples/hello
+    project: hello-sample/hello.csproj
     readyStateText: Application started.
 ```
 
-The path is relative to the configuration file that contains it.
+The `localFolder` path is relative to the .yml configuration file that contains it.
 
 Run the following command line to execute this job.
 

@@ -6,12 +6,13 @@ variables:
 
 jobs:
   server:
-    source:
-      repository: https://github.com/TechEmpower/FrameworkBenchmarks
-      branchOrCommit: master
-      dockerFile: frameworks/Java/netty/netty.dockerfile
-      dockerImageName: netty
-      dockerContextDirectory: frameworks/Java/netty
+    sources:
+      techempower:
+        repository: https://github.com/TechEmpower/FrameworkBenchmarks
+        branchOrCommit: master
+    dockerFile: techempower/frameworks/Java/netty/netty.dockerfile
+    dockerImageName: netty
+    dockerContextDirectory: techempower/frameworks/Java/netty
     port: 8080
 
 scenarios:

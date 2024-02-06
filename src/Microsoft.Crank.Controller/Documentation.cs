@@ -11,14 +11,14 @@ internal class Documentation
 
   ## Sources location
 
-  --[JOB].source.repository                                     The git repository containing the source code to build, e.g., https://github.com/aspnet/aspnetcore
-  --[JOB].source.branchOrCommit                                 A branch name or commit hash, e.g., my/branch, my/branch#commit-hash
-  --[JOB].source.initSubmodules                                 Whether to init submodules when a git repository is used, e.g., true
-  --[JOB].source.localFolder                                    The local path containing the source code to upload to the server. e.g., /code/mybenchmarks
+  --[JOB].sources.[SOURCE].repository                           The git repository containing the source code to build, e.g., https://github.com/aspnet/aspnetcore
+  --[JOB].sources.[SOURCE].branchOrCommit                       A branch name or commit hash, e.g., my/branch, my/branch#commit-hash
+  --[JOB].sources.[SOURCE].initSubmodules                       Whether to init submodules when a git repository is used, e.g., true
+  --[JOB].sources.[SOURCE].localFolder                          The local path containing the source code to upload to the server. e.g., /code/mybenchmarks
 
   ## .NET options
 
-  --[JOB].source.project <filename.csproj>                      The project file to build, relative to the source code base path, e.g., src/Benchmarks/Benchmarks.csproj
+  --[JOB].project <filename.csproj>                             The project file to build, relative to the source code base path, e.g., src/Benchmarks/Benchmarks.csproj
   --[JOB].sdkVersion <version>                                  The version of the .NET SDK to install and use. By default the latest available build is used.
   --[JOB].runtimeVersion <version>                              The version of the .NET runtime to install and use. It is defined as MicrosoftNETCoreAppPackageVersion 
                                                                 in the build arguments. By default the latest available build is used. Setting this value forces the app to 
@@ -37,13 +37,13 @@ internal class Documentation
 
   ## Docker options
 
-  --[JOB].source.dockerFile                                     The local path to the Docker file, e.g., frameworks/Rust/actix/actix-raw.dockerfile
-  --[JOB].source.dockerImageName                                The name of the docker image to create, e.g., actix_raw
-  --[JOB].source.dockerContextDirectory                         The folder in which the Docker file is built relative to, e.g., frameworks/Rust/actix/
-  --[JOB].source.dockerFetchPath                                The path in the Docker container that contains the base path for the --fetch option, e.g., ./output
-  --[JOB].source.dockerLoad                                     The path of an image to use for 'docker load', e.g, ""./myimage.tar""
-  --[JOB].source.dockerPull                                     The image name to pull and run, e.g, ""redis"", ""mcr.microsoft.com/dotnet/aspnet:7.0""
-  --[JOB].source.dockerCommand                                  The 'docker run' command, e.g, ""./startup.sh""
+  --[JOB].dockerFile                                            The local path to the Docker file, e.g., frameworks/Rust/actix/actix-raw.dockerfile
+  --[JOB].dockerImageName                                       The name of the docker image to create, e.g., actix_raw
+  --[JOB].dockerContextDirectory                                The folder in which the Docker file is built relative to, e.g., frameworks/Rust/actix/
+  --[JOB].dockerFetchPath                                       The path in the Docker container that contains the base path for the --fetch option, e.g., ./output
+  --[JOB].dockerLoad                                            The path of an image to use for 'docker load', e.g, ""./myimage.tar""
+  --[JOB].dockerPull                                            The image name to pull and run, e.g, ""redis"", ""mcr.microsoft.com/dotnet/aspnet:7.0""
+  --[JOB].dockerCommand                                         The 'docker run' command, e.g, ""./startup.sh""
   --[JOB].buildArguments <argument>                             An argument to pass to 'docker build' as a '--build-arg' value. Can be used multiple times to define multiple 
                                                                 values.
 
@@ -88,7 +88,7 @@ internal class Documentation
   ## Debugging
 
   --[JOB].noClean <true|false>                                  Whether to keep the work folder on the server or not. Default is false, such that each job is cleaned once it's finished.
-  --[JOB].options.fetch <true|false>                            Whether the benchmark folder is downloaded. e.g., true. For Docker see '--[JOB].source.dockerFetchPath'
+  --[JOB].options.fetch <true|false>                            Whether the benchmark folder is downloaded. e.g., true. For Docker see '--[JOB].dockerFetchPath'
   --[JOB].options.fetchOutput <filename>                        The name of the fetched archive. Can be a file prefix (app will add *.DATE*.zip) , or a specific name (end in *.zip) and no DATE* will be added e.g., c:\publishedapps\myApp
   --[JOB].options.displayOutput <true|false>                    Whether to download and display the standard output of the benchmark.
   --[JOB].options.displayBuild <true|false>                     Whether to download and display the standard output of the build step (works for .NET and Docker).

@@ -2215,18 +2215,14 @@ namespace Microsoft.Crank.Controller
                         var jobObject = (JObject)job.Value;
                         if (jobObject.ContainsKey("source"))
                         {
-                            var source = (JObject)jobObject["source"];
-                            if (source.ContainsKey("localFolder"))
+                            PatchLocalFolderInSource(configurationFilenameOrUrl, (JObject)jobObject["source"]);
+                        }
+
+                        if (jobObject.ContainsKey("sources"))
+                        {
+                            foreach (JProperty source in jobObject["sources"])
                             {
-                                var localFolder = source["localFolder"].ToString();
-
-                                if (!localFolder.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                                {
-                                    var configurationFilename = new FileInfo(configurationFilenameOrUrl).FullName;
-                                    var resolvedFilename = new FileInfo(Path.Combine(Path.GetDirectoryName(configurationFilename), localFolder)).FullName;
-
-                                    source["localFolder"] = resolvedFilename;
-                                }
+                                PatchLocalFolderInSource(configurationFilenameOrUrl, (JObject)source.Value);
                             }
                         }
                     }
@@ -2265,6 +2261,22 @@ namespace Microsoft.Crank.Controller
             else
             {
                 throw new ControllerException($"Invalid file path or url: '{configurationFilenameOrUrl}'");
+            }
+        }
+
+        private static void PatchLocalFolderInSource(string configurationFilenameOrUrl, JObject source)
+        {
+            if (source.ContainsKey("localFolder"))
+            {
+                var localFolder = source["localFolder"].ToString();
+
+                if (!localFolder.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    var configurationFilename = new FileInfo(configurationFilenameOrUrl).FullName;
+                    var resolvedFilename = new FileInfo(Path.Combine(Path.GetDirectoryName(configurationFilename), localFolder)).FullName;
+
+                    source["localFolder"] = resolvedFilename;
+                }
             }
         }
 

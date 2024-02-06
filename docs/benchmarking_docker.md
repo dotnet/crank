@@ -22,12 +22,13 @@ variables:
 
 jobs:
   server:
-    source:
-      repository: https://github.com/TechEmpower/FrameworkBenchmarks
-      branchOrCommit: master
-      dockerFile: frameworks/Java/netty/netty.dockerfile
-      dockerImageName: netty
-      dockerContextDirectory: frameworks/Java/netty
+    sources:
+      techempower:
+        repository: https://github.com/TechEmpower/FrameworkBenchmarks
+        branchOrCommit: master
+    dockerFile: techempower/frameworks/Java/netty/netty.dockerfile
+    dockerImageName: netty
+    dockerContextDirectory: techempower/frameworks/Java/netty
     port: 8080
 
 scenarios:
@@ -70,25 +71,26 @@ By default it will assume the agent is listening on `http://localhost:5010`. In 
 
 ## Understanding the Docker configuration
 
-The `jobs` section in the configuration file defines a job named `server`. It's `source` property contains the information necessary to setup the Docker container. 
+The `jobs` section in the configuration file defines a job named `server`. It's `sources` property contains the information about where to download any sources necessary for the job. In this case there is a single source named `techempower` and so the source will be copied into a directory called `techempower` in the job's working directory. The `dockerFile`, `dockerImageName`, `dockerContextDirectory` are then used to define what docker command is run.
 
 In this case it is a **Netty** application taken from the [TechEmpower](https://github.com/TechEmpower/FrameworkBenchmarks) repository which contains several types of benchmarks for any language and framework. Netty is a Java web application framework.   
 
 ```yml
   server:
-    source:
-      repository: https://github.com/TechEmpower/FrameworkBenchmarks
-      branchOrCommit: master
-      dockerFile: frameworks/Java/netty/netty.dockerfile
-      dockerImageName: netty
-      dockerContextDirectory: frameworks/Java/netty
+    sources:
+      techempower:
+        repository: https://github.com/TechEmpower/FrameworkBenchmarks
+        branchOrCommit: master
+    dockerFile: techempower/frameworks/Java/netty/netty.dockerfile
+    dockerImageName: netty
+    dockerContextDirectory: techempower/frameworks/Java/netty
     port: 8080
 ```
 
-The `dockerFile` property is relative to the root of the repository, and point to the Docker file to build.
+The `dockerFile` property is relative to the job's working directory, and points to the Docker file to build. Note that the path starts with `techempower` because each source is copied to a directory with the name of the source.
 
 The `dockerImageName` is used on the agent to name the container. By setting it Docker will be able to reuse previous cached containers and start benchmarks faster.
 
-The `dockerContextDirectory` is a path representing the working directory inside the Docker file script. Any path using `./` in the Docker file will be this value. It's relative to the root of the source (the clone of the repository).
+The `dockerContextDirectory` is a path representing the working directory inside the Docker file script. Any path using `./` in the Docker file will be this value. It's relative to the job's working directory.
 
 The property `port` is used to let the Crank agent detect when the application is ready to accept requests. When specified, the agent will try to ping the expected endpoint until it successfully answers. Another option is to define the property `readyStateText` with some value that is written on the standard output once the application has started. In the case of a Netty application, the service emits `Httpd started. Listening on: 0.0.0.0/0.0.0.0:8080` when the service is ready. Similarly, an ASP.NET application outputs `Application started. Press Ctrl+C to shut down.`

@@ -50,9 +50,10 @@ The following example is available at https://github.com/dotnet/crank/blob/main/
 
 ```yml
   benchmarks:
-    source:
-      localFolder: .
-      project: micro.csproj
+    sources:
+      micro:
+        localFolder: .
+    project: micro/micro.csproj
     variables:
       filterArg: "*"
       jobArg: short

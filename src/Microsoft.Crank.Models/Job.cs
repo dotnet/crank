@@ -78,18 +78,37 @@ namespace Microsoft.Crank.Models
         {
             get
             {
-                if (Sources.Count == 0)
+                if (Sources.Count == 1)
                 {
-                    return new Source();
+                    var sourceEntry = Sources.Single();
+                    var source = sourceEntry.Value;
+
+                    // Only create a Source object if directly convertible.
+                    if (sourceEntry.Key.Equals(Source.DefaultSource) && string.Empty.Equals(source.DestinationFolder))
+                    {
+                        return new Source
+                        {
+                            BranchOrCommit = source.BranchOrCommit,
+                            CacheOnAgent = source.CacheOnAgent,
+                            DestinationFolder = source.DestinationFolder,
+                            DockerCommand = DockerCommand,
+                            DockerContextDirectory = DockerContextDirectory,
+                            DockerFetchPath = DockerFetchPath,
+                            DockerFile = DockerFile,
+                            DockerImageName = DockerImageName,
+                            DockerLoad = DockerLoad,
+                            DockerPull = DockerPull,
+                            InitSubmodules = source.InitSubmodules,
+                            LocalFolder = source.LocalFolder,
+                            NoBuild = NoBuild,
+                            Project = Project,
+                            Repository = source.Repository,
+                            SourceKey = source.SourceKey,
+                            SourceCode = source.SourceCode
+                        };
+                    }
                 }
-                else if (Sources.Count == 1)
-                {
-                    return Sources.Values.Single();
-                }
-                else
-                {
-                    return null;
-                }
+                return null;
             }
             set
             {
