@@ -5324,14 +5324,12 @@ namespace Microsoft.Crank.Agent
 
             job.StartupMainMethod = stopwatch.Elapsed;
 
-            var startupMeasurement = new Measurement
+            job.Measurements.Enqueue(new Measurement
             {
                 Name = Measurements.BenchmarksStartTime,
                 Timestamp = DateTime.UtcNow,
                 Value = stopwatch.ElapsedMilliseconds
-            };
-
-            job.Measurements.Enqueue(startupMeasurement);
+            });
             BenchmarksEventSource.Start();
 
             Log.Info($"Running job '{job.Service}' ({job.Id})");
