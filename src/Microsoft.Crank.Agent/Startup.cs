@@ -28,6 +28,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.WindowsServices;
 using Microsoft.Azure.Relay;
+using Microsoft.Crank.EventSources;
 using Microsoft.Crank.Models;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.Diagnostics.Tools.Trace;
@@ -5329,6 +5330,7 @@ namespace Microsoft.Crank.Agent
                 Timestamp = DateTime.UtcNow,
                 Value = stopwatch.ElapsedMilliseconds
             });
+            BenchmarksEventSource.Start();
 
             Log.Info($"Running job '{job.Service}' ({job.Id})");
             job.Url = ComputeServerUrl(hostname, job);
