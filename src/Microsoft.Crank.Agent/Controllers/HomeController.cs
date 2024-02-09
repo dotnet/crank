@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.Reflection;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Microsoft.Crank.Agent.Controllers
@@ -25,8 +26,9 @@ namespace Microsoft.Crank.Agent.Controllers
                 env = Startup.HardwareVersion.ToString(),
                 os = Startup.OperatingSystem.ToString(),
                 arch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString(),
-                proc = Environment.ProcessorCount
-            });
+                proc = Environment.ProcessorCount,
+                version = typeof(HomeController).GetTypeInfo().Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+        });
         }
     }
 }

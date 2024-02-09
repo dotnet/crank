@@ -190,6 +190,8 @@ namespace Microsoft.Crank.Models
         public string BasePath { get; set; }
         public int ProcessId { get; set; }
         public int ChildProcessId { get; set; }
+        public int ActiveProcessId => ChildProcessId > 0 ? ChildProcessId : ProcessId;
+        public int[] AllProcessIds => ChildProcessId > 0 ? new [] { ChildProcessId, ProcessId } : new[] { ProcessId };
         public Dictionary<string, string> EnvironmentVariables { get; set; } = new Dictionary<string, string>();
         public Dictionary<string, string> PackageReferences { get; set; } = new Dictionary<string, string>();
         public List<string> BuildArguments { get; set; } = new List<string>();

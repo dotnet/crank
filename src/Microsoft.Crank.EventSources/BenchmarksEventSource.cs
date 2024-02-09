@@ -110,6 +110,11 @@ namespace Microsoft.Crank.EventSources
             }
         }
 
+        public static void Start()
+        {
+            Log.Started();
+        }
+
         [Event(1, Level = EventLevel.Informational)]
         public void MeasureLong(string name, long value)
         {
@@ -132,6 +137,12 @@ namespace Microsoft.Crank.EventSources
         public void Metadata(string name, string aggregate, string reduce, string shortDescription, string longDescription, string format)
         {
             WriteEvent(5, name, aggregate, reduce, shortDescription, longDescription, format);
+        }
+
+        [Event(6, Level = EventLevel.Informational)]
+        public void Started()
+        {
+            WriteEvent(6);
         }
     }
 }

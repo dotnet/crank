@@ -28,6 +28,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.WindowsServices;
 using Microsoft.Azure.Relay;
+using Microsoft.Crank.EventSources;
 using Microsoft.Crank.Models;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.Diagnostics.Tools.Trace;
@@ -63,7 +64,7 @@ namespace Microsoft.Crank.Agent
             Based on the target framework
          */
 
-        private static readonly string DefaultTargetFramework = "net7.0";
+        private static readonly string DefaultTargetFramework = "net8.0";
         private static readonly string DefaultChannel = "current";
         private const int CommitHashLength = 12;
 
@@ -401,6 +402,9 @@ namespace Microsoft.Crank.Agent
                 hostTask = host.WaitForShutdownAsync();
             }
 
+            var version = typeof(Startup).GetTypeInfo().Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+
+            Log.Info($"Crank Agent version {version}");
             Log.Info($"Starting agent on {url}...");
 
             _processJobsCts = new CancellationTokenSource();
@@ -1536,15 +1540,13 @@ namespace Microsoft.Crank.Agent
 
                                 if (process != null && !process.HasExited)
                                 {
-                                    var processId = process.Id;
-
                                     // Invoking Stop should also abort collection only the job failed.
                                     // The normal workflow is to stop collection using the TraceCollecting state
                                     if (abortCollection)
                                     {
                                         if (job.Collect)
                                         {
-                                            // Abort all Perfview processes
+                                            // Abort all PerfView processes
                                             if (OperatingSystem == OperatingSystem.Windows)
                                             {
                                                 var logFilename = Path.Combine(workingDirectory, "perfview.log");
@@ -1576,104 +1578,106 @@ namespace Microsoft.Crank.Agent
                                         }
                                     }
 
-                                    if (OperatingSystem == OperatingSystem.Linux)
+                                    // Stop a child process first if any
+
+                                    foreach (var processId in job.AllProcessIds)
                                     {
-                                        Log.Info($"Invoking SIGTERM ...");
+                                        Process localProcess;
 
-                                        Mono.Unix.Native.Syscall.kill(process.Id, Mono.Unix.Native.Signum.SIGTERM);
-
-                                        var waitForShutdownDelay = Task.Delay(TimeSpan.FromSeconds(5));
-                                        while (!process.HasExited && !waitForShutdownDelay.IsCompletedSuccessfully)
-                                        {
-                                            await Task.Delay(200);
-                                        }
-
-                                        if (!process.HasExited)
-                                        {
-                                            Log.Info($"Invoking SIGINT ...");
-
-                                            Mono.Unix.Native.Syscall.kill(process.Id, Mono.Unix.Native.Signum.SIGINT);
-
-                                            waitForShutdownDelay = Task.Delay(TimeSpan.FromSeconds(5));
-                                            while (!process.HasExited && !waitForShutdownDelay.IsCompletedSuccessfully)
-                                            {
-                                                await Task.Delay(200);
-                                            }
-                                        }
-                                    }
-
-                                    if (OperatingSystem == OperatingSystem.Windows)
-                                    {
-                                        if (!process.HasExited)
-                                        {
-                                            Log.Info("Sending CTRL+C ...");
-
-                                            SendCtrlCSignalToProcess(process);
-                                        }
-                                    }
-
-                                    if (!process.HasExited)
-                                    {
                                         try
                                         {
-                                            // Tentatively invoke the shutdown endpoint on the client application
-                                            var response = await _httpClient.GetAsync(new Uri(new Uri(job.Url), "/shutdown"));
+                                            localProcess = Process.GetProcessById(processId);
+                                        }
+                                        catch (ArgumentException)
+                                        {
+                                            // Happens if the process is not running anymore
+                                            continue;
+                                        }
 
-                                            // Shutdown invoked successfully, wait for the application to stop by itself
-                                            if (response.StatusCode == HttpStatusCode.OK)
+                                        if (OperatingSystem == OperatingSystem.Linux)
+                                        {
+                                            Log.Info($"Invoking SIGTERM ...");
+
+                                            Mono.Unix.Native.Syscall.kill(processId, Mono.Unix.Native.Signum.SIGTERM);
+
+                                            var waitForShutdownDelay = Task.Delay(TimeSpan.FromSeconds(5));
+
+                                            while (!localProcess.HasExited && !waitForShutdownDelay.IsCompletedSuccessfully)
                                             {
-                                                var epoch = DateTime.UtcNow;
+                                                await Task.Delay(200);
+                                                localProcess.Refresh();
+                                            }
 
-                                                do
+                                            if (!localProcess.HasExited)
+                                            {
+                                                Log.Info($"Invoking SIGINT ...");
+
+                                                Mono.Unix.Native.Syscall.kill(localProcess.Id, Mono.Unix.Native.Signum.SIGINT);
+
+                                                waitForShutdownDelay = Task.Delay(TimeSpan.FromSeconds(5));
+                                                while (!localProcess.HasExited && !waitForShutdownDelay.IsCompletedSuccessfully)
                                                 {
-                                                    Log.Info("Shutdown successfully invoked, waiting for graceful shutdown ...");
-                                                    await Task.Delay(1000);
-
-                                                } while (!process.HasExited && (DateTime.UtcNow - epoch < TimeSpan.FromSeconds(5)));
+                                                    await Task.Delay(200);
+                                                    localProcess.Refresh();
+                                                }
                                             }
                                         }
-                                        catch
-                                        {
-                                            Log.Info($"/shutdown endpoint failed... '{job.Url}/shutdown'");
-                                        }
-                                    }
 
-                                    if (!process.HasExited)
-                                    {
-                                        Log.Info($"Forcing process to stop ...");
-                                        process.CloseMainWindow();
-
-                                        if (!process.HasExited)
+                                        if (OperatingSystem == OperatingSystem.Windows)
                                         {
-                                            process.Kill();
+                                            if (!localProcess.HasExited)
+                                            {
+                                                Log.Info("Sending CTRL+C ...");
+
+                                                SendCtrlCSignalToProcess(localProcess);
+                                            }
                                         }
 
-                                        process.Dispose();
-
-                                        do
+                                        if (!localProcess.HasExited)
                                         {
-                                            Log.Info($"Waiting for process {processId} to stop ...");
-
-                                            await Task.Delay(1000);
-
                                             try
                                             {
-                                                process = Process.GetProcessById(processId);
-                                                process.Refresh();
+                                                // Tentatively invoke the shutdown endpoint on the client application
+                                                var response = await _httpClient.GetAsync(new Uri(new Uri(job.Url), "/shutdown"));
+
+                                                // Shutdown invoked successfully, wait for the application to stop by itself
+                                                if (response.StatusCode == HttpStatusCode.OK)
+                                                {
+                                                    var epoch = DateTime.UtcNow;
+
+                                                    do
+                                                    {
+                                                        Log.Info("Shutdown successfully invoked, waiting for graceful shutdown ...");
+                                                        await Task.Delay(1000);
+
+                                                    } while (!localProcess.HasExited && (DateTime.UtcNow - epoch < TimeSpan.FromSeconds(5)));
+                                                }
                                             }
                                             catch
                                             {
-                                                process = null;
+                                                Log.Info($"/shutdown endpoint failed... '{job.Url}/shutdown'");
+                                            }
+                                        }
+
+                                        if (!localProcess.HasExited)
+                                        {
+                                            Log.Info($"Forcing process to stop ...");
+                                            localProcess.CloseMainWindow();
+
+                                            if (!localProcess.HasExited)
+                                            {
+                                                localProcess.Kill();
                                             }
 
-                                        } while (process != null && !process.HasExited);
-                                    }
-                                    else
-                                    {
-                                        job.ExitCode = process.ExitCode;
-                                    }
+                                            localProcess.Dispose();
+                                        }
+                                        else
+                                        {
+                                            job.ExitCode = process.ExitCode;
+                                        }
 
-                                    Log.Info($"Process has stopped ({job.Service}:{job.Id})");
+                                        Log.Info($"Process has stopped ({job.Service}:{job.Id})");
+                                    }
 
 
                                     job.State = JobState.Stopped;
@@ -4556,6 +4560,8 @@ namespace Microsoft.Crank.Agent
 
             process.ErrorDataReceived += (_, e) =>
             {
+                const string processIdMarker = "##ChildProcessId:";
+
                 if (e != null && e.Data != null)
                 {
                     var log = "[STDERR] " + e.Data;
@@ -4571,7 +4577,6 @@ namespace Microsoft.Crank.Agent
                     }
 
                     // Detect the app is wrapping a child process
-                    var processIdMarker = "##ChildProcessId:";
                     if (e.Data.StartsWith(processIdMarker) 
                         && int.TryParse(e.Data.Substring(processIdMarker.Length), out var childProcessId))
                     {
@@ -4591,7 +4596,7 @@ namespace Microsoft.Crank.Agent
 
                 if (job.DotNetTrace)
                 {
-                    StartDotNetTrace(process.Id, job);
+                    StartDotNetTrace(job);
                 }
             }
 
@@ -4602,35 +4607,29 @@ namespace Microsoft.Crank.Agent
                 process.WaitForExit();
             };
 
-            var useWindowsLimiter = OperatingSystem == OperatingSystem.Windows && (job.MemoryLimitInBytes > 0 || job.CpuLimitRatio > 0 || !String.IsNullOrWhiteSpace(job.CpuSet));
-
-            // If useWindowsLimiter is true we need to use a proxy app that will get a JobObject attached such that the actual application can account for the limits
-            // when it starts. Otherwise the dotnet app would start while the JobOject is not yet defined.
-
-            if (useWindowsLimiter)
+            // .NET doesn't respect a cpu affinity if a ratio is not set too. https://github.com/dotnet/runtime/issues/94364
+            if (!String.IsNullOrWhiteSpace(job.CpuSet))
             {
-                // This won't be necessary once https://github.com/dotnet/runtime/issues/94127 is implemented.
-                // At that point the process can be started suspended while the JobObject is assigned to it.
-
-                Console.WriteLine("Invoking JobObject Wrapper");
-
-                var filename = process.StartInfo.FileName;
-                var arguments = process.StartInfo.Arguments;
-
-                // The executable should be in the same folder as the agent since it references the Console project
-                // Use 'dotnet exec .dll' to use the current default dotnet version or the tests could fail if the .exe doesn't match what version is available locally
-                process.StartInfo.FileName = "dotnet";
-                process.StartInfo.Arguments = "exec" + " " + Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Microsoft.Crank.JobObjectWrapper.dll") + " " + filename + " " + arguments;
-
-                // .NET doesn't respect a cpu affinity if a ratio is not set too. https://github.com/dotnet/runtime/issues/94364
-                if (!String.IsNullOrWhiteSpace(job.CpuSet) && job.CpuLimitRatio == 0)
-                {
-                    process.StartInfo.EnvironmentVariables.Add("DOTNET_PROCESSOR_COUNT", CalculateCpuList(job.CpuSet).Count.ToString(CultureInfo.InvariantCulture));
-                }
+                process.StartInfo.EnvironmentVariables.Add("DOTNET_PROCESSOR_COUNT", CalculateCpuList(job.CpuSet).Count.ToString(CultureInfo.InvariantCulture));
             }
 
             stopwatch.Start();
             process.Start();
+
+            var useWindowsLimiter = OperatingSystem == OperatingSystem.Windows && (job.MemoryLimitInBytes > 0 || job.CpuLimitRatio > 0 || !String.IsNullOrWhiteSpace(job.CpuSet));
+
+            if (useWindowsLimiter)
+            {
+                var limiter = new WindowsLimiter(process);
+                limiter.SetCpuLimits(job.CpuLimitRatio, CalculateCpuList(job.CpuSet));
+                limiter.SetMemLimit(job.MemoryLimitInBytes);
+                limiter.Apply();
+
+                process.Exited += (sender, e) =>
+                {
+                    limiter.Dispose();
+                };
+            }
 
             job.ProcessId = process.Id;
             
@@ -4641,18 +4640,6 @@ namespace Microsoft.Crank.Agent
             if (String.IsNullOrEmpty(job.ReadyStateText) && job.IsConsoleApp)
             {
                 RunAndTrace();
-            }
-
-            if (useWindowsLimiter)
-            {
-                var limiter = new WindowsLimiter(job, (uint)process.Id);
-
-                limiter.LimitProcess();
-
-                process.Exited += (sender, e) =>
-                {
-                    limiter.Dispose();
-                };
             }
 
             // We try to detect an endpoint is ready if we are running in IIS (no console logs)
@@ -4682,7 +4669,7 @@ namespace Microsoft.Crank.Agent
 
                         if (job.DotNetTrace)
                         {
-                            StartDotNetTrace(process.Id, job);
+                            StartDotNetTrace(job);
                         }
                     }
                 }
@@ -4716,16 +4703,16 @@ namespace Microsoft.Crank.Agent
 
         private static async Task StartCountersAsync(Job job, JobContext context)
         {
-            if (job.ProcessId == 0)
+            if (job.ActiveProcessId == 0)
             {
                 throw new ArgumentException($"Undefined process id for '{job.Service}'");
             }
 
-            Log.Info("Starting counters");
+            Log.Info($"Starting counters for process {job.ActiveProcessId}");
 
             var metricsEventSourceSessionId = Guid.NewGuid().ToString();
 
-            var client = new DiagnosticsClient(job.ProcessId);
+            var client = new DiagnosticsClient(job.ActiveProcessId);
 
             var providerNames = job.Counters.Select(x => x.Provider).Distinct().ToArray();
 
@@ -4753,9 +4740,6 @@ namespace Microsoft.Crank.Agent
             const long TimeSeriesValues = 0x2;
             var metrics = string.Join(",", providerNames);
 
-            var defaultMaxHitograms = 10;
-            var defaultMaxTimeSeries = 1000;
-
             var metricsEventSourceProvider =
                 new EventPipeProvider("System.Diagnostics.Metrics", EventLevel.Informational, TimeSeriesValues,
                     new Dictionary<string, string>()
@@ -4763,8 +4747,8 @@ namespace Microsoft.Crank.Agent
                         { "SessionId", metricsEventSourceSessionId },
                         { "Metrics", metrics },
                         { "RefreshInterval", job.MeasurementsIntervalSec.ToString() },
-                        { "MaxTimeSeries", defaultMaxHitograms.ToString() },
-                        { "MaxHistograms", defaultMaxTimeSeries.ToString() }
+                        { "MaxTimeSeries", "10" },
+                        { "MaxHistograms", "1000" }
                     }
                 );
 
@@ -5114,12 +5098,12 @@ namespace Microsoft.Crank.Agent
             }
         }
 
-        private static void StartDotNetTrace(int processId, Job job)
+        private static void StartDotNetTrace(Job job)
         {
             job.PerfViewTraceFile = Path.Combine(job.BasePath, "trace.nettrace");
 
             dotnetTraceManualReset = new ManualResetEvent(false);
-            dotnetTraceTask = Collect(dotnetTraceManualReset, processId, new FileInfo(job.PerfViewTraceFile), 256, job.DotNetTraceProviders, TimeSpan.MaxValue);
+            dotnetTraceTask = Collect(dotnetTraceManualReset, job.ActiveProcessId, new FileInfo(job.PerfViewTraceFile), 256, job.DotNetTraceProviders, TimeSpan.MaxValue);
         }
 
         private static async Task UseMonoRuntimeAsync(string runtimeVersion, string outputFolder, string mode)
@@ -5348,6 +5332,7 @@ namespace Microsoft.Crank.Agent
                 Timestamp = DateTime.UtcNow,
                 Value = stopwatch.ElapsedMilliseconds
             });
+            BenchmarksEventSource.Start();
 
             Log.Info($"Running job '{job.Service}' ({job.Id})");
             job.Url = ComputeServerUrl(hostname, job);

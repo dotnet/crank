@@ -1,0 +1,22 @@
+﻿jobs:
+  k6:
+    source:
+      repository: https://github.com/dotnet/crank.git
+      branchOrCommit: main
+      project: src/Microsoft.Crank.Jobs.K6/Microsoft.Crank.Jobs.K6.csproj
+      sourceKey: k6
+      noBuild: true
+    readyStateText: K6 Client
+    waitForExit: true
+    variables:
+      presetHeaders: none
+      connections: 256
+      warmup: 15
+      duration: 15
+      requests: 0
+      rate: 0
+      serverScheme: http
+      serverAddress: localhost
+      serverPort: 5000
+      path: 
+    arguments: '--vus {{connections}} --warmup {{warmup}} --duration {{duration}} {% if requests != 0 %} --iterations {{requests}} {% endif %} {% if rate != 0 %} --rps {{ rate }} {% endif %} -e URL={{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}} -e HEADERS={{presetHeaders}}'

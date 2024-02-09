@@ -10,10 +10,11 @@ if (args.Length == 0)
     Environment.Exit(-1);
 }
 
+var time = 1000;
 Console.WriteLine("Job Object Wrapper");
-Console.WriteLine("Waiting for Job Object to be setup...");
+Console.WriteLine($"Waiting for Job Object to be setup... {time}");
 
-await Task.Delay(1000);
+await Task.Delay(time);
 
 var process = new Process()
 {
@@ -29,7 +30,7 @@ Console.WriteLine($"Filename: {process.StartInfo.FileName}");
 Console.WriteLine($"Args: {process.StartInfo.Arguments}");
 
 process.Start();
-Console.WriteLine($"##ChildProcessId:{process.Id}");
+Console.Error.WriteLine($"##ChildProcessId:{process.Id}");
 process.WaitForExit();
 
 await Task.Delay(1000);

@@ -131,7 +131,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                     {
                         try
                         {
-                            var condition = Engine.Execute(jobPayload.Condition).GetCompletionValue().AsBoolean();
+                            var condition = Engine.Evaluate(jobPayload.Condition).AsBoolean();
 
                             if (!condition)
                             {
