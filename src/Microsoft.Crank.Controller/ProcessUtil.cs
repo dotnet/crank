@@ -10,8 +10,9 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Crank.PullRequestBot;
 
-namespace Microsoft.Crank.PullRequestBot
+namespace Microsoft.Crank.Controller
 {
     public static class ProcessUtil
     {
@@ -41,26 +42,25 @@ namespace Microsoft.Crank.PullRequestBot
         private static extern int sys_kill(int pid, int sig);
 
         public static async Task<ProcessResult> RunAsync(
-            string filename, 
-            string arguments, 
-            TimeSpan? timeout = null, 
+            string filename,
+            string arguments,
+            TimeSpan? timeout = null,
             string workingDirectory = null,
-            bool throwOnError = true, 
-            IDictionary<string, string> environmentVariables = null, 
+            bool throwOnError = true,
+            IDictionary<string, string> environmentVariables = null,
             Action<string> outputDataReceived = null,
             bool log = false,
             Action<int> onStart = null,
             Action<int> onStop = null,
             bool captureOutput = false,
             bool captureError = false,
-            CancellationToken cancellationToken = default
-        )
+            CancellationToken cancellationToken = default)
         {
             var logWorkingDirectory = workingDirectory ?? Directory.GetCurrentDirectory();
 
             if (log)
             {
-                Console.WriteLine($"[{logWorkingDirectory}] {filename} {arguments}");
+                Log.Write($"[{logWorkingDirectory}] {filename} {arguments}");
             }
 
             using var process = new Process()
@@ -107,7 +107,7 @@ namespace Microsoft.Crank.PullRequestBot
 
                     if (log)
                     {
-                        Console.WriteLine(e.Data);
+                        Log.Write(e.Data);
                     }
                 }
             };
@@ -127,7 +127,7 @@ namespace Microsoft.Crank.PullRequestBot
                         outputDataReceived.Invoke(e.Data);
                     }
 
-                    Console.WriteLine("[STDERR] " + e.Data);
+                    Log.WriteError("[STDERR] " + e.Data);
                 }
             };
 
@@ -165,7 +165,7 @@ namespace Microsoft.Crank.PullRequestBot
             {
                 if (log)
                 {
-                    Console.WriteLine($"Command '{filename} {arguments}' {(cancellationToken.IsCancellationRequested ? "is canceled" : "timed out")}, process {process.Id} will be terminated");
+                    Log.Write($"Command '{filename} {arguments}' {(cancellationToken.IsCancellationRequested ? "is canceled" : "timed out")}, process {process.Id} will be terminated");
                 }
 
                 if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))

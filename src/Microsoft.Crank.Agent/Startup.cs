@@ -4447,6 +4447,8 @@ namespace Microsoft.Crank.Agent
                     // we need the full path to run this, as it is not in the path
                     executable = Path.Combine(workingDirectory, executable);
                 }
+
+                commandLine = "";
             }
             else if (job.SelfContained)
             {

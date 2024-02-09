@@ -1,0 +1,56 @@
+commands:
+  buildHello:
+    - condition: job.environment.platform == "windows"
+      scriptType: batch
+      script: dotnet {% if publish %}publish -r {{ rid }}{% else %}build{% endif %} -c Release -f net8.0 .\hello\hello.csproj
+    - condition: job.environment.platform != "windows"
+      scriptType: bash
+      script: dotnet {% if publish %}publish -r {{ rid }}{% else %}build{% endif %} -c Release -f net8.0 ./hello/hello.csproj
+
+jobs:
+  server:
+    source:
+      localFolder: ../../../../hello/Release/net8.0{% if publish %}/{{ rid }}/publish{% endif %}
+    executable: '{% if publish and rid contains ''win'' %}hello.exe{% elsif publish %}hello{% else %}dotnet{% endif %}'
+    arguments: '{% if publish == false %}exec hello.dll{% endif %}'
+    variables:
+      publish: false
+      rid: win-x64
+    noBuild: true
+    beforeJob:
+      - buildHello
+    readyStateText: Application started.
+  bombardier:
+    source:
+      # uploading the whole source folder since it requires other libraries
+      localFolder: '../src'
+      project: Microsoft.Crank.Jobs.Bombardier/Microsoft.Crank.Jobs.Bombardier.csproj
+    readyStateText: Bombardier Client
+    waitForExit: true
+    variables:
+      serverScheme: http
+      serverAddress: localhost
+      serverPort: 5000
+    arguments: "-c 1 -w 3 -d 3 --insecure -l --fasthttp {{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}"
+
+scenarios:
+  hello:
+    application:
+      job: server
+    load:
+      job: bombardier
+      variables:
+        path: /
+
+profiles:
+  local:
+    variables:
+      serverPort: 5000
+      serverAddress: localhost
+    jobs: 
+      application:
+        endpoints: 
+          - http://localhost:5010
+      load:
+        endpoints: 
+          - http://localhost:5010

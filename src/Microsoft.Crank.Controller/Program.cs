@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -627,6 +628,21 @@ namespace Microsoft.Crank.Controller
                 VersionChecker.CheckUpdateAsync(_httpClient);
 #pragma warning restore CS4014
 
+                var engine = new Engine();
+
+                engine.SetValue("console", _scriptConsole);
+                engine.SetValue("fs", _scriptFile);
+                engine.SetValue("configuration", configuration);
+
+                foreach (var dependency in dependencies)
+                {
+                    var job = configuration.Jobs[dependency];
+                    if (job.BeforeJob != null && job.BeforeJob.Any())
+                    {
+                        await RunCommands(job, engine, job.BeforeJob);
+                    }
+                }
+
                 Log.Write($"Running session '{session}' with description '{_descriptionOption.Value()}'");
 
                 var isBenchmarkDotNet = dependencies.Any(x => configuration.Jobs[x].Options.BenchmarkDotNet);
@@ -661,6 +677,16 @@ namespace Microsoft.Crank.Controller
                         exclude,
                         _scriptOption.Values
                         );
+                }
+
+                foreach (var dependency in dependencies)
+                {
+                    var job = configuration.Jobs[dependency];
+                    if (job.AfterJob != null && job.AfterJob.Any())
+                    {
+                        engine.SetValue("job", job);
+                        await RunCommands(job, engine, job.AfterJob);
+                    }
                 }
 
                 // Display diff
@@ -1916,6 +1942,7 @@ namespace Microsoft.Crank.Controller
             // Evaluate templates
 
             var rootVariables = configuration["Variables"];
+            var rootCommands = configuration["Commands"];
 
             foreach (JProperty property in configuration["Jobs"] ?? new JObject())
             {
@@ -1924,6 +1951,7 @@ namespace Microsoft.Crank.Controller
                 var jobVariables = job["Variables"];
 
                 var variables = MergeVariables(rootVariables, jobVariables, commandLineVariables);
+                job["Commands"] = MergeVariables(rootCommands, job["Commands"]);
 
                 // Apply templates on variables first
                 ApplyTemplates(variables, new TemplateContext(variables.DeepClone()));
@@ -2069,6 +2097,140 @@ namespace Microsoft.Crank.Controller
             }
 
             return result;
+        }
+
+        private static async Task RunCommands(Job job, Engine engine, List<string> commands)
+        {
+            engine.SetValue("job", job);
+            foreach (var command in commands)
+            {
+                if (!job.Commands.TryGetValue(command, out var definitions))
+                {
+                    var availableCommands = String.Join("', '", job.Commands.Keys);
+                    throw new ControllerException($"Could not find a command named '{command}'. Possible values: '{availableCommands}'");
+                }
+
+                Log.Write($"Running command '{command}'");
+
+                var stopwatch = new Stopwatch();
+                stopwatch.Start();
+
+                var foundDefinition = false;
+
+                foreach (var definition in definitions)
+                {
+                    if (!string.IsNullOrEmpty(definition.Condition))
+                    {
+                        try
+                        {
+                            var shouldRun = engine.Evaluate(definition.Condition).AsBoolean();
+                            if (!shouldRun)
+                                continue;
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.WriteError($"Could not evaluate condition [{definition.Condition}], ignoring ...");
+                            Log.WriteError(ex.ToString());
+                        }
+                    }
+
+                    await RunCommand(command, definition);
+                    foundDefinition = true;
+                    break;
+                }
+
+                if (!foundDefinition)
+                    throw new ControllerException($"Unable to find valid definition of command '{command}' to run, stopping ...");
+
+                stopwatch.Stop();
+
+                Log.Write($"Completed running command '{command}' ... took {stopwatch.Elapsed}");
+            }
+        }
+
+        private static async Task RunCommand(string commandName, CommandDefinition definition)
+        {
+            var usesTempFile = false;
+            var fileName = definition.FilePath;
+            if (string.IsNullOrEmpty(definition.FilePath))
+            {
+                var extension = definition.ScriptType switch
+                {
+                    ScriptType.Powershell => ".ps1",
+                    ScriptType.Batch => ".bat",
+                    ScriptType.Bash => ".sh",
+                    _ => null
+                };
+
+                fileName = Path.GetFullPath(Path.GetRandomFileName(), Path.GetTempPath());
+                if (extension != null)
+                    fileName += extension;
+
+                await File.WriteAllTextAsync(fileName, definition.Script);
+
+                usesTempFile = true;
+            }
+
+            if (System.OperatingSystem.IsLinux() || System.OperatingSystem.IsMacOS())
+                await ProcessUtil.RunAsync("chmod", $"+x {fileName}");
+
+            string executable;
+            string arguments;
+            switch (definition.ScriptType)
+            {
+                case ScriptType.Batch:
+                    executable = fileName;
+                    arguments = "";
+                    break;
+                case ScriptType.Bash:
+                    executable = "/bin/bash";
+                    arguments = fileName;
+                    break;
+                case ScriptType.Powershell:
+                    executable = "powershell.exe";
+                    arguments = $"-ExecutionPolicy Bypass -NoProfile -NoLogo -File {fileName}";
+                    break;
+                default:
+                    throw new ControllerException($"Invalid script type '{definition.ScriptType}' for command '{commandName}'");
+            }
+
+            try
+            {
+                var result = await ProcessUtil.RunAsync(executable, arguments, log: true);
+                var successfulExit = false;
+                foreach (var exitCode in definition.SuccessExitCodes)
+                {
+                    if (result.ExitCode == exitCode)
+                    {
+                        successfulExit = true;
+                        break;
+                    }
+                }
+
+                if (!successfulExit)
+                {
+                    var logMessage = $"Command '{commandName}' returned exit code {result.ExitCode}";
+                    if (!definition.ContinueOnError)
+                        throw new ControllerException($"{logMessage}, stopping...");
+                    
+                    Log.WriteError($"{logMessage}, continuing ...");
+                }
+            }
+            catch (Exception ex) when (ex is not ControllerException)
+            {
+                var logMessage = $"Exception was thrown when trying to run command '{commandName}'";
+                if (!definition.ContinueOnError)
+                    throw new ControllerException($"{logMessage}, stopping...");
+
+                Log.WriteError($"{logMessage}, continuing ...");
+            }
+            finally
+            {
+                if (usesTempFile && File.Exists(fileName))
+                {
+                    File.Delete(fileName);
+                }
+            }
         }
 
         private static string HashKeyData<T>(T KeyData)

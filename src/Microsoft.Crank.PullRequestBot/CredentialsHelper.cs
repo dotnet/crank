@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.IdentityModel.Tokens;
 using Octokit;
 using System.Text.RegularExpressions;
+using Microsoft.Crank.Controller;
 
 namespace Microsoft.Crank.PullRequestBot
 {
