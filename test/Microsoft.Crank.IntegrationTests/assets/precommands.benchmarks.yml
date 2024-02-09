@@ -28,17 +28,10 @@ jobs:
     readyStateText: Bombardier Client
     waitForExit: true
     variables:
-      connections: 256
-      warmup: 3
-      duration: 3
-      requests: 0
-      rate: 0
-      transport: fasthttp # | http1 | http2
       serverScheme: http
       serverAddress: localhost
       serverPort: 5000
-      customHeaders: [ ] # list of headers with the format: '<name1>: <value1>', e.g. [ 'content-type: application/json' ]
-    arguments: "-c {{connections}} -w {{warmup}} -d {{duration}} -n {{requests}} --insecure -l {% if rate != 0 %} --rate {{ rate }} {% endif %} {% if transport %} --{{ transport}} {% endif %} {{headers[presetHeaders]}} {% for h in customHeaders %}{% assign s = h | split : ':' %}--header \"{{ s[0] }}: {{ s[1] | strip }}\" {% endfor %} {{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}"
+    arguments: "-c 1 -w 3 -d 3 --insecure -l --fasthttp {{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}"
 
 scenarios:
   hello:
