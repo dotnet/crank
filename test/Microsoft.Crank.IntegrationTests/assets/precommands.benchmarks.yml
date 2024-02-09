@@ -3,7 +3,7 @@ commands:
     - condition: job.environment.platform == "windows"
       scriptType: batch
       script: dotnet {% if publish %}publish -r {{ rid }}{% else %}build{% endif %} -c Release -f net8.0 .\hello\hello.csproj
-    - condition: job.environment.platform != "windows" && !Boolean(job.variables.publish)
+    - condition: job.environment.platform != "windows"
       scriptType: bash
       script: dotnet {% if publish %}publish -r {{ rid }}{% else %}build{% endif %} -c Release -f net8.0 ./hello/hello.csproj
 
