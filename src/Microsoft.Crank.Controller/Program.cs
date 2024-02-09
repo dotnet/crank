@@ -2127,9 +2127,10 @@ namespace Microsoft.Crank.Controller
                             if (!shouldRun)
                                 continue;
                         }
-                        catch (Exception)
+                        catch (Exception ex)
                         {
                             Log.WriteError($"Could not evaluate condition [{definition.Condition}], ignoring ...");
+                            Log.WriteError(ex.ToString());
                         }
                     }
 

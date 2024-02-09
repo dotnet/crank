@@ -1,0 +1,45 @@
+imports:
+  - https://raw.githubusercontent.com/dotnet/crank/main/src/Microsoft.Crank.Jobs.Bombardier/bombardier.yml
+
+commands:
+  # Assumes that the crank repository is the working directory 
+  buildHello:
+    - condition: job.environment.platform == "windows"
+      scriptType: batch
+      script: dotnet build -c Release -f netcoreapp3.1 .\samples\hello\hello.csproj
+    - condition: job.environment.platform != "windows"
+      scriptType: bash
+      script: dotnet build -c Release -f netcoreapp3.1 ./samples/hello/hello.csproj
+
+jobs:
+  server:
+    source:
+      localFolder: ../../artifacts/bin/hello/Release/netcoreapp3.1
+    executable: dotnet
+    arguments: hello.dll
+    noBuild: true
+    beforeJob:
+      - buildHello
+    readyStateText: Application started.
+
+scenarios:
+  hello:
+    application:
+      job: server
+    load:
+      job: bombardier
+      variables:
+        serverPort: 5000
+        path: /
+
+profiles:
+  local:
+    variables:
+      serverAddress: localhost
+    jobs: 
+      application:
+        endpoints: 
+          - http://localhost:5010
+      load:
+        endpoints: 
+          - http://localhost:5010

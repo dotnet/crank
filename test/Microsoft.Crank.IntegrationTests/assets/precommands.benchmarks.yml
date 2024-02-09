@@ -1,0 +1,63 @@
+commands:
+  buildHello:
+    - condition: job.environment.platform == "windows"
+      scriptType: batch
+      script: dotnet {% if publish %}publish -r {{ rid }}{% else %}build{% endif %} -c Release -f netcoreapp3.1 .\hello\hello.csproj
+    - condition: job.environment.platform != "windows" && !Boolean(job.variables.publish)
+      scriptType: bash
+      script: dotnet {% if publish %}publish -r {{ rid }}{% else %}build{% endif %} -c Release -f netcoreapp3.1 ./hello/hello.csproj
+
+jobs:
+  server:
+    source:
+      localFolder: ../../../../hello/Release/netcoreapp3.1{% if publish %}/{{ rid }}/publish{% endif %}
+    executable: '{% if publish and rid contains ''win'' %}hello.exe{% elsif publish %}hello{% else %}dotnet{% endif %}'
+    arguments: '{% if publish == false %}exec hello.dll{% endif %}'
+    variables:
+      publish: false
+      rid: win-x64
+    noBuild: true
+    beforeJob:
+      - buildHello
+    readyStateText: Application started.
+  bombardier:
+    source:
+      # uploading the whole source folder since it requires other libraries
+      localFolder: '../src'
+      project: Microsoft.Crank.Jobs.Bombardier/Microsoft.Crank.Jobs.Bombardier.csproj
+    readyStateText: Bombardier Client
+    waitForExit: true
+    variables:
+      connections: 256
+      warmup: 3
+      duration: 3
+      requests: 0
+      rate: 0
+      transport: fasthttp # | http1 | http2
+      serverScheme: http
+      serverAddress: localhost
+      serverPort: 5000
+      customHeaders: [ ] # list of headers with the format: '<name1>: <value1>', e.g. [ 'content-type: application/json' ]
+    arguments: "-c {{connections}} -w {{warmup}} -d {{duration}} -n {{requests}} --insecure -l {% if rate != 0 %} --rate {{ rate }} {% endif %} {% if transport %} --{{ transport}} {% endif %} {{headers[presetHeaders]}} {% for h in customHeaders %}{% assign s = h | split : ':' %}--header \"{{ s[0] }}: {{ s[1] | strip }}\" {% endfor %} {{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}"
+
+scenarios:
+  hello:
+    application:
+      job: server
+    load:
+      job: bombardier
+      variables:
+        path: /
+
+profiles:
+  local:
+    variables:
+      serverPort: 5000
+      serverAddress: localhost
+    jobs: 
+      application:
+        endpoints: 
+          - http://localhost:5010
+      load:
+        endpoints: 
+          - http://localhost:5010
