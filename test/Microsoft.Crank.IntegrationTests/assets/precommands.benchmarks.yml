@@ -2,15 +2,15 @@ commands:
   buildHello:
     - condition: job.environment.platform == "windows"
       scriptType: batch
-      script: dotnet {% if publish %}publish -r {{ rid }}{% else %}build{% endif %} -c Release -f netcoreapp3.1 .\hello\hello.csproj
+      script: dotnet {% if publish %}publish -r {{ rid }}{% else %}build{% endif %} -c Release -f net8.0 .\hello\hello.csproj
     - condition: job.environment.platform != "windows" && !Boolean(job.variables.publish)
       scriptType: bash
-      script: dotnet {% if publish %}publish -r {{ rid }}{% else %}build{% endif %} -c Release -f netcoreapp3.1 ./hello/hello.csproj
+      script: dotnet {% if publish %}publish -r {{ rid }}{% else %}build{% endif %} -c Release -f net8.0 ./hello/hello.csproj
 
 jobs:
   server:
     source:
-      localFolder: ../../../../hello/Release/netcoreapp3.1{% if publish %}/{{ rid }}/publish{% endif %}
+      localFolder: ../../../../hello/Release/net8.0{% if publish %}/{{ rid }}/publish{% endif %}
     executable: '{% if publish and rid contains ''win'' %}hello.exe{% elsif publish %}hello{% else %}dotnet{% endif %}'
     arguments: '{% if publish == false %}exec hello.dll{% endif %}'
     variables:

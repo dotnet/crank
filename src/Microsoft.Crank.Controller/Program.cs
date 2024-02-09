@@ -2123,7 +2123,7 @@ namespace Microsoft.Crank.Controller
                     {
                         try
                         {
-                            var shouldRun = engine.Execute(definition.Condition).GetCompletionValue().AsBoolean();
+                            var shouldRun = engine.Evaluate(definition.Condition).AsBoolean();
                             if (!shouldRun)
                                 continue;
                         }
