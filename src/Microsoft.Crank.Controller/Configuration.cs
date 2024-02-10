@@ -51,6 +51,10 @@ namespace Microsoft.Crank.Controller
         /// </summary>
         public List<string> OnResultsCreated { get; set; } = new List<string>();
 
+        /// <summary>
+        /// Definitions of commands to be run on the crank controller machine
+        /// </summary>
+        public Dictionary<string, List<CommandDefinition>> Commands { get; set; } = new();
     }
 
     public class Service

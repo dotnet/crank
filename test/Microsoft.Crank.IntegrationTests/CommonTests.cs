@@ -4,6 +4,7 @@
 
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.Crank.Agent;
 using Xunit;
@@ -379,6 +380,54 @@ namespace Microsoft.Crank.IntegrationTests
             var result = await ProcessUtil.RunAsync(
                 "dotnet",
                 $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local --application.cpuSet 0",
+                workingDirectory: _crankTestsDirectory,
+                captureOutput: true,
+                timeout: DefaultTimeOut,
+                throwOnError: false,
+                outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); }
+            );
+
+            Assert.Equal(0, result.ExitCode);
+
+            Assert.Contains("Requests/sec", result.StandardOutput);
+            Assert.Contains(".NET Core SDK Version", result.StandardOutput);
+            Assert.Contains(".NET Runtime Version", result.StandardOutput);
+            Assert.Contains("ASP.NET Core Version", result.StandardOutput);
+        }
+
+        [Fact]
+        public async Task TestPrecommands()
+        {
+            _output.WriteLine($"[TEST] Starting controller");
+
+            var result = await ProcessUtil.RunAsync(
+                "dotnet",
+                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/precommands.benchmarks.yml --scenario hello --profile local",
+                workingDirectory: _crankTestsDirectory,
+                captureOutput: true,
+                timeout: DefaultTimeOut,
+                throwOnError: false,
+                outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); }
+            );
+
+            Assert.Equal(0, result.ExitCode);
+
+            Assert.Contains("Requests/sec", result.StandardOutput);
+            Assert.Contains(".NET Core SDK Version", result.StandardOutput);
+            Assert.Contains(".NET Runtime Version", result.StandardOutput);
+            Assert.Contains("ASP.NET Core Version", result.StandardOutput);
+        }
+
+        [Fact]
+        public async Task TestPrecommandWithVariables()
+        {
+            _output.WriteLine($"[TEST] Starting controller");
+
+            var rid = RuntimeInformation.RuntimeIdentifier;
+
+            var result = await ProcessUtil.RunAsync(
+                "dotnet",
+                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/precommands.benchmarks.yml --scenario hello --profile local --variable publish=true --variable rid={rid}",
                 workingDirectory: _crankTestsDirectory,
                 captureOutput: true,
                 timeout: DefaultTimeOut,
