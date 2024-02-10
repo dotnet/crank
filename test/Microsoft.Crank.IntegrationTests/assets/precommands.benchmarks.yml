@@ -9,10 +9,11 @@ commands:
 
 jobs:
   server:
-    source:
-      localFolder: ../../../../hello/Release/net8.0{% if publish %}/{{ rid }}/publish{% endif %}
-    executable: '{% if publish and rid contains ''win'' %}hello.exe{% elsif publish %}hello{% else %}dotnet{% endif %}'
-    arguments: '{% if publish == false %}exec hello.dll{% endif %}'
+    sources:
+      hello:
+        localFolder: ../../../../hello/Release/net8.0{% if publish %}/{{ rid }}/publish{% endif %}
+    executable: '{% if publish and rid contains ''win'' %}hello/hello.exe{% elsif publish %}hello/hello{% else %}dotnet{% endif %}'
+    arguments: '{% if publish == false %}exec hello/hello.dll{% endif %}'
     variables:
       publish: false
       rid: win-x64
@@ -21,10 +22,12 @@ jobs:
       - buildHello
     readyStateText: Application started.
   bombardier:
-    source:
-      # uploading the whole source folder since it requires other libraries
-      localFolder: '../src'
-      project: Microsoft.Crank.Jobs.Bombardier/Microsoft.Crank.Jobs.Bombardier.csproj
+    sources:
+      local:
+        # uploading the whole source folder since it requires other libraries
+        localFolder: '../src'
+        destinationFolder: ''
+    project: Microsoft.Crank.Jobs.Bombardier/Microsoft.Crank.Jobs.Bombardier.csproj
     readyStateText: Bombardier Client
     waitForExit: true
     variables:

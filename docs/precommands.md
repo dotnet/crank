@@ -25,10 +25,11 @@ commands:
 
 jobs:
   server:
-    source:
-      localFolder: ../../artifacts/bin/hello/Release/net8.0
+    sources:
+      hello:
+        localFolder: ../../artifacts/bin/hello/Release/net8.0
     executable: dotnet
-    arguments: hello.dll
+    arguments: hello/hello.dll
     noBuild: true
     beforeJob:
       - buildHello
