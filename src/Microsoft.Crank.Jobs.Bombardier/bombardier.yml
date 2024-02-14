@@ -9,12 +9,14 @@
 
 jobs:
   bombardier:
-    source:
-      repository: https://github.com/dotnet/crank.git
-      branchOrCommit: main
-      project: src/Microsoft.Crank.Jobs.Bombardier/Microsoft.Crank.Jobs.Bombardier.csproj
-      sourceKey: bombardier
-      noBuild: true
+    sources:
+      crank:
+        repository: https://github.com/dotnet/crank.git
+        branchOrCommit: main
+        sourceKey: bombardier
+        destinationFolder: ''
+    project: src/Microsoft.Crank.Jobs.Bombardier/Microsoft.Crank.Jobs.Bombardier.csproj
+    noBuild: true
     readyStateText: Bombardier Client
     waitForExit: true
     variables:

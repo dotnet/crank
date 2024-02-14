@@ -1,9 +1,10 @@
 jobs:
   dotnet:
-    source:
-      repository: https://github.com/dotnet/performance
-      branchOrCommit: main
-      project: src/benchmarks/micro/MicroBenchmarks.csproj
+    sources:
+      performance:
+        repository: https://github.com/dotnet/performance
+        branchOrCommit: main
+    project: performance/src/benchmarks/micro/MicroBenchmarks.csproj
     variables:
       filterArg: "*"
       jobArg: short

@@ -1,8 +1,9 @@
 jobs:
   benchmarks:
-    source:
-      localFolder: .
-      project: micro.csproj
+    sources:
+      micro:
+        localFolder: .
+    project: micro/micro.csproj
     variables:
       filterArg: "*"
       jobArg: short

@@ -7,12 +7,14 @@
 
 jobs:
   h2LoadClient:
-    source:
-      repository: https://github.com/dotnet/crank.git
-      branchOrCommit: main
-      project: src/Microsoft.Crank.Jobs.H2Load/Microsoft.Crank.Jobs.H2Load.csproj
-      sourceKey: h2load
-      noBuild: true
+    sources:
+      crank:
+        repository: https://github.com/dotnet/crank.git
+        branchOrCommit: main
+        sourceKey: h2load
+        destinationFolder: ''
+    project: src/Microsoft.Crank.Jobs.H2Load/Microsoft.Crank.Jobs.H2Load.csproj
+    noBuild: true
     readyStateText: H2Load Client
     waitForExit: true
     variables:

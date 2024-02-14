@@ -16,10 +16,11 @@ imports:
 
 jobs:
   server:
-    source:
-      repository: https://github.com/dotnet/crank
-      branchOrCommit: main
-      project: samples/hello/hello.csproj
+    sources:
+      crank:
+        repository: https://github.com/dotnet/crank
+        branchOrCommit: main
+    project: crank/samples/hello/hello.csproj
 
 scenarios:
   hello:

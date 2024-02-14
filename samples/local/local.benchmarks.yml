@@ -3,9 +3,10 @@ imports:
 
 jobs:
   server:
-    source:
-      localFolder: ../../samples/hello
-      project: hello.csproj
+    sources:
+      hello-sample:
+        localFolder: ../../samples/hello
+    project: hello-sample/hello.csproj
     readyStateText: Application started.
 
 scenarios:
