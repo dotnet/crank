@@ -12,12 +12,10 @@ variables:
 
 jobs:
   wrk2:
-    sources:
-      crank:
-        repository: https://github.com/dotnet/crank.git
-        branchOrCommit: main
-        destinationFolder: ''
-    project: src/Microsoft.Crank.Jobs.Wrk2/Microsoft.Crank.Jobs.Wrk2.csproj
+    source:
+      repository: https://github.com/dotnet/crank.git
+      branchOrCommit: main
+      project: src/Microsoft.Crank.Jobs.Wrk2/Microsoft.Crank.Jobs.Wrk2.csproj
     isConsoleApp: true
     waitForExit: true
     variables:

@@ -1,13 +1,11 @@
 ﻿jobs:
   k6:
-    sources:
-      crank:
-        repository: https://github.com/dotnet/crank.git
-        branchOrCommit: main
-        sourceKey: k6
-        destinationFolder: ''
-    project: src/Microsoft.Crank.Jobs.K6/Microsoft.Crank.Jobs.K6.csproj
-    noBuild: true
+    source:
+      repository: https://github.com/dotnet/crank.git
+      branchOrCommit: main
+      project: src/Microsoft.Crank.Jobs.K6/Microsoft.Crank.Jobs.K6.csproj
+      sourceKey: k6
+      noBuild: true
     readyStateText: K6 Client
     waitForExit: true
     variables:
