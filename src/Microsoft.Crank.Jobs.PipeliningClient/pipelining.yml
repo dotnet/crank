@@ -9,12 +9,10 @@
 
 jobs:
   pipelining:
-    sources:
-      crank:
-        repository: https://github.com/dotnet/crank.git
-        branchOrCommit: main
-        destinationFolder: ''
-    project: src/Microsoft.Crank.Jobs.PipeliningClient/Microsoft.Crank.Jobs.PipeliningClient.csproj
+    source:
+      repository: https://github.com/dotnet/crank.git
+      branchOrCommit: main
+      project: src/Microsoft.Crank.Jobs.PipeliningClient/Microsoft.Crank.Jobs.PipeliningClient.csproj
     readyStateText: Pipelining Client
     isConsoleApp: true
     waitForExit: true
