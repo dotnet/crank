@@ -23,11 +23,13 @@
 
   <ItemGroup>
     <Hello Include="$(MSBuildProjectDirectory)\..\..\samples\hello\**\*" />
+    <Post Include="$(MSBuildProjectDirectory)\..\..\samples\post\**\*" />
     <Src Include="$(MSBuildProjectDirectory)\..\..\src\**\*" />
   </ItemGroup>
 
   <Target Name="CopyFiles" AfterTargets="BeforeBuild">
     <Copy SourceFiles="@(Hello)" DestinationFiles="@(Hello->'$(OutputPath)hello\%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="@(Post)" DestinationFiles="@(Post->'$(OutputPath)post\%(RecursiveDir)%(Filename)%(Extension)')" />
     <Copy SourceFiles="@(Src)" DestinationFiles="@(Src->'$(OutputPath)src\%(RecursiveDir)%(Filename)%(Extension)')" />
   </Target>
 

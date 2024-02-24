@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using Microsoft.Crank.Models;
 using Microsoft.AspNetCore.Mvc;
 using Repository;
+using System.Text.Json;
 
 namespace Microsoft.Crank.Agent.Controllers
 {
@@ -904,6 +905,112 @@ namespace Microsoft.Crank.Agent.Controllers
 
             return ObjectOrNotFoundResult(measurement);
         }
+
+        [HttpPost("{id}/statistics")]
+        public IActionResult PostStatistics(int id, [FromBody] JobStatistics statistics)
+        {
+            Log.Info($"Receiving statistics for job {id}");
+            Log.Info($"statistics: {JsonSerializer.Serialize(statistics)}");
+
+            try
+            {
+                var job = _jobs.Find(id);
+
+                if (job == null)
+                {
+                    return NotFound("Job not found");
+                }
+
+                Log.Info($"Found {statistics.Metadata.Count} metadata and {statistics.Measurements.Count} measurements");
+
+                foreach (var metadata in statistics.Metadata)
+                {
+                    job.Metadata.Enqueue(metadata);
+                }
+
+                foreach (var measurement in statistics.Measurements)
+                {
+                    job.Measurements.Enqueue(measurement);
+                }
+
+                return Ok();
+            }
+            catch (Exception e)
+            {
+                Log.Error(e);
+                return StatusCode(500, e);
+            }
+        }
+
+        [HttpPost("{id}/metadata")]
+        public IActionResult PostMetadata(int id, string name, Operation aggregate, Operation reduce, string format, string longDescription, string shortDescription)
+        {
+            Log.Info($"Receiving metadata for job {id}");
+            Log.Info($"name: {name}, aggregate: {aggregate}, reduce: {reduce}, format: {format}, longDescription: {longDescription}, shortDescription: {shortDescription} ");
+
+            try
+            {
+                var job = _jobs.Find(id);
+
+                if (job == null)
+                {
+                    return NotFound("Job not found");
+                }
+
+                var metadata = new MeasurementMetadata
+                {
+                    Name = name,
+                    Aggregate = aggregate,
+                    Reduce = reduce,
+                    Format = format,
+                    LongDescription = longDescription,
+                    ShortDescription = shortDescription
+                };
+
+                job.Metadata.Enqueue(metadata);
+
+                return Ok();
+            }
+            catch (Exception e)
+            {
+                Log.Error(e);
+                return StatusCode(500, e);
+            }
+        }
+
+        [HttpPost("{id}/measurement")]
+        public IActionResult PostMeasurement(int id, string name, string timestamp, string value)
+        {
+            Log.Info($"Receiving measurement for job {id}");
+            Log.Info($"name: {name}, timestamp: {timestamp}, value: {value}");
+
+            try
+            {
+                var job = _jobs.Find(id);
+
+                if (job == null)
+                {
+                    return NotFound("Job not found");
+                }
+
+                var measurement = new Measurement
+                {
+                    Name = name,
+                    Timestamp = DateTime.Parse(timestamp).ToUniversalTime(),
+                    Value = decimal.TryParse(value, out var result) ? result : value
+                };
+
+                job.Measurements.Enqueue(measurement);
+
+                return Ok();
+            }
+            catch (Exception e)
+            {
+                Log.Error(e);
+                return StatusCode(500, e);
+            }
+        }
+
         private Job GetLatestJob(string name)
         {
             return _jobs
