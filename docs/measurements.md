@@ -138,4 +138,5 @@ Here is a working example:
       "timestamp": "2024-02-23T13:02:56.12Z",
       "value": 99
     }]
+}
 ```
