@@ -19,6 +19,7 @@
 |**[Collecting event counters](event_counters.md)** | Collecting predefined and custom event counters.
 |**[Post-processing results](post_processing.md)** | Adding custom results and running scripts.
 |**[Running pre-commands](precommands.md)** | Running commands before the job is pushed to the agent.
+|**[Reporting custom measurements](measurements.md)** | How to push custom measurement from a job.
 
 
 ## Reference documentation

@@ -1,0 +1,22 @@
+jobs:
+  post:
+    sources:
+      post:
+        localFolder: '../post'
+    project: post/post.csproj
+    readyStateText: Application started.
+    waitForExit: true
+    arguments: '{{jobUrl}}' # http://localhost:5010/Jobs/1
+    noClean: true
+
+scenarios:
+  post:
+    application:
+      job: post
+
+profiles:
+  local:
+    jobs: 
+      application:
+        endpoints: 
+          - http://localhost:5010

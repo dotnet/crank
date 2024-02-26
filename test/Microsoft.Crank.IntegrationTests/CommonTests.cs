@@ -4,8 +4,13 @@
 
 using System;
 using System.IO;
+using System.Linq;
+using System.Net.Http;
 using System.Runtime.InteropServices;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
+using Json.More;
 using Microsoft.Crank.Agent;
 using Xunit;
 using Xunit.Abstractions;
@@ -441,6 +446,36 @@ namespace Microsoft.Crank.IntegrationTests
             Assert.Contains(".NET Core SDK Version", result.StandardOutput);
             Assert.Contains(".NET Runtime Version", result.StandardOutput);
             Assert.Contains("ASP.NET Core Version", result.StandardOutput);
+        }
+
+        [Fact]
+        public async Task PostStatistics()
+        {
+            _output.WriteLine($"[TEST] Starting controller");
+
+            using var httpClient = new HttpClient();
+            var jsonResult = await httpClient.GetStringAsync("http://localhost:5010/Jobs/all");
+            var json = JsonNode.Parse(jsonResult).AsArray();
+            var lastJobId = json.Any() ? json.Last().AsObject()["id"].GetValue<int>() : 0;
+
+            var result = await ProcessUtil.RunAsync(
+                "dotnet",
+                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/post.benchmarks.yml --scenario post --profile local --json results.json --variable jobUrl=http://localhost:5010/Jobs/{lastJobId + 1}",
+                workingDirectory: _crankTestsDirectory,
+                captureOutput: true,
+                timeout: DefaultTimeOut,
+                throwOnError: false,
+                outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); }
+            );
+
+            Assert.Equal(0, result.ExitCode);
+
+            var results = JsonDocument.Parse(File.ReadAllText(Path.Combine(_crankTestsDirectory, "results.json")));
+            var application = results.RootElement.GetProperty("jobResults").GetProperty("jobs").GetProperty("application");
+
+            Assert.Equal(123.456M, application.GetProperty("results").GetProperty("cpu").GetDecimal());
+            Assert.Equal(123.456M, application.GetProperty("results").GetProperty("metadata1").GetDecimal());
+            Assert.Equal(123.456M, application.GetProperty("results").GetProperty("metadata2").GetDecimal());
         }
 
         public void Dispose()
