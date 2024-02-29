@@ -58,6 +58,11 @@ Run 'crank [command] -?|-h|--help' for more information about a command.
   --[JOB].sources.[SOURCE].initSubmodules                       Whether to init submodules when a git repository is used, e.g., true
   --[JOB].sources.[SOURCE].localFolder                          The local path containing the source code to upload to the server. e.g., /code/mybenchmarks
 
+  ## Execution
+
+  --[JOB].executable                                            The name of the executable to use when nothing needs to be built. e.g., 'mycustomapp.exe'
+  --[JOB].arguments                                             The arguments to use with the build results or executable. e.g., '--verbose --rate {{ rate }}'
+ 
   ## .NET options
 
   --[JOB].project <filename.csproj>                             The project file to build, relative to the source code base path, e.g., src/Benchmarks/Benchmarks.csproj
