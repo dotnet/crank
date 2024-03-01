@@ -26,6 +26,7 @@ using McMaster.Extensions.CommandLineUtils;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Hosting.WindowsServices;
 using Microsoft.Azure.Relay;
 using Microsoft.Crank.EventSources;
@@ -119,6 +120,7 @@ namespace Microsoft.Crank.Agent
         private static readonly string _defaultHostname = Dns.GetHostName();
         private static string _perfviewPath;
         private static string _dotnetInstallPath;
+        private static string _localUrl;
 
         private static readonly IJobRepository _jobs = new InMemoryJobRepository();
         private static string _rootTempDir;
@@ -313,6 +315,7 @@ namespace Microsoft.Crank.Agent
                 }
 
                 var url = urlOption.HasValue() ? urlOption.Value() : _defaultUrl;
+
                 var hostname = hostnameOption.HasValue() ? hostnameOption.Value() : _defaultHostname;
                 var dockerHostname = dockerHostnameOption.HasValue() ? dockerHostnameOption.Value() : hostname;
 
@@ -383,6 +386,20 @@ namespace Microsoft.Crank.Agent
             }
 
             var host = builder.Build();
+
+            var serverAddressFeature = host.ServerFeatures.Get<IServerAddressesFeature>();
+
+            if (serverAddressFeature is not null)
+            {
+                _localUrl = serverAddressFeature.Addresses.First();
+            }
+
+            // If the url contains Kestrel mappings use '127.0.0.1' instead
+            _localUrl = _localUrl
+                .Replace("*", "127.0.0.1")
+                .Replace("0.0.0.0", "127.0.0.1")
+                .Replace("[::]", "127.0.0.1")
+                ;
 
             Task hostTask;
             if (_runAsService.HasValue())
@@ -2114,10 +2131,16 @@ namespace Microsoft.Crank.Agent
                 return (null, null, null);
             }
 
+            job.EnvironmentVariables.Add("CRANK_AGENT_URL", $"{_localUrl}");
+            job.EnvironmentVariables.Add("CRANK_JOB_ID", $"{job.Id}");
+            job.EnvironmentVariables.Add("CRANK_JOB_URL", $"{job.Url}");
+            job.EnvironmentVariables.Add("CRANK_JOB_LOCAL_URL", $"{_localUrl}/jobs/{job.Id}");
+
             var environmentArguments = "";
 
             foreach (var env in job.EnvironmentVariables)
             {
+                Log.Info($"Setting ENV: {env.Key} = {env.Value}");
                 environmentArguments += $"--env {env.Key}={env.Value} ";
             }
 
@@ -4531,6 +4554,11 @@ namespace Microsoft.Crank.Agent
                 // Thus don’t set COMPlus_EnableEventLog = 1
                 process.StartInfo.Environment.Add("COMPlus_PerfMapEnabled", "1");
             }
+
+            job.EnvironmentVariables.Add("CRANK_AGENT_URL", $"{_localUrl}");
+            job.EnvironmentVariables.Add("CRANK_JOB_ID", $"{job.Id}");
+            job.EnvironmentVariables.Add("CRANK_JOB_URL", $"{job.Url}");
+            job.EnvironmentVariables.Add("CRANK_JOB_LOCAL_URL", $"{_localUrl}/jobs/{job.Id}");
 
             foreach (var env in job.EnvironmentVariables)
             {

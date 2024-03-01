@@ -14,6 +14,7 @@ using Microsoft.Crank.Models;
 using Microsoft.AspNetCore.Mvc;
 using Repository;
 using System.Text.Json;
+using Microsoft.AspNetCore.Mvc.Routing;
 
 namespace Microsoft.Crank.Agent.Controllers
 {
@@ -129,6 +130,7 @@ namespace Microsoft.Crank.Agent.Controllers
                 return BadRequest("The job state should be ServerState.New. You are probably using a wrong version of the driver.");
             }
 
+            job.Url = Url.ActionLink("GetById", "Jobs", new { job.Id });
             job.Hardware = Startup.Hardware;
             job.HardwareVersion = Startup.HardwareVersion;
             job.OperatingSystem = Startup.OperatingSystem;
