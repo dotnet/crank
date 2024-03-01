@@ -130,13 +130,13 @@ namespace Microsoft.Crank.Agent.Controllers
                 return BadRequest("The job state should be ServerState.New. You are probably using a wrong version of the driver.");
             }
 
-            job.Url = Url.ActionLink("GetById", "Jobs", new { job.Id });
             job.Hardware = Startup.Hardware;
             job.HardwareVersion = Startup.HardwareVersion;
             job.OperatingSystem = Startup.OperatingSystem;
             // Use server-side date and time to prevent issues from time drifting
             job.LastDriverCommunicationUtc = DateTime.UtcNow;
             job = _jobs.Add(job);
+            job.Url = Url.ActionLink("GetById", "Jobs", new { job.Id });
 
             Response.Headers["Location"] = $"/jobs/{job.Id}";
             return new StatusCodeResult((int)HttpStatusCode.Accepted);
