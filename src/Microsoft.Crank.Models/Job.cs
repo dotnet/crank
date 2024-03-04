@@ -168,7 +168,7 @@ namespace Microsoft.Crank.Models
 
         public List<Attachment> Attachments { get; set; } = new List<Attachment>();
         public List<Attachment> BuildAttachments { get; set; } = new List<Attachment>();
-
+        public DateTime CreationUtc { get; set; } = DateTime.UtcNow;
         public DateTime LastDriverCommunicationUtc { get; set; } = DateTime.UtcNow;
 
         // dotnet-trace options

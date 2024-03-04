@@ -14,6 +14,7 @@ using Microsoft.Crank.Models;
 using Microsoft.AspNetCore.Mvc;
 using Repository;
 using System.Text.Json;
+using Microsoft.AspNetCore.Mvc.Routing;
 
 namespace Microsoft.Crank.Agent.Controllers
 {
@@ -135,6 +136,7 @@ namespace Microsoft.Crank.Agent.Controllers
             // Use server-side date and time to prevent issues from time drifting
             job.LastDriverCommunicationUtc = DateTime.UtcNow;
             job = _jobs.Add(job);
+            job.Url = Url.ActionLink("GetById", "Jobs", new { job.Id });
 
             Response.Headers["Location"] = $"/jobs/{job.Id}";
             return new StatusCodeResult((int)HttpStatusCode.Accepted);
