@@ -21,6 +21,14 @@ This tutorial shows how to benchmark a simple .NET web application using the __b
     crank
     ```
 
+4. Ensure git is installed. You can check by running:
+
+  ```
+  git --version
+  ```
+
+  If git is not installed, install [git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git) here.
+
 Note: The agent is not required locally to execute a benchmark if it's already installed on a remote
 server. These steps only assume that you are getting started with __crank__ and that the agent
 isn't available anywhere else yet.
