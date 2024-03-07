@@ -105,6 +105,7 @@ stages:
       # It's a private repo in github so this won't pass until we create an internal mirror
       enableSourceLinkValidation: false
       publishingInfraVersion: 3
+      publishAssetsImmediately: true
       # This is to enable SDL runs part of Post-Build Validation Stage
       SDLValidationParameters:
         enable: true
