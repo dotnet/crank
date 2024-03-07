@@ -77,19 +77,31 @@ extends:
               clean: true
             - script: eng\common\cibuild.cmd -configuration $(_BuildConfig) -prepareMachine $(_OfficialBuildArgs)
               displayName: Build and Publish
-            - task: PublishBuildArtifacts@1
-              displayName: Upload TestResults
-              condition: always()
-              continueOnError: true
-              inputs:
-                pathtoPublish: artifacts/TestResults/$(_BuildConfig)/
-                artifactName: $(Agent.Os)_$(Agent.JobName) TestResults
-                artifactType: Container
-                parallel: true
-            - task: PublishBuildArtifacts@1
-              displayName: Upload package artifacts
-              condition: and(succeeded(), eq(variables['system.pullrequest.isfork'], false), eq(variables['_BuildConfig'], 'Release'))
-              inputs:
+            # - task: PublishBuildArtifacts@1
+            #   displayName: Upload TestResults
+            #   condition: always()
+            #   continueOnError: true
+            #   inputs:
+            #     pathtoPublish: artifacts/TestResults/$(_BuildConfig)/
+            #     artifactName: $(Agent.Os)_$(Agent.JobName) TestResults
+            #     artifactType: Container
+            #     parallel: true
+            # - task: PublishBuildArtifacts@1
+            #   displayName: Upload package artifacts
+            #   condition: and(succeeded(), eq(variables['system.pullrequest.isfork'], false), eq(variables['_BuildConfig'], 'Release'))
+            #   inputs:
+            #     pathtoPublish: artifacts/packages/
+            #     artifactName: artifacts
+            #     artifactType: Container
+            #     parallel: true
+            templateContext:
+              outputs:
+              - output: buildArtifacts
+                PathtoPublish: artifacts/TestResults/$(_BuildConfig)/
+                ArtifactName: $(Agent.Os)_$(Agent.JobName) TestResults
+                ArtifactType: Container
+                Parallel: true
+              - output: buildArtifacts
                 pathtoPublish: artifacts/packages/
                 artifactName: artifacts
                 artifactType: Container
