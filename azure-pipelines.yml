@@ -24,17 +24,28 @@ trigger:
     - main
     - release/*
 
-pr:
-  autoCancel: true
-  branches:
-    include:
-    - '*'
+resources:
+  repositories:
+  - repository: MicroBuildTemplate
+    type: git
+    name: 1ESPipelineTemplates/MicroBuildTemplate
+    ref: refs/tags/release
+extends:
+  template: azure-pipelines/MicroBuild.1ES.Official.yml@MicroBuildTemplate
+  parameters:
+    sdl:
+      sourceAnalysisPool:
+        name: $(DncEngInternalBuildPool)
+        image: 1es-windows-2022-pt
+        os: windows
+    customBuildTags:
+    - ES365AIMigrationTooling
 
 stages:
 - stage: build
   displayName: Build
   jobs:
-  - template: /eng/common/templates/jobs/jobs.yml
+  - template: /eng/common/templates-official/jobs/jobs.yml
     parameters:
       enableMicrobuild: true
       enablePublishBuildArtifacts: true
@@ -44,35 +55,22 @@ stages:
       enableTelemetry: true
       mergeTestResults: true
       jobs:
-      # - ${{ if and(eq(variables['System.TeamProject'], 'internal'), notin(variables['Build.Reason'], 'PullRequest')) }}:
       - job: Windows
         pool:
-          ${{ if eq(variables['System.TeamProject'], 'public') }}:
-            name: NetCore-Public
-            demands: ImageOverride -equals windows.vs2022.amd64.open
-          ${{ if eq(variables['System.TeamProject'], 'internal') }}:
-            name: NetCore1ESPool-Internal
-            demands: ImageOverride -equals windows.vs2022.amd64
+          name: $(DncEngInternalBuildPool)
+          image: 1es-windows-2022-pt
+          os: windows
         variables:
           
-
-        # Only enable publishing in official builds.
-        - ${{ if and(ne(variables['System.TeamProject'], 'public'), notin(variables['Build.Reason'], 'PullRequest')) }}:
-          # Publish-Build-Assets provides: MaestroAccessToken, BotAccount-dotnet-maestro-bot-PAT
-          - group: Publish-Build-Assets
-          - name: _OfficialBuildArgs
-            value: /p:DotNetSignType=$(_SignType)
-                  /p:TeamName=$(_TeamName)
-                  /p:DotNetPublishUsingPipelines=$(_PublishUsingPipelines)
-                  /p:OfficialBuildId=$(BUILD.BUILDNUMBER)
-          - name: _SignType
-            value: real
-        # else
-        - ${{ if or(eq(variables['System.TeamProject'], 'public'), in(variables['Build.Reason'], 'PullRequest')) }}:
-          - name: _OfficialBuildArgs
-            value: ''
-          - name: _SignType
-            value: test
+        # Publish-Build-Assets provides: MaestroAccessToken, BotAccount-dotnet-maestro-bot-PAT
+        - group: Publish-Build-Assets
+        - name: _OfficialBuildArgs
+          value: /p:DotNetSignType=$(_SignType)
+                /p:TeamName=$(_TeamName)
+                /p:DotNetPublishUsingPipelines=$(_PublishUsingPipelines)
+                /p:OfficialBuildId=$(BUILD.BUILDNUMBER)
+        - name: _SignType
+          value: real
                 
         steps:
         - checkout: self
@@ -97,69 +95,8 @@ stages:
             artifactType: Container
             parallel: true
 
-      - ${{ if or(eq(variables['System.TeamProject'], 'public'), in(variables['Build.Reason'], 'PullRequest')) }}:
-        - job: Ubuntu
-          displayName: 'Ubuntu 20.04'
-          pool:
-            vmImage: ubuntu-latest
-          variables:
-          - name: _SignType
-            value: none
-          - name: _OfficialBuildArgs
-            value: ''
-
-          steps:
-          - checkout: self
-            clean: true
-          - script: eng/common/cibuild.sh
-              --configuration $(_BuildConfig)
-              --prepareMachine
-            displayName: Build
-          - task: PublishBuildArtifacts@1
-            displayName: Upload TestResults
-            condition: always()
-            continueOnError: true
-            inputs:
-              pathtoPublish: artifacts/TestResults/$(_BuildConfig)/
-              artifactName: $(Agent.Os)_$(Agent.JobName) TestResults
-              artifactType: Container
-              parallel: true
-      
-      # Tests on macOS are unreliable
-      # - job: macOS
-      #   displayName: 'macOS 10.15'
-      #   pool:
-      #     vmImage: macOS-1015
-      #   variables:
-      #   - name: _SignType
-      #     value: none
-
-      #   - ${{ if and(eq(variables['System.TeamProject'], 'internal'), notin(variables['Build.Reason'], 'PullRequest')) }}:
-      #     - name: _OfficialBuildArgs
-      #       value: -p:OfficialBuildId=$(Build.BuildNumber)
-      #   # else
-      #   - ${{ if or(eq(variables['System.TeamProject'], 'public'), in(variables['Build.Reason'], 'PullRequest')) }}:
-      #     - name: _OfficialBuildArgs
-      #       value: ''
-      #   steps:
-      #   - checkout: self
-      #     clean: true
-      #   - script: eng/common/cibuild.sh
-      #       --configuration $(_BuildConfig)
-      #       --prepareMachine
-      #     displayName: Build
-      #   - task: PublishBuildArtifacts@1
-      #     displayName: Upload TestResults
-      #     condition: always()
-      #     continueOnError: true
-      #     inputs:
-      #       pathtoPublish: artifacts/TestResults/$(_BuildConfig)/
-      #       artifactName: $(Agent.Os)_$(Agent.JobName) TestResults
-      #       artifactType: Container
-      #       parallel: true
-
 - ${{ if and(ne(variables['System.TeamProject'], 'public'), notin(variables['Build.Reason'], 'PullRequest')) }}:
-  - template: eng\common\templates\post-build\post-build.yml
+  - template: eng\common\templates-official\post-build\post-build.yml
     parameters:
       # Symbol validation isn't being very reliable lately. This should be enabled back
       # once this issue is resolved: https://github.com/dotnet/arcade/issues/2871
