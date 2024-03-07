@@ -76,7 +76,6 @@ extends:
               clean: true
             - script: eng\common\cibuild.cmd -configuration $(_BuildConfig) -prepareMachine $(_OfficialBuildArgs)
               displayName: Build and Publish
-<<<<<<< HEAD
             # - task: PublishBuildArtifacts@1
             #   displayName: Upload TestResults
             #   condition: always()
@@ -102,21 +101,6 @@ extends:
                 ArtifactType: Container
                 Parallel: true
               - output: buildArtifacts
-=======
-            - task: PublishBuildArtifacts@1
-              displayName: Upload TestResults
-              condition: always()
-              continueOnError: true
-              inputs:
-                pathtoPublish: artifacts/TestResults/$(_BuildConfig)/
-                artifactName: $(Agent.Os)_$(Agent.JobName) TestResults
-                artifactType: Container
-                parallel: true
-            - task: PublishBuildArtifacts@1
-              displayName: Upload package artifacts
-              condition: and(succeeded(), eq(variables['system.pullrequest.isfork'], false), eq(variables['_BuildConfig'], 'Release'))
-              inputs:
->>>>>>> 7ca9507 (Fix indenting)
                 pathtoPublish: artifacts/packages/
                 artifactName: artifacts
                 artifactType: Container
@@ -124,10 +108,14 @@ extends:
 
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     - template: eng\common\templates-official\post-build\post-build.yml@self
 =======
     - template: eng\common\templates-official\post-build\post-build.yml
 >>>>>>> 7ca9507 (Fix indenting)
+=======
+    - template: eng\common\templates-official\post-build\post-build.yml@self
+>>>>>>> 49f745f (Add @self decorators)
       parameters:
         # Symbol validation isn't being very reliable lately. This should be enabled back
         # once this issue is resolved: https://github.com/dotnet/arcade/issues/2871
