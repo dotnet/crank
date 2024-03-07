@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
@@ -73,7 +73,6 @@ namespace Microsoft.Crank.Agent
 
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
-        private static readonly char[] _splitChars = { ' ', '=', '"' };
 
         // Sources of dotnet-install scripts are in https://github.com/dotnet/install-scripts/
         private static readonly string _dotnetInstallShUrl = "https://dot.net/v1/dotnet-install.sh";
@@ -97,11 +96,11 @@ namespace Microsoft.Crank.Agent
             """;
 
         // Safe-keeping these urls
-        //private static readonly string _releaseMetadata = "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/releases-index.json";
+        //private const string _releaseMetadata = "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/releases-index.json";
 
-        private static readonly string _latestSdk90VersionUrl = "https://aka.ms/dotnet/9.0.1xx/daily/productCommit-win-x64.txt";
+        private const string _latestSdk90VersionUrl = "https://aka.ms/dotnet/9.0.1xx/daily/productCommit-win-x64.json";
+        private const string _aspnetSdkVersionUrl = "https://raw.githubusercontent.com/dotnet/aspnetcore/main/global.json";
 
-        private static readonly string _aspnetSdkVersionUrl = "https://raw.githubusercontent.com/dotnet/aspnetcore/main/global.json";
         private static readonly string[] _runtimeFeedUrls = new string[] {
             "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9/nuget/v3/flat2",
             "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8/nuget/v3/flat2",
@@ -4051,8 +4050,8 @@ namespace Microsoft.Crank.Agent
             {
                 if (targetFramework == "net9.0")
                 {
-                    (sdkVersion, _) = await ParseVersionsFile(_latestSdk90VersionUrl, "installer");
-                    Log.Info($"SDK: {sdkVersion} (Edge)");
+                    JObject productsInfo = JObject.Parse(await DownloadContentAsync(_latestSdk90VersionUrl));
+                    Log.Info($"SDK: {productsInfo["sdk"]["version"]} (Edge)");
                 }
             }
             else
@@ -4110,8 +4109,6 @@ namespace Microsoft.Crank.Agent
 
         private static async Task<string> ResolveDesktopVersion(string desktopVersion, string currentDesktopVersion, string targetFramework)
         {
-            var latestSdkUrl = _latestSdk90VersionUrl;
-
             if (String.Equals(desktopVersion, "Current", StringComparison.OrdinalIgnoreCase))
             {
                 desktopVersion = currentDesktopVersion;
@@ -4124,8 +4121,8 @@ namespace Microsoft.Crank.Agent
             }
             else if (String.Equals(desktopVersion, "Edge", StringComparison.OrdinalIgnoreCase))
             {
-                (desktopVersion, _) = await ParseVersionsFile(latestSdkUrl, "windowsdesktop");
-                Log.Info($"Desktop: {currentDesktopVersion} (Edge)");
+                JObject productsInfo = JObject.Parse(await DownloadContentAsync(_latestSdk90VersionUrl));
+                Log.Info($"Desktop: {productsInfo["windowsdesktop"]["version"]} (Edge)");
             }
             else
             {
@@ -4259,36 +4256,6 @@ namespace Microsoft.Crank.Agent
 
                 return (version, hash);
             }
-        }
-
-        /// <summary>
-        /// Parses files that contains lines with [prefix]:[sha], [version]
-        /// </summary>
-        private static async Task<(string version, string hash)> ParseVersionsFile(string urlOrFilename, string prefix)
-        {
-            var content = urlOrFilename.StartsWith("http", StringComparison.OrdinalIgnoreCase)
-                ? await DownloadContentAsync(urlOrFilename)
-                : await File.ReadAllTextAsync(urlOrFilename)
-                ;
-
-            using (var sr = new StringReader(content))
-            {
-                string line = null;
-
-                while (null != (line = sr.ReadLine()))
-                {
-                    if (line.StartsWith(prefix))
-                    {
-                        var fragments = line.Split(_splitChars, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-                        var hash = fragments[1];
-                        var version = fragments[3];
-
-                        return (version, hash);
-                    }
-                }
-            }
-
-            return (null, null);
         }
 
         private static async Task<bool> DownloadFileAsync(string url, string outputPath, int maxRetries, int timeout = 5, bool throwOnError = true)
