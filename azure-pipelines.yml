@@ -11,10 +11,9 @@ variables:
     value: true
   - name: _BuildConfig
     value: Release
-
-    # used for post-build phases, internal builds only
-  - ${{ if and(ne(variables['System.TeamProject'], 'public'), notin(variables['Build.Reason'], 'PullRequest')) }}:
-    - group: DotNet-AspNet-SDLValidation-Params
+  - template: /eng/common/templates-official/variables/pool-providers.yml
+  # used for post-build phases
+  - group: DotNet-AspNet-SDLValidation-Params
 
 # CI and PR triggers
 trigger:
