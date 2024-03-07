@@ -45,7 +45,7 @@ extends:
     - stage: build
       displayName: Build
       jobs:
-      - template: /eng/common/templates-official/jobs/jobs.yml
+      - template: /eng/common/templates-official/jobs/jobs.yml@self
         parameters:
           enableMicrobuild: true
           enablePublishBuildArtifacts: true
@@ -96,7 +96,7 @@ extends:
                 parallel: true
 
 
-    - template: eng\common\templates-official\post-build\post-build.yml
+    - template: eng\common\templates-official\post-build\post-build.yml@self
       parameters:
         # Symbol validation isn't being very reliable lately. This should be enabled back
         # once this issue is resolved: https://github.com/dotnet/arcade/issues/2871
