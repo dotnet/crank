@@ -4117,17 +4117,17 @@ namespace Microsoft.Crank.Agent
                 if (versionPrefix == "9.0")
                 {
                     runtimeVersion = await GetFlatContainerVersion(_netcore9FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
-                    Log.Info($"Runtime: {runtimeVersion} (Latest - From 9.0 feed)");
+                    Log.Info($"Runtime: {runtimeVersion} (Edge - From 9.0 feed)");
                 }
                 else if (versionPrefix == "8.0")
                 {
                     runtimeVersion = await GetFlatContainerVersion(_netcore8FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
-                    Log.Info($"Runtime: {runtimeVersion} (Latest - From 8.0 feed)");
+                    Log.Info($"Runtime: {runtimeVersion} (Edge - From 8.0 feed)");
                 }
                 else
                 {
                     runtimeVersion = currentRuntimeVersion;
-                    Log.Info($"Runtime: {runtimeVersion} (Latest - Fallback on Current)");
+                    Log.Info($"Runtime: {runtimeVersion} (Edge - Fallback on Current)");
                 }
             }
             else
