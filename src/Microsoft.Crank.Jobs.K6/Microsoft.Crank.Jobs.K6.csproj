@@ -10,10 +10,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="$(JsonNetVersion)" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Update="scripts\default.js">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

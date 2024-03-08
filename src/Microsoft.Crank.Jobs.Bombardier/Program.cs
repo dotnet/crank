@@ -10,10 +10,10 @@ using System.Linq;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Crank.EventSources;
-using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Crank.Jobs.Bombardier
 {
@@ -253,7 +253,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
                     return 0;
                 }
 
-                var document = JObject.Parse(output);
+                var document = JsonObject.Parse(output);
 
                 BenchmarksEventSource.Register("bombardier/requests;http/requests", Operations.Max, Operations.Sum, "Requests", "Total number of requests", "n0");
                 BenchmarksEventSource.Register("bombardier/badresponses;http/requests/badresponses", Operations.Max, Operations.Sum, "Bad responses", "Non-2xx or 3xx responses", "n0");
@@ -274,33 +274,33 @@ namespace Microsoft.Crank.Jobs.Bombardier
                 BenchmarksEventSource.Register("bombardier/raw", Operations.All, Operations.All, "Raw results", "Raw results", "json");
 
                 var total =
-                    document["result"]["req1xx"].Value<long>()
-                    + document["result"]["req2xx"].Value<long>()
-                    + document["result"]["req3xx"].Value<long>()
-                    + document["result"]["req4xx"].Value<long>()
-                    + document["result"]["req5xx"].Value<long>()
-                    + document["result"]["others"].Value<long>();
+                    document["result"]["req1xx"].GetValue<long>()
+                    + document["result"]["req2xx"].GetValue<long>()
+                    + document["result"]["req3xx"].GetValue<long>()
+                    + document["result"]["req4xx"].GetValue<long>()
+                    + document["result"]["req5xx"].GetValue<long>()
+                    + document["result"]["others"].GetValue<long>();
 
-                var success = document["result"]["req2xx"].Value<long>() + document["result"]["req3xx"].Value<long>();
+                var success = document["result"]["req2xx"].GetValue<long>() + document["result"]["req3xx"].GetValue<long>();
 
                 BenchmarksEventSource.Measure("bombardier/requests;http/requests", total);
                 BenchmarksEventSource.Measure("bombardier/badresponses;http/requests/badresponses", total - success);
 
-                BenchmarksEventSource.Measure("bombardier/latency/50;http/latency/50", document["result"]["latency"]["percentiles"]["50"].Value<double>().ToMilliseconds());
-                BenchmarksEventSource.Measure("bombardier/latency/75;http/latency/75", document["result"]["latency"]["percentiles"]["75"].Value<double>().ToMilliseconds());
-                BenchmarksEventSource.Measure("bombardier/latency/90;http/latency/90", document["result"]["latency"]["percentiles"]["90"].Value<double>().ToMilliseconds());
-                BenchmarksEventSource.Measure("bombardier/latency/95;http/latency/95", document["result"]["latency"]["percentiles"]["95"].Value<double>().ToMilliseconds());
-                BenchmarksEventSource.Measure("bombardier/latency/99;http/latency/99", document["result"]["latency"]["percentiles"]["99"].Value<double>().ToMilliseconds());
+                BenchmarksEventSource.Measure("bombardier/latency/50;http/latency/50", document["result"]["latency"]["percentiles"]["50"].GetValue<double>().ToMilliseconds());
+                BenchmarksEventSource.Measure("bombardier/latency/75;http/latency/75", document["result"]["latency"]["percentiles"]["75"].GetValue<double>().ToMilliseconds());
+                BenchmarksEventSource.Measure("bombardier/latency/90;http/latency/90", document["result"]["latency"]["percentiles"]["90"].GetValue<double>().ToMilliseconds());
+                BenchmarksEventSource.Measure("bombardier/latency/95;http/latency/95", document["result"]["latency"]["percentiles"]["95"].GetValue<double>().ToMilliseconds());
+                BenchmarksEventSource.Measure("bombardier/latency/99;http/latency/99", document["result"]["latency"]["percentiles"]["99"].GetValue<double>().ToMilliseconds());
 
-                BenchmarksEventSource.Measure("bombardier/latency/mean;http/latency/mean", document["result"]["latency"]["mean"].Value<double>().ToMilliseconds());
-                BenchmarksEventSource.Measure("bombardier/latency/max;http/latency/max", document["result"]["latency"]["max"].Value<double>().ToMilliseconds());
+                BenchmarksEventSource.Measure("bombardier/latency/mean;http/latency/mean", document["result"]["latency"]["mean"].GetValue<double>().ToMilliseconds());
+                BenchmarksEventSource.Measure("bombardier/latency/max;http/latency/max", document["result"]["latency"]["max"].GetValue<double>().ToMilliseconds());
 
-                BenchmarksEventSource.Measure("bombardier/rps/max;http/rps/max", document["result"]["rps"]["max"].Value<double>());
-                BenchmarksEventSource.Measure("bombardier/rps/mean;http/rps/mean", document["result"]["rps"]["mean"].Value<double>());
+                BenchmarksEventSource.Measure("bombardier/rps/max;http/rps/max", document["result"]["rps"]["max"].GetValue<double>());
+                BenchmarksEventSource.Measure("bombardier/rps/mean;http/rps/mean", document["result"]["rps"]["mean"].GetValue<double>());
 
                 BenchmarksEventSource.Measure("bombardier/raw", output);
 
-                var bytesPerSecond = document["result"]["bytesRead"].Value<long>() / document["result"]["timeTakenSeconds"].Value<double>();
+                var bytesPerSecond = document["result"]["bytesRead"].GetValue<long>() / document["result"]["timeTakenSeconds"].GetValue<double>();
 
                 // B/s to MB/s
                 BenchmarksEventSource.Measure("bombardier/throughput;http/throughput", bytesPerSecond / 1024 / 1024);

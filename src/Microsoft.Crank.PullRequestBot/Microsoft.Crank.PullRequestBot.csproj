@@ -26,7 +26,6 @@
   <ItemGroup>
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta1.20427.1" />
     <PackageReference Include="Octokit" Version="$(OctokitVersion)" />
-    <PackageReference Include="Newtonsoft.Json" Version="$(JsonNetVersion)" />
     <PackageReference Include="YamlDotNet" Version="8.1.2" />
     <PackageReference Include="Fluid.Core" Version="2.2.6" />
   </ItemGroup>
