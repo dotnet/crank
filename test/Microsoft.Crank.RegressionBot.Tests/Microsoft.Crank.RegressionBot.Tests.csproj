@@ -28,7 +28,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="$(JsonNetVersion)" />
     <PackageReference Include="Fluid.Core" Version="2.2.6" />
     <PackageReference Include="MessagePack" Version="2.2.85" />
   </ItemGroup>

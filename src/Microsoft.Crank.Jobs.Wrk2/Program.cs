@@ -10,11 +10,11 @@ using System.Linq;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Crank.EventSources;
-using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Crank.Jobs.Wrk2
 {
@@ -201,7 +201,7 @@ namespace Microsoft.Crank.Jobs.Wrk2
                         line = sr.ReadLine();
                     } while (line != null && !line.Contains("Detailed Percentile spectrum:"));
 
-                    var doc = new JArray();
+                    var doc = new JsonArray();
 
                     if (line != null)
                     {
@@ -216,11 +216,11 @@ namespace Microsoft.Crank.Jobs.Wrk2
 
                             var values = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                             doc.Add(
-                                new JObject(
-                                    new JProperty("latency_us", decimal.Parse(values[0], CultureInfo.InvariantCulture)), 
-                                    new JProperty("count", decimal.Parse(values[2], CultureInfo.InvariantCulture)),
-                                    new JProperty("percentile", decimal.Parse(values[1], CultureInfo.InvariantCulture))
-                                    ));
+                                new JsonObject {
+                                    ["latency_us"] = decimal.Parse(values[0], CultureInfo.InvariantCulture),
+                                    ["count"] = decimal.Parse(values[2], CultureInfo.InvariantCulture),
+                                    ["percentile"] = decimal.Parse(values[1], CultureInfo.InvariantCulture)
+                                });
 
                             line = sr.ReadLine();
                         }
