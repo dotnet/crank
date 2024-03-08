@@ -98,7 +98,7 @@ namespace Microsoft.Crank.Agent
         // Safe-keeping these urls
         //private const string _releaseMetadata = "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/releases-index.json";
 
-        private const string _latestSdk90VersionUrl = "https://aka.ms/dotnet/9.0.1xx/daily/productCommit-win-x64.json";
+        private const string _latestProductVersions90Url = "https://aka.ms/dotnet/9.0.1xx/daily/productCommit-win-x64.json";
         private const string _aspnetSdkVersionUrl = "https://raw.githubusercontent.com/dotnet/aspnetcore/main/global.json";
 
         private static readonly string[] _runtimeFeedUrls = new string[] {
@@ -2715,7 +2715,7 @@ namespace Microsoft.Crank.Agent
             {
                 if (targetFramework.Equals("net9.0"))
                 {
-                    channel = "edge";
+                    channel = "latest";
                 }
             }
 
@@ -3749,21 +3749,35 @@ namespace Microsoft.Crank.Agent
                     Log.Info($"ASP.NET: {aspNetCoreVersion} (Current)");
                     break;
                 case "latest":
+                    // aspnet runtime service releases are not published on feeds
+                    switch (versionPrefix)
+                    {
+                        case "9.0":
+                            var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url));
+                            aspNetCoreVersion = productsInfo["aspnetcore"]["version"].ToString();
+                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - From 9.0 SDK)");
+                            break;
+                        default:
+                            aspNetCoreVersion = currentAspNetCoreVersion;
+                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - Fallback on Current)");
+                            break;
+                    }
+                    break;
                 case "edge":
                     // aspnet runtime service releases are not published on feeds
                     switch (versionPrefix)
                     {
                         case "9.0":
                             aspNetCoreVersion = await GetFlatContainerVersion(_aspnet9FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
-                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - From 9.0 feed)");
+                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Edge - From 9.0 feed)");
                             break;
                         case "8.0":
                             aspNetCoreVersion = await GetFlatContainerVersion(_aspnet8FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
-                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - From 8.0 feed)");
+                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Edge - From 8.0 feed)");
                             break;
                         default:
                             aspNetCoreVersion = currentAspNetCoreVersion;
-                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - Fallback on Current)");
+                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Edge - Fallback on Current)");
                             break;
                     }
                     break;
@@ -4043,15 +4057,25 @@ namespace Microsoft.Crank.Agent
             }
             else if (String.Equals(sdkVersion, "Latest", StringComparison.OrdinalIgnoreCase))
             {
-                sdkVersion = await GetAspNetSdkVersion();
-                Log.Info($"SDK: {sdkVersion} (Latest)");
+                if (targetFramework == "net9.0")
+                {
+                    var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url));
+                    sdkVersion = productsInfo["sdk"]["version"].ToString();
+                    Log.Info($"SDK: {sdkVersion} (Latest - From Product Commit)");
+                }
+                else
+                {
+                    sdkVersion = await GetAspNetSdkVersion();
+                    Log.Info($"SDK: {sdkVersion} (Latest - From ASP.NET repository)");
+                }
             }
             else if (String.Equals(sdkVersion, "Edge", StringComparison.OrdinalIgnoreCase))
             {
                 if (targetFramework == "net9.0")
                 {
-                    JObject productsInfo = JObject.Parse(await DownloadContentAsync(_latestSdk90VersionUrl));
-                    Log.Info($"SDK: {productsInfo["sdk"]["version"]} (Edge)");
+                    var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url));
+                    sdkVersion = productsInfo["sdk"]["version"].ToString();
+                    Log.Info($"SDK: {sdkVersion} (Edge)");
                 }
             }
             else
@@ -4064,6 +4088,8 @@ namespace Microsoft.Crank.Agent
 
         private static async Task<string> ResolveRuntimeVersion(string buildToolsPath, string targetFramework, string runtimeVersion, string currentRuntimeVersion)
         {
+            var versionPrefix = targetFramework.Substring(targetFramework.Length - 3);
+
             if (String.Equals(runtimeVersion, "Current", StringComparison.OrdinalIgnoreCase))
             {
                 runtimeVersion = currentRuntimeVersion;
@@ -4071,16 +4097,22 @@ namespace Microsoft.Crank.Agent
             }
             else if (String.Equals(runtimeVersion, "Latest", StringComparison.OrdinalIgnoreCase))
             {
-                // Get the version that is defined by the ASP.NET repository
-                // Note: to use the latest build available, use Edge channel
-                runtimeVersion = await GetAspNetRuntimeVersion(buildToolsPath, targetFramework);
-                Log.Info($"Runtime: {runtimeVersion} (Latest)");
+                switch (versionPrefix)
+                {
+                    case "9.0":
+                        var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url));
+                        runtimeVersion = productsInfo["runtime"]["version"].ToString();
+                        Log.Info($"ASP.NET: {runtimeVersion} (Latest - From 9.0 SDK)");
+                        break;
+                    default:
+                    runtimeVersion = currentRuntimeVersion;
+                        Log.Info($"ASP.NET: {runtimeVersion} (Latest - Fallback on Current)");
+                        break;
+                }
             }
             else if (String.Equals(runtimeVersion, "Edge", StringComparison.OrdinalIgnoreCase))
             {
                 // Older versions are still published on old feed. Including service releases
-
-                var versionPrefix = targetFramework.Substring(targetFramework.Length - 3);
 
                 if (versionPrefix == "9.0")
                 {
@@ -4121,8 +4153,9 @@ namespace Microsoft.Crank.Agent
             }
             else if (String.Equals(desktopVersion, "Edge", StringComparison.OrdinalIgnoreCase))
             {
-                JObject productsInfo = JObject.Parse(await DownloadContentAsync(_latestSdk90VersionUrl));
-                Log.Info($"Desktop: {productsInfo["windowsdesktop"]["version"]} (Edge)");
+                var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url));
+                desktopVersion = productsInfo["windowsdesktop"]["version"].ToString();
+                Log.Info($"Desktop: {desktopVersion} (Edge)");
             }
             else
             {
