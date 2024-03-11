@@ -104,16 +104,7 @@ extends:
                 PathtoPublish: artifacts/packages/
                 ArtifactName: artifacts
 
-
-<<<<<<< HEAD
-<<<<<<< HEAD
     - template: eng\common\templates-official\post-build\post-build.yml@self
-=======
-    - template: eng\common\templates-official\post-build\post-build.yml
->>>>>>> 7ca9507 (Fix indenting)
-=======
-    - template: eng\common\templates-official\post-build\post-build.yml@self
->>>>>>> 49f745f (Add @self decorators)
       parameters:
         # Symbol validation isn't being very reliable lately. This should be enabled back
         # once this issue is resolved: https://github.com/dotnet/arcade/issues/2871
