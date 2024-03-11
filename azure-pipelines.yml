@@ -5,6 +5,8 @@
 variables:
   - name: _TeamName
     value: AspNetCore
+  - name: TeamName
+    value: AspNetCore
   - name: DOTNET_SKIP_FIRST_TIME_EXPERIENCE
     value: true
   - name: _PublishUsingPipelines
