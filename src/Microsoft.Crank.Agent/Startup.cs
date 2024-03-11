@@ -4060,7 +4060,7 @@ namespace Microsoft.Crank.Agent
                 if (targetFramework == "net9.0")
                 {
                     var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url));
-                    sdkVersion = productsInfo["sdk"]["version"].ToString();
+                    sdkVersion = productsInfo["installer"]["version"].ToString();
                     Log.Info($"SDK: {sdkVersion} (Latest - From Product Commit)");
                 }
                 else
@@ -4074,7 +4074,7 @@ namespace Microsoft.Crank.Agent
                 if (targetFramework == "net9.0")
                 {
                     var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url));
-                    sdkVersion = productsInfo["sdk"]["version"].ToString();
+                    sdkVersion = productsInfo["installer"]["version"].ToString();
                     Log.Info($"SDK: {sdkVersion} (Edge)");
                 }
             }
