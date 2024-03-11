@@ -51,7 +51,7 @@ extends:
           enableMicrobuild: true
           enablePublishBuildArtifacts: true
           enablePublishTestResults: true
-          enablePublishBuildAssets: false
+          enablePublishBuildAssets: true
           enablePublishUsingPipelines: ${{ variables._PublishUsingPipelines }}
           enableTelemetry: true
           mergeTestResults: true
