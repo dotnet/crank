@@ -4102,11 +4102,11 @@ namespace Microsoft.Crank.Agent
                     case "9.0":
                         var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url));
                         runtimeVersion = productsInfo["runtime"]["version"].ToString();
-                        Log.Info($"ASP.NET: {runtimeVersion} (Latest - From 9.0 SDK)");
+                        Log.Info($"Runtime: {runtimeVersion} (Latest - From 9.0 SDK)");
                         break;
                     default:
                     runtimeVersion = currentRuntimeVersion;
-                        Log.Info($"ASP.NET: {runtimeVersion} (Latest - Fallback on Current)");
+                        Log.Info($"Runtime: {runtimeVersion} (Latest - Fallback on Current)");
                         break;
                 }
             }
