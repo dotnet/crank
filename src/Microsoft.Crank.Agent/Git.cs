@@ -17,7 +17,7 @@ namespace Microsoft.Crank.Agent
 
         public static async Task<string> CloneAsync(string path, string repository, bool shallow = true, string branch = null, bool intoCurrentDir = false, CancellationToken cancellationToken = default)
         {
-            Log.Info($"Cloning {repository} with branch '{branch}'");
+            Log.Info($"Cloning {repository} with branch '{branch}' asdfasdf");
 
             var branchParam = string.IsNullOrEmpty(branch) ? string.Empty : $"-b {branch}";
 
