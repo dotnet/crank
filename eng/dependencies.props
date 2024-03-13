@@ -5,5 +5,6 @@
     <MicrosoftDataSqlClientVersion>5.1.5</MicrosoftDataSqlClientVersion>
     <AzureIdentityVersion>1.10.4</AzureIdentityVersion>
     <JintVersion>3.0.0</JintVersion>
+    <SystemIOHashingVersion>8.0.0</SystemIOHashingVersion>
   </PropertyGroup>
 </Project>

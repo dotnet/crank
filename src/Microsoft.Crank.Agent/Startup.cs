@@ -9,6 +9,7 @@ using System.Diagnostics.Tracing;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
+using System.IO.Hashing;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -3402,14 +3403,11 @@ namespace Microsoft.Crank.Agent
 
             void CreateDependenciesHash()
             {
-                using (var md5 = MD5.Create())
+                foreach (var dependency in job.Dependencies)
                 {
-                    foreach (var dependency in job.Dependencies)
-                    {
-                        var names = String.Concat(dependency.Names);
-                        byte[] bytes = md5.ComputeHash(Encoding.UTF8.GetBytes(names));
-                        dependency.Id = Convert.ToBase64String(bytes);
-                    }
+                    var names = String.Concat(dependency.Names);
+                    var bytes = XxHash64.Hash(Encoding.UTF8.GetBytes(names));
+                    dependency.Id = Convert.ToBase64String(bytes);
                 }
             }
 
