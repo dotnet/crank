@@ -7,6 +7,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Hashing;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -18,6 +19,7 @@ using System.Threading.Tasks;
 using Fluid;
 using Fluid.Values;
 using Jint;
+using Jint.Runtime;
 using McMaster.Extensions.CommandLineUtils;
 using Microsoft.Azure.Relay;
 using Microsoft.Crank.Controller.Serializers;
@@ -26,6 +28,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 using YamlDotNet.Serialization;
+using static Azure.Core.HttpHeader;
 
 namespace Microsoft.Crank.Controller
 {
@@ -2235,10 +2238,11 @@ namespace Microsoft.Crank.Controller
 
         private static string HashKeyData<T>(T KeyData)
         {
-            using var sha1 = SHA1.Create();
+            // Should returns a value which can be part of a file name
+
             var keyDataStr = JsonConvert.SerializeObject(KeyData);
-            var hashedKeyDataBytes = sha1.ComputeHash(Encoding.UTF8.GetBytes(keyDataStr.ToString()));
-            return string.Concat(hashedKeyDataBytes.Select(b => b.ToString("x2"))).Substring(0, 8);
+            var hashedKeyDataBytes = XxHash64.Hash(Encoding.UTF8.GetBytes(keyDataStr.ToString()));
+            return Convert.ToHexString(hashedKeyDataBytes);
         }
 
         private static void ApplyTemplates(JToken node, TemplateContext templateContext)

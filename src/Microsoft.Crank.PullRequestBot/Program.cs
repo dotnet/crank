@@ -8,6 +8,7 @@ using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.CommandLine.Parsing;
 using System.IO;
+using System.IO.Hashing;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -382,7 +383,7 @@ namespace Microsoft.Crank.PullRequestBot
         private static void CreateThumbprint()
         {
             // Create a unique thumbprint per configuration file such that multiple pipelines can process the same PR with different arguments (linux/windows, x64/arm64)
-            var identifier = Convert.ToBase64String(MD5.HashData(Encoding.UTF8.GetBytes(_options.Config)));
+            var identifier = Convert.ToBase64String(XxHash64.Hash(Encoding.UTF8.GetBytes(_options.Config)));
 
             Thumbprint = string.Format(Thumbprint, HtmlEncoder.Default.Encode(identifier));
         }

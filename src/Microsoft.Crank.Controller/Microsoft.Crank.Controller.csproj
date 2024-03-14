@@ -22,6 +22,7 @@
     <PackageReference Include="JsonSchema.Net" Version="3.3.2" />
     <PackageReference Include="NuGet.Versioning" Version="5.6.0" />
     <PackageReference Include="YamlDotNet" Version="8.1.2" />
+    <PackageReference Include="System.IO.Hashing" Version="$(SystemIOHashingVersion)" />
   </ItemGroup>
 
   <ItemGroup>
