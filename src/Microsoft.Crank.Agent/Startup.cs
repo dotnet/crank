@@ -4646,6 +4646,9 @@ namespace Microsoft.Crank.Agent
 
             if (useWindowsLimiter)
             {
+                // Ensure the cpuLimitRatio value is valid
+                job.CpuLimitRatio = Math.Clamp(job.CpuLimitRatio, 0, 1);
+
                 var limiter = new WindowsLimiter(process);
                 limiter.SetCpuLimits(job.CpuLimitRatio, CalculateCpuList(job.CpuSet));
                 limiter.SetMemLimit(job.MemoryLimitInBytes);
@@ -4704,6 +4707,11 @@ namespace Microsoft.Crank.Agent
         
         public static List<int> CalculateCpuList(string cpuSet)
         {
+            if (string.IsNullOrWhiteSpace(cpuSet))
+            {
+                return new List<int>();
+            }
+
             var result = new List<int>();
 
             var ranges = cpuSet.Split(',', StringSplitOptions.RemoveEmptyEntries);
