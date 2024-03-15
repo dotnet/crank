@@ -26,6 +26,7 @@ namespace Microsoft.Crank.Agent
 
         private readonly SafeFileHandle _processHandle;
         private readonly SafeHandle _jobHandle;
+        private bool _disposed;
 
         public WindowsLimiter(Process process) 
         {
@@ -163,6 +164,13 @@ namespace Microsoft.Crank.Agent
 
         public void Dispose()
         {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+
             _processHandle.Dispose();
             _jobHandle.Dispose();
         }

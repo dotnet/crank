@@ -936,7 +936,11 @@ namespace Microsoft.Crank.Agent
                                                     job.Error = "Error while starting the application: " + e.ToString();
                                                     Log.Info(job.Error);
 
-                                                    if (job.State != JobState.Deleted)
+                                                    if (job.State != JobState.Deleting &&
+                                                        job.State != JobState.Deleted &&
+                                                        job.State != JobState.Failed &&
+                                                        job.State != JobState.Stopped
+                                                    )
                                                     {
                                                         Log.Info($"{job.State} -> Failed ({job.Service}:{job.Id})");
                                                         job.State = JobState.Failed;
