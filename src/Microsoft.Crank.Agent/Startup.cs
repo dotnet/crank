@@ -923,11 +923,25 @@ namespace Microsoft.Crank.Agent
 
                                             if (job.State != JobState.Failed && benchmarksDir != null)
                                             {
-                                                process = await StartProcess(hostname, Path.Combine(tempDir, benchmarksDir), job, _dotnethome, context);
+                                                try
+                                                {
+                                                    process = await StartProcess(hostname, Path.Combine(tempDir, benchmarksDir), job, _dotnethome, context);
 
-                                                Log.Info($"Process started: {job.ProcessId}");
+                                                    Log.Info($"Process started: {job.ProcessId}");
 
-                                                workingDirectory = process.StartInfo.WorkingDirectory;
+                                                    workingDirectory = process.StartInfo.WorkingDirectory;
+                                                }
+                                                catch (Exception e)
+                                                {
+                                                    job.Error = "Error while starting the application: " + e.ToString();
+                                                    Log.Info(job.Error);
+
+                                                    if (job.State != JobState.Deleted)
+                                                    {
+                                                        Log.Info($"{job.State} -> Failed ({job.Service}:{job.Id})");
+                                                        job.State = JobState.Failed;
+                                                    }                                                    
+                                                }
                                             }
                                         });
                                     }
