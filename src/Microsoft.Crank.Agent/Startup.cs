@@ -2215,21 +2215,17 @@ namespace Microsoft.Crank.Agent
                 var filename = attachment.Filename.Replace("\\", "/");
                 var tempFilePath = attachment.TempFilename;
 
-                //    Log.Info($"Creating output file: {filename}");
+                Log.Info($"Copying output file to container: {filename}");
 
-                //    docker container cp --name {containerName} 
-                string copyCommand = "cp ";
-                string dockerCopyCommand = $"cp ./some_file CONTAINER:/work";
-                var copyResult = await ProcessUtil.RunAsync("docker", $"{copyCommand} ",
+                string dockerCopyCommand = $"cp {tempFilePath} {containerName}:{filename}";
+                var copyResult = await ProcessUtil.RunAsync("docker", $"{dockerCopyCommand} ",
                     throwOnError: true,
                     onStart: _ => stopwatch.Start(),
                     captureOutput: true,
                     log: true,
                     outputDataReceived: job.BuildLog.AddLine);
 
-            //    File.Copy(attachment.TempFilename, filename);
-
-            //    File.Delete(attachment.TempFilename);
+                File.Delete(attachment.TempFilename);
             }
 
             // docker start --name {containerName} 
