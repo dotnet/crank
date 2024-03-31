@@ -2187,16 +2187,62 @@ namespace Microsoft.Crank.Agent
                 environmentArguments += $"--memory=\"{job.MemoryLimitInBytes}b\" ";
             }
 
-            var command = $"run -d {environmentArguments} {job.Arguments} --label benchmarks --name {containerName} --privileged --network host {imageName} {job.DockerCommand}";
+            // crank --config https://raw.githubusercontent.com/aspnet/Benchmarks/main/scenarios/containers.benchmarks.yml --scenario json_aspnet_current --profile local --profile noload
+
+            // --outputFiles source[;destination]
+            // is destination (./app)  or ./ ?
+            // check that destination is set in attachment.Filename
+
+            // docker create --name {containerName}
+            var createCommand = $"create {environmentArguments} {job.Arguments} --label benchmarks --name {containerName} --privileged --network host {imageName} {job.DockerCommand}";
+
+            job.BuildLog.AddLine("docker " + createCommand);
+
+            // TODO: Find out what to do if there is a collision on the name.
+
+            var createCommandResult = await ProcessUtil.RunAsync("docker", $"{createCommand} ",
+                throwOnError: true,
+                onStart: _ => stopwatch.Start(),
+                captureOutput: true,
+                log: true,
+                outputDataReceived: job.BuildLog.AddLine
+            );
+
+            // Copy attachments
+            // Copy all output attachments
+            foreach (var attachment in job.Attachments)
+            {
+                var filename = attachment.Filename.Replace("\\", "/");
+                var tempFilePath = attachment.TempFilename;
+
+                //    Log.Info($"Creating output file: {filename}");
+
+                //    docker container cp --name {containerName} 
+                string copyCommand = "cp ";
+                string dockerCopyCommand = $"cp ./some_file CONTAINER:/work";
+                var copyResult = await ProcessUtil.RunAsync("docker", $"{copyCommand} ",
+                    throwOnError: true,
+                    onStart: _ => stopwatch.Start(),
+                    captureOutput: true,
+                    log: true,
+                    outputDataReceived: job.BuildLog.AddLine);
+
+            //    File.Copy(attachment.TempFilename, filename);
+
+            //    File.Delete(attachment.TempFilename);
+            }
+
+            // docker start --name {containerName} 
 
             if (job.Collect && job.CollectStartup)
             {
                 StartCollection(workingDirectory, job);
             }
 
-            job.BuildLog.AddLine("docker " + command);
+            var startCommand = $"start {containerName}";
+            job.BuildLog.AddLine("docker " + startCommand);
 
-            var result = await ProcessUtil.RunAsync("docker", $"{command} ",
+            var result = await ProcessUtil.RunAsync("docker", $"{startCommand} ",
                 throwOnError: true,
                 onStart: _ => stopwatch.Start(),
                 captureOutput: true,
