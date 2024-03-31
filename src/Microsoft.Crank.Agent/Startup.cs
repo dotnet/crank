@@ -2187,18 +2187,10 @@ namespace Microsoft.Crank.Agent
                 environmentArguments += $"--memory=\"{job.MemoryLimitInBytes}b\" ";
             }
 
-            // crank --config https://raw.githubusercontent.com/aspnet/Benchmarks/main/scenarios/containers.benchmarks.yml --scenario json_aspnet_current --profile local --profile noload
-
-            // --outputFiles source[;destination]
-            // is destination (./app)  or ./ ?
-            // check that destination is set in attachment.Filename
-
             // docker create --name {containerName}
             var createCommand = $"create {environmentArguments} {job.Arguments} --label benchmarks --name {containerName} --privileged --network host {imageName} {job.DockerCommand}";
 
             job.BuildLog.AddLine("docker " + createCommand);
-
-            // TODO: Find out what to do if there is a collision on the name.
 
             var createCommandResult = await ProcessUtil.RunAsync("docker", $"{createCommand} ",
                 throwOnError: true,
@@ -2208,8 +2200,7 @@ namespace Microsoft.Crank.Agent
                 outputDataReceived: job.BuildLog.AddLine
             );
 
-            // Copy attachments
-            // Copy all output attachments
+            // Copy attachments to container.
             foreach (var attachment in job.Attachments)
             {
                 var filename = attachment.Filename.Replace("\\", "/");
@@ -2227,8 +2218,6 @@ namespace Microsoft.Crank.Agent
 
                 File.Delete(attachment.TempFilename);
             }
-
-            // docker start --name {containerName} 
 
             if (job.Collect && job.CollectStartup)
             {
