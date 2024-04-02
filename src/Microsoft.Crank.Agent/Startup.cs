@@ -2164,13 +2164,11 @@ namespace Microsoft.Crank.Agent
 
             var containerName = Regex.Replace(imageName, @"[^\w]", "_")+ $"-{job.Id}";
 
-            // TODO: Clean previous images 
-
             // Stop container in case it failed to stop earlier
-            // await ProcessUtil.RunAsync("docker", $"stop {containerName}", throwOnError: false);
+            await ProcessUtil.RunAsync("docker", $"stop {containerName}", throwOnError: false);
 
             // Delete container if the same name already exists
-            // await ProcessUtil.RunAsync("docker", $"rm {imageName}", throwOnError: false);
+            await ProcessUtil.RunAsync("docker", $"rm {imageName}", throwOnError: false);
 
             if (!String.IsNullOrWhiteSpace(job.CpuSet))
             {
