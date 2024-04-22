@@ -9,12 +9,11 @@ using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Threading.Tasks;
-using Microsoft.Crank.Models;
-using Microsoft.AspNetCore.Mvc;
-using Repository;
 using System.Text.Json;
-using Microsoft.AspNetCore.Mvc.Routing;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Crank.Models;
+using Repository;
 
 namespace Microsoft.Crank.Agent.Controllers
 {
@@ -52,23 +51,6 @@ namespace Microsoft.Crank.Agent.Controllers
             }
         }
 
-        [HttpGet("legacy/{id}/touch")]
-        public IActionResult Touch(int id)
-        {
-            var job = _jobs.Find(id);
-
-            if (job == null)
-            {
-                return NotFound();
-            }
-            else
-            {
-                // Mark when the job was last read to notify that the driver is still connected
-                job.LastDriverCommunicationUtc = DateTime.UtcNow;
-                return Ok();
-            }
-        }
-
         [HttpGet("{id}")]
         public IActionResult GetById(int id)
         {
@@ -79,25 +61,7 @@ namespace Microsoft.Crank.Agent.Controllers
             }
             else
             {
-                // Mark when the job was last read to notify that the driver is still connected
-                job.LastDriverCommunicationUtc = DateTime.UtcNow;
                 return new ObjectResult(job);
-            }
-        }
-
-        [HttpGet("legacy/{id}/state")]
-        public IActionResult State(int id)
-        {
-            var job = _jobs.Find(id);
-            if (job == null)
-            {
-                return NotFound();
-            }
-            else
-            {
-                // Mark when the job was last read to notify that the driver is still connected
-                job.LastDriverCommunicationUtc = DateTime.UtcNow;
-                return Content(job.State.ToString());
             }
         }
 
