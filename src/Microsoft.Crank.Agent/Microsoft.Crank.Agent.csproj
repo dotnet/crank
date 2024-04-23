@@ -32,7 +32,7 @@
     <PackageReference Include="Serilog.Sinks.File" />
     <PackageReference Include="Serilog.AspNetCore" />
     <PackageReference Include="System.IO.Hashing" />
-    <PackageReference Include="Microsoft.Windows.CsWin32" />
+    <PackageReference Include="Microsoft.Windows.CsWin32" PrivateAssets="all" />
     <!-- Force version for Component Governance compliance -->
     <PackageReference Include="System.Text.Encodings.Web" />
   </ItemGroup>
