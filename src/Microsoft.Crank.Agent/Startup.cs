@@ -2664,7 +2664,7 @@ namespace Microsoft.Crank.Agent
 
             if (!requireDotnetBuild)
             {
-                Log.Info("Skipping build step, no required");
+                Log.Info("Skipping build step, not required");
                 return path;
             }
 
