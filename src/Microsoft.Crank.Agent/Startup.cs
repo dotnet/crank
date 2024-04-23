@@ -17,12 +17,15 @@ using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.Xml.XPath;
+using Azure.Core;
+using Azure.Identity;
 using McMaster.Extensions.CommandLineUtils;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -37,6 +40,7 @@ using Microsoft.Diagnostics.Tools.Trace;
 using Microsoft.Diagnostics.Tracing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Identity.Client;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NuGet.Versioning;
@@ -155,7 +159,12 @@ namespace Microsoft.Crank.Agent
             _relayPathOption,
             _relayEnableHttpOption,
             _runAsService,
-            _logPath
+            _logPath,
+            _certBasedAuth,
+            _certPath,
+            _certClientId,
+            _certTenantId,
+            _certThumbprint
             ;
 
         internal static Serilog.Core.Logger Logger { get; private set; }
@@ -246,10 +255,19 @@ namespace Microsoft.Crank.Agent
             var buildTimeoutOption = app.Option("--build-timeout", "Maximum duration of build task in minutes. Default 10 minutes.", CommandOptionType.SingleValue);
             _runAsService = app.Option("--service", "If specified, runs crank-agent as a service", CommandOptionType.NoValue);
             _logPath = app.Option("--log-path", "The path where the logs are written. Directory must exists.", CommandOptionType.SingleValue);
+            _certBasedAuth = app.Option("--cert-based-auth", "Enable certifcate based authentication for SQL connection.", CommandOptionType.NoValue);
+            _certPath = app.Option("--cert-path", "Location of the certificate to be used for auth.", CommandOptionType.SingleValue);
+            _certClientId = app.Option("--cert-client-id", "Service principal client id for cert based auth", CommandOptionType.SingleValue);
+            _certTenantId = app.Option("--cert-tenant-id", "Service principal tenant id for cert based auth", CommandOptionType.SingleValue);
+            _certThumbprint = app.Option("--cert-thumbprint", "Thumbprint for cert", CommandOptionType.SingleValue);
 
             if (_runAsService.HasValue() && OperatingSystem != OperatingSystem.Windows)
             {
                 throw new PlatformNotSupportedException($"--service is only available on Windows");
+            }
+            if(_certBasedAuth.HasValue() && !(_certClientId.HasValue() && _certTenantId.HasValue() && _certThumbprint.HasValue()))
+            {
+                throw new ArgumentException("If using cert based auth, must provide client id, tenant id, and thumbprint.");
             }
 
             app.OnExecute(() =>
@@ -334,6 +352,21 @@ namespace Microsoft.Crank.Agent
             return app.Execute(args);
         }
 
+        static TokenProvider GetAadTokenProvider(string clientId, string tenantId, X509Certificate2 cert)
+        {
+            return TokenProvider.CreateAzureActiveDirectoryTokenProvider(
+                async (audience, authority, state) =>
+                {
+                    IConfidentialClientApplication app = ConfidentialClientApplicationBuilder.Create(clientId)
+                        .WithAuthority(authority)
+                        .WithCertificate(cert)
+                        .Build();
+
+                    var authResult = await app.AcquireTokenForClient(new[] { $"{audience}/.default" }).ExecuteAsync();
+                    return authResult.AccessToken;
+                },
+                $"https://login.microsoftonline.com/{tenantId}");
+        }
 
         private static async Task<int> Run(string url, string hostname, string dockerHostname)
         {
@@ -349,6 +382,35 @@ namespace Microsoft.Crank.Agent
             {
                 builder.UseAzureRelay(options =>
                 {
+                    ClientCertificateCredential ccc = null;
+                    X509Store store = null;
+                    X509Certificate2 certificate = null;
+                    if (_certBasedAuth.HasValue())
+                    {
+                        for (int i = 1; i <= 8; i++)
+                        {
+                            store = new X509Store((StoreName)i, StoreLocation.LocalMachine);
+                            store.Open(OpenFlags.ReadOnly);
+                            foreach (var cert in store.Certificates)
+                            {
+                                if (cert.Thumbprint == _certThumbprint.Value())
+                                {
+                                    ccc = new ClientCertificateCredential(_certTenantId.Value(), _certClientId.Value(), cert);
+                                    certificate = cert;
+                                    break;
+                                }
+                            }
+                            if (ccc != null)
+                            {
+                                break;
+                            }
+                        }
+                        if (ccc == null)
+                        {
+                            ccc = new ClientCertificateCredential(_certTenantId.Value(), _certClientId.Value(), _certPath.Value());
+                        }
+                    }
+
                     var relayConnectionString = _relayConnectionStringOption.Value();
 
                     if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(relayConnectionString)))
@@ -358,11 +420,15 @@ namespace Microsoft.Crank.Agent
 
                     var rcsb = new RelayConnectionStringBuilder(relayConnectionString);
 
+                    if (_certBasedAuth.HasValue())
+                    {
+                        options.TokenProvider = GetAadTokenProvider(_certTenantId.Value(), _certClientId.Value(), certificate);
+                    }
+
                     if (_relayPathOption.HasValue())
                     {
                         rcsb.EntityPath = _relayPathOption.Value();
                     }
-
                     options.UrlPrefixes.Add(rcsb.ToString());
                 });
 

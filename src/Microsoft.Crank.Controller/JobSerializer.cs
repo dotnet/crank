@@ -11,6 +11,10 @@ using Newtonsoft.Json.Serialization;
 using System.Net.Http;
 using System.Text;
 using System.Net;
+using Azure.Core;
+using Azure.Identity;
+using System.Security.Cryptography.X509Certificates;
+using System.Runtime.ConstrainedExecution;
 
 namespace Microsoft.Crank.Controller.Serializers
 {
@@ -18,11 +22,13 @@ namespace Microsoft.Crank.Controller.Serializers
     {
         public static Task WriteJobResultsToSqlAsync(
             JobResults jobResults, 
-            string sqlConnectionString, 
+            string sqlConnectionString,
             string tableName,
             string session,
             string scenario,
-            string description
+            string description,
+            bool certBasedAuth = false,
+            string certPath = ""
             )
         {
             var utcNow = DateTime.UtcNow;
@@ -42,7 +48,14 @@ namespace Microsoft.Crank.Controller.Serializers
                 , 5000);
         }
 
-        public static async Task InitializeDatabaseAsync(string connectionString, string tableName)
+        public static async Task InitializeDatabaseAsync(
+            string connectionString,
+            string tableName,
+            bool certBasedAuth = false,
+            string certPath = "",
+            string certThumbprint = "",
+            string certTenantId = "",
+            string certClientId = "")
         {
             var createCmd =
                 @"
@@ -60,11 +73,11 @@ namespace Microsoft.Crank.Controller.Serializers
                 END
                 ";
 
-            await RetryOnExceptionAsync(5, () => InitializeDatabaseInternalAsync(connectionString, createCmd), 5000);
+            await RetryOnExceptionAsync(5, () => InitializeDatabaseInternalAsync(connectionString, createCmd, certBasedAuth, certPath, certThumbprint, certTenantId, certClientId), 5000);
 
-            static async Task InitializeDatabaseInternalAsync(string connectionString, string createCmd)
+            static async Task InitializeDatabaseInternalAsync(string connectionString, string createCmd, bool certBasedAuth, string certPath, string certThumbprint, string certTenantId, string certClientId)
             {
-                using (var connection = new SqlConnection(connectionString))
+                using (var connection = GetSqlConnection(connectionString, certBasedAuth, certPath, certThumbprint, certTenantId, certClientId))
                 {
                     await connection.OpenAsync();
 
@@ -83,7 +96,12 @@ namespace Microsoft.Crank.Controller.Serializers
             string session,
             string scenario,
             string description,
-            string document
+            string document,
+            bool certBasedAuth = false,
+            string certPath = "",
+            string certThumbprint = "",
+            string certTenantId = "",
+            string certClientId = ""
             )
         {
 
@@ -103,7 +121,7 @@ namespace Microsoft.Crank.Controller.Serializers
                            ,@Document)
                 ";
 
-            using (var connection = new SqlConnection(connectionString))
+            using (var connection = GetSqlConnection(connectionString, certBasedAuth, certPath, certThumbprint, certTenantId, certClientId))
             {
                 await connection.OpenAsync();
                 var transaction = connection.BeginTransaction();
@@ -215,6 +233,51 @@ namespace Microsoft.Crank.Controller.Serializers
               }
           }
       }
+
+        private static SqlConnection GetSqlConnection(
+            string connectionString,
+            bool certBasedAuth,
+            string certPath,
+            string certThumbprint,
+            string certTenantId,
+            string certClientId)
+        {
+            AccessToken token = default;          
+            if (certBasedAuth)
+            {
+                ClientCertificateCredential ccc = null;
+                X509Store store = null;
+                for (int i = 1; i <= 8; i++)
+                {
+                    store = new X509Store((StoreName)i, StoreLocation.LocalMachine);
+                    store.Open(OpenFlags.ReadOnly);
+                    foreach (var cert in store.Certificates)
+                    {
+                        if (cert.Thumbprint == certThumbprint)
+                        {
+                            ccc = new ClientCertificateCredential(certTenantId, certClientId, cert);
+                            break;
+                        }
+                    }
+                    if (ccc != null)
+                    {
+                        break;
+                    }
+                }
+                if(ccc == null)
+                {
+                    ccc = new ClientCertificateCredential(certTenantId, certClientId, certPath);
+                }
+                TokenRequestContext trc = new TokenRequestContext(new string[] { "https://database.windows.net/.default" });
+                token = ccc.GetToken(trc);
+            }
+            var connection = new SqlConnection(connectionString);
+            if(certBasedAuth)
+            {
+                connection.AccessToken = token.Token;
+            }
+            return connection;
+        }
 
         private async static Task RetryOnExceptionAsync(int retries, Func<Task> operation, int milliSecondsDelay = 0)
         {

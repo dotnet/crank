@@ -12,10 +12,13 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Core;
+using Azure.Identity;
 using Fluid;
 using Fluid.Values;
 using Jint;
@@ -24,6 +27,7 @@ using McMaster.Extensions.CommandLineUtils;
 using Microsoft.Azure.Relay;
 using Microsoft.Crank.Controller.Serializers;
 using Microsoft.Crank.Models;
+using Microsoft.Identity.Client;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
@@ -84,7 +88,12 @@ namespace Microsoft.Crank.Controller
             _excludeOption,
             _excludeOrderOption,
             _debugOption,
-            _commandLinePropertyOption
+            _commandLinePropertyOption,
+            _certBasedAuth,
+            _certPath,
+            _certClientId,
+            _certTenantId,
+            _certThumbprint
             ;
 
         private static CommandOption<ValueTuple<string, JToken>>
@@ -195,6 +204,11 @@ namespace Microsoft.Crank.Controller
             _excludeOrderOption = app.Option("-xo|--exclude-order", "The result to use to detect the high and low results, e.g., 'load:http/rps/mean'", CommandOptionType.SingleValue);
             _debugOption = app.Option("-d|--debug", "Saves the final configuration to a file and skips the execution of the benchmark, e.g., '-d debug.json'", CommandOptionType.SingleValue);
             _commandLinePropertyOption = app.Option("--command-line-property", "Saves the final crank command line in a custom 'command-line' property, excludinf all unnecessary and security sensitive arguments.", CommandOptionType.NoValue);
+            _certBasedAuth = app.Option("--cert-based-auth", "Enable certifcate based authentication for SQL connection.", CommandOptionType.NoValue);
+            _certPath = app.Option("--cert-path", "Location of the certificate to be used for auth.", CommandOptionType.SingleValue);
+            _certClientId = app.Option("--cert-client-id", "Service principal client id for cert based auth", CommandOptionType.SingleValue);
+            _certTenantId = app.Option("--cert-tenant-id", "Service principal tenant id for cert based auth", CommandOptionType.SingleValue);
+            _certThumbprint = app.Option("--cert-thumbprint", "Thumbprint for cert", CommandOptionType.SingleValue);
 
             _ignoredCommands = new HashSet<CommandOption>()
             {
@@ -414,6 +428,12 @@ namespace Microsoft.Crank.Controller
                 if (_spanOption.HasValue() && !TimeSpan.TryParse(_spanOption.Value(), out span))
                 {
                     Console.WriteLine($"Invalid value for --span. Format is 'HH:mm:ss'");
+                    return -1;
+                }
+
+                if (_certBasedAuth.HasValue() && !(_certClientId.HasValue() && _certTenantId.HasValue() && _certThumbprint.HasValue()))
+                {
+                    Console.WriteLine("If using cert based auth, must provide client id, tenant id, and thumbprint.");
                     return -1;
                 }
 
@@ -1286,7 +1306,7 @@ namespace Microsoft.Crank.Controller
                     // Skip storing results if running with iterations and not the last run
                     if (i == iterations)
                     {
-                        await JobSerializer.WriteJobResultsToSqlAsync(executionResult.JobResults, _sqlConnectionString, _tableName, session, _scenarioOption.Value(), _descriptionOption.Value());
+                        await JobSerializer.WriteJobResultsToSqlAsync(executionResult.JobResults, _sqlConnectionString, _tableName, session, _scenarioOption.Value(), _descriptionOption.Value(), _certBasedAuth.HasValue(), _certPath.Value());
                     }
                 }
 
@@ -1494,7 +1514,8 @@ namespace Microsoft.Crank.Controller
                     var executionResult = new ExecutionResult();
                     executionResult.JobResults = jobResults;
 
-                    await JobSerializer.WriteJobResultsToSqlAsync(executionResult.JobResults, _sqlConnectionString, _tableName, session, _scenarioOption.Value(), String.Join(" ", _descriptionOption.Value(), fullName));
+                    await JobSerializer.WriteJobResultsToSqlAsync(executionResult.JobResults, _sqlConnectionString, _tableName, session, _scenarioOption.Value(),
+                        String.Join(" ", _descriptionOption.Value(), fullName), _certBasedAuth.HasValue(), _certPath.Value());
                 }
                 if (!String.IsNullOrEmpty(_elasticSearchUrl))
                 {
@@ -1640,7 +1661,7 @@ namespace Microsoft.Crank.Controller
 
                     if (!String.IsNullOrEmpty(_sqlConnectionString))
                     {
-                        await JobSerializer.WriteJobResultsToSqlAsync(jobResults, _sqlConnectionString, _tableName, session, _scenarioOption.Value(), _descriptionOption.Value());
+                        await JobSerializer.WriteJobResultsToSqlAsync(jobResults, _sqlConnectionString, _tableName, session, _scenarioOption.Value(), _descriptionOption.Value(), _certBasedAuth.HasValue(), _certPath.Value());
                     }
 
                     if (!String.IsNullOrEmpty(_elasticSearchUrl))
@@ -3341,6 +3362,22 @@ namespace Microsoft.Crank.Controller
             return executionResult;
         }
 
+        static TokenProvider GetAadTokenProvider(string clientId, string tenantId, X509Certificate2 cert)
+        {
+            return TokenProvider.CreateAzureActiveDirectoryTokenProvider(
+                async (audience, authority, state) =>
+                {
+                    IConfidentialClientApplication app = ConfidentialClientApplicationBuilder.Create(clientId)
+                        .WithAuthority(authority)
+                        .WithCertificate(cert)
+                        .Build();
+
+                    var authResult = await app.AcquireTokenForClient(new[] { $"{audience}/.default" }).ExecuteAsync();
+                    return authResult.AccessToken;
+                },
+                $"https://login.microsoftonline.com/{tenantId}");
+        }
+
         private static async Task<string> GetRelayTokenAsync(Uri endpointUri)
         {
             var connectionString = GetAzureRelayConnectionString();
@@ -3351,7 +3388,45 @@ namespace Microsoft.Crank.Controller
             }
 
             var rcsb = new RelayConnectionStringBuilder(connectionString);
-            var tokenProvider = TokenProvider.CreateSharedAccessSignatureTokenProvider(rcsb.SharedAccessKeyName, rcsb.SharedAccessKey);
+            TokenProvider tokenProvider = null;
+            AccessToken token = default;
+            if (false)//_certBasedAuth.HasValue())
+            {
+                ClientCertificateCredential ccc = null;
+                X509Store store = null;
+                X509Certificate2 certificate = null;
+                for (int i = 1; i <= 8; i++)
+                {
+                    store = new X509Store((StoreName)i, StoreLocation.CurrentUser);
+                    Console.WriteLine((StoreName)i);
+                    store.Open(OpenFlags.ReadOnly);
+                    foreach (var cert in store.Certificates)
+                    {
+                        if (cert.Thumbprint == _certThumbprint.Value())
+                        {
+                            ccc = new ClientCertificateCredential(_certTenantId.Value(), _certClientId.Value(), cert);
+                            certificate = cert;
+                            break;
+                        }
+                    }
+                    if (ccc != null)
+                    {
+                        break;
+                    }
+                }
+                if (ccc == null)
+                {
+                    ccc = new ClientCertificateCredential(_certTenantId.Value(), _certClientId.Value(), _certPath.Value());
+                }
+                TokenRequestContext trc = new TokenRequestContext(new string[] { "https://relay.azure.net/.default" });
+                token = ccc.GetToken(trc);
+                tokenProvider = GetAadTokenProvider(_certClientId.Value(), _certTenantId.Value(), certificate);
+            }
+            else
+            {
+                tokenProvider = TokenProvider.CreateSharedAccessSignatureTokenProvider(rcsb.SharedAccessKeyName, rcsb.SharedAccessKey);
+            }
+
             return (await tokenProvider.GetTokenAsync(rcsb.Endpoint.ToString(), TimeSpan.FromHours(1))).TokenString;
 
             string GetAzureRelayConnectionString()
