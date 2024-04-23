@@ -13,13 +13,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="3.0.0" />
-    <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.9.0" />
-    <PackageReference Include="Jint" Version="$(JintVersion)" />
-    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="7.0.0" />
+    <PackageReference Include="McMaster.Extensions.CommandLineUtils" />
+    <PackageReference Include="Azure.Messaging.ServiceBus" />
+    <PackageReference Include="Jint" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
     
     <!-- Force version for Component Governance compliance -->
-    <PackageReference Include="System.Text.Encodings.Web" Version="4.7.2" >
+    <PackageReference Include="System.Text.Encodings.Web">
       <AllowExplicitReference>true</AllowExplicitReference>
     </PackageReference>
   </ItemGroup>

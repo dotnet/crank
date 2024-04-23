@@ -14,15 +14,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Fluid.Core" Version="2.2.6" />
-    <PackageReference Include="Jint" Version="$(JintVersion)" />
-    <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="3.0.0" />
-    <PackageReference Include="Microsoft.Azure.Relay" Version="2.0.15596" />
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="$(MicrosoftDataSqlClientVersion)" />
-    <PackageReference Include="JsonSchema.Net" Version="3.3.2" />
-    <PackageReference Include="NuGet.Versioning" Version="5.6.0" />
-    <PackageReference Include="YamlDotNet" Version="8.1.2" />
-    <PackageReference Include="System.IO.Hashing" Version="$(SystemIOHashingVersion)" />
+    <PackageReference Include="Newtonsoft.Json" />
+    <PackageReference Include="Fluid.Core" />
+    <PackageReference Include="Jint" />
+    <PackageReference Include="McMaster.Extensions.CommandLineUtils" />
+    <PackageReference Include="Microsoft.Azure.Relay" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="JsonSchema.Net" />
+    <PackageReference Include="NuGet.Versioning" />
+    <PackageReference Include="YamlDotNet" />
+    <PackageReference Include="System.IO.Hashing" />
   </ItemGroup>
 
   <ItemGroup>
