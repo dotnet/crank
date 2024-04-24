@@ -2192,7 +2192,6 @@ namespace Microsoft.Crank.Agent
 
             var createCommandResult = await ProcessUtil.RunAsync("docker", $"{createCommand} ",
                 throwOnError: true,
-                onStart: _ => stopwatch.Start(),
                 captureOutput: true,
                 log: true,
                 outputDataReceived: job.BuildLog.AddLine
