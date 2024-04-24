@@ -2209,7 +2209,6 @@ namespace Microsoft.Crank.Agent
                 string dockerCopyCommand = $"cp {tempFilePath} {containerName}:{filename}";
                 var copyResult = await ProcessUtil.RunAsync("docker", $"{dockerCopyCommand} ",
                     throwOnError: true,
-                    onStart: _ => stopwatch.Start(),
                     captureOutput: true,
                     log: true,
                     outputDataReceived: job.BuildLog.AddLine);
