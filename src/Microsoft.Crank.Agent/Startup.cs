@@ -99,7 +99,7 @@ namespace Microsoft.Crank.Agent
         // Safe-keeping these urls
         //private const string _releaseMetadata = "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/releases-index.json";
 
-        private const string _latestProductVersions90Url = "https://aka.ms/dotnet/9.0.1xx/daily/productCommit-win-x64.json";
+        private static string _latestProductVersions90Url = "https://aka.ms/dotnet/9.0.1xx/daily/productCommit-{0}.json";
         private const string _aspnetSdkVersionUrl = "https://raw.githubusercontent.com/dotnet/aspnetcore/main/global.json";
 
         private static readonly string[] _runtimeFeedUrls = new string[] {
@@ -186,6 +186,10 @@ namespace Microsoft.Crank.Agent
             _httpClientHandler.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
 
             _httpClient = new HttpClient(_httpClientHandler);
+
+            // Create the correct productCommit url for the current machine 
+            _latestProductVersions90Url = String.Format(_latestProductVersions90Url, GetPlatformMoniker());
+            
         }
 
         public void ConfigureServices(IServiceCollection services)
