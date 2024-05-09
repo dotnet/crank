@@ -17,6 +17,7 @@
     <PackageReference Include="Azure.Messaging.ServiceBus" />
     <PackageReference Include="Jint" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
+    <PackageReference Include="Azure.Identity" />
     
     <!-- Force version for Component Governance compliance -->
     <PackageReference Include="System.Text.Encodings.Web">
