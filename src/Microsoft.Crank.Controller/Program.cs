@@ -3390,42 +3390,8 @@ namespace Microsoft.Crank.Controller
             var rcsb = new RelayConnectionStringBuilder(connectionString);
             TokenProvider tokenProvider = null;
             AccessToken token = default;
-            if (false)//_certBasedAuth.HasValue())
-            {
-                ClientCertificateCredential ccc = null;
-                X509Store store = null;
-                X509Certificate2 certificate = null;
-                for (int i = 1; i <= 8; i++)
-                {
-                    store = new X509Store((StoreName)i, StoreLocation.CurrentUser);
-                    Console.WriteLine((StoreName)i);
-                    store.Open(OpenFlags.ReadOnly);
-                    foreach (var cert in store.Certificates)
-                    {
-                        if (cert.Thumbprint == _certThumbprint.Value())
-                        {
-                            ccc = new ClientCertificateCredential(_certTenantId.Value(), _certClientId.Value(), cert);
-                            certificate = cert;
-                            break;
-                        }
-                    }
-                    if (ccc != null)
-                    {
-                        break;
-                    }
-                }
-                if (ccc == null)
-                {
-                    ccc = new ClientCertificateCredential(_certTenantId.Value(), _certClientId.Value(), _certPath.Value());
-                }
-                TokenRequestContext trc = new TokenRequestContext(new string[] { "https://relay.azure.net/.default" });
-                token = ccc.GetToken(trc);
-                tokenProvider = GetAadTokenProvider(_certClientId.Value(), _certTenantId.Value(), certificate);
-            }
-            else
-            {
-                tokenProvider = TokenProvider.CreateSharedAccessSignatureTokenProvider(rcsb.SharedAccessKeyName, rcsb.SharedAccessKey);
-            }
+            
+            tokenProvider = TokenProvider.CreateSharedAccessSignatureTokenProvider(rcsb.SharedAccessKeyName, rcsb.SharedAccessKey);
 
             return (await tokenProvider.GetTokenAsync(rcsb.Endpoint.ToString(), TimeSpan.FromHours(1))).TokenString;
 
