@@ -20,7 +20,7 @@ namespace Microsoft.Crank.Jobs.Wrk2
 {
     class Program
     {
-        const string Wrk2Url = "https://aspnetbenchmarks.blob.core.windows.net/tools/wrk2";
+        const string Wrk2Url = "https://aspnetbenchmarks.z5.web.core.windows.net/tools/wrk2";
 
         static async Task<int> Main(string[] args)
         {

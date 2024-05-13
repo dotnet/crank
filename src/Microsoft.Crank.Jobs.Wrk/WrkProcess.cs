@@ -20,8 +20,8 @@ namespace Microsoft.Crank.Wrk
     {
         private static string _wrkFilename;
 
-        const string WrkLinuxAmd64 = "https://aspnetbenchmarks.blob.core.windows.net/tools/wrk-linux-amd64";
-        const string WrkLinuxArm64 =  "https://aspnetbenchmarks.blob.core.windows.net/tools/wrk-linux-arm64";
+        const string WrkLinuxAmd64 = "https://aspnetbenchmarks.z5.web.core.windows.net/tools/wrk-linux-amd64";
+        const string WrkLinuxArm64 = "https://aspnetbenchmarks.z5.web.core.windows.net/tools/wrk-linux-arm64";
 
         public static async Task MeasureFirstRequest(string[] args)
         {
