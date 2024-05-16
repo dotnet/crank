@@ -22,6 +22,8 @@
     <PackageReference Include="Microsoft.AspNetCore.Hosting.WindowsServices" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" />
     <PackageReference Include="Microsoft.Azure.Relay.AspNetCore" />
+    <!-- For CG as Microsoft.Azure.Relay references an older version -->
+    <PackageReference Include="Azure.Identity" />
     <PackageReference Include="Mono.Cecil" />
     <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" />
     <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" />
