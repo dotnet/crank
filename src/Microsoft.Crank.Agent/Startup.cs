@@ -2168,13 +2168,11 @@ namespace Microsoft.Crank.Agent
 
             var containerName = Regex.Replace(imageName, @"[^\w]", "_")+ $"-{job.Id}";
 
-            // TODO: Clean previous images 
-
             // Stop container in case it failed to stop earlier
-            // await ProcessUtil.RunAsync("docker", $"stop {containerName}", throwOnError: false);
+            await ProcessUtil.RunAsync("docker", $"stop {containerName}", throwOnError: false);
 
             // Delete container if the same name already exists
-            // await ProcessUtil.RunAsync("docker", $"rm {imageName}", throwOnError: false);
+            await ProcessUtil.RunAsync("docker", $"rm {imageName}", throwOnError: false);
 
             if (!String.IsNullOrWhiteSpace(job.CpuSet))
             {
@@ -2191,16 +2189,45 @@ namespace Microsoft.Crank.Agent
                 environmentArguments += $"--memory=\"{job.MemoryLimitInBytes}b\" ";
             }
 
-            var command = $"run -d {environmentArguments} {job.Arguments} --label benchmarks --name {containerName} --privileged --network host {imageName} {job.DockerCommand}";
+            // docker create --name {containerName}
+            var createCommand = $"create {environmentArguments} {job.Arguments} --label benchmarks --name {containerName} --privileged --network host {imageName} {job.DockerCommand}";
+
+            job.BuildLog.AddLine("docker " + createCommand);
+
+            var createCommandResult = await ProcessUtil.RunAsync("docker", $"{createCommand} ",
+                throwOnError: true,
+                captureOutput: true,
+                log: true,
+                outputDataReceived: job.BuildLog.AddLine
+            );
+
+            // Copy attachments to container.
+            foreach (var attachment in job.Attachments)
+            {
+                var filename = attachment.Filename.Replace("\\", "/");
+                var tempFilePath = attachment.TempFilename;
+
+                Log.Info($"Copying output file to container: {filename}");
+
+                string dockerCopyCommand = $"cp {tempFilePath} {containerName}:{filename}";
+                var copyResult = await ProcessUtil.RunAsync("docker", $"{dockerCopyCommand} ",
+                    throwOnError: true,
+                    captureOutput: true,
+                    log: true,
+                    outputDataReceived: job.BuildLog.AddLine);
+
+                File.Delete(attachment.TempFilename);
+            }
 
             if (job.Collect && job.CollectStartup)
             {
                 StartCollection(workingDirectory, job);
             }
 
-            job.BuildLog.AddLine("docker " + command);
+            var startCommand = $"start {containerName}";
+            job.BuildLog.AddLine("docker " + startCommand);
 
-            var result = await ProcessUtil.RunAsync("docker", $"{command} ",
+            var result = await ProcessUtil.RunAsync("docker", $"{startCommand} ",
                 throwOnError: true,
                 onStart: _ => stopwatch.Start(),
                 captureOutput: true,
