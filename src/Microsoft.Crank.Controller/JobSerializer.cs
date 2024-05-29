@@ -15,6 +15,7 @@ using Azure.Core;
 using Azure.Identity;
 using System.Security.Cryptography.X509Certificates;
 using System.Runtime.ConstrainedExecution;
+using System.Linq;
 
 namespace Microsoft.Crank.Controller.Serializers
 {
@@ -27,8 +28,7 @@ namespace Microsoft.Crank.Controller.Serializers
             string session,
             string scenario,
             string description,
-            bool certBasedAuth = false,
-            string certPath = ""
+            CertificateOptions certificateOptions
             )
         {
             var utcNow = DateTime.UtcNow;
@@ -43,7 +43,8 @@ namespace Microsoft.Crank.Controller.Serializers
                     session,
                     scenario,
                     description,
-                    document
+                    document,
+                    certificateOptions
                     )
                 , 5000);
         }
@@ -51,11 +52,7 @@ namespace Microsoft.Crank.Controller.Serializers
         public static async Task InitializeDatabaseAsync(
             string connectionString,
             string tableName,
-            bool certBasedAuth = false,
-            string certPath = "",
-            string certThumbprint = "",
-            string certTenantId = "",
-            string certClientId = "")
+            CertificateOptions certificateOptions)
         {
             var createCmd =
                 @"
@@ -73,11 +70,11 @@ namespace Microsoft.Crank.Controller.Serializers
                 END
                 ";
 
-            await RetryOnExceptionAsync(5, () => InitializeDatabaseInternalAsync(connectionString, createCmd, certBasedAuth, certPath, certThumbprint, certTenantId, certClientId), 5000);
+            await RetryOnExceptionAsync(5, () => InitializeDatabaseInternalAsync(connectionString, createCmd, certificateOptions), 5000);
 
-            static async Task InitializeDatabaseInternalAsync(string connectionString, string createCmd, bool certBasedAuth, string certPath, string certThumbprint, string certTenantId, string certClientId)
+            static async Task InitializeDatabaseInternalAsync(string connectionString, string createCmd, CertificateOptions certificateOptions)
             {
-                using (var connection = GetSqlConnection(connectionString, certBasedAuth, certPath, certThumbprint, certTenantId, certClientId))
+                using (var connection = GetSqlConnection(connectionString, certificateOptions))
                 {
                     await connection.OpenAsync();
 
@@ -97,11 +94,7 @@ namespace Microsoft.Crank.Controller.Serializers
             string scenario,
             string description,
             string document,
-            bool certBasedAuth = false,
-            string certPath = "",
-            string certThumbprint = "",
-            string certTenantId = "",
-            string certClientId = ""
+            CertificateOptions certificateOptions
             )
         {
 
@@ -121,7 +114,7 @@ namespace Microsoft.Crank.Controller.Serializers
                            ,@Document)
                 ";
 
-            using (var connection = GetSqlConnection(connectionString, certBasedAuth, certPath, certThumbprint, certTenantId, certClientId))
+            using (var connection = GetSqlConnection(connectionString, certificateOptions))
             {
                 await connection.OpenAsync();
                 var transaction = connection.BeginTransaction();
@@ -236,43 +229,32 @@ namespace Microsoft.Crank.Controller.Serializers
 
         private static SqlConnection GetSqlConnection(
             string connectionString,
-            bool certBasedAuth,
-            string certPath,
-            string certThumbprint,
-            string certTenantId,
-            string certClientId)
+            CertificateOptions certificateOptions)
         {
             AccessToken token = default;          
-            if (certBasedAuth)
+            if (certificateOptions != null)
             {
                 ClientCertificateCredential ccc = null;
                 X509Store store = null;
-                for (int i = 1; i <= 8; i++)
+                if (!String.IsNullOrEmpty(certificateOptions.Path))
                 {
-                    store = new X509Store((StoreName)i, StoreLocation.LocalMachine);
-                    store.Open(OpenFlags.ReadOnly);
-                    foreach (var cert in store.Certificates)
-                    {
-                        if (cert.Thumbprint == certThumbprint)
-                        {
-                            ccc = new ClientCertificateCredential(certTenantId, certClientId, cert);
-                            break;
-                        }
-                    }
-                    if (ccc != null)
-                    {
-                        break;
-                    }
+                    ccc = new ClientCertificateCredential(certificateOptions.TenantId, certificateOptions.ClientId, certificateOptions.Path);
                 }
-                if(ccc == null)
+                else
                 {
-                    ccc = new ClientCertificateCredential(certTenantId, certClientId, certPath);
+                    foreach (var storeName in Enum.GetValues<StoreName>())
+                    {
+                        store = new X509Store(storeName, StoreLocation.LocalMachine);
+                        store.Open(OpenFlags.ReadOnly);
+                        var certificate = store.Certificates.Find(X509FindType.FindByThumbprint, certificateOptions.Thumbprint, true).First();
+                        ccc = new ClientCertificateCredential(certificateOptions.TenantId, certificateOptions.ClientId, certificate);
+                    }
                 }
                 TokenRequestContext trc = new TokenRequestContext(new string[] { "https://database.windows.net/.default" });
                 token = ccc.GetToken(trc);
             }
             var connection = new SqlConnection(connectionString);
-            if(certBasedAuth)
+            if(certificateOptions != null)
             {
                 connection.AccessToken = token.Token;
             }

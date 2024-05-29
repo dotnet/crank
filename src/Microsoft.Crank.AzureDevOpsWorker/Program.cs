@@ -14,6 +14,8 @@ using Azure.Identity;
 using Esprima;
 using Jint;
 using McMaster.Extensions.CommandLineUtils;
+using System.Runtime.ConstrainedExecution;
+using Microsoft.Crank.Models;
 
 namespace Microsoft.Crank.AzureDevOpsWorker
 {
@@ -30,7 +32,6 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             app.HelpOption("-h|--help");
             var connectionStringOption = app.Option("-c|--connection-string <string>", "The Azure Service Bus connection string. Can be an environment variable name.", CommandOptionType.SingleValue).IsRequired();
             var queueOption = app.Option("-q|--queue <string>", "The Azure Service Bus queue name. Can be an environment variable name.", CommandOptionType.SingleValue).IsRequired();
-            var certBasedAuth = app.Option("--cert-based-auth", "Activates certificate based authentication.", CommandOptionType.NoValue);
             var certPath = app.Option("--cert-path", "Path to a certificate.", CommandOptionType.SingleValue);
             var certThumbprint = app.Option("--cert-thumbprint", "Thumbprint of the certificate being used.", CommandOptionType.SingleValue);
             var certTenantId = app.Option("--cert-tenant-id", "Tenant id for service principal used as part of cert based auth.", CommandOptionType.SingleValue);
@@ -57,57 +58,50 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                     queue = Environment.GetEnvironmentVariable(queue);
                 }
 
-                if (certBasedAuth.HasValue() && !(certClientId.HasValue() && certTenantId.HasValue() && certThumbprint.HasValue()))
+                if ((certClientId.HasValue() || certTenantId.HasValue() || certThumbprint.HasValue() || certPath.HasValue()) && (!(certClientId.HasValue() && certTenantId.HasValue()) && (certThumbprint.HasValue() || certPath.HasValue())))
                 {
-                    Console.WriteLine("If using cert based auth, must provide client id, tenant id, and thumbprint.");
+                    Console.WriteLine("If using cert based auth, must provide client id, tenant id, and either a thumbprint or certificate path.");
                     return;
                 }
 
-                if(certBasedAuth.HasValue())
+                CertificateOptions certificateOptions = null;
+
+                if(certClientId.HasValue())
                 {
-                    await ProcessAzureQueue(connectionString, queue, certBasedAuth.HasValue(), certPath.Value(), certThumbprint.Value(), certTenantId.Value(), certClientId.Value());
+                    certificateOptions = new CertificateOptions(certClientId.Value(), certTenantId.Value(), certThumbprint.Value(), certPath.Value());
                 }
-                else
-                {
-                    await ProcessAzureQueue(connectionString, queue);
-                }
+
+                await ProcessAzureQueue(connectionString, queue, certificateOptions);
             });
 
             return app.Execute(args);
         }
 
-        private static async Task ProcessAzureQueue(string connectionString, string queue, bool certBasedAuth = false, string certPath = "", string certThumbprint = "", string certTenantId = "", string certClientId = "")
+        private static async Task ProcessAzureQueue(string connectionString, string queue, CertificateOptions certificateOptions = null)
         {
             ClientCertificateCredential ccc = null;
 
-            if (certBasedAuth)
+            if (certificateOptions != null)
             {
                 X509Store store = null;
-                for (int i = 1; i <= 8; i++)
+                if (!String.IsNullOrEmpty(certificateOptions.Path))
                 {
-                    store = new X509Store((StoreName)i, StoreLocation.LocalMachine);
-                    store.Open(OpenFlags.ReadOnly);
-                    foreach (var cert in store.Certificates)
-                    {
-                        if (cert.Thumbprint == certThumbprint)
-                        {
-                            ccc = new ClientCertificateCredential(certTenantId, certClientId, cert);
-                            break;
-                        }
-                    }
-                    if (ccc != null)
-                    {
-                        break;
-                    }
+                    ccc = new ClientCertificateCredential(certificateOptions.TenantId, certificateOptions.ClientId, certificateOptions.Path);
                 }
-                if (ccc == null)
+                else
                 {
-                    ccc = new ClientCertificateCredential(certTenantId, certClientId, certPath);
+                    foreach (var storeName in Enum.GetValues<StoreName>())
+                    {
+                        store = new X509Store(storeName, StoreLocation.LocalMachine);
+                        store.Open(OpenFlags.ReadOnly);
+                        var certificate = store.Certificates.Find(X509FindType.FindByThumbprint, certificateOptions.Thumbprint, true).First();
+                        ccc = new ClientCertificateCredential(certificateOptions.TenantId, certificateOptions.ClientId, certificate);
+                    }
                 }
             }
 
             ServiceBusClient client = null;
-            if (certBasedAuth)
+            if (certificateOptions != null)
             {
                 client = new ServiceBusClient(connectionString, ccc);
             }

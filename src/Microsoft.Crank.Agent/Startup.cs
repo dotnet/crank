@@ -154,13 +154,14 @@ namespace Microsoft.Crank.Agent
 
         private static string _startPerfviewArguments;
 
+        private static CertificateOptions certificateOptions;
+
         private static CommandOption
             _relayConnectionStringOption,
             _relayPathOption,
             _relayEnableHttpOption,
             _runAsService,
             _logPath,
-            _certBasedAuth,
             _certPath,
             _certClientId,
             _certTenantId,
@@ -255,7 +256,6 @@ namespace Microsoft.Crank.Agent
             var buildTimeoutOption = app.Option("--build-timeout", "Maximum duration of build task in minutes. Default 10 minutes.", CommandOptionType.SingleValue);
             _runAsService = app.Option("--service", "If specified, runs crank-agent as a service", CommandOptionType.NoValue);
             _logPath = app.Option("--log-path", "The path where the logs are written. Directory must exists.", CommandOptionType.SingleValue);
-            _certBasedAuth = app.Option("--cert-based-auth", "Enable certifcate based authentication for SQL connection.", CommandOptionType.NoValue);
             _certPath = app.Option("--cert-path", "Location of the certificate to be used for auth.", CommandOptionType.SingleValue);
             _certClientId = app.Option("--cert-client-id", "Service principal client id for cert based auth", CommandOptionType.SingleValue);
             _certTenantId = app.Option("--cert-tenant-id", "Service principal tenant id for cert based auth", CommandOptionType.SingleValue);
@@ -265,9 +265,15 @@ namespace Microsoft.Crank.Agent
             {
                 throw new PlatformNotSupportedException($"--service is only available on Windows");
             }
-            if(_certBasedAuth.HasValue() && !(_certClientId.HasValue() && _certTenantId.HasValue() && _certThumbprint.HasValue()))
+            if ((_certClientId.HasValue() || _certTenantId.HasValue() || _certThumbprint.HasValue() || _certPath.HasValue()) && (!(_certClientId.HasValue() && _certTenantId.HasValue()) && (_certThumbprint.HasValue() || _certPath.HasValue())))
             {
-                throw new ArgumentException("If using cert based auth, must provide client id, tenant id, and thumbprint.");
+                Console.WriteLine("If using cert based auth, must provide client id, tenant id, and either a thumbprint or certificate path.");
+                return -1;
+            }
+
+            if (_certClientId.HasValue())
+            {
+                certificateOptions = new CertificateOptions(_certClientId.Value(), _certTenantId.Value(), _certThumbprint.Value(), _certPath.Value());
             }
 
             app.OnExecute(() =>
@@ -352,7 +358,7 @@ namespace Microsoft.Crank.Agent
             return app.Execute(args);
         }
 
-        static TokenProvider GetAadTokenProvider(string clientId, string tenantId, X509Certificate2 cert)
+        static TokenProvider GetAadTokenProvider(string tenantId, string clientId, X509Certificate2 cert)
         {
             return TokenProvider.CreateAzureActiveDirectoryTokenProvider(
                 async (audience, authority, state) =>
@@ -385,29 +391,20 @@ namespace Microsoft.Crank.Agent
                     ClientCertificateCredential ccc = null;
                     X509Store store = null;
                     X509Certificate2 certificate = null;
-                    if (_certBasedAuth.HasValue())
+                    if (certificateOptions != null)
                     {
-                        for (int i = 1; i <= 8; i++)
+                        if (!String.IsNullOrEmpty(certificateOptions.Path))
                         {
-                            store = new X509Store((StoreName)i, StoreLocation.LocalMachine);
-                            store.Open(OpenFlags.ReadOnly);
-                            foreach (var cert in store.Certificates)
-                            {
-                                if (cert.Thumbprint == _certThumbprint.Value())
-                                {
-                                    ccc = new ClientCertificateCredential(_certTenantId.Value(), _certClientId.Value(), cert);
-                                    certificate = cert;
-                                    break;
-                                }
-                            }
-                            if (ccc != null)
-                            {
-                                break;
-                            }
+                            ccc = new ClientCertificateCredential(certificateOptions.TenantId, certificateOptions.ClientId, certificateOptions.Path);
                         }
-                        if (ccc == null)
+                        else
                         {
-                            ccc = new ClientCertificateCredential(_certTenantId.Value(), _certClientId.Value(), _certPath.Value());
+                            foreach (var storeName in Enum.GetValues<StoreName>())
+                            {
+                                store = new X509Store(storeName, StoreLocation.LocalMachine);
+                                store.Open(OpenFlags.ReadOnly);
+                                certificate = store.Certificates.Find(X509FindType.FindByThumbprint, certificateOptions.Thumbprint, true).First();
+                            }
                         }
                     }
 
@@ -420,9 +417,9 @@ namespace Microsoft.Crank.Agent
 
                     var rcsb = new RelayConnectionStringBuilder(relayConnectionString);
 
-                    if (_certBasedAuth.HasValue())
+                    if (certificateOptions != null)
                     {
-                        options.TokenProvider = GetAadTokenProvider(_certTenantId.Value(), _certClientId.Value(), certificate);
+                        options.TokenProvider = GetAadTokenProvider(certificateOptions.TenantId, certificateOptions.ClientId, certificate);
                     }
 
                     if (_relayPathOption.HasValue())

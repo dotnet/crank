@@ -24,6 +24,10 @@
       <AllowExplicitReference>true</AllowExplicitReference>
     </PackageReference>
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Crank.Models\Microsoft.Crank.Models.csproj" />
+  </ItemGroup>
   
   <ItemGroup>
     <None Update="jobs.example.json">
