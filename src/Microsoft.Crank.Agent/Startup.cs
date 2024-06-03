@@ -16,16 +16,12 @@ using System.Net.Http;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.Xml.XPath;
-using Azure.Core;
-using Azure.Identity;
 using McMaster.Extensions.CommandLineUtils;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -35,6 +31,7 @@ using Microsoft.AspNetCore.Hosting.WindowsServices;
 using Microsoft.Azure.Relay;
 using Microsoft.Crank.EventSources;
 using Microsoft.Crank.Models;
+using Microsoft.Crank.Models.Security;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.Diagnostics.Tools.Trace;
 using Microsoft.Diagnostics.Tracing;
@@ -358,20 +355,22 @@ namespace Microsoft.Crank.Agent
             return app.Execute(args);
         }
 
-        static TokenProvider GetAadTokenProvider(string tenantId, string clientId, X509Certificate2 cert)
+        static TokenProvider GetAadTokenProvider(CertificateOptions certificateOptions)
         {
             return TokenProvider.CreateAzureActiveDirectoryTokenProvider(
                 async (audience, authority, state) =>
                 {
-                    IConfidentialClientApplication app = ConfidentialClientApplicationBuilder.Create(clientId)
+                    var certificate = certificateOptions.GetClientCertificate();
+
+                    IConfidentialClientApplication app = ConfidentialClientApplicationBuilder.Create(certificateOptions.ClientId)
                         .WithAuthority(authority)
-                        .WithCertificate(cert)
+                        .WithCertificate(certificate)
                         .Build();
 
-                    var authResult = await app.AcquireTokenForClient(new[] { $"{audience}/.default" }).ExecuteAsync();
+                    var authResult = await app.AcquireTokenForClient([$"{audience}/.default"]).ExecuteAsync();
                     return authResult.AccessToken;
                 },
-                $"https://login.microsoftonline.com/{tenantId}");
+                $"https://login.microsoftonline.com/{certificateOptions.TenantId}");
         }
 
         private static async Task<int> Run(string url, string hostname, string dockerHostname)
@@ -388,26 +387,6 @@ namespace Microsoft.Crank.Agent
             {
                 builder.UseAzureRelay(options =>
                 {
-                    ClientCertificateCredential ccc = null;
-                    X509Store store = null;
-                    X509Certificate2 certificate = null;
-                    if (certificateOptions != null)
-                    {
-                        if (!String.IsNullOrEmpty(certificateOptions.Path))
-                        {
-                            ccc = new ClientCertificateCredential(certificateOptions.TenantId, certificateOptions.ClientId, certificateOptions.Path);
-                        }
-                        else
-                        {
-                            foreach (var storeName in Enum.GetValues<StoreName>())
-                            {
-                                store = new X509Store(storeName, StoreLocation.LocalMachine);
-                                store.Open(OpenFlags.ReadOnly);
-                                certificate = store.Certificates.Find(X509FindType.FindByThumbprint, certificateOptions.Thumbprint, true).First();
-                            }
-                        }
-                    }
-
                     var relayConnectionString = _relayConnectionStringOption.Value();
 
                     if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(relayConnectionString)))
@@ -419,13 +398,14 @@ namespace Microsoft.Crank.Agent
 
                     if (certificateOptions != null)
                     {
-                        options.TokenProvider = GetAadTokenProvider(certificateOptions.TenantId, certificateOptions.ClientId, certificate);
+                        options.TokenProvider = GetAadTokenProvider(certificateOptions);
                     }
 
                     if (_relayPathOption.HasValue())
                     {
                         rcsb.EntityPath = _relayPathOption.Value();
                     }
+
                     options.UrlPrefixes.Add(rcsb.ToString());
                 });
 

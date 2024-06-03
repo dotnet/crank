@@ -11,14 +11,11 @@ using System.IO.Hashing;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using Azure.Core;
-using Azure.Identity;
 using Fluid;
 using Fluid.Values;
 using Jint;
@@ -27,12 +24,12 @@ using McMaster.Extensions.CommandLineUtils;
 using Microsoft.Azure.Relay;
 using Microsoft.Crank.Controller.Serializers;
 using Microsoft.Crank.Models;
+using Microsoft.Crank.Models.Security;
 using Microsoft.Identity.Client;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 using YamlDotNet.Serialization;
-using static Azure.Core.HttpHeader;
 
 namespace Microsoft.Crank.Controller
 {
@@ -3392,9 +3389,7 @@ namespace Microsoft.Crank.Controller
             }
 
             var rcsb = new RelayConnectionStringBuilder(connectionString);
-            TokenProvider tokenProvider = null;
-            
-            tokenProvider = TokenProvider.CreateSharedAccessSignatureTokenProvider(rcsb.SharedAccessKeyName, rcsb.SharedAccessKey);
+            var tokenProvider = TokenProvider.CreateSharedAccessSignatureTokenProvider(rcsb.SharedAccessKeyName, rcsb.SharedAccessKey);
 
             return (await tokenProvider.GetTokenAsync(rcsb.Endpoint.ToString(), TimeSpan.FromHours(1))).TokenString;
 
@@ -3433,7 +3428,7 @@ namespace Microsoft.Crank.Controller
 
                 if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(rootVariable)))
                 {
-                    return Environment.GetEnvironmentVariable(entityVariable);
+                    return Environment.GetEnvironmentVariable(rootVariable);
                 }
 
                 return null;

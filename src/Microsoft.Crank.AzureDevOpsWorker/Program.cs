@@ -5,17 +5,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Azure.Core;
 using Azure.Messaging.ServiceBus;
-using Azure.Identity;
-using Esprima;
 using Jint;
 using McMaster.Extensions.CommandLineUtils;
-using System.Runtime.ConstrainedExecution;
-using Microsoft.Crank.Models;
+using Microsoft.Crank.Models.Security;
 
 namespace Microsoft.Crank.AzureDevOpsWorker
 {
@@ -77,33 +72,20 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             return app.Execute(args);
         }
 
-        private static async Task ProcessAzureQueue(string connectionString, string queue, CertificateOptions certificateOptions = null)
+        private static async Task ProcessAzureQueue(string connectionString, string queue, CertificateOptions certificateOptions)
         {
-            ClientCertificateCredential ccc = null;
+            ServiceBusClient client;
 
             if (certificateOptions != null)
             {
-                X509Store store = null;
-                if (!String.IsNullOrEmpty(certificateOptions.Path))
-                {
-                    ccc = new ClientCertificateCredential(certificateOptions.TenantId, certificateOptions.ClientId, certificateOptions.Path);
-                }
-                else
-                {
-                    foreach (var storeName in Enum.GetValues<StoreName>())
-                    {
-                        store = new X509Store(storeName, StoreLocation.LocalMachine);
-                        store.Open(OpenFlags.ReadOnly);
-                        var certificate = store.Certificates.Find(X509FindType.FindByThumbprint, certificateOptions.Thumbprint, true).First();
-                        ccc = new ClientCertificateCredential(certificateOptions.TenantId, certificateOptions.ClientId, certificate);
-                    }
-                }
-            }
+                var clientCertificateCredentials = certificateOptions.GetClientCertificateCredential();
 
-            ServiceBusClient client = null;
-            if (certificateOptions != null)
-            {
-                client = new ServiceBusClient(connectionString, ccc);
+                if (clientCertificateCredentials == null)
+                {
+                    throw new ApplicationException($"The requested certificate could not be found: {certificateOptions.Thumbprint}");
+                }
+
+                client = new ServiceBusClient(connectionString, clientCertificateCredentials);
             }
             else
             {

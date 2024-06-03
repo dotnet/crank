@@ -3,24 +3,23 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
-using Microsoft.Data.SqlClient;
-using System.Threading.Tasks;
-using Microsoft.Crank.Models;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
+using System.Net;
 using System.Net.Http;
 using System.Text;
-using System.Net;
+using System.Threading.Tasks;
 using Azure.Core;
-using Azure.Identity;
-using System.Security.Cryptography.X509Certificates;
-using System.Runtime.ConstrainedExecution;
-using System.Linq;
+using Microsoft.Crank.Models;
+using Microsoft.Crank.Models.Security;
+using Microsoft.Data.SqlClient;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 
 namespace Microsoft.Crank.Controller.Serializers
 {
     public class JobSerializer
     {
+        private static readonly string[] AzureSqlScopes = ["https://database.windows.net/.default"];
+
         public static Task WriteJobResultsToSqlAsync(
             JobResults jobResults, 
             string sqlConnectionString,
@@ -227,37 +226,26 @@ namespace Microsoft.Crank.Controller.Serializers
           }
       }
 
-        private static SqlConnection GetSqlConnection(
-            string connectionString,
-            CertificateOptions certificateOptions)
+        private static SqlConnection GetSqlConnection(string connectionString, CertificateOptions certificateOptions)
         {
-            AccessToken token = default;          
+            // The Sql Connection is always initialized from the connection string as it contains custom settings which are
+            // not related to authentication.
+
+            var connection = new SqlConnection(connectionString);
+
             if (certificateOptions != null)
             {
-                ClientCertificateCredential ccc = null;
-                X509Store store = null;
-                if (!String.IsNullOrEmpty(certificateOptions.Path))
+                var clientCertificateCredentials = certificateOptions.GetClientCertificateCredential();
+
+                if (clientCertificateCredentials == null)
                 {
-                    ccc = new ClientCertificateCredential(certificateOptions.TenantId, certificateOptions.ClientId, certificateOptions.Path);
+                    throw new ApplicationException($"The requested certificate could not be found: {certificateOptions.Thumbprint}");
                 }
-                else
-                {
-                    foreach (var storeName in Enum.GetValues<StoreName>())
-                    {
-                        store = new X509Store(storeName, StoreLocation.LocalMachine);
-                        store.Open(OpenFlags.ReadOnly);
-                        var certificate = store.Certificates.Find(X509FindType.FindByThumbprint, certificateOptions.Thumbprint, true).First();
-                        ccc = new ClientCertificateCredential(certificateOptions.TenantId, certificateOptions.ClientId, certificate);
-                    }
-                }
-                TokenRequestContext trc = new TokenRequestContext(new string[] { "https://database.windows.net/.default" });
-                token = ccc.GetToken(trc);
-            }
-            var connection = new SqlConnection(connectionString);
-            if(certificateOptions != null)
-            {
+
+                var token = clientCertificateCredentials.GetToken(new TokenRequestContext(AzureSqlScopes));
                 connection.AccessToken = token.Token;
             }
+
             return connection;
         }
 

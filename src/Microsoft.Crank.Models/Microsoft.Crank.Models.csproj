@@ -8,6 +8,7 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Newtonsoft.Json" />
+    <PackageReference Include="Azure.Identity" />
   </ItemGroup>
 
 </Project>
