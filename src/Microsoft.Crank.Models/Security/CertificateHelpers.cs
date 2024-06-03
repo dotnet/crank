@@ -2,8 +2,6 @@
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
 using Azure.Identity;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.Identity.Client;
 
 namespace Microsoft.Crank.Models.Security;
 
@@ -32,15 +30,12 @@ public static class CertificateOptionsExtensions
         {
             foreach (var name in Enum.GetValues<StoreName>())
             {
-                foreach (var storeName in Enum.GetValues<StoreName>())
-                {
-                    var store = new X509Store(storeName, StoreLocation.LocalMachine, OpenFlags.ReadOnly);
-                    var certificate = store.Certificates.Find(X509FindType.FindByThumbprint, certificateOptions.Thumbprint, true).FirstOrDefault();
+                var store = new X509Store(name, StoreLocation.LocalMachine, OpenFlags.ReadOnly);
+                var certificate = store.Certificates.Find(X509FindType.FindByThumbprint, certificateOptions.Thumbprint, true).FirstOrDefault();
 
-                    if (certificate != null)
-                    {
-                        return certificate;
-                    }
+                if (certificate != null)
+                {
+                    return certificate;
                 }
             }
         }

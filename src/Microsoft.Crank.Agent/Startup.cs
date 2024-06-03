@@ -151,7 +151,7 @@ namespace Microsoft.Crank.Agent
 
         private static string _startPerfviewArguments;
 
-        private static CertificateOptions certificateOptions;
+        private static CertificateOptions _certificateOptions;
 
         private static CommandOption
             _relayConnectionStringOption,
@@ -253,24 +253,24 @@ namespace Microsoft.Crank.Agent
             var buildTimeoutOption = app.Option("--build-timeout", "Maximum duration of build task in minutes. Default 10 minutes.", CommandOptionType.SingleValue);
             _runAsService = app.Option("--service", "If specified, runs crank-agent as a service", CommandOptionType.NoValue);
             _logPath = app.Option("--log-path", "The path where the logs are written. Directory must exists.", CommandOptionType.SingleValue);
-            _certPath = app.Option("--cert-path", "Location of the certificate to be used for auth.", CommandOptionType.SingleValue);
             _certClientId = app.Option("--cert-client-id", "Service principal client id for cert based auth", CommandOptionType.SingleValue);
             _certTenantId = app.Option("--cert-tenant-id", "Service principal tenant id for cert based auth", CommandOptionType.SingleValue);
             _certThumbprint = app.Option("--cert-thumbprint", "Thumbprint for cert", CommandOptionType.SingleValue);
+            _certPath = app.Option("--cert-path", "Location of the certificate to be used for auth.", CommandOptionType.SingleValue);
 
             if (_runAsService.HasValue() && OperatingSystem != OperatingSystem.Windows)
             {
                 throw new PlatformNotSupportedException($"--service is only available on Windows");
             }
-            if ((_certClientId.HasValue() || _certTenantId.HasValue() || _certThumbprint.HasValue() || _certPath.HasValue()) && (!(_certClientId.HasValue() && _certTenantId.HasValue()) && (_certThumbprint.HasValue() || _certPath.HasValue())))
-            {
-                Console.WriteLine("If using cert based auth, must provide client id, tenant id, and either a thumbprint or certificate path.");
-                return -1;
-            }
 
-            if (_certClientId.HasValue())
+            if (_certThumbprint.HasValue() || _certPath.HasValue())
             {
-                certificateOptions = new CertificateOptions(_certClientId.Value(), _certTenantId.Value(), _certThumbprint.Value(), _certPath.Value());
+                if (!_certClientId.HasValue() || !_certTenantId.HasValue())
+                {
+                    Console.WriteLine("If using cert based auth, must provide client id, tenant id, and either a thumbprint or certificate path.");
+                }
+
+                _certificateOptions = new CertificateOptions(_certClientId.Value(), _certTenantId.Value(), _certThumbprint.Value(), _certPath.Value());
             }
 
             app.OnExecute(() =>
@@ -362,6 +362,11 @@ namespace Microsoft.Crank.Agent
                 {
                     var certificate = certificateOptions.GetClientCertificate();
 
+                    if (certificate == null)
+                    {
+                        throw new ApplicationException($"The requested certificate could not be found: {certificateOptions.Path ?? certificateOptions.Thumbprint}");
+                    }
+
                     IConfidentialClientApplication app = ConfidentialClientApplicationBuilder.Create(certificateOptions.ClientId)
                         .WithAuthority(authority)
                         .WithCertificate(certificate)
@@ -396,9 +401,9 @@ namespace Microsoft.Crank.Agent
 
                     var rcsb = new RelayConnectionStringBuilder(relayConnectionString);
 
-                    if (certificateOptions != null)
+                    if (_certificateOptions != null)
                     {
-                        options.TokenProvider = GetAadTokenProvider(certificateOptions);
+                        options.TokenProvider = GetAadTokenProvider(_certificateOptions);
                     }
 
                     if (_relayPathOption.HasValue())

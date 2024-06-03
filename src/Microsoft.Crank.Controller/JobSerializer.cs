@@ -239,7 +239,7 @@ namespace Microsoft.Crank.Controller.Serializers
 
                 if (clientCertificateCredentials == null)
                 {
-                    throw new ApplicationException($"The requested certificate could not be found: {certificateOptions.Thumbprint}");
+                    throw new ApplicationException($"The requested certificate could not be found: {certificateOptions.Path ?? certificateOptions.Thumbprint}");
                 }
 
                 var token = clientCertificateCredentials.GetToken(new TokenRequestContext(AzureSqlScopes));

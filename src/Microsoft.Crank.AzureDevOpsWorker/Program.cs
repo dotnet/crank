@@ -27,10 +27,10 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             app.HelpOption("-h|--help");
             var connectionStringOption = app.Option("-c|--connection-string <string>", "The Azure Service Bus connection string. Can be an environment variable name.", CommandOptionType.SingleValue).IsRequired();
             var queueOption = app.Option("-q|--queue <string>", "The Azure Service Bus queue name. Can be an environment variable name.", CommandOptionType.SingleValue).IsRequired();
-            var certPath = app.Option("--cert-path", "Path to a certificate.", CommandOptionType.SingleValue);
-            var certThumbprint = app.Option("--cert-thumbprint", "Thumbprint of the certificate being used.", CommandOptionType.SingleValue);
-            var certTenantId = app.Option("--cert-tenant-id", "Tenant id for service principal used as part of cert based auth.", CommandOptionType.SingleValue);
             var certClientId = app.Option("--cert-client-id", "Client id for service principal used as part of cert based auth.", CommandOptionType.SingleValue);
+            var certTenantId = app.Option("--cert-tenant-id", "Tenant id for service principal used as part of cert based auth.", CommandOptionType.SingleValue);
+            var certThumbprint = app.Option("--cert-thumbprint", "Thumbprint of the certificate being used.", CommandOptionType.SingleValue);
+            var certPath = app.Option("--cert-path", "Path to a certificate.", CommandOptionType.SingleValue);
             var verboseOption = app.Option("-v|--verbose", "Display verbose log.", CommandOptionType.NoValue);
 
             app.OnExecuteAsync(async cancellationToken =>
@@ -53,18 +53,18 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                     queue = Environment.GetEnvironmentVariable(queue);
                 }
 
-                if ((certClientId.HasValue() || certTenantId.HasValue() || certThumbprint.HasValue() || certPath.HasValue()) && (!(certClientId.HasValue() && certTenantId.HasValue()) && (certThumbprint.HasValue() || certPath.HasValue())))
-                {
-                    Console.WriteLine("If using cert based auth, must provide client id, tenant id, and either a thumbprint or certificate path.");
-                    return;
-                }
-
                 CertificateOptions certificateOptions = null;
 
-                if(certClientId.HasValue())
+                if (certThumbprint.HasValue() || certPath.HasValue())
                 {
+                    if (!certClientId.HasValue() || !certTenantId.HasValue())
+                    {
+                        Console.WriteLine("If using cert based auth, must provide client id, tenant id, and either a thumbprint or certificate path.");
+                    }
+
                     certificateOptions = new CertificateOptions(certClientId.Value(), certTenantId.Value(), certThumbprint.Value(), certPath.Value());
                 }
+
 
                 await ProcessAzureQueue(connectionString, queue, certificateOptions);
             });
@@ -82,7 +82,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
                 if (clientCertificateCredentials == null)
                 {
-                    throw new ApplicationException($"The requested certificate could not be found: {certificateOptions.Thumbprint}");
+                    throw new ApplicationException($"The requested certificate could not be found: {certificateOptions.Path ?? certificateOptions.Thumbprint}");
                 }
 
                 client = new ServiceBusClient(connectionString, clientCertificateCredentials);
