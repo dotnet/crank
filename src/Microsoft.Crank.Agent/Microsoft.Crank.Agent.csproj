@@ -24,11 +24,10 @@
     <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" />
     <PackageReference Include="Microsoft.Azure.Relay" />
     <PackageReference Include="Microsoft.Azure.Relay.AspNetCore" />
-    <!-- For CG as Microsoft.Azure.Relay references an older version -->
-    <PackageReference Include="Azure.Identity" />
     <PackageReference Include="Mono.Cecil" />
     <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" />
     <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" />
+    <PackageReference Include="Microsoft.Windows.CsWin32" PrivateAssets="all" />
     <PackageReference Include="Mono.Unix" />
     <PackageReference Include="NuGet.Versioning" />
     <PackageReference Include="Serilog.Formatting.Compact" />
@@ -36,8 +35,8 @@
     <PackageReference Include="Serilog.Sinks.File" />
     <PackageReference Include="Serilog.AspNetCore" />
     <PackageReference Include="System.IO.Hashing" />
-    <PackageReference Include="Microsoft.Windows.CsWin32" PrivateAssets="all" />
-    <!-- Force version for Component Governance compliance -->
+
+    <!-- Forced versions for Component Governance compliance -->
     <PackageReference Include="System.Text.Encodings.Web" />
   </ItemGroup>
 
