@@ -54,7 +54,7 @@ namespace Microsoft.Crank.Jobs.K6
             {
                 switch (RuntimeInformation.ProcessArchitecture)
                 {
-                    case Architecture.X64 : k6Url = "https://aspnetbenchmarks.blob.core.windows.net/tools/k6-win-amd64.exe"; break;
+                    case Architecture.X64 : k6Url = "https://aspnetbenchmarks.z5.web.core.windows.net/tools/k6-win-amd64.exe"; break;
                     default: Console.WriteLine("Unsupported platform"); return -1;
                 }
             }
@@ -62,8 +62,8 @@ namespace Microsoft.Crank.Jobs.K6
             {
                 switch (RuntimeInformation.ProcessArchitecture)
                 {
-                    case Architecture.Arm64: k6Url = "https://aspnetbenchmarks.blob.core.windows.net/tools/k6-linux-arm64"; break;
-                    case Architecture.X64: k6Url = "https://aspnetbenchmarks.blob.core.windows.net/tools/k6-linux-amd64"; break;
+                    case Architecture.Arm64: k6Url = "https://aspnetbenchmarks.z5.web.core.windows.net/tools/k6-linux-arm64"; break;
+                    case Architecture.X64: k6Url = "https://aspnetbenchmarks.z5.web.core.windows.net/tools/k6-linux-amd64"; break;
                     default: Console.WriteLine("Unsupported platform"); return -1;
                 }
             }

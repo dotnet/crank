@@ -13,6 +13,7 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" />
     <PackageReference Include="Octokit" />
     <PackageReference Include="Microsoft.Data.SqlClient" />
+    <!-- For CG as Microsoft.Data.SqlClient references an older version -->
     <PackageReference Include="Azure.Identity" />
     <PackageReference Include="YamlDotNet" />
     <PackageReference Include="JsonSchema.Net" />
