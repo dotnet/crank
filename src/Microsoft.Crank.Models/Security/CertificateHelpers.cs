@@ -26,17 +26,14 @@ public static class CertificateOptionsExtensions
             return new X509Certificate2(certificateOptions.Path);
         }
 
-        foreach (var location in Enum.GetValues<StoreLocation>())
+        foreach (var name in Enum.GetValues<StoreName>())
         {
-            foreach (var name in Enum.GetValues<StoreName>())
-            {
-                var store = new X509Store(name, StoreLocation.LocalMachine, OpenFlags.ReadOnly);
-                var certificate = store.Certificates.Find(X509FindType.FindByThumbprint, certificateOptions.Thumbprint, true).FirstOrDefault();
+            var store = new X509Store(name, StoreLocation.LocalMachine, OpenFlags.ReadOnly);
+            var certificate = store.Certificates.Find(X509FindType.FindByThumbprint, certificateOptions.Thumbprint, true).FirstOrDefault();
 
-                if (certificate != null)
-                {
-                    return certificate;
-                }
+            if (certificate != null)
+            {
+                return certificate;
             }
         }
 
