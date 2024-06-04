@@ -29,7 +29,7 @@ public static class CertificateOptionsExtensions
         foreach (var name in Enum.GetValues<StoreName>())
         {
             var store = new X509Store(name, StoreLocation.LocalMachine, OpenFlags.ReadOnly);
-            var certificate = store.Certificates.Find(X509FindType.FindByThumbprint, certificateOptions.Thumbprint, true).FirstOrDefault();
+            var certificate = store.Certificates.Find(X509FindType.FindByThumbprint, certificateOptions.Thumbprint, false).FirstOrDefault();
 
             if (certificate != null)
             {
