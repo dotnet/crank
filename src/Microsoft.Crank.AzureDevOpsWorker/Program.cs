@@ -31,6 +31,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             var certTenantId = app.Option("--cert-tenant-id", "Tenant id for service principal used as part of cert based auth.", CommandOptionType.SingleValue);
             var certThumbprint = app.Option("--cert-thumbprint", "Thumbprint of the certificate being used.", CommandOptionType.SingleValue);
             var certPath = app.Option("--cert-path", "Path to a certificate.", CommandOptionType.SingleValue);
+            var certPassword = app.Option("--cert-pwd", "Password of the certificate to be used for auth.", CommandOptionType.SingleValue);
             var verboseOption = app.Option("-v|--verbose", "Display verbose log.", CommandOptionType.NoValue);
 
             app.OnExecuteAsync(async cancellationToken =>
@@ -62,9 +63,8 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                         Console.WriteLine("If using cert based auth, must provide client id, tenant id, and either a thumbprint or certificate path.");
                     }
 
-                    certificateOptions = new CertificateOptions(certClientId.Value(), certTenantId.Value(), certThumbprint.Value(), certPath.Value());
+                    certificateOptions = new CertificateOptions(certClientId.Value(), certTenantId.Value(), certThumbprint.Value(), certPath.Value(), certPassword.Value());
                 }
-
 
                 await ProcessAzureQueue(connectionString, queue, certificateOptions);
             });

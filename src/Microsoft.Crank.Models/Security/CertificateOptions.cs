@@ -8,8 +8,9 @@ namespace Microsoft.Crank.Models.Security
         public string TenantId { get; }
         public string Thumbprint { get; }
         public string Path { get; }
+        public string Password { get; }
 
-        public CertificateOptions(string clientId, string tenantId, string thumbprint, string path)
+        public CertificateOptions(string clientId, string tenantId, string thumbprint, string path, string password)
         {
             if (!string.IsNullOrEmpty(clientId) && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(clientId)))
             {
@@ -31,10 +32,16 @@ namespace Microsoft.Crank.Models.Security
                 path = Environment.GetEnvironmentVariable(path);
             }
 
+            if (!string.IsNullOrEmpty(password) && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(password)))
+            {
+                password = Environment.GetEnvironmentVariable(password);
+            }
+
             ClientId = clientId;
             TenantId = tenantId;
             Thumbprint = thumbprint;
             Path = path;
+            Password = password;
         }
     }
 }

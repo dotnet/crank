@@ -160,6 +160,7 @@ namespace Microsoft.Crank.Agent
             _runAsService,
             _logPath,
             _certPath,
+            _certPassword,
             _certClientId,
             _certTenantId,
             _certThumbprint
@@ -257,6 +258,7 @@ namespace Microsoft.Crank.Agent
             _certTenantId = app.Option("--cert-tenant-id", "Service principal tenant id for cert based auth", CommandOptionType.SingleValue);
             _certThumbprint = app.Option("--cert-thumbprint", "Thumbprint for cert", CommandOptionType.SingleValue);
             _certPath = app.Option("--cert-path", "Location of the certificate to be used for auth.", CommandOptionType.SingleValue);
+            _certPassword = app.Option("--cert-pwd", "Password of the certificate to be used for auth.", CommandOptionType.SingleValue);
 
             if (_runAsService.HasValue() && OperatingSystem != OperatingSystem.Windows)
             {
@@ -270,7 +272,7 @@ namespace Microsoft.Crank.Agent
                     Console.WriteLine("If using cert based auth, must provide client id, tenant id, and either a thumbprint or certificate path.");
                 }
 
-                _certificateOptions = new CertificateOptions(_certClientId.Value(), _certTenantId.Value(), _certThumbprint.Value(), _certPath.Value());
+                _certificateOptions = new CertificateOptions(_certClientId.Value(), _certTenantId.Value(), _certThumbprint.Value(), _certPath.Value(), _certPassword.Value());
             }
 
             app.OnExecute(() =>

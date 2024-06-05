@@ -88,6 +88,7 @@ namespace Microsoft.Crank.Controller
             _debugOption,
             _commandLinePropertyOption,
             _certPath,
+            _certPassword,
             _certClientId,
             _certTenantId,
             _certThumbprint
@@ -205,6 +206,7 @@ namespace Microsoft.Crank.Controller
             _certTenantId = app.Option("--cert-tenant-id", "Service principal tenant id for cert based auth", CommandOptionType.SingleValue);
             _certThumbprint = app.Option("--cert-thumbprint", "Thumbprint for cert", CommandOptionType.SingleValue);
             _certPath = app.Option("--cert-path", "Location of the certificate to be used for auth.", CommandOptionType.SingleValue);
+            _certPassword = app.Option("--cert-pwd", "Password of the certificate to be used for auth.", CommandOptionType.SingleValue);
 
             _ignoredCommands = new HashSet<CommandOption>()
             {
@@ -434,7 +436,7 @@ namespace Microsoft.Crank.Controller
                         Console.WriteLine("If using cert based auth, must provide client id, tenant id, and either a thumbprint or certificate path.");
                     }
 
-                    _certificateOptions = new CertificateOptions(_certClientId.Value(), _certTenantId.Value(), _certThumbprint.Value(), _certPath.Value());
+                    _certificateOptions = new CertificateOptions(_certClientId.Value(), _certTenantId.Value(), _certThumbprint.Value(), _certPath.Value(), _certPassword.Value());
                 }
 
                 if (_sqlTableOption.HasValue())
