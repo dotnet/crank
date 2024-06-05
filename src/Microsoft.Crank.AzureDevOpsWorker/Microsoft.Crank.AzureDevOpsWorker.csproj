@@ -13,15 +13,20 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="McMaster.Extensions.CommandLineUtils" />
+    <PackageReference Include="Azure.Identity" />
     <PackageReference Include="Azure.Messaging.ServiceBus" />
     <PackageReference Include="Jint" />
+    <PackageReference Include="McMaster.Extensions.CommandLineUtils" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
-    
+
     <!-- Force version for Component Governance compliance -->
     <PackageReference Include="System.Text.Encodings.Web">
       <AllowExplicitReference>true</AllowExplicitReference>
     </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Crank.Models\Microsoft.Crank.Models.csproj" />
   </ItemGroup>
   
   <ItemGroup>

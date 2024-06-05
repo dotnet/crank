@@ -3,26 +3,31 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
-using Microsoft.Data.SqlClient;
-using System.Threading.Tasks;
-using Microsoft.Crank.Models;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
+using System.Net;
 using System.Net.Http;
 using System.Text;
-using System.Net;
+using System.Threading.Tasks;
+using Azure.Core;
+using Microsoft.Crank.Models;
+using Microsoft.Crank.Models.Security;
+using Microsoft.Data.SqlClient;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 
 namespace Microsoft.Crank.Controller.Serializers
 {
     public class JobSerializer
     {
+        private static readonly string[] AzureSqlScopes = ["https://database.windows.net/.default"];
+
         public static Task WriteJobResultsToSqlAsync(
             JobResults jobResults, 
-            string sqlConnectionString, 
+            string sqlConnectionString,
             string tableName,
             string session,
             string scenario,
-            string description
+            string description,
+            CertificateOptions certificateOptions
             )
         {
             var utcNow = DateTime.UtcNow;
@@ -37,12 +42,16 @@ namespace Microsoft.Crank.Controller.Serializers
                     session,
                     scenario,
                     description,
-                    document
+                    document,
+                    certificateOptions
                     )
                 , 5000);
         }
 
-        public static async Task InitializeDatabaseAsync(string connectionString, string tableName)
+        public static async Task InitializeDatabaseAsync(
+            string connectionString,
+            string tableName,
+            CertificateOptions certificateOptions)
         {
             var createCmd =
                 @"
@@ -60,11 +69,11 @@ namespace Microsoft.Crank.Controller.Serializers
                 END
                 ";
 
-            await RetryOnExceptionAsync(5, () => InitializeDatabaseInternalAsync(connectionString, createCmd), 5000);
+            await RetryOnExceptionAsync(5, () => InitializeDatabaseInternalAsync(connectionString, createCmd, certificateOptions), 5000);
 
-            static async Task InitializeDatabaseInternalAsync(string connectionString, string createCmd)
+            static async Task InitializeDatabaseInternalAsync(string connectionString, string createCmd, CertificateOptions certificateOptions)
             {
-                using (var connection = new SqlConnection(connectionString))
+                using (var connection = GetSqlConnection(connectionString, certificateOptions))
                 {
                     await connection.OpenAsync();
 
@@ -83,7 +92,8 @@ namespace Microsoft.Crank.Controller.Serializers
             string session,
             string scenario,
             string description,
-            string document
+            string document,
+            CertificateOptions certificateOptions
             )
         {
 
@@ -103,7 +113,7 @@ namespace Microsoft.Crank.Controller.Serializers
                            ,@Document)
                 ";
 
-            using (var connection = new SqlConnection(connectionString))
+            using (var connection = GetSqlConnection(connectionString, certificateOptions))
             {
                 await connection.OpenAsync();
                 var transaction = connection.BeginTransaction();
@@ -215,6 +225,29 @@ namespace Microsoft.Crank.Controller.Serializers
               }
           }
       }
+
+        private static SqlConnection GetSqlConnection(string connectionString, CertificateOptions certificateOptions)
+        {
+            // The Sql Connection is always initialized from the connection string as it contains custom settings which are
+            // not related to authentication.
+
+            var connection = new SqlConnection(connectionString);
+
+            if (certificateOptions != null)
+            {
+                var clientCertificateCredentials = certificateOptions.GetClientCertificateCredential();
+
+                if (clientCertificateCredentials == null)
+                {
+                    throw new ApplicationException($"The requested certificate could not be found: {certificateOptions.Path ?? certificateOptions.Thumbprint}");
+                }
+
+                var token = clientCertificateCredentials.GetToken(new TokenRequestContext(AzureSqlScopes));
+                connection.AccessToken = token.Token;
+            }
+
+            return connection;
+        }
 
         private async static Task RetryOnExceptionAsync(int retries, Func<Task> operation, int milliSecondsDelay = 0)
         {

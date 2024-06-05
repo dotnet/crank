@@ -10,22 +10,21 @@
     <OutputType>Exe</OutputType>
     <Authors>Microsoft</Authors>
     <PackageId>Microsoft.Crank.Controller</PackageId>
-    <LangVersion>9.0</LangVersion>
+    <LangVersion>12.0</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" />
+    <PackageReference Include="Azure.Identity" />
     <PackageReference Include="Fluid.Core" />
     <PackageReference Include="Jint" />
+    <PackageReference Include="JsonSchema.Net" />
+    <PackageReference Include="Newtonsoft.Json" />
+    <PackageReference Include="NuGet.Versioning" />
     <PackageReference Include="McMaster.Extensions.CommandLineUtils" />
     <PackageReference Include="Microsoft.Azure.Relay" />
     <PackageReference Include="Microsoft.Data.SqlClient" />
-    <!-- For CG as Microsoft.Data.SqlClient references an older version -->
-    <PackageReference Include="Azure.Identity" />
-    <PackageReference Include="JsonSchema.Net" />
-    <PackageReference Include="NuGet.Versioning" />
-    <PackageReference Include="YamlDotNet" />
     <PackageReference Include="System.IO.Hashing" />
+    <PackageReference Include="YamlDotNet" />
   </ItemGroup>
 
   <ItemGroup>

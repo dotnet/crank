@@ -16,7 +16,6 @@ using System.Net.Http;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -32,11 +31,13 @@ using Microsoft.AspNetCore.Hosting.WindowsServices;
 using Microsoft.Azure.Relay;
 using Microsoft.Crank.EventSources;
 using Microsoft.Crank.Models;
+using Microsoft.Crank.Models.Security;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.Diagnostics.Tools.Trace;
 using Microsoft.Diagnostics.Tracing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Identity.Client;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NuGet.Versioning;
@@ -150,12 +151,19 @@ namespace Microsoft.Crank.Agent
 
         private static string _startPerfviewArguments;
 
+        private static CertificateOptions _certificateOptions;
+
         private static CommandOption
             _relayConnectionStringOption,
             _relayPathOption,
             _relayEnableHttpOption,
             _runAsService,
-            _logPath
+            _logPath,
+            _certPath,
+            _certPassword,
+            _certClientId,
+            _certTenantId,
+            _certThumbprint
             ;
 
         internal static Serilog.Core.Logger Logger { get; private set; }
@@ -246,10 +254,25 @@ namespace Microsoft.Crank.Agent
             var buildTimeoutOption = app.Option("--build-timeout", "Maximum duration of build task in minutes. Default 10 minutes.", CommandOptionType.SingleValue);
             _runAsService = app.Option("--service", "If specified, runs crank-agent as a service", CommandOptionType.NoValue);
             _logPath = app.Option("--log-path", "The path where the logs are written. Directory must exists.", CommandOptionType.SingleValue);
+            _certClientId = app.Option("--cert-client-id", "Service principal client id for cert based auth", CommandOptionType.SingleValue);
+            _certTenantId = app.Option("--cert-tenant-id", "Service principal tenant id for cert based auth", CommandOptionType.SingleValue);
+            _certThumbprint = app.Option("--cert-thumbprint", "Thumbprint for cert", CommandOptionType.SingleValue);
+            _certPath = app.Option("--cert-path", "Location of the certificate to be used for auth.", CommandOptionType.SingleValue);
+            _certPassword = app.Option("--cert-pwd", "Password of the certificate to be used for auth.", CommandOptionType.SingleValue);
 
             if (_runAsService.HasValue() && OperatingSystem != OperatingSystem.Windows)
             {
                 throw new PlatformNotSupportedException($"--service is only available on Windows");
+            }
+
+            if (_certThumbprint.HasValue() || _certPath.HasValue())
+            {
+                if (!_certClientId.HasValue() || !_certTenantId.HasValue())
+                {
+                    Console.WriteLine("If using cert based auth, must provide client id, tenant id, and either a thumbprint or certificate path.");
+                }
+
+                _certificateOptions = new CertificateOptions(_certClientId.Value(), _certTenantId.Value(), _certThumbprint.Value(), _certPath.Value(), _certPassword.Value());
             }
 
             app.OnExecute(() =>
@@ -334,6 +357,28 @@ namespace Microsoft.Crank.Agent
             return app.Execute(args);
         }
 
+        static TokenProvider GetAadTokenProvider(CertificateOptions certificateOptions)
+        {
+            return TokenProvider.CreateAzureActiveDirectoryTokenProvider(
+                async (audience, authority, state) =>
+                {
+                    var certificate = certificateOptions.GetClientCertificate();
+
+                    if (certificate == null)
+                    {
+                        throw new ApplicationException($"The requested certificate could not be found: {certificateOptions.Path ?? certificateOptions.Thumbprint}");
+                    }
+
+                    IConfidentialClientApplication app = ConfidentialClientApplicationBuilder.Create(certificateOptions.ClientId)
+                        .WithAuthority(authority)
+                        .WithCertificate(certificate)
+                        .Build();
+
+                    var authResult = await app.AcquireTokenForClient([$"{audience}/.default"]).ExecuteAsync();
+                    return authResult.AccessToken;
+                },
+                $"https://login.microsoftonline.com/{certificateOptions.TenantId}");
+        }
 
         private static async Task<int> Run(string url, string hostname, string dockerHostname)
         {
@@ -357,6 +402,11 @@ namespace Microsoft.Crank.Agent
                     }
 
                     var rcsb = new RelayConnectionStringBuilder(relayConnectionString);
+
+                    if (_certificateOptions != null)
+                    {
+                        options.TokenProvider = GetAadTokenProvider(_certificateOptions);
+                    }
 
                     if (_relayPathOption.HasValue())
                     {

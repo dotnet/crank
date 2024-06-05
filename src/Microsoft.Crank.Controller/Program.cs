@@ -11,7 +11,7 @@ using System.IO.Hashing;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -24,11 +24,12 @@ using McMaster.Extensions.CommandLineUtils;
 using Microsoft.Azure.Relay;
 using Microsoft.Crank.Controller.Serializers;
 using Microsoft.Crank.Models;
+using Microsoft.Crank.Models.Security;
+using Microsoft.Identity.Client;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 using YamlDotNet.Serialization;
-using static Azure.Core.HttpHeader;
 
 namespace Microsoft.Crank.Controller
 {
@@ -50,6 +51,7 @@ namespace Microsoft.Crank.Controller
 
         private static readonly ScriptConsole _scriptConsole = new();
         private static readonly ScriptFile _scriptFile = new();
+        private static CertificateOptions _certificateOptions;
 
         private static CommandOption
             _configOption,
@@ -84,7 +86,12 @@ namespace Microsoft.Crank.Controller
             _excludeOption,
             _excludeOrderOption,
             _debugOption,
-            _commandLinePropertyOption
+            _commandLinePropertyOption,
+            _certPath,
+            _certPassword,
+            _certClientId,
+            _certTenantId,
+            _certThumbprint
             ;
 
         private static CommandOption<ValueTuple<string, JToken>>
@@ -195,6 +202,11 @@ namespace Microsoft.Crank.Controller
             _excludeOrderOption = app.Option("-xo|--exclude-order", "The result to use to detect the high and low results, e.g., 'load:http/rps/mean'", CommandOptionType.SingleValue);
             _debugOption = app.Option("-d|--debug", "Saves the final configuration to a file and skips the execution of the benchmark, e.g., '-d debug.json'", CommandOptionType.SingleValue);
             _commandLinePropertyOption = app.Option("--command-line-property", "Saves the final crank command line in a custom 'command-line' property, excludinf all unnecessary and security sensitive arguments.", CommandOptionType.NoValue);
+            _certClientId = app.Option("--cert-client-id", "Service principal client id for cert based auth", CommandOptionType.SingleValue);
+            _certTenantId = app.Option("--cert-tenant-id", "Service principal tenant id for cert based auth", CommandOptionType.SingleValue);
+            _certThumbprint = app.Option("--cert-thumbprint", "Thumbprint for cert", CommandOptionType.SingleValue);
+            _certPath = app.Option("--cert-path", "Location of the certificate to be used for auth.", CommandOptionType.SingleValue);
+            _certPassword = app.Option("--cert-pwd", "Password of the certificate to be used for auth.", CommandOptionType.SingleValue);
 
             _ignoredCommands = new HashSet<CommandOption>()
             {
@@ -417,6 +429,16 @@ namespace Microsoft.Crank.Controller
                     return -1;
                 }
 
+                if (_certThumbprint.HasValue() || _certPath.HasValue())
+                {
+                    if (!_certClientId.HasValue() ||!_certTenantId.HasValue())
+                    {
+                        Console.WriteLine("If using cert based auth, must provide client id, tenant id, and either a thumbprint or certificate path.");
+                    }
+
+                    _certificateOptions = new CertificateOptions(_certClientId.Value(), _certTenantId.Value(), _certThumbprint.Value(), _certPath.Value(), _certPassword.Value());
+                }
+
                 if (_sqlTableOption.HasValue())
                 {
                     _tableName = _sqlTableOption.Value();
@@ -617,7 +639,7 @@ namespace Microsoft.Crank.Controller
                 // Initialize database
                 if (!String.IsNullOrWhiteSpace(_sqlConnectionString))
                 {
-                    await JobSerializer.InitializeDatabaseAsync(_sqlConnectionString, _tableName);
+                    await JobSerializer.InitializeDatabaseAsync(_sqlConnectionString, _tableName, _certificateOptions);
                 }
 
                 // Initialize elasticsearch index
@@ -1286,7 +1308,7 @@ namespace Microsoft.Crank.Controller
                     // Skip storing results if running with iterations and not the last run
                     if (i == iterations)
                     {
-                        await JobSerializer.WriteJobResultsToSqlAsync(executionResult.JobResults, _sqlConnectionString, _tableName, session, _scenarioOption.Value(), _descriptionOption.Value());
+                        await JobSerializer.WriteJobResultsToSqlAsync(executionResult.JobResults, _sqlConnectionString, _tableName, session, _scenarioOption.Value(), _descriptionOption.Value(), _certificateOptions);
                     }
                 }
 
@@ -1494,7 +1516,8 @@ namespace Microsoft.Crank.Controller
                     var executionResult = new ExecutionResult();
                     executionResult.JobResults = jobResults;
 
-                    await JobSerializer.WriteJobResultsToSqlAsync(executionResult.JobResults, _sqlConnectionString, _tableName, session, _scenarioOption.Value(), String.Join(" ", _descriptionOption.Value(), fullName));
+                    await JobSerializer.WriteJobResultsToSqlAsync(executionResult.JobResults, _sqlConnectionString, _tableName, session, _scenarioOption.Value(),
+                        String.Join(" ", _descriptionOption.Value(), fullName), _certificateOptions);
                 }
                 if (!String.IsNullOrEmpty(_elasticSearchUrl))
                 {
@@ -1640,7 +1663,7 @@ namespace Microsoft.Crank.Controller
 
                     if (!String.IsNullOrEmpty(_sqlConnectionString))
                     {
-                        await JobSerializer.WriteJobResultsToSqlAsync(jobResults, _sqlConnectionString, _tableName, session, _scenarioOption.Value(), _descriptionOption.Value());
+                        await JobSerializer.WriteJobResultsToSqlAsync(jobResults, _sqlConnectionString, _tableName, session, _scenarioOption.Value(), _descriptionOption.Value(), _certificateOptions);
                     }
 
                     if (!String.IsNullOrEmpty(_elasticSearchUrl))
@@ -3341,6 +3364,22 @@ namespace Microsoft.Crank.Controller
             return executionResult;
         }
 
+        static TokenProvider GetAadTokenProvider(string clientId, string tenantId, X509Certificate2 cert)
+        {
+            return TokenProvider.CreateAzureActiveDirectoryTokenProvider(
+                async (audience, authority, state) =>
+                {
+                    IConfidentialClientApplication app = ConfidentialClientApplicationBuilder.Create(clientId)
+                        .WithAuthority(authority)
+                        .WithCertificate(cert)
+                        .Build();
+
+                    var authResult = await app.AcquireTokenForClient(new[] { $"{audience}/.default" }).ExecuteAsync();
+                    return authResult.AccessToken;
+                },
+                $"https://login.microsoftonline.com/{tenantId}");
+        }
+
         private static async Task<string> GetRelayTokenAsync(Uri endpointUri)
         {
             var connectionString = GetAzureRelayConnectionString();
@@ -3352,6 +3391,7 @@ namespace Microsoft.Crank.Controller
 
             var rcsb = new RelayConnectionStringBuilder(connectionString);
             var tokenProvider = TokenProvider.CreateSharedAccessSignatureTokenProvider(rcsb.SharedAccessKeyName, rcsb.SharedAccessKey);
+
             return (await tokenProvider.GetTokenAsync(rcsb.Endpoint.ToString(), TimeSpan.FromHours(1))).TokenString;
 
             string GetAzureRelayConnectionString()
@@ -3389,7 +3429,7 @@ namespace Microsoft.Crank.Controller
 
                 if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(rootVariable)))
                 {
-                    return Environment.GetEnvironmentVariable(entityVariable);
+                    return Environment.GetEnvironmentVariable(rootVariable);
                 }
 
                 return null;
