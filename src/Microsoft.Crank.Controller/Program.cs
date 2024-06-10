@@ -201,10 +201,10 @@ namespace Microsoft.Crank.Controller
             _excludeOption = app.Option("-x|--exclude", "Excludes the specified number of high and low results, e.g., 1, 1:0 (exclude the lowest), 0:3 (exclude the 3 highest)", CommandOptionType.SingleValue);
             _excludeOrderOption = app.Option("-xo|--exclude-order", "The result to use to detect the high and low results, e.g., 'load:http/rps/mean'", CommandOptionType.SingleValue);
             _debugOption = app.Option("-d|--debug", "Saves the final configuration to a file and skips the execution of the benchmark, e.g., '-d debug.json'", CommandOptionType.SingleValue);
-            _commandLinePropertyOption = app.Option("--command-line-property", "Saves the final crank command line in a custom 'command-line' property, excludinf all unnecessary and security sensitive arguments.", CommandOptionType.NoValue);
-            _certClientId = app.Option("--cert-client-id", "Service principal client id for cert based auth", CommandOptionType.SingleValue);
-            _certTenantId = app.Option("--cert-tenant-id", "Service principal tenant id for cert based auth", CommandOptionType.SingleValue);
-            _certThumbprint = app.Option("--cert-thumbprint", "Thumbprint for cert", CommandOptionType.SingleValue);
+            _commandLinePropertyOption = app.Option("--command-line-property", "Saves the final crank command line in a custom 'command-line' property, excluding all unnecessary and security sensitive arguments.", CommandOptionType.NoValue);
+            _certClientId = app.Option("--cert-client-id", "Service principal client id for cert based auth.", CommandOptionType.SingleValue);
+            _certTenantId = app.Option("--cert-tenant-id", "Service principal tenant id for cert based auth.", CommandOptionType.SingleValue);
+            _certThumbprint = app.Option("--cert-thumbprint", "Thumbprint for cert.", CommandOptionType.SingleValue);
             _certPath = app.Option("--cert-path", "Location of the certificate to be used for auth.", CommandOptionType.SingleValue);
             _certPassword = app.Option("--cert-pwd", "Password of the certificate to be used for auth.", CommandOptionType.SingleValue);
 
@@ -230,6 +230,11 @@ namespace Microsoft.Crank.Controller
                 _quietOption,
                 _debugOption,
                 _commandLinePropertyOption,
+                _certPath,
+                _certPassword,
+                _certClientId,
+                _certTenantId,
+                _certThumbprint,
             };
 
             app.Command("compare", compareCmd =>

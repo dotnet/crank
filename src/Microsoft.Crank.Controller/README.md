@@ -40,7 +40,12 @@ Options:
   -x|--exclude             Excludes the specified number of high and low results, e.g., 1, 1:0 (exclude the lowest), 0:3 (exclude the 3 highest)
   -xo|--exclude-order      The result to use to detect the high and low results, e.g., 'load:http/rps/mean'
   -d|--debug               Saves the final configuration to a file and skips the execution of the benchmark, e.g., '-d debug.json'
-  --command-line-property  Saves the final crank command line in a custom 'command-line' property, excludinf all unnecessary and security sensitive arguments.
+  --command-line-property  Saves the final crank command line in a custom 'command-line' property, excluding all unnecessary and security sensitive arguments.
+  --cert-client-id         Service principal client id for cert based auth.
+  --cert-tenant-id         Service principal tenant id for cert based auth.
+  --cert-thumbprint        Thumbprint for cert.
+  --cert-path              Location of the certificate to be used for auth.
+  --cert-pwd               Password of the certificate to be used for auth.
 
 Commands:
   compare                  Compares result files
