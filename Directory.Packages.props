@@ -23,6 +23,7 @@
     <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="8.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.CommandLine" Version="8.0.0" />
     <PackageVersion Include="Microsoft.Extensions.FileProviders.Abstractions" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="6.35.0" />
     <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.49-beta" PrivateAssets="all" />
     <PackageVersion Include="Mono.Cecil" Version="0.11.3" />
     <PackageVersion Include="Mono.Unix" Version="7.1.0-final.1.21458.1" />
