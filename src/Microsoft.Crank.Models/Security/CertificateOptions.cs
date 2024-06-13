@@ -9,8 +9,9 @@ namespace Microsoft.Crank.Models.Security
         public string Thumbprint { get; }
         public string Path { get; }
         public string Password { get; }
+        public bool SniAuth { get; }
 
-        public CertificateOptions(string clientId, string tenantId, string thumbprint, string path, string password)
+        public CertificateOptions(string clientId, string tenantId, string thumbprint, string path, string password, bool sniAuth)
         {
             if (!string.IsNullOrEmpty(clientId) && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(clientId)))
             {
@@ -42,6 +43,7 @@ namespace Microsoft.Crank.Models.Security
             Thumbprint = thumbprint;
             Path = path;
             Password = password;
+            SniAuth = sniAuth;
         }
     }
 }

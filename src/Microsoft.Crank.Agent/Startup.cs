@@ -163,7 +163,8 @@ namespace Microsoft.Crank.Agent
             _certPassword,
             _certClientId,
             _certTenantId,
-            _certThumbprint
+            _certThumbprint,
+            _certSniAuth
             ;
 
         internal static Serilog.Core.Logger Logger { get; private set; }
@@ -259,6 +260,7 @@ namespace Microsoft.Crank.Agent
             _certThumbprint = app.Option("--cert-thumbprint", "Thumbprint for cert", CommandOptionType.SingleValue);
             _certPath = app.Option("--cert-path", "Location of the certificate to be used for auth.", CommandOptionType.SingleValue);
             _certPassword = app.Option("--cert-pwd", "Password of the certificate to be used for auth.", CommandOptionType.SingleValue);
+            _certSniAuth = app.Option("--cert-sni", "Enable subject name / issuer based authentication (SNI).", CommandOptionType.NoValue);
 
             if (_runAsService.HasValue() && OperatingSystem != OperatingSystem.Windows)
             {
@@ -272,7 +274,7 @@ namespace Microsoft.Crank.Agent
                     Console.WriteLine("If using cert based auth, must provide client id, tenant id, and either a thumbprint or certificate path.");
                 }
 
-                _certificateOptions = new CertificateOptions(_certClientId.Value(), _certTenantId.Value(), _certThumbprint.Value(), _certPath.Value(), _certPassword.Value());
+                _certificateOptions = new CertificateOptions(_certClientId.Value(), _certTenantId.Value(), _certThumbprint.Value(), _certPath.Value(), _certPassword.Value(), _certSniAuth.HasValue());
             }
 
             app.OnExecute(() =>

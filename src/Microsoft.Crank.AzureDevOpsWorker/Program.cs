@@ -32,6 +32,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             var certThumbprint = app.Option("--cert-thumbprint", "Thumbprint of the certificate being used.", CommandOptionType.SingleValue);
             var certPath = app.Option("--cert-path", "Path to a certificate.", CommandOptionType.SingleValue);
             var certPassword = app.Option("--cert-pwd", "Password of the certificate to be used for auth.", CommandOptionType.SingleValue);
+            var certSniAuth = app.Option("--cert-sni", "Enable subject name / issuer based authentication (SNI).", CommandOptionType.NoValue);
             var verboseOption = app.Option("-v|--verbose", "Display verbose log.", CommandOptionType.NoValue);
 
             app.OnExecuteAsync(async cancellationToken =>
@@ -63,7 +64,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                         Console.WriteLine("If using cert based auth, must provide client id, tenant id, and either a thumbprint or certificate path.");
                     }
 
-                    certificateOptions = new CertificateOptions(certClientId.Value(), certTenantId.Value(), certThumbprint.Value(), certPath.Value(), certPassword.Value());
+                    certificateOptions = new CertificateOptions(certClientId.Value(), certTenantId.Value(), certThumbprint.Value(), certPath.Value(), certPassword.Value(), certSniAuth.HasValue());
                 }
 
                 await ProcessAzureQueue(connectionString, queue, certificateOptions);

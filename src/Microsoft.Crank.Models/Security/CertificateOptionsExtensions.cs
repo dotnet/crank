@@ -17,7 +17,12 @@ public static class CertificateOptionsExtensions
             return null;
         }
 
-        return new ClientCertificateCredential(certificateOptions.TenantId, certificateOptions.ClientId, certificate);
+        return new ClientCertificateCredential(
+            certificateOptions.TenantId, 
+            certificateOptions.ClientId, 
+            certificate, 
+            new() { SendCertificateChain = certificateOptions.SniAuth }
+            );
     }
 
     public static X509Certificate2 GetClientCertificate(this CertificateOptions certificateOptions)
