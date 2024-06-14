@@ -91,7 +91,8 @@ namespace Microsoft.Crank.Controller
             _certPassword,
             _certClientId,
             _certTenantId,
-            _certThumbprint
+            _certThumbprint,
+            _certSniAuth
             ;
 
         private static CommandOption<ValueTuple<string, JToken>>
@@ -207,6 +208,7 @@ namespace Microsoft.Crank.Controller
             _certThumbprint = app.Option("--cert-thumbprint", "Thumbprint for cert.", CommandOptionType.SingleValue);
             _certPath = app.Option("--cert-path", "Location of the certificate to be used for auth.", CommandOptionType.SingleValue);
             _certPassword = app.Option("--cert-pwd", "Password of the certificate to be used for auth.", CommandOptionType.SingleValue);
+            _certSniAuth = app.Option("--cert-sni", "Enable subject name / issuer based authentication (SNI).", CommandOptionType.NoValue);
 
             _ignoredCommands = new HashSet<CommandOption>()
             {
@@ -235,6 +237,7 @@ namespace Microsoft.Crank.Controller
                 _certClientId,
                 _certTenantId,
                 _certThumbprint,
+                _certSniAuth
             };
 
             app.Command("compare", compareCmd =>
@@ -441,7 +444,7 @@ namespace Microsoft.Crank.Controller
                         Console.WriteLine("If using cert based auth, must provide client id, tenant id, and either a thumbprint or certificate path.");
                     }
 
-                    _certificateOptions = new CertificateOptions(_certClientId.Value(), _certTenantId.Value(), _certThumbprint.Value(), _certPath.Value(), _certPassword.Value());
+                    _certificateOptions = new CertificateOptions(_certClientId.Value(), _certTenantId.Value(), _certThumbprint.Value(), _certPath.Value(), _certPassword.Value(), _certSniAuth.HasValue());
                 }
 
                 if (_sqlTableOption.HasValue())

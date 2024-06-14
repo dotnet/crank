@@ -46,6 +46,7 @@ Options:
   --cert-thumbprint        Thumbprint for cert.
   --cert-path              Location of the certificate to be used for auth.
   --cert-pwd               Password of the certificate to be used for auth.
+  --cert-sni               Enable subject name / issuer based authentication (SNI).
 
 Commands:
   compare                  Compares result files
