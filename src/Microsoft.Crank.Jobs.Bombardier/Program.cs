@@ -134,32 +134,26 @@ namespace Microsoft.Crank.Jobs.Bombardier
                 Process.Start("spctl", "--add " + bombardierFileName);
             }
 
-            var cleanRequestBodyFile = false;
-            var requestBodyFile = string.Empty;
-            if (!String.IsNullOrEmpty(bodyFile) || !String.IsNullOrEmpty(body))
+            // Filename of temporary file containing the body
+            string tempBodyFile = null;
+            
+            if (!String.IsNullOrEmpty(bodyFile))
             {
-                Console.WriteLine(body);
-                if(!String.IsNullOrEmpty(bodyFile))
+                // Download the body file locally if it's a url, and delete it later
+                if (bodyFile.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (bodyFile.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                    {
-                        requestBodyFile = await DownloadToTempFile(bodyFile);
-                        cleanRequestBodyFile = true;
-                    }
-                    else
-                    {
-                        requestBodyFile = bodyFile;
-                    }
-                }
-                else
-                {
-                    requestBodyFile = Path.GetTempFileName();
-                    File.WriteAllText(requestBodyFile, body);
-                    cleanRequestBodyFile = true;
+                    tempBodyFile = await DownloadToTempFile(bodyFile);
+                    bodyFile = tempBodyFile;
                 }
 
                 argsList.Add("-f");
-                argsList.Add(requestBodyFile);
+                argsList.Add(bodyFile);
+            }
+            
+            if (!string.IsNullOrEmpty(body))
+            {
+                tempBodyFile = Path.GetTempFileName();
+                File.WriteAllText(tempBodyFile, body);
             }
 
             if (!String.IsNullOrEmpty(certFile) && !String.IsNullOrEmpty(keyFile))
@@ -329,10 +323,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
             }
 
             // Clean temporary files
-            if(cleanRequestBodyFile)
-            { 
-                CleanTempFile(requestBodyFile);
-            }
+            CleanTempFile(tempBodyFile);
             CleanTempFile(certFile);
             CleanTempFile(keyFile);
 
@@ -355,6 +346,11 @@ namespace Microsoft.Crank.Jobs.Bombardier
 
         private static void CleanTempFile(string path)
         {
+            if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            {
+                return;
+            }
+            
             try
             {
                 File.Delete(path);
