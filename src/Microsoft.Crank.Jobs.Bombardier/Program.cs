@@ -135,25 +135,24 @@ namespace Microsoft.Crank.Jobs.Bombardier
             }
 
             // Filename of temporary file containing the body
-            string tempBodyFile = null;
+            string tempBodyFile = null;            
             
-            if (!String.IsNullOrEmpty(bodyFile))
+            if (!string.IsNullOrEmpty(body))
+            {
+                bodyFile = tempBodyFile = Path.GetTempFileName();
+                File.WriteAllText(tempBodyFile, body);
+            }
+            
+            if (!string.IsNullOrEmpty(bodyFile))
             {
                 // Download the body file locally if it's a url, and delete it later
                 if (bodyFile.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                 {
-                    tempBodyFile = await DownloadToTempFile(bodyFile);
-                    bodyFile = tempBodyFile;
+                    bodyFile = tempBodyFile = await DownloadToTempFile(bodyFile);
                 }
 
                 argsList.Add("-f");
                 argsList.Add(bodyFile);
-            }
-            
-            if (!string.IsNullOrEmpty(body))
-            {
-                tempBodyFile = Path.GetTempFileName();
-                File.WriteAllText(tempBodyFile, body);
             }
 
             if (!String.IsNullOrEmpty(certFile) && !String.IsNullOrEmpty(keyFile))
