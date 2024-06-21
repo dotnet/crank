@@ -48,6 +48,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
             TryGetArgumentValue("-n", argsList, out int requests);
             TryGetArgumentValue("-o", argsList, out string outputFormat);
             TryGetArgumentValue("-f", argsList, out string bodyFile);
+            TryGetArgumentValue("-b", argsList, out string body);
             TryGetArgumentValue("--cert", argsList, out string certFile);
             TryGetArgumentValue("--key", argsList, out string keyFile);
 
@@ -133,15 +134,32 @@ namespace Microsoft.Crank.Jobs.Bombardier
                 Process.Start("spctl", "--add " + bombardierFileName);
             }
 
-            if (!String.IsNullOrEmpty(bodyFile))
+            var cleanRequestBodyFile = false;
+            var requestBodyFile = string.Empty;
+            if (!String.IsNullOrEmpty(bodyFile) || !String.IsNullOrEmpty(body))
             {
-                if (bodyFile.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                Console.WriteLine(body);
+                if(!String.IsNullOrEmpty(bodyFile))
                 {
-                    bodyFile = await DownloadToTempFile(bodyFile);
+                    if (bodyFile.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                    {
+                        requestBodyFile = await DownloadToTempFile(bodyFile);
+                        cleanRequestBodyFile = true;
+                    }
+                    else
+                    {
+                        requestBodyFile = bodyFile;
+                    }
+                }
+                else
+                {
+                    requestBodyFile = Path.GetTempFileName();
+                    File.WriteAllText(requestBodyFile, body);
+                    cleanRequestBodyFile = true;
                 }
 
                 argsList.Add("-f");
-                argsList.Add(bodyFile);
+                argsList.Add(requestBodyFile);
             }
 
             if (!String.IsNullOrEmpty(certFile) && !String.IsNullOrEmpty(keyFile))
@@ -311,7 +329,10 @@ namespace Microsoft.Crank.Jobs.Bombardier
             }
 
             // Clean temporary files
-            CleanTempFile(bodyFile);
+            if(cleanRequestBodyFile)
+            { 
+                CleanTempFile(requestBodyFile);
+            }
             CleanTempFile(certFile);
             CleanTempFile(keyFile);
 
