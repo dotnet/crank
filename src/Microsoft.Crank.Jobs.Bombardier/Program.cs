@@ -48,6 +48,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
             TryGetArgumentValue("-n", argsList, out int requests);
             TryGetArgumentValue("-o", argsList, out string outputFormat);
             TryGetArgumentValue("-f", argsList, out string bodyFile);
+            TryGetArgumentValue("-b", argsList, out string body);
             TryGetArgumentValue("--cert", argsList, out string certFile);
             TryGetArgumentValue("--key", argsList, out string keyFile);
 
@@ -133,11 +134,21 @@ namespace Microsoft.Crank.Jobs.Bombardier
                 Process.Start("spctl", "--add " + bombardierFileName);
             }
 
-            if (!String.IsNullOrEmpty(bodyFile))
+            // Filename of temporary file containing the body
+            string tempBodyFile = null;            
+            
+            if (!string.IsNullOrEmpty(body))
             {
+                bodyFile = tempBodyFile = Path.GetTempFileName();
+                File.WriteAllText(tempBodyFile, body);
+            }
+            
+            if (!string.IsNullOrEmpty(bodyFile))
+            {
+                // Download the body file locally if it's a url, and delete it later
                 if (bodyFile.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                 {
-                    bodyFile = await DownloadToTempFile(bodyFile);
+                    bodyFile = tempBodyFile = await DownloadToTempFile(bodyFile);
                 }
 
                 argsList.Add("-f");
@@ -311,7 +322,7 @@ namespace Microsoft.Crank.Jobs.Bombardier
             }
 
             // Clean temporary files
-            CleanTempFile(bodyFile);
+            CleanTempFile(tempBodyFile);
             CleanTempFile(certFile);
             CleanTempFile(keyFile);
 
@@ -334,6 +345,11 @@ namespace Microsoft.Crank.Jobs.Bombardier
 
         private static void CleanTempFile(string path)
         {
+            if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            {
+                return;
+            }
+            
             try
             {
                 File.Delete(path);
