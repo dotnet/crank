@@ -39,6 +39,7 @@
     <!-- Forced versions for Component Governance compliance -->
     <PackageReference Include="System.Text.Encodings.Web" />
     <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
 
   </ItemGroup>
 
