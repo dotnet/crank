@@ -43,6 +43,9 @@
     <PackageVersion Include="System.Text.Json" Version="8.0.3" />
     <PackageVersion Include="YamlDotNet" Version="15.1.2" />
 
+    <!-- For component governance - Imported by Microsoft.Azure.Relay and Microsoft.Azure.Relay.AspNetCore -->
+    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="6.35.0" />
+
     <GlobalPackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="all" />
   </ItemGroup>
 </Project>
