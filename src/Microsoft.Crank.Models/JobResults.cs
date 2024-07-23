@@ -41,20 +41,20 @@ namespace Microsoft.Crank.Models
 
     public class BenchmarkStatistics
     {
-        public double Min { get; set; }
-        public double Mean { get; set; }
-        public double Median { get; set; }
-        public double Max { get; set; }
-        public double StandardError { get; set; }
-        public double StandardDeviation { get; set; }
+        public double? Min { get; set; }
+        public double? Mean { get; set; }
+        public double? Median { get; set; }
+        public double? Max { get; set; }
+        public double? StandardError { get; set; }
+        public double? StandardDeviation { get; set; }
     }
 
     public class BenchmarkMemory
     {
-        public int Gen0Collections { get; set; }
-        public int Gen1Collections { get; set; }
-        public int Gen2Collections { get; set; }
-        public long BytesAllocatedPerOperation { get; set; }
-        public long TotalOperations { get; set; }
+        public int? Gen0Collections { get; set; }
+        public int? Gen1Collections { get; set; }
+        public int? Gen2Collections { get; set; }
+        public long? BytesAllocatedPerOperation { get; set; }
+        public long? TotalOperations { get; set; }
     }
 }
