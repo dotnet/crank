@@ -4341,13 +4341,6 @@ namespace Microsoft.Crank.Agent
         /// </summary>
         private static async Task<(string Runtime, string Desktop, string AspNet, string Sdk)> GetCurrentVersions(string targetFramework)
         {
-            // There are currently no release for net9.0
-            // Remove once there is at least a preview and a "release-metadata" file
-            if (targetFramework.Equals("net9.0", StringComparison.OrdinalIgnoreCase))
-            {
-                return (null, null, null, null);
-            }
-
             var frameworkVersion = targetFramework.Substring(targetFramework.Length - 3); // 6.0
             var metadataUrl = $"https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/{frameworkVersion}/releases.json";
 
