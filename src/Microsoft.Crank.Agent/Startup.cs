@@ -35,6 +35,7 @@ using Microsoft.Crank.Models.Security;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.Diagnostics.Tools.Trace;
 using Microsoft.Diagnostics.Tracing;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Identity.Client;
@@ -100,7 +101,9 @@ namespace Microsoft.Crank.Agent
         // Safe-keeping these urls
         //private const string _releaseMetadata = "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/releases-index.json";
 
+        private static TimeSpan _latestProductVersions90Cache = TimeSpan.FromDays(1);
         private static string _latestProductVersions90Url = "https://aka.ms/dotnet/9.0.1xx/daily/productCommit-{0}.json";
+        private static TimeSpan _aspnetSdkVersionCache = TimeSpan.FromDays(1);
         private const string _aspnetSdkVersionUrl = "https://raw.githubusercontent.com/dotnet/aspnetcore/main/global.json";
 
         private static readonly string[] _runtimeFeedUrls = new string[] {
@@ -132,8 +135,9 @@ namespace Microsoft.Crank.Agent
         private static Process perfCollectProcess;
         private static readonly object _synLock = new();
         private static object _consoleLock = new();
+        private static MemoryCache _fileContentCache = new(new MemoryCacheOptions { SizeLimit = 10_000_000 });
 
-        private static Task dotnetTraceTask;
+private static Task dotnetTraceTask;
         private static ManualResetEvent dotnetTraceManualReset;
 
         public static OperatingSystem OperatingSystem { get; }
@@ -147,6 +151,7 @@ namespace Microsoft.Crank.Agent
         public static TimeSpan CollectTimeout = TimeSpan.FromMinutes(5);
         public static CancellationTokenSource _processJobsCts;
         public static Task _processJobsTask;
+
         public static CGroup CGroupVersion { get; private set; }
 
         private static string _startPerfviewArguments;
@@ -2841,14 +2846,11 @@ namespace Microsoft.Crank.Agent
                 sdkVersion = channel;
             }
 
-            // Retrieve current versions
-            var (currentRuntimeVersion, currentDesktopVersion, currentAspNetCoreVersion, currentSdkVersion) = await GetCurrentVersions(targetFramework);
+            runtimeVersion = await ResolveRuntimeVersion(buildToolsPath, targetFramework, runtimeVersion);
 
-            runtimeVersion = await ResolveRuntimeVersion(buildToolsPath, targetFramework, runtimeVersion, currentRuntimeVersion);
+            sdkVersion = await ResolveSdkVersion(sdkVersion, targetFramework);
 
-            sdkVersion = await ResolveSdkVersion(sdkVersion, currentSdkVersion, targetFramework);
-
-            aspNetCoreVersion = await ResolveAspNetCoreVersion(aspNetCoreVersion, currentAspNetCoreVersion, targetFramework);
+            aspNetCoreVersion = await ResolveAspNetCoreVersion(aspNetCoreVersion, targetFramework);
 
             sdkVersion = PatchOrCreateGlobalJson(job, benchmarkedApp, sdkVersion);
 
@@ -2866,7 +2868,7 @@ namespace Microsoft.Crank.Agent
             {
                 if (OperatingSystem == OperatingSystem.Windows)
                 {
-                    desktopVersion = await ResolveDesktopVersion(desktopVersion, currentDesktopVersion, targetFramework);
+                    desktopVersion = await ResolveDesktopVersion(desktopVersion, targetFramework);
 
                     if (!_installedSdks.Contains(sdkVersion))
                     {
@@ -3835,8 +3837,9 @@ namespace Microsoft.Crank.Agent
             return desktopVersion;
         }
 
-        private static async Task<string> ResolveAspNetCoreVersion(string aspNetCoreVersion, string currentAspNetCoreVersion, string targetFramework)
+        private static async Task<string> ResolveAspNetCoreVersion(string aspNetCoreVersion, string targetFramework)
         {
+            (_, _, var currentAspNetCoreVersion, _) = await GetCurrentVersions(targetFramework);
             var versionPrefix = targetFramework.Substring(targetFramework.Length - 3);
 
             // Define which ASP.NET Core packages version to use
@@ -3844,7 +3847,10 @@ namespace Microsoft.Crank.Agent
             switch (aspNetCoreVersion.ToLowerInvariant())
             {
                 case "current":
-                    aspNetCoreVersion = currentAspNetCoreVersion;
+                    aspNetCoreVersion = string.IsNullOrEmpty(currentAspNetCoreVersion)
+                        ? await ResolveAspNetCoreVersion("Latest", targetFramework)
+                        : currentAspNetCoreVersion;
+
                     Log.Info($"ASP.NET: {aspNetCoreVersion} (Current)");
                     break;
                 case "latest":
@@ -3852,7 +3858,7 @@ namespace Microsoft.Crank.Agent
                     switch (versionPrefix)
                     {
                         case "9.0":
-                            var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url));
+                            var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url, cache: _latestProductVersions90Cache));
                             aspNetCoreVersion = productsInfo["aspnetcore"]["version"].ToString();
                             Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - From 9.0 SDK)");
                             break;
@@ -4147,18 +4153,25 @@ namespace Microsoft.Crank.Agent
             File.WriteAllText(runtimeConfigFilename, runtimeObject.ToString());
         }
 
-        private static async Task<string> ResolveSdkVersion(string sdkVersion, string currentSdkVersion, string targetFramework)
+        private static async Task<string> ResolveSdkVersion(string sdkVersion, string targetFramework)
         {
+            (_, _, _, var currentSdkVersion) = await GetCurrentVersions(targetFramework);
+
             if (String.Equals(sdkVersion, "Current", StringComparison.OrdinalIgnoreCase))
             {
-                sdkVersion = currentSdkVersion;
+                // Fallback to Latest if there is no current version for this TFM
+
+                sdkVersion = string.IsNullOrEmpty(currentSdkVersion) 
+                    ? await ResolveSdkVersion("Latest", targetFramework) 
+                    : currentSdkVersion;
+
                 Log.Info($"SDK: {sdkVersion} (Current)");
             }
             else if (String.Equals(sdkVersion, "Latest", StringComparison.OrdinalIgnoreCase))
             {
                 if (targetFramework == "net9.0")
                 {
-                    var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url));
+                    var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url, cache: _latestProductVersions90Cache));
                     sdkVersion = productsInfo["sdk"]["version"].ToString();
                     Log.Info($"SDK: {sdkVersion} (Latest - From Product Commit)");
                 }
@@ -4172,7 +4185,7 @@ namespace Microsoft.Crank.Agent
             {
                 if (targetFramework == "net9.0")
                 {
-                    var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url));
+                    var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url, cache: _latestProductVersions90Cache));
                     sdkVersion = productsInfo["sdk"]["version"].ToString();
                     Log.Info($"SDK: {sdkVersion} (Edge)");
                 }
@@ -4185,13 +4198,20 @@ namespace Microsoft.Crank.Agent
             return sdkVersion;
         }
 
-        private static async Task<string> ResolveRuntimeVersion(string buildToolsPath, string targetFramework, string runtimeVersion, string currentRuntimeVersion)
+        private static async Task<string> ResolveRuntimeVersion(string buildToolsPath, string targetFramework, string runtimeVersion)
         {
+            (var currentRuntimeVersion, _, _, _) = await GetCurrentVersions(targetFramework);
+
             var versionPrefix = targetFramework.Substring(targetFramework.Length - 3);
 
             if (String.Equals(runtimeVersion, "Current", StringComparison.OrdinalIgnoreCase))
             {
-                runtimeVersion = currentRuntimeVersion;
+                // Fallback to Latest if there is no current version for this TFM
+
+                runtimeVersion = string.IsNullOrEmpty(currentRuntimeVersion)
+                    ? await ResolveRuntimeVersion(buildToolsPath, targetFramework, "Latest")
+                    : currentRuntimeVersion;
+
                 Log.Info($"Runtime: {runtimeVersion} (Current)");
             }
             else if (String.Equals(runtimeVersion, "Latest", StringComparison.OrdinalIgnoreCase))
@@ -4199,12 +4219,12 @@ namespace Microsoft.Crank.Agent
                 switch (versionPrefix)
                 {
                     case "9.0":
-                        var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url));
+                        var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url, cache: _latestProductVersions90Cache));
                         runtimeVersion = productsInfo["runtime"]["version"].ToString();
                         Log.Info($"Runtime: {runtimeVersion} (Latest - From 9.0 SDK)");
                         break;
                     default:
-                    runtimeVersion = currentRuntimeVersion;
+                        runtimeVersion = currentRuntimeVersion;
                         Log.Info($"Runtime: {runtimeVersion} (Latest - Fallback on Current)");
                         break;
                 }
@@ -4238,11 +4258,18 @@ namespace Microsoft.Crank.Agent
             return runtimeVersion;
         }
 
-        private static async Task<string> ResolveDesktopVersion(string desktopVersion, string currentDesktopVersion, string targetFramework)
+        private static async Task<string> ResolveDesktopVersion(string desktopVersion, string targetFramework)
         {
+            (_, var currentDesktopVersion, _, _) = await GetCurrentVersions(targetFramework);
+
             if (String.Equals(desktopVersion, "Current", StringComparison.OrdinalIgnoreCase))
             {
-                desktopVersion = currentDesktopVersion;
+                // Fallback to Latest if there is no current version for this TFM
+
+                desktopVersion = string.IsNullOrEmpty(currentDesktopVersion)
+                    ? await ResolveDesktopVersion("Latest", targetFramework)
+                    : currentDesktopVersion;
+
                 Log.Info($"Desktop: {desktopVersion} (Current)");
             }
             else if (String.Equals(desktopVersion, "Latest", StringComparison.OrdinalIgnoreCase))
@@ -4252,7 +4279,7 @@ namespace Microsoft.Crank.Agent
             }
             else if (String.Equals(desktopVersion, "Edge", StringComparison.OrdinalIgnoreCase))
             {
-                var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url));
+                var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url, cache: _latestProductVersions90Cache));
                 desktopVersion = productsInfo["windowsdesktop"]["version"].ToString();
                 Log.Info($"Desktop: {desktopVersion} (Edge)");
             }
@@ -4267,7 +4294,7 @@ namespace Microsoft.Crank.Agent
 
         public static async Task<string> GetAspNetSdkVersion()
         {
-            var globalJson = await DownloadContentAsync(_aspnetSdkVersionUrl, maxRetries: 5, timeout: 10);
+            var globalJson = await DownloadContentAsync(_aspnetSdkVersionUrl, maxRetries: 5, timeout: 10, cache: _aspnetSdkVersionCache);
             var globalObject = JObject.Parse(globalJson);
             return globalObject["sdk"]["version"].ToString();
         }
@@ -4346,7 +4373,7 @@ namespace Microsoft.Crank.Agent
 
             try
             {
-                var content = await DownloadContentAsync(metadataUrl);
+                var content = await DownloadContentAsync(metadataUrl, cache: TimeSpan.FromDays(1));
                 var index = JObject.Parse(content);
 
                 var aspnet = index.SelectToken($"$.releases[0].aspnetcore-runtime.version").ToString();
@@ -4370,7 +4397,7 @@ namespace Microsoft.Crank.Agent
         private static async Task<(string version, string hash)> ParseLatestVersionFile(string urlOrFilename)
         {
             var content = urlOrFilename.StartsWith("http", StringComparison.OrdinalIgnoreCase)
-                ? await DownloadContentAsync(urlOrFilename)
+                ? await DownloadContentAsync(urlOrFilename, cache: TimeSpan.FromHours(1))
                 : await File.ReadAllTextAsync(urlOrFilename)
                 ;
 
@@ -5665,8 +5692,24 @@ namespace Microsoft.Crank.Agent
             return name;
         }
 
-        private static async Task<string> DownloadContentAsync(string url, int maxRetries = 3, int timeout = 5)
+        private static async Task<string> DownloadContentAsync(string url, int maxRetries = 3, int timeout = 5, TimeSpan? cache = null)
         {
+            if (cache != null)
+            {
+                Logger.Debug($"Reading '{url}' from cache");
+                
+                return await _fileContentCache.GetOrCreateAsync((url, cache), async entry =>
+                {
+                    var content = await DownloadContentAsync(url, maxRetries, timeout, null);
+                    entry.AbsoluteExpirationRelativeToNow = cache;
+                    entry.Size = content.Length;
+
+                    return content;
+                });
+            }
+
+            Logger.Debug($"Downloading '{url}'");
+
             for (var i = 0; i < maxRetries; ++i)
             {
                 try
@@ -5681,43 +5724,6 @@ namespace Microsoft.Crank.Agent
             }
 
             throw new ApplicationException($"Error while downloading {url} after {maxRetries} attempts");
-        }
-
-        private static async Task<string> GetLatestPackageVersion(string packageIndexUrl, string versionPrefix)
-        {
-            Log.Info($"Downloading package metadata ...");
-            var index = JObject.Parse(await DownloadContentAsync(packageIndexUrl));
-
-            var compatiblePages = index["items"].Where(t => ((string)t["lower"]).StartsWith(versionPrefix)).ToArray();
-
-            // All versions might be comprised in a single page, with lower and upper bounds not matching the prefix
-            if (!compatiblePages.Any())
-            {
-                compatiblePages = index["items"].ToArray();
-            }
-
-            foreach (var page in compatiblePages.Reverse())
-            {
-                var lastPageUrl = (string)page["@id"];
-
-                var lastPage = JObject.Parse(await DownloadContentAsync(lastPageUrl));
-
-                var entries = packageIndexUrl.Contains("myget", StringComparison.OrdinalIgnoreCase)
-                                    ? lastPage["items"]
-                                    : lastPage["items"][0]["items"]
-                                    ;
-
-                // Extract the highest version
-                var lastEntry = entries
-                    .Where(t => ((string)t["catalogEntry"]["version"]).StartsWith(versionPrefix)).LastOrDefault();
-
-                if (lastEntry != null)
-                {
-                    return (string)lastEntry["catalogEntry"]["version"];
-                }
-            }
-
-            return null;
         }
 
         private static bool TryGetAzureFeedForPackage(PackageTypes runtime, string version, out string dotnetFeed)
@@ -5780,7 +5786,7 @@ namespace Microsoft.Crank.Agent
 
         private static async Task<string> GetFlatContainerVersion(string packageIndexUrl, string versionPrefix, bool checkDotnetInstallUrl = false)
         {
-            var root = JObject.Parse(await DownloadContentAsync(packageIndexUrl));
+            var root = JObject.Parse(await DownloadContentAsync(packageIndexUrl, cache: TimeSpan.FromHours(1)));
 
             var matchingVersions = root["versions"]
                 .Select(x => x.ToString())
