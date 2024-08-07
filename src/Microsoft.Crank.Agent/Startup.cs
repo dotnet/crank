@@ -3261,7 +3261,7 @@ namespace Microsoft.Crank.Agent
 
                 var projectName = Path.GetFileName(FormatPathSeparators(job.Project));
 
-                var arguments = $"publish {projectName} -c Release -o {outputFolder} {buildParameters}";
+                var arguments = $"publish {projectName} --disable-build-servers -c Release -o {outputFolder} {buildParameters}";
 
                 // This might be set already, and the SDK will then use it for some targets files
                 // https://github.com/dotnet/sdk/blob/e2faebad758a7d38b5965cda755a17e9e9881599/src/Cli/Microsoft.DotNet.Cli.Utils/MSBuildForwardingAppWithoutLogging.cs#L75
@@ -3311,15 +3311,6 @@ namespace Microsoft.Crank.Agent
                 Log.Info($"Application published successfully in {job.BuildTime.TotalMilliseconds} ms");
 
                 PatchRuntimeConfig(job, outputFolder, aspNetCoreVersion, runtimeVersion);
-
-                await ProcessUtil.RunAsync(dotnetExecutable, "build-server shutdown",
-                    workingDirectory: benchmarkedApp,
-                    environmentVariables: env,
-                    throwOnError: false,
-                    outputDataReceived: job.BuildLog.AddLine,
-                    cancellationToken: cancellationToken,
-                   timeout: TimeSpan.FromSeconds(20)
-                );
             }
 
             var publishedSize = DirSize(new DirectoryInfo(outputFolder)) / 1024;
