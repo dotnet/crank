@@ -3319,7 +3319,7 @@ namespace Microsoft.Crank.Agent
                     outputDataReceived: job.BuildLog.AddLine,
                     cancellationToken: cancellationToken,
                    timeout: TimeSpan.FromSeconds(20)
-                    );
+                );
             }
 
             var publishedSize = DirSize(new DirectoryInfo(outputFolder)) / 1024;
