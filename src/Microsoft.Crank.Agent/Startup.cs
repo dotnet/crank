@@ -3311,6 +3311,15 @@ namespace Microsoft.Crank.Agent
                 Log.Info($"Application published successfully in {job.BuildTime.TotalMilliseconds} ms");
 
                 PatchRuntimeConfig(job, outputFolder, aspNetCoreVersion, runtimeVersion);
+
+                await ProcessUtil.RunAsync(dotnetExecutable, "build-server shutdown",
+                    workingDirectory: benchmarkedApp,
+                    environmentVariables: env,
+                    throwOnError: false,
+                    outputDataReceived: job.BuildLog.AddLine,
+                    cancellationToken: cancellationToken,
+                   timeout: TimeSpan.FromSeconds(20)
+                    );
             }
 
             var publishedSize = DirSize(new DirectoryInfo(outputFolder)) / 1024;
