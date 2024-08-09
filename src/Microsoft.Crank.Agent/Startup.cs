@@ -3268,6 +3268,9 @@ namespace Microsoft.Crank.Agent
                 env["MSBuildSDKsPath"] = Path.Combine(Path.GetDirectoryName(dotnetExecutable), $"sdk/{sdkVersion}/Sdks");
                 env["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
 
+                // Prevent VBCSCompiler.dll from being started in a different process and incuring random garbage collections during the benchmark
+                env["MSBUILDDISABLENODEREUSE"] = "1";
+
                 Log.Info($"Working directory: {benchmarkedApp}");
                 Log.Info($"Command line: {dotnetExecutable} {arguments}");
 
