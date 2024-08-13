@@ -3261,7 +3261,7 @@ namespace Microsoft.Crank.Agent
 
                 var projectName = Path.GetFileName(FormatPathSeparators(job.Project));
 
-                var arguments = $"publish {projectName} -c Release -o {outputFolder} {buildParameters}";
+                var arguments = $"publish {projectName} -c Release --disable-build-servers -o {outputFolder} {buildParameters}";
 
                 // This might be set already, and the SDK will then use it for some targets files
                 // https://github.com/dotnet/sdk/blob/e2faebad758a7d38b5965cda755a17e9e9881599/src/Cli/Microsoft.DotNet.Cli.Utils/MSBuildForwardingAppWithoutLogging.cs#L75
