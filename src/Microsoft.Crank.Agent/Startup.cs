@@ -3261,12 +3261,15 @@ namespace Microsoft.Crank.Agent
 
                 var projectName = Path.GetFileName(FormatPathSeparators(job.Project));
 
-                var arguments = $"publish {projectName} -c Release -o {outputFolder} {buildParameters}";
+                var arguments = $"publish {projectName} -c Release --disable-build-servers -o {outputFolder} {buildParameters}";
 
                 // This might be set already, and the SDK will then use it for some targets files
                 // https://github.com/dotnet/sdk/blob/e2faebad758a7d38b5965cda755a17e9e9881599/src/Cli/Microsoft.DotNet.Cli.Utils/MSBuildForwardingAppWithoutLogging.cs#L75
                 env["MSBuildSDKsPath"] = Path.Combine(Path.GetDirectoryName(dotnetExecutable), $"sdk/{sdkVersion}/Sdks");
                 env["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
+
+                // Prevent VBCSCompiler.dll from being started in a different process and incuring random garbage collections during the benchmark
+                env["MSBUILDDISABLENODEREUSE"] = "1";
 
                 Log.Info($"Working directory: {benchmarkedApp}");
                 Log.Info($"Command line: {dotnetExecutable} {arguments}");
