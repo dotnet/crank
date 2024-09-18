@@ -211,10 +211,10 @@ namespace Microsoft.Crank.Controller
                         summary.Add(new BenchmarkSummary()
                         {
                             Name = benchmark.FullName,
-                            MeanNanoseconds = benchmark.Statistics.Mean ?? double.NaN,
-                            StandardErrorNanoseconds = benchmark.Statistics.StandardError ?? double.NaN,
-                            StandardDeviationNanoseconds = benchmark.Statistics.StandardDeviation ?? double.NaN,
-                            MedianNanoseconds = benchmark.Statistics.Median ?? double.NaN,
+                            MeanNanoseconds = benchmark.Statistics?.Mean ?? double.NaN,
+                            StandardErrorNanoseconds = benchmark.Statistics?.StandardError ?? double.NaN,
+                            StandardDeviationNanoseconds = benchmark.Statistics?.StandardDeviation ?? double.NaN,
+                            MedianNanoseconds = benchmark.Statistics?.Median ?? double.NaN,
                             Gen0 = benchmark.Memory?.Gen0Collections ?? 0,
                             Gen1 = benchmark.Memory?.Gen1Collections ?? 0,
                             Gen2 = benchmark.Memory?.Gen2Collections ?? 0,
