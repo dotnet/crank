@@ -5697,14 +5697,14 @@ namespace Microsoft.Crank.Agent
 
         private static async Task<string> DownloadContentAsync(string url, int maxRetries = 3, int timeout = 5, TimeSpan? cacheDuration = null)
         {
-            if (cache != null)
+            if (cacheDuration != null)
             {
                 Logger.Debug($"Reading '{url}' from cache");
                 
                 return await _fileContentCache.GetOrCreateAsync((url, cache), async entry =>
                 {
                     var content = await DownloadContentAsync(url, maxRetries, timeout, null);
-                    entry.AbsoluteExpirationRelativeToNow = cache;
+                    entry.AbsoluteExpirationRelativeToNow = cacheDuration;
                     entry.Size = content.Length;
 
                     return content;
