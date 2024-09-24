@@ -101,9 +101,9 @@ namespace Microsoft.Crank.Agent
         // Safe-keeping these urls
         //private const string _releaseMetadata = "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/releases-index.json";
 
-        private static TimeSpan _latestProductVersions90Cache = TimeSpan.FromDays(1);
+        private static TimeSpan _latestProductVersions90CacheDuration = TimeSpan.FromDays(1);
         private static string _latestProductVersions90Url = "https://aka.ms/dotnet/9.0.1xx/daily/productCommit-{0}.json";
-        private static TimeSpan _aspnetSdkVersionCache = TimeSpan.FromDays(1);
+        private static TimeSpan _aspnetSdkVersionCacheDuration = TimeSpan.FromDays(1);
         private const string _aspnetSdkVersionUrl = "https://raw.githubusercontent.com/dotnet/aspnetcore/main/global.json";
 
         private static readonly string[] _runtimeFeedUrls = new string[] {
@@ -137,7 +137,7 @@ namespace Microsoft.Crank.Agent
         private static object _consoleLock = new();
         private static MemoryCache _fileContentCache = new(new MemoryCacheOptions { SizeLimit = 10_000_000 });
 
-private static Task dotnetTraceTask;
+        private static Task dotnetTraceTask;
         private static ManualResetEvent dotnetTraceManualReset;
 
         public static OperatingSystem OperatingSystem { get; }
@@ -3861,7 +3861,7 @@ private static Task dotnetTraceTask;
                     switch (versionPrefix)
                     {
                         case "9.0":
-                            var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url, cache: _latestProductVersions90Cache));
+                            var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url, cacheDuration: _latestProductVersions90CacheDuration));
                             aspNetCoreVersion = productsInfo["aspnetcore"]["version"].ToString();
                             Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - From 9.0 SDK)");
                             break;
@@ -4174,7 +4174,7 @@ private static Task dotnetTraceTask;
             {
                 if (targetFramework == "net9.0")
                 {
-                    var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url, cache: _latestProductVersions90Cache));
+                    var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url, cacheDuration: _latestProductVersions90CacheDuration));
                     sdkVersion = productsInfo["sdk"]["version"].ToString();
                     Log.Info($"SDK: {sdkVersion} (Latest - From Product Commit)");
                 }
@@ -4188,7 +4188,7 @@ private static Task dotnetTraceTask;
             {
                 if (targetFramework == "net9.0")
                 {
-                    var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url, cache: _latestProductVersions90Cache));
+                    var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url, cacheDuration: _latestProductVersions90CacheDuration));
                     sdkVersion = productsInfo["sdk"]["version"].ToString();
                     Log.Info($"SDK: {sdkVersion} (Edge)");
                 }
@@ -4222,7 +4222,7 @@ private static Task dotnetTraceTask;
                 switch (versionPrefix)
                 {
                     case "9.0":
-                        var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url, cache: _latestProductVersions90Cache));
+                        var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url, cacheDuration: _latestProductVersions90CacheDuration));
                         runtimeVersion = productsInfo["runtime"]["version"].ToString();
                         Log.Info($"Runtime: {runtimeVersion} (Latest - From 9.0 SDK)");
                         break;
@@ -4282,7 +4282,7 @@ private static Task dotnetTraceTask;
             }
             else if (String.Equals(desktopVersion, "Edge", StringComparison.OrdinalIgnoreCase))
             {
-                var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url, cache: _latestProductVersions90Cache));
+                var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url, cacheDuration: _latestProductVersions90CacheDuration));
                 desktopVersion = productsInfo["windowsdesktop"]["version"].ToString();
                 Log.Info($"Desktop: {desktopVersion} (Edge)");
             }
@@ -4297,7 +4297,7 @@ private static Task dotnetTraceTask;
 
         public static async Task<string> GetAspNetSdkVersion()
         {
-            var globalJson = await DownloadContentAsync(_aspnetSdkVersionUrl, maxRetries: 5, timeout: 10, cache: _aspnetSdkVersionCache);
+            var globalJson = await DownloadContentAsync(_aspnetSdkVersionUrl, maxRetries: 5, timeout: 10, cacheDuration: _aspnetSdkVersionCacheDuration);
             var globalObject = JObject.Parse(globalJson);
             return globalObject["sdk"]["version"].ToString();
         }
@@ -4376,7 +4376,7 @@ private static Task dotnetTraceTask;
 
             try
             {
-                var content = await DownloadContentAsync(metadataUrl, cache: TimeSpan.FromDays(1));
+                var content = await DownloadContentAsync(metadataUrl, cacheDuration: TimeSpan.FromDays(1));
                 var index = JObject.Parse(content);
 
                 var aspnet = index.SelectToken($"$.releases[0].aspnetcore-runtime.version").ToString();
@@ -4400,7 +4400,7 @@ private static Task dotnetTraceTask;
         private static async Task<(string version, string hash)> ParseLatestVersionFile(string urlOrFilename)
         {
             var content = urlOrFilename.StartsWith("http", StringComparison.OrdinalIgnoreCase)
-                ? await DownloadContentAsync(urlOrFilename, cache: TimeSpan.FromHours(1))
+                ? await DownloadContentAsync(urlOrFilename, cacheDuration: TimeSpan.FromHours(1))
                 : await File.ReadAllTextAsync(urlOrFilename)
                 ;
 
@@ -5695,7 +5695,7 @@ private static Task dotnetTraceTask;
             return name;
         }
 
-        private static async Task<string> DownloadContentAsync(string url, int maxRetries = 3, int timeout = 5, TimeSpan? cache = null)
+        private static async Task<string> DownloadContentAsync(string url, int maxRetries = 3, int timeout = 5, TimeSpan? cacheDuration = null)
         {
             if (cache != null)
             {
@@ -5789,7 +5789,7 @@ private static Task dotnetTraceTask;
 
         private static async Task<string> GetFlatContainerVersion(string packageIndexUrl, string versionPrefix, bool checkDotnetInstallUrl = false)
         {
-            var root = JObject.Parse(await DownloadContentAsync(packageIndexUrl, cache: TimeSpan.FromHours(1)));
+            var root = JObject.Parse(await DownloadContentAsync(packageIndexUrl, cacheDuration: TimeSpan.FromHours(1)));
 
             var matchingVersions = root["versions"]
                 .Select(x => x.ToString())
