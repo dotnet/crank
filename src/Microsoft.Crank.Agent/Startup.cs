@@ -5701,7 +5701,7 @@ namespace Microsoft.Crank.Agent
             {
                 Logger.Debug($"Reading '{url}' from cache");
                 
-                return await _fileContentCache.GetOrCreateAsync((url, cache), async entry =>
+                return await _fileContentCache.GetOrCreateAsync((url, cacheDuration), async entry =>
                 {
                     var content = await DownloadContentAsync(url, maxRetries, timeout, null);
                     entry.AbsoluteExpirationRelativeToNow = cacheDuration;
