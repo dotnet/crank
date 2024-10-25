@@ -2240,7 +2240,7 @@ namespace Microsoft.Crank.Agent
             }
 
             // docker create --name {containerName}
-            var createCommand = $"create {environmentArguments} {job.Arguments} --label benchmarks --name {containerName} --privileged --network host {imageName} {job.DockerCommand}";
+            var createCommand = $"create {environmentArguments} {job.Arguments} --label benchmarks --name {containerName} --privileged --network host {imageName} -v /sys/fs/cgroup/:/sys/fs/cgroup/ {job.DockerCommand}";
 
             job.BuildLog.AddLine("docker " + createCommand);
 
