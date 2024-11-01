@@ -11,11 +11,12 @@ using System.IO.Hashing;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Core;
+using Azure.Identity;
 using Fluid;
 using Fluid.Values;
 using Jint;
@@ -25,7 +26,6 @@ using Microsoft.Azure.Relay;
 using Microsoft.Crank.Controller.Serializers;
 using Microsoft.Crank.Models;
 using Microsoft.Crank.Models.Security;
-using Microsoft.Identity.Client;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
@@ -183,7 +183,7 @@ namespace Microsoft.Crank.Controller
             "Elasticsearch server url to store results in.", CommandOptionType.SingleValue);
             _elasticSearchIndexOption = app.Option("--index",
                     "Index name of the Elasticsearch server to store results in.", CommandOptionType.SingleValue); 
-            _relayConnectionStringOption = app.Option("--relay", "Connection string or environment variable name of the Azure Relay namespace used to access the Crank Agent endpoints. e.g., 'Endpoint=sb://mynamespace.servicebus.windows.net;...', 'MY_AZURE_RELAY_ENV'", CommandOptionType.SingleValue);
+            _relayConnectionStringOption = app.Option("--relay", "Connection string or environment variable name of the Azure Relay namespace used to access the Crank Agent endpoints. e.g., 'Endpoint=sb://mynamespace.servicebus.windows.net;...', 'MY_AZURE_RELAY_ENV'.\nWhen no value is provided it falls back to Azure CLI (e.g., az login) authentication.", CommandOptionType.SingleOrNoValue);
             _sessionOption = app.Option("--session", "A logical identifier to group related jobs.", CommandOptionType.SingleValue);
             _descriptionOption = app.Option("--description", "A string describing the job.", CommandOptionType.SingleValue);
             _propertyOption = app.Option("-p|--property", "Some custom key/value that will be added to the results, .e.g. --property arch=arm --property os=linux", CommandOptionType.MultipleValue);
@@ -3372,35 +3372,40 @@ namespace Microsoft.Crank.Controller
             return executionResult;
         }
 
-        static TokenProvider GetAadTokenProvider(string clientId, string tenantId, X509Certificate2 cert)
-        {
-            return TokenProvider.CreateAzureActiveDirectoryTokenProvider(
-                async (audience, authority, state) =>
-                {
-                    IConfidentialClientApplication app = ConfidentialClientApplicationBuilder.Create(clientId)
-                        .WithAuthority(authority)
-                        .WithCertificate(cert)
-                        .Build();
-
-                    var authResult = await app.AcquireTokenForClient(new[] { $"{audience}/.default" }).ExecuteAsync();
-                    return authResult.AccessToken;
-                },
-                $"https://login.microsoftonline.com/{tenantId}");
-        }
-
         private static async Task<string> GetRelayTokenAsync(Uri endpointUri)
         {
             var connectionString = GetAzureRelayConnectionString();
 
-            if (String.IsNullOrEmpty(connectionString))
+            if (!String.IsNullOrEmpty(connectionString))
             {
-                return null;
+                var rcsb = new RelayConnectionStringBuilder(connectionString);
+
+                var tokenProvider = TokenProvider.CreateSharedAccessSignatureTokenProvider(rcsb.SharedAccessKeyName, rcsb.SharedAccessKey);
+
+                try
+                {
+                    return (await tokenProvider.GetTokenAsync(rcsb.Endpoint.ToString(), TimeSpan.FromHours(1))).TokenString;
+                }
+                catch (AuthenticationFailedException ex)
+                {
+                    Log.WriteError($"Failed to authenticate with connection string: {ex.Message}");
+                }
             }
 
-            var rcsb = new RelayConnectionStringBuilder(connectionString);
-            var tokenProvider = TokenProvider.CreateSharedAccessSignatureTokenProvider(rcsb.SharedAccessKeyName, rcsb.SharedAccessKey);
+            try
+            {
+                var cliCredentials = new AzureCliCredential();
 
-            return (await tokenProvider.GetTokenAsync(rcsb.Endpoint.ToString(), TimeSpan.FromHours(1))).TokenString;
+                var uri = new Uri(endpointUri.GetLeftPart(UriPartial.Authority));
+
+                return (await cliCredentials.GetTokenAsync(new TokenRequestContext([$"{uri}/.default"]))).Token;
+            }
+            catch (AuthenticationFailedException ex)
+            {
+                Log.WriteError($"Failed to authenticate with Azure CLI: {ex.Message}");
+            }
+
+            return null;
 
             string GetAzureRelayConnectionString()
             {
@@ -3412,7 +3417,7 @@ namespace Microsoft.Crank.Controller
                 {
                     var relayConnectionString = _relayConnectionStringOption.Value();
 
-                    if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(relayConnectionString)))
+                    if (!String.IsNullOrEmpty(relayConnectionString) && !String.IsNullOrEmpty(Environment.GetEnvironmentVariable(relayConnectionString)))
                     {
                         return Environment.GetEnvironmentVariable(relayConnectionString);
                     }
