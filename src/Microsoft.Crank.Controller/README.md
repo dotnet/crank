@@ -21,7 +21,8 @@ Options:
   --table                  Table name or environment variable name of the SQL table to store results in.
   --es                     Elasticsearch server url to store results in.
   --index                  Index name of the Elasticsearch server to store results in.
-  --relay                  Connection string or environment variable name of the Azure Relay namespace used to access the Crank Agent endpoints. e.g., 'Endpoint=sb://mynamespace.servicebus.windows.net;...', 'MY_AZURE_RELAY_ENV'
+  --relay                  Connection string or environment variable name of the Azure Relay namespace used to access the Crank Agent endpoints. e.g., 'Endpoint=sb://mynamespace.servicebus.windows.net;...', 'MY_AZURE_RELAY_ENV'.
+                           When no value is provided it falls back to Azure CLI (e.g., az login) authentication.
   --session                A logical identifier to group related jobs.
   --description            A string describing the job.
   -p|--property            Some custom key/value that will be added to the results, .e.g. --property arch=arm --property os=linux
