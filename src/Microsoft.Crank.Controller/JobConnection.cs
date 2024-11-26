@@ -716,7 +716,7 @@ namespace Microsoft.Crank.Controller
 
         public async Task DownloadTraceAsync()
         {
-            if (!Job.DotNetTrace && !Job.Collect)
+            if (!Job.DotNetTrace && !Job.Collect && !Job.Profile)
             {
                 return;
             }
@@ -732,7 +732,17 @@ namespace Microsoft.Crank.Controller
 
             var traceExtension = ".nettrace";
 
-            if (Job.Collect)
+            if (Job.ProfileType == Job.UltraProfileType)
+            {
+                traceExtension = ".json.gz";
+            }
+
+            if (Job.DotNetTrace || Job.ProfileType == Job.DotnetTraceProfileType)
+            {
+                traceExtension = ".nettrace";
+            }
+
+            if (Job.Collect || Job.ProfileType == Job.PerfViewProfileType)
             {
                 traceExtension = os == Models.OperatingSystem.Windows
                     ? ".etl.zip"
@@ -763,6 +773,12 @@ namespace Microsoft.Crank.Controller
                     StartKeepAlive();
                     var uri = Combine(_serverJobUri, "/trace");
                     await _httpClient.DownloadFileWithProgressAsync(uri, _serverJobUri, traceDestination);
+
+                    if (Job.ProfileType == Job.UltraProfileType)
+                    {
+                        Log.Write($"The file can be visualized with in https://profiler.firefox.com/");
+
+                    }
                 }
                 catch (Exception e)
                 {

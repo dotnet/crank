@@ -57,6 +57,7 @@ namespace Microsoft.Crank.Agent
         private const int CommitHashLength = 12;
 
         private const string PerfViewVersion = "v3.1.16";
+        private const string UltraVersion = "1.2.0";
 
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
@@ -65,6 +66,7 @@ namespace Microsoft.Crank.Agent
         private static readonly string _dotnetInstallShUrl = "https://dot.net/v1/dotnet-install.sh";
         private static readonly string _dotnetInstallPs1Url = "https://dot.net/v1/dotnet-install.ps1";
         private static readonly string _perfviewUrl = $"https://github.com/Microsoft/perfview/releases/download/{PerfViewVersion}/PerfView.exe";
+        private static readonly string _ultraUrl = $"https://www.nuget.org/api/v2/package/ultra/{UltraVersion}";
 
         private static readonly string _aspnet8FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
         private static readonly string _aspnet9FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
@@ -120,6 +122,7 @@ namespace Microsoft.Crank.Agent
         private const string _defaultUrl = "http://*:5010";
         private static readonly string _defaultHostname = Dns.GetHostName();
         private static string _perfviewPath;
+        private static string _ultraPath;
         private static string _dotnetInstallPath;
         private static string _localUrl;
 
@@ -136,6 +139,9 @@ namespace Microsoft.Crank.Agent
 
         private static Task dotnetTraceTask;
         private static ManualResetEvent dotnetTraceManualReset;
+
+        private static Task profileTask;
+        private static ManualResetEvent profileManualReset;
 
         public static OperatingSystem OperatingSystem { get; }
         public static string Hardware { get; private set; }
@@ -1408,7 +1414,7 @@ namespace Microsoft.Crank.Agent
                             else if (job.State == JobState.TraceCollecting)
                             {
                                 // Stop Perfview
-                                if (job.Collect)
+                                if (job.Collect || job.Profile && job.ProfileType == Job.PerfViewProfileType)
                                 {
                                     if (OperatingSystem == OperatingSystem.Windows)
                                     {
@@ -1426,7 +1432,7 @@ namespace Microsoft.Crank.Agent
                                 }
 
                                 // Stop dotnet-trace
-                                if (job.DotNetTrace)
+                                if (job.DotNetTrace || job.Profile && job.ProfileType == Job.DotnetTraceProfileType)
                                 {
                                     if (dotnetTraceTask != null)
                                     {
@@ -1448,6 +1454,33 @@ namespace Microsoft.Crank.Agent
                                     else
                                     {
                                         Log.Info("Trace collection aborted, dotnet-trace was not started");
+                                    }
+
+                                    Log.Info($"{job.State} -> TraceCollected ({job.Service}:{job.Id})");
+                                    job.State = JobState.TraceCollected;
+                                }
+
+                                if (job.Profile && job.ProfileType == Job.UltraProfileType)
+                                {
+                                    if (profileTask != null)
+                                    {
+                                        if (!profileTask.IsCompleted)
+                                        {
+                                            Log.Info($"Waiting for 'Ultra' to stop profiling");
+
+                                            profileManualReset.Set();
+
+                                            await profileTask;
+
+                                            profileManualReset = null;
+                                            profileTask = null;
+                                        }
+
+                                        Log.Info("Trace collected");
+                                    }
+                                    else
+                                    {
+                                        Log.Info("Trace collection aborted, profiler was not started");
                                     }
 
                                     Log.Info($"{job.State} -> TraceCollected ({job.Service}:{job.Id})");
@@ -1633,7 +1666,7 @@ namespace Microsoft.Crank.Agent
                                     // The normal workflow is to stop collection using the TraceCollecting state
                                     if (abortCollection)
                                     {
-                                        if (job.Collect)
+                                        if (job.DotNetTrace || job.Profile && job.ProfileType == Job.PerfViewProfileType)
                                         {
                                             // Abort all PerfView processes
                                             if (OperatingSystem == OperatingSystem.Windows)
@@ -1647,7 +1680,7 @@ namespace Microsoft.Crank.Agent
                                             }
                                         }
 
-                                        if (job.DotNetTrace)
+                                        if (job.DotNetTrace || job.Profile && job.ProfileType == Job.DotnetTraceProfileType)
                                         {
                                             // Stop dotnet-trace if still active
                                             if (dotnetTraceTask != null)
@@ -1663,6 +1696,21 @@ namespace Microsoft.Crank.Agent
                                                     dotnetTraceManualReset = null;
                                                     dotnetTraceTask = null;
                                                 }
+                                            }
+                                        }
+
+                                        if (job.Profile && job.ProfileType == Job.UltraProfileType)
+                                        {
+                                            if (!profileTask.IsCompleted)
+                                            {
+                                                Log.Info($"Waiting for 'Ultra' to stop profiling");
+
+                                                profileManualReset.Set();
+
+                                                await profileTask;
+
+                                                profileManualReset = null;
+                                                profileTask = null;
                                             }
                                         }
                                     }
@@ -4693,14 +4741,19 @@ namespace Microsoft.Crank.Agent
 
             if (job.CollectStartup)
             {
-                if (job.Collect)
+                if (job.Collect || job.Profile && job.ProfileType == Job.PerfViewProfileType)
                 {
                     StartCollection(Path.Combine(benchmarksRepo, job.BasePath), job);
                 }
 
-                if (job.DotNetTrace)
+                if (job.DotNetTrace || job.Profile && job.ProfileType == Job.DotnetTraceProfileType)
                 {
                     StartDotNetTrace(job);
+                }
+
+                if (job.Profile && job.ProfileType == Job.UltraProfileType)
+                {
+                    StartUltra(job);
                 }
             }
 
@@ -4769,14 +4822,19 @@ namespace Microsoft.Crank.Agent
 
                     if (!job.CollectStartup)
                     {
-                        if (job.Collect)
+                        if (job.Collect || job.Profile && job.ProfileType == Job.PerfViewProfileType)
                         {
                             StartCollection(Path.Combine(benchmarksRepo, job.BasePath), job);
                         }
 
-                        if (job.DotNetTrace)
+                        if (job.DotNetTrace || job.Profile && job.ProfileType == Job.DotnetTraceProfileType)
                         {
                             StartDotNetTrace(job);
+                        }
+
+                        if (job.Profile && job.ProfileType == Job.UltraProfileType)
+                        {
+                            StartUltra(job);
                         }
                     }
                 }
@@ -5111,7 +5169,7 @@ namespace Microsoft.Crank.Agent
                 }
                 catch (ServerNotAvailableException)
                 {
-                    Log.Info($"Event pipe session interupted, application has already exited ({job.Service}:{job.Id})");
+                    Log.Info($"Event pipe session interrupted, application has already exited ({job.Service}:{job.Id})");
                 }
                 catch (Exception e)
                 {
@@ -5216,6 +5274,46 @@ namespace Microsoft.Crank.Agent
 
             dotnetTraceManualReset = new ManualResetEvent(false);
             dotnetTraceTask = Collect(dotnetTraceManualReset, job.ActiveProcessId, new FileInfo(job.PerfViewTraceFile), 256, job.DotNetTraceProviders, TimeSpan.MaxValue);
+        }
+
+        private static void StartUltra(Job job)
+        {
+            job.PerfViewTraceFile = Path.Combine(job.BasePath, "trace.json.gz");
+            profileManualReset = new ManualResetEvent(false);
+            profileTask = ProfileUltra(job);
+        }
+
+        private static async Task ProfileUltra(Job job)
+        {
+            var collectingTask = ProcessUtil.RunAsync("dotnet.exe", $"{_ultraPath} -- profile {job.ActiveProcessId}", workingDirectory: job.BasePath, log: true, runAsRoot: true, onStop: (code) => Log.Warning("Process stopped with code " + code.ToString()));
+
+            while (!profileManualReset.WaitOne(0))
+            {
+                await Task.Delay(1000);
+            }
+
+            try
+            {
+                await collectingTask;
+            }
+            catch (Exception ex)
+            {
+                Log.Info($"Tracing failed with exception {ex}");
+            }
+
+            Log.Warning("Collection ended...");
+
+            try
+            {
+                var filename = Directory.GetFiles(job.BasePath, "*.json.gz").FirstOrDefault();
+                File.Move(filename, job.PerfViewTraceFile);
+            }
+            catch (Exception ex)
+            {
+                Log.Info($"Failed to copy trace file: {ex}");
+            }
+
+            Log.Info($"Tracing finalized");
         }
 
         private static async Task UseMonoRuntimeAsync(string runtimeVersion, string outputFolder, string mode)
@@ -6054,7 +6152,7 @@ namespace Microsoft.Crank.Agent
 ");
             }
 
-            // Download PerfView
+            // Download PerfView and Ultra on Windows
             if (OperatingSystem == OperatingSystem.Windows)
             {
                 if (String.IsNullOrEmpty(_perfviewPath))
@@ -6072,6 +6170,26 @@ namespace Microsoft.Crank.Agent
                     {
                         Log.Warning("Failed to download PerfView.exe");
                     }
+                }
+
+                if (String.IsNullOrEmpty(_ultraPath))
+                {
+                    var archivePath = Path.Combine(_rootTempDir, "ultra", UltraVersion, "ultra.zip");
+                    Directory.CreateDirectory(Path.GetDirectoryName(archivePath));
+
+                    if (!File.Exists(archivePath))
+                    {
+                        if (!await DownloadFileAsync(_ultraUrl, archivePath, maxRetries: 5, timeout: 60, throwOnError: false))
+                        {
+                            Log.Warning("Failed to download Ultra from NuGet");
+                        }
+                    }
+
+                    var ultraFilesPath = Path.Combine(_rootTempDir, "ultra", UltraVersion);
+                    ZipFile.ExtractToDirectory(archivePath, ultraFilesPath);
+
+                    _ultraPath = Path.Combine(ultraFilesPath, "tools", "net8.0", "any", "ultra.dll");
+                    Log.Info($"Ultra available at '{_ultraPath}'");
                 }
             }
 
