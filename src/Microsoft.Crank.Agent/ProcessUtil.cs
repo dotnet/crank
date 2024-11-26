@@ -31,6 +31,7 @@ namespace Microsoft.Crank.Agent
             Action<int> onStop = null,
             bool captureOutput = false,
             bool captureError = false,
+            bool runAsRoot = false,
             CancellationToken cancellationToken = default
         )
         {
@@ -55,6 +56,14 @@ namespace Microsoft.Crank.Agent
                 EnableRaisingEvents = true
             };
 
+            if (runAsRoot)
+            {
+                process.StartInfo.RedirectStandardOutput = false;
+                process.StartInfo.RedirectStandardError = false;
+                process.StartInfo.UseShellExecute = true;
+                process.StartInfo.Verb = "runas";
+            }
+
             if (workingDirectory != null)
             {
                 process.StartInfo.WorkingDirectory = workingDirectory;
@@ -69,45 +78,51 @@ namespace Microsoft.Crank.Agent
             }
 
             var outputBuilder = new StringBuilder();
-            process.OutputDataReceived += (_, e) =>
+            if (process.StartInfo.RedirectStandardOutput)
             {
-                if (e.Data != null)
+                process.OutputDataReceived += (_, e) =>
                 {
-                    if (captureOutput)
+                    if (e.Data != null)
                     {
-                        outputBuilder.AppendLine(e.Data);
-                    }
+                        if (captureOutput)
+                        {
+                            outputBuilder.AppendLine(e.Data);
+                        }
 
-                    if (outputDataReceived != null)
-                    {
-                        outputDataReceived.Invoke(e.Data);
-                    }
+                        if (outputDataReceived != null)
+                        {
+                            outputDataReceived.Invoke(e.Data);
+                        }
 
-                    if (log)
-                    {
-                        Log.Info(e.Data);
+                        if (log)
+                        {
+                            Log.Info(e.Data);
+                        }
                     }
-                }
-            };
+                };
+            }
 
             var errorBuilder = new StringBuilder();
-            process.ErrorDataReceived += (_, e) =>
+            if (process.StartInfo.RedirectStandardError)
             {
-                if (e.Data != null)
+                process.ErrorDataReceived += (_, e) =>
                 {
-                    if (captureError)
+                    if (e.Data != null)
                     {
-                        errorBuilder.AppendLine(e.Data);
-                    }
+                        if (captureError)
+                        {
+                            errorBuilder.AppendLine(e.Data);
+                        }
 
-                    if (outputDataReceived != null)
-                    {
-                        outputDataReceived.Invoke(e.Data);
-                    }
+                        if (outputDataReceived != null)
+                        {
+                            outputDataReceived.Invoke(e.Data);
+                        }
 
-                    Log.Info("[STDERR] " + e.Data);
-                }
-            };
+                        Log.Info("[STDERR] " + e.Data);
+                    }
+                };
+            }
 
             var processLifetimeTask = new TaskCompletionSource<ProcessResult>();
 
@@ -131,8 +146,15 @@ namespace Microsoft.Crank.Agent
 
             onStart?.Invoke(process.Id);
 
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
+            if (process.StartInfo.RedirectStandardOutput)
+            {
+                process.BeginOutputReadLine();
+            }
+
+            if (process.StartInfo.RedirectStandardError)
+            {
+                process.BeginErrorReadLine();
+            }
 
             var cancelledTcs = new TaskCompletionSource<object>();
             await using var _ = cancellationToken.Register(() => cancelledTcs.TrySetResult(null));

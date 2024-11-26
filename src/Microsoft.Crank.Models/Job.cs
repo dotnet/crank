@@ -14,6 +14,11 @@ namespace Microsoft.Crank.Models
 {
     public class Job
     {
+        public const string DefaultProfileType = "dotnet-trace";
+        public const string DotnetTraceProfileType = "dotnet-trace";
+        public const string UltraProfileType = "ultra";
+        public const string PerfViewProfileType = "perfview";
+
         public int DriverVersion { get; set; } = 0;
 
         // 1: Introduced Initializing state
@@ -170,6 +175,11 @@ namespace Microsoft.Crank.Models
         public List<Attachment> BuildAttachments { get; set; } = new List<Attachment>();
         public DateTime CreationUtc { get; set; } = DateTime.UtcNow;
         public DateTime LastDriverCommunicationUtc { get; set; } = DateTime.UtcNow;
+
+        // Profile options
+        public bool Profile { get; set; }
+        public string ProfileType { get; set; } = DefaultProfileType;
+        public string ProfileArguments { get; set; } = "";
 
         // dotnet-trace options
         public bool DotNetTrace { get; set; }

@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net6.0;net7.0;net8.0</TargetFrameworks>
+    <TargetFrameworks>net8.0</TargetFrameworks>
     <Description>Execute crank jobs added to an Azure Service Bus queue by Azure DevOps.</Description>
     <ToolCommandName>crank-azdo</ToolCommandName>
     <AssemblyName>crank-azdo</AssemblyName>

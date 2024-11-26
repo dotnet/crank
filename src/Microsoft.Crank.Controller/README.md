@@ -103,8 +103,9 @@ Run 'crank [command] -?|-h|--help' for more information about a command.
 
   ## Diagnostics
 
-  --[JOB].dotnetTrace <true|false>                              Whether to collect a diagnostics trace using dotnet-trace. An optional profile name or list of dotnet-trace
-                                                                providers can be passed. e.g., true
+  --[JOB].profile <true|false>                                  Whether to collect a profile using the tool specified in --[JOB].profileType. Default is false.
+  --[JOB].profileType <true|false>                              The name of the profiler to use. Values: "ultra", "dotnet-trace" (default), "perfview"
+  --[JOB].dotnetTrace <true|false>                              Whether to collect a diagnostics trace using dotnet-trace.
   --[JOB].dotnetTraceProviders <profile|provider|clrevent>      A comma-separated list of trace providers. By default the profile 'cpu-sampling' is used. See
                                                                 https://github.com/dotnet/diagnostics/blob/master/documentation/dotnet-trace-instructions.md for details.
                                                                 e.g., "Microsoft-DotNETCore-SampleProfiler, gc-verbose, JIT+Contention".
