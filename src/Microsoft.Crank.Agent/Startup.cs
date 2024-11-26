@@ -56,8 +56,8 @@ namespace Microsoft.Crank.Agent
         private static readonly string DefaultChannel = "current";
         private const int CommitHashLength = 12;
 
-        private const string PerfViewVersion = "v3.1.16";
-        private const string UltraVersion = "1.2.0";
+        private const string PerfViewVersion = "v3.1.17"; // https://github.com/microsoft/perfview/releases
+        private const string UltraVersion = "1.3.0"; // https://github.com/xoofx/ultra/releases
 
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
@@ -5278,14 +5278,15 @@ namespace Microsoft.Crank.Agent
 
         private static void StartUltra(Job job)
         {
-            job.PerfViewTraceFile = Path.Combine(job.BasePath, "trace.json.gz");
             profileManualReset = new ManualResetEvent(false);
             profileTask = ProfileUltra(job);
         }
 
         private static async Task ProfileUltra(Job job)
         {
-            var collectingTask = ProcessUtil.RunAsync("dotnet.exe", $"{_ultraPath} -- profile {job.ActiveProcessId}", workingDirectory: job.BasePath, log: true, runAsRoot: true, onStop: (code) => Log.Warning("Process stopped with code " + code.ToString()));
+            var traceBaseFilename = "trace";
+
+            var collectingTask = ProcessUtil.RunAsync("dotnet.exe", $"{_ultraPath} -- profile {job.ActiveProcessId} -o {traceBaseFilename} {job.ProfileArguments}", workingDirectory: job.BasePath, log: true, runAsRoot: true, onStop: (code) => Log.Warning("Process stopped with code " + code.ToString()));
 
             while (!profileManualReset.WaitOne(0))
             {
@@ -5303,14 +5304,16 @@ namespace Microsoft.Crank.Agent
 
             Log.Warning("Collection ended...");
 
-            try
+            // Ultra saved the trace in the working directory which was set to `job.BasePath`
+            job.PerfViewTraceFile = Path.Combine(job.BasePath, $"{traceBaseFilename}.json.gz");
+                
+            if (File.Exists(job.PerfViewTraceFile))
             {
-                var filename = Directory.GetFiles(job.BasePath, "*.json.gz").FirstOrDefault();
-                File.Move(filename, job.PerfViewTraceFile);
+                Log.Info($"Trace file '{job.PerfViewTraceFile}' was created");
             }
-            catch (Exception ex)
+            else
             {
-                Log.Info($"Failed to copy trace file: {ex}");
+                Log.Info($"Trace file '{job.PerfViewTraceFile}' was not found");
             }
 
             Log.Info($"Tracing finalized");

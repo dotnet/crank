@@ -3374,6 +3374,11 @@ namespace Microsoft.Crank.Controller
 
         private static async Task<string> GetRelayTokenAsync(Uri endpointUri)
         {
+            if (!_relayConnectionStringOption.HasValue())
+            {
+                return null;
+            }
+
             var connectionString = GetAzureRelayConnectionString();
 
             if (!String.IsNullOrEmpty(connectionString))
