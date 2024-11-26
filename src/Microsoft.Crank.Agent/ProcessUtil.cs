@@ -146,7 +146,7 @@ namespace Microsoft.Crank.Agent
 
             onStart?.Invoke(process.Id);
 
-            if (process.StartInfo.RedirectStandardInput)
+            if (process.StartInfo.RedirectStandardOutput)
             {
                 process.BeginOutputReadLine();
             }
