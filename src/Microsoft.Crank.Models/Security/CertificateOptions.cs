@@ -15,27 +15,27 @@ namespace Microsoft.Crank.Models.Security
         {
             if (!string.IsNullOrEmpty(clientId) && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(clientId)))
             {
-                clientId = Environment.GetEnvironmentVariable(clientId);
+                clientId = Environment.GetEnvironmentVariable(clientId) ?? clientId;
             }
 
             if (!string.IsNullOrEmpty(tenantId) && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(tenantId)))
             {
-                tenantId = Environment.GetEnvironmentVariable(tenantId);
+                tenantId = Environment.GetEnvironmentVariable(tenantId) ?? tenantId;
             }
 
             if (!string.IsNullOrEmpty(thumbprint) && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(thumbprint)))
             {
-                thumbprint = Environment.GetEnvironmentVariable(thumbprint);
+                thumbprint = Environment.GetEnvironmentVariable(thumbprint) ?? thumbprint;
             }
 
             if (!string.IsNullOrEmpty(path) && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(path)))
             {
-                path = Environment.GetEnvironmentVariable(path);
+                path = Environment.GetEnvironmentVariable(path) ?? path;
             }
 
             if (!string.IsNullOrEmpty(password) && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(password)))
             {
-                password = Environment.GetEnvironmentVariable(password);
+                password = Environment.GetEnvironmentVariable(password) ?? password;
             }
 
             ClientId = clientId;
