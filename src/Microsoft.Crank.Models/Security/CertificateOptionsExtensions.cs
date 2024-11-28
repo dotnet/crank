@@ -20,7 +20,7 @@ public static class CertificateOptionsExtensions
         return new ClientCertificateCredential(
             certificateOptions.TenantId, 
             certificateOptions.ClientId, 
-            certificate, 
+            certificate,
             new() { SendCertificateChain = certificateOptions.SniAuth }
             );
     }
