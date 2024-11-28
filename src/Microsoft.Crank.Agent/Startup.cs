@@ -393,22 +393,9 @@ namespace Microsoft.Crank.Agent
                             {
                                 try
                                 {
-                                    // at this point the certificate credentials are setup with the tenantid, clientid and certificate
-                                    // autority is $"https://login.microsoftonline.com/{_certificateOptions.TenantId}"
-                                    // audience is $"https://relay.azure.net/"
-                                    //var uri = $"https://{rcsb.Endpoint.GetComponents(UriComponents.NormalizedHost, UriFormat.Unescaped)}/";
                                     var token = (await credentials.GetTokenAsync(new TokenRequestContext([$"{audience}/.default"]))).Token;
+                                    Log.Info("Authentication to the service principal successful.");
                                     return token;
-
-                                    //IConfidentialClientApplication app = ConfidentialClientApplicationBuilder.Create(_certificateOptions.ClientId)
-                                    //    .WithAuthority(authority)
-                                    //    .WithCertificate(_certificateOptions.GetClientCertificate())
-                                    //    .Build();
-
-                                    //var authResult = await app.AcquireTokenForClient([$"{uri}//.default"]).ExecuteAsync();
-
-                                    //return authResult.AccessToken;
-
                                 }
                                 catch (Exception e)
                                 {
