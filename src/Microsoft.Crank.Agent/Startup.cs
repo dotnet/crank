@@ -22,6 +22,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.Xml.XPath;
+using Azure.Core;
 using McMaster.Extensions.CommandLineUtils;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -266,21 +267,6 @@ namespace Microsoft.Crank.Agent
             _certPassword = app.Option("--cert-pwd", "Password of the certificate to be used for auth.", CommandOptionType.SingleValue);
             _certSniAuth = app.Option("--cert-sni", "Enable subject name / issuer based authentication (SNI).", CommandOptionType.NoValue);
 
-            if (_runAsService.HasValue() && OperatingSystem != OperatingSystem.Windows)
-            {
-                throw new PlatformNotSupportedException($"--service is only available on Windows");
-            }
-
-            if (_certThumbprint.HasValue() || _certPath.HasValue())
-            {
-                if (!_certClientId.HasValue() || !_certTenantId.HasValue())
-                {
-                    Console.WriteLine("If using cert based auth, must provide client id, tenant id, and either a thumbprint or certificate path.");
-                }
-
-                _certificateOptions = new CertificateOptions(_certClientId.Value(), _certTenantId.Value(), _certThumbprint.Value(), _certPath.Value(), _certPassword.Value(), _certSniAuth.HasValue());
-            }
-
             app.OnExecute(() =>
             {
                 var logConf = new LoggerConfiguration()
@@ -288,6 +274,21 @@ namespace Microsoft.Crank.Agent
                  .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
                  .Enrich.FromLogContext()
                  .WriteTo.Console(theme: AnsiConsoleTheme.Code);
+
+                if (_runAsService.HasValue() && OperatingSystem != OperatingSystem.Windows)
+                {
+                    throw new PlatformNotSupportedException($"--service is only available on Windows");
+                }
+
+                if (_certThumbprint.HasValue() || _certPath.HasValue())
+                {
+                    if (!_certClientId.HasValue() || !_certTenantId.HasValue())
+                    {
+                        Console.WriteLine("If using cert based auth, must provide client id, tenant id, and either a thumbprint or certificate path.");
+                    }
+
+                    _certificateOptions = new CertificateOptions(_certClientId.Value(), _certTenantId.Value(), _certThumbprint.Value(), _certPath.Value(), _certPassword.Value(), _certSniAuth.HasValue());
+                }
 
                 if (_logPath.HasValue())
                 {
@@ -363,29 +364,6 @@ namespace Microsoft.Crank.Agent
             return app.Execute(args);
         }
 
-        static TokenProvider GetAadTokenProvider(CertificateOptions certificateOptions)
-        {
-            return TokenProvider.CreateAzureActiveDirectoryTokenProvider(
-                async (audience, authority, state) =>
-                {
-                    var certificate = certificateOptions.GetClientCertificate();
-
-                    if (certificate == null)
-                    {
-                        throw new ApplicationException($"The requested certificate could not be found: {certificateOptions.Path ?? certificateOptions.Thumbprint}");
-                    }
-
-                    IConfidentialClientApplication app = ConfidentialClientApplicationBuilder.Create(certificateOptions.ClientId)
-                        .WithAuthority(authority)
-                        .WithCertificate(certificate)
-                        .Build();
-
-                    var authResult = await app.AcquireTokenForClient([$"{audience}/.default"]).ExecuteAsync();
-                    return authResult.AccessToken;
-                },
-                $"https://login.microsoftonline.com/{certificateOptions.TenantId}");
-        }
-
         private static async Task<int> Run(string url, string hostname, string dockerHostname)
         {
             using var logger = Logger;
@@ -402,16 +380,30 @@ namespace Microsoft.Crank.Agent
                 {
                     var relayConnectionString = _relayConnectionStringOption.Value();
 
-                    if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(relayConnectionString)))
-                    {
-                        relayConnectionString = Environment.GetEnvironmentVariable(relayConnectionString);
-                    }
+                    relayConnectionString = Environment.GetEnvironmentVariable(relayConnectionString) ?? relayConnectionString;
 
                     var rcsb = new RelayConnectionStringBuilder(relayConnectionString);
 
                     if (_certificateOptions != null)
                     {
-                        options.TokenProvider = GetAadTokenProvider(_certificateOptions);
+                        var credentials = _certificateOptions.GetClientCertificateCredential();
+
+                        options.TokenProvider = TokenProvider.CreateAzureActiveDirectoryTokenProvider(
+                            async (audience, authority, state) =>
+                            {
+                                try
+                                {
+                                    var token = (await credentials.GetTokenAsync(new TokenRequestContext([$"{audience}/.default"]))).Token;
+                                    Log.Info("Authentication to the service principal successful.");
+                                    return token;
+                                }
+                                catch (Exception e)
+                                {
+                                    Log.Error(e, "Failed to get token");
+                                    throw;
+
+                                }
+                            }, $"https://login.microsoftonline.com/{_certificateOptions.TenantId}");
                     }
 
                     if (_relayPathOption.HasValue())
