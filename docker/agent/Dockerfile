@@ -2,8 +2,8 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 as build-env
 
 COPY . .
 
-ENV DOTNET_SKIP_FIRST_TIME_EXPERIENCE 1
-ENV DOTNET_CLI_TELEMETRY_OPTOUT 1
+ENV DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1
+ENV DOTNET_CLI_TELEMETRY_OPTOUT=1
 
 # Build self contained
 
@@ -59,7 +59,7 @@ RUN apt-get update \
         python-is-python3 python3-dev python3-setuptools
 
 # If nghttp2 build fail just ignore it
-ENV NGHTTP2_VERSION 1.58.0
+ENV NGHTTP2_VERSION=1.58.0
 RUN cd /tmp \
     && curl -L "https://github.com/nghttp2/nghttp2/releases/download/v${NGHTTP2_VERSION}/nghttp2-${NGHTTP2_VERSION}.tar.gz" -o "nghttp2-${NGHTTP2_VERSION}.tar.gz" \
     && tar -zxvf "nghttp2-${NGHTTP2_VERSION}.tar.gz" \
@@ -69,7 +69,7 @@ RUN cd /tmp \
     && make install || true
 
 # Install docker client
-ENV DOCKER_VERSION 17.09.0-ce
+ENV DOCKER_VERSION=17.09.0-ce
 RUN cd /tmp \
     && curl "https://download.docker.com/linux/static/stable/${CPUNAME}/docker-${DOCKER_VERSION}.tgz" -o docker.tgz \
     && tar xvzf docker.tgz \

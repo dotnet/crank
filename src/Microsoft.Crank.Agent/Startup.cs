@@ -5780,8 +5780,8 @@ namespace Microsoft.Crank.Agent
         {
             dotnetFeed = null;
 
-            const string internalFeed = "https://dotnetbuilds.azureedge.net/public";
-            const string publicFeed = "https://dotnetcli.azureedge.net/dotnet";
+            const string internalFeed = "https://ci.dot.net/public";
+            const string publicFeed = "https://builds.dotnet.microsoft.com/dotnet";
 
             string[] dotnetFeeds = version.StartsWith("9.0") || version.StartsWith("10.0")
                 ? [internalFeed, publicFeed] // for vnext and preview versions we check on the internal feed first
@@ -5796,8 +5796,8 @@ namespace Microsoft.Crank.Agent
 
                 // https://dotnetcli.blob.core.windows.net/dotnet
                 // https://dotnetcli.blob.core.windows.net/dotnet/Runtime/main/latest.version
-                // aspnetcore: https://dotnetcli.azureedge.net/dotnet/aspnetcore/Runtime/6.0.0-preview.5.21220.5/aspnetcore-runtime-6.0.0-preview.5.21220.5-win-x64.zip
-                // dotnet: https://dotnetcli.azureedge.net/dotnet/Runtime/6.0.0-preview.5.21220.8/dotnet-runtime-6.0.0-preview.5.21220.8-win-x64.zip
+                // aspnetcore: https://builds.dotnet.microsoft.com/dotnet/aspnetcore/Runtime/6.0.0-preview.5.21220.5/aspnetcore-runtime-6.0.0-preview.5.21220.5-win-x64.zip
+                // dotnet: https://builds.dotnet.microsoft.com/dotnet/Runtime/6.0.0-preview.5.21220.8/dotnet-runtime-6.0.0-preview.5.21220.8-win-x64.zip
 
                 var urlPattern = runtime switch
                 {
