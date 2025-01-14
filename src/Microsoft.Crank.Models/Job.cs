@@ -124,7 +124,8 @@ namespace Microsoft.Crank.Models
 
                 // Since source was intended to be cloned to the root of the working directory, set the destination to empty
                 value.DestinationFolder = "";
-                Sources = new Dictionary<string, Source> { [Source.DefaultSource] = value };
+                Sources.Clear();
+                Sources.Add(Source.DefaultSource, value);
                 Project = value.Project;
                 DockerFile = value.DockerFile;
                 DockerPull = value.DockerPull;
@@ -140,7 +141,7 @@ namespace Microsoft.Crank.Models
         /// <summary>
         /// The source information for the benchmarked application
         /// </summary>
-        public Dictionary<string, Source> Sources { get; set; } = new Dictionary<string, Source>();
+        public Dictionary<string, Source> Sources { get; } = [];
         public string BuildKey { get; set; }
         public string Project { get; set; }
         public string DockerFile { get; set; }
@@ -171,8 +172,8 @@ namespace Microsoft.Crank.Models
 
         public bool UseRuntimeStore { get; set; }
 
-        public List<Attachment> Attachments { get; set; } = new List<Attachment>();
-        public List<Attachment> BuildAttachments { get; set; } = new List<Attachment>();
+        public List<Attachment> Attachments { get; } = [];
+        public List<Attachment> BuildAttachments { get; } = [];
         public DateTime CreationUtc { get; set; } = DateTime.UtcNow;
         public DateTime LastDriverCommunicationUtc { get; set; } = DateTime.UtcNow;
 
@@ -203,7 +204,7 @@ namespace Microsoft.Crank.Models
         /// If <c>false</c> (default) the collection is triggered when the ready state is detected.
         /// </summary>
         public bool CollectStartup { get; set; }
-        
+
         // For backward compatibility. Use Options.CollectCounters instead
         public bool CollectCounters { get; set; }
 
@@ -211,19 +212,19 @@ namespace Microsoft.Crank.Models
         /// The expected interval for each recurring measurements (dotnet counters, custom measurements, ...)
         /// </summary>
         public int MeasurementsIntervalSec { get; set; } = 1;
-        
+
         /// <summary>
         /// The list of performance counter providers to be collected.
         /// </summary>
-        public List<DotnetCounter> Counters { get; set; } = new List<DotnetCounter>();
+        public List<DotnetCounter> Counters { get; } = [];
         public string BasePath { get; set; }
         public int ProcessId { get; set; }
         public int ChildProcessId { get; set; }
         public int ActiveProcessId => ChildProcessId > 0 ? ChildProcessId : ProcessId;
-        public int[] AllProcessIds => ChildProcessId > 0 ? new [] { ChildProcessId, ProcessId } : new[] { ProcessId };
-        public Dictionary<string, string> EnvironmentVariables { get; set; } = new Dictionary<string, string>();
-        public Dictionary<string, string> PackageReferences { get; set; } = new Dictionary<string, string>();
-        public List<string> BuildArguments { get; set; } = new List<string>();
+        public int[] AllProcessIds => ChildProcessId > 0 ? [ChildProcessId, ProcessId] : [ProcessId];
+        public Dictionary<string, string> EnvironmentVariables { get; } = [];
+        public Dictionary<string, string> PackageReferences { get; } = [];
+        public List<string> BuildArguments { get; } = [];
         public bool NoClean { get; set; }
         public string Framework { get; set; }
         public string Channel { get; set; }
@@ -240,7 +241,7 @@ namespace Microsoft.Crank.Models
         public ConcurrentQueue<Measurement> Measurements { get; set; } = new ConcurrentQueue<Measurement>();
         public ConcurrentQueue<MeasurementMetadata> Metadata { get; set; } = new ConcurrentQueue<MeasurementMetadata>();
 
-        [JsonIgnore] 
+        [JsonIgnore]
         public int TrackedProcessId => Math.Max(ChildProcessId, ProcessId);
 
         /// <summary>
@@ -275,7 +276,7 @@ namespace Microsoft.Crank.Models
         [JsonProperty("BuildArchives")]
         private string[] BuildArchivesArgumentSetter { set { BuildArchivesArgument = value; } }
 
-        public List<string> Endpoints { get; set; } = new List<string>();
+        public List<string> Endpoints { get; } = [];
 
         public JObject Variables { get; set; }
 
@@ -298,12 +299,12 @@ namespace Microsoft.Crank.Models
 
         public Options Options { get; set; } = new Options();
 
-        public List<string> Features { get; set; } = new List<string>();
+        public List<string> Features { get; } = [];
 
         /// Script that is executed once the templates have been processed.
-        public List<string> OnConfigure { get; set; } = new List<string>();
+        public List<string> OnConfigure { get; } = [];
 
-        public List<Dependency> Dependencies { get; set; } = new List<Dependency>();
+        public List<Dependency> Dependencies { get; } = [];
 
         public bool CollectDependencies { get; set; }
 
@@ -313,11 +314,11 @@ namespace Microsoft.Crank.Models
         public bool PatchReferences { get; set; } = false;
 
         public Dictionary<string, List<CommandDefinition>> Commands { get; set; }
-        
-        public List<string> BeforeJob { get; set; } = new();
-        
-        public List<string> AfterJob { get; set; } = new();
-        
+
+        public List<string> BeforeJob { get; } = [];
+
+        public List<string> AfterJob { get; } = [];
+
         public EnvironmentData Environment { get; set; } = new EnvironmentData();
 
         public bool IsDocker()
@@ -405,20 +406,20 @@ namespace Microsoft.Crank.Models
         public string DownloadBuildLogOutput { get; set; }
         public bool Fetch { get; set; }
         public string FetchOutput { get; set; }
-        public List<string> DownloadFiles { get; set; } = new List<string>();
+        public List<string> DownloadFiles { get; set; } = [];
         public string DownloadFilesOutput { get; set; }
         public string TraceOutput { get; set; }
         public bool DisplayBuild { get; set; }
         public string RequiredOperatingSystem { get; set; }
         public string RequiredArchitecture { get; set; }
         public bool DiscardResults { get; set; }
-        public List<string> BuildFiles { get; set; } = new List<string>();
-        public List<string> OutputFiles { get; set; } = new List<string>();
-        public List<string> BuildArchives { get; set; } = new List<string>();
-        public List<string> OutputArchives { get; set; } = new List<string>();
+        public List<string> BuildFiles { get; set; } = [];
+        public List<string> OutputFiles { get; set; } = [];
+        public List<string> BuildArchives { get; set; } = [];
+        public List<string> OutputArchives { get; set; } = [];
         public bool BenchmarkDotNet { get; set; }
         public bool? CollectCounters { get; set; }
-        public List<string> CounterProviders { get; set; } = new List<string>();
+        public List<string> CounterProviders { get; set; } = [];
 
         // Don't clone and don't build if already cloned and built. 
         // Don't use with floating runtime versions.

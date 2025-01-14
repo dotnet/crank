@@ -3525,8 +3525,8 @@ namespace Microsoft.Crank.Agent
                     null
                     : await Git.CommitHashAsync(benchmarkedApp, cancellationToken);
 
-                job.Dependencies = GetDependencies(job, outputFolder, aspNetCoreVersion, runtimeVersion, projectGitCommitHash);
-
+                job.Dependencies.Clear();
+                job.Dependencies.AddRange(GetDependencies(job, outputFolder, aspNetCoreVersion, runtimeVersion, projectGitCommitHash));
                 job.Dependencies.AddRange(knownDependencies);
 
                 CreateDependenciesHash();
