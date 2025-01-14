@@ -406,20 +406,20 @@ namespace Microsoft.Crank.Models
         public string DownloadBuildLogOutput { get; set; }
         public bool Fetch { get; set; }
         public string FetchOutput { get; set; }
-        public List<string> DownloadFiles { get; set; } = [];
+        public List<string> DownloadFiles { get; } = [];
         public string DownloadFilesOutput { get; set; }
         public string TraceOutput { get; set; }
         public bool DisplayBuild { get; set; }
         public string RequiredOperatingSystem { get; set; }
         public string RequiredArchitecture { get; set; }
         public bool DiscardResults { get; set; }
-        public List<string> BuildFiles { get; set; } = [];
-        public List<string> OutputFiles { get; set; } = [];
-        public List<string> BuildArchives { get; set; } = [];
-        public List<string> OutputArchives { get; set; } = [];
+        public List<string> BuildFiles { get; } = [];
+        public List<string> OutputFiles { get; } = [];
+        public List<string> BuildArchives { get; } = [];
+        public List<string> OutputArchives { get; } = [];
         public bool BenchmarkDotNet { get; set; }
         public bool? CollectCounters { get; set; }
-        public List<string> CounterProviders { get; set; } = [];
+        public List<string> CounterProviders { get; } = [];
 
         // Don't clone and don't build if already cloned and built. 
         // Don't use with floating runtime versions.
