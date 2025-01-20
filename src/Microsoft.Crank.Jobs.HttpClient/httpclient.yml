@@ -29,4 +29,4 @@ jobs:
       certPath: # the path or url of the certificate used for authentication
       certPwd: # the password of the certificate specified in certPath
       sslProtocols: # the SSL protocols to use, e.g. Tls12, Tls13.
-    arguments: '--url "{{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}" --connections {{connections}} --warmup {{warmup}} --duration {{duration}} {{headers[presetHeaders]}} --version {{httpVersion}} {% if certPath %} --cert {{certPath}} {% endif %} {% if certPwd %} --certpwd {{certPwd}} {% endif %}'
+    arguments: '--url "{{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}" --connections {{connections}} --warmup {{warmup}} --duration {{duration}} {{headers[presetHeaders]}} --version {{httpVersion}} {% if certPath %} --cert {{certPath}} {% endif %} {% if certPwd %} --certpwd {{certPwd}} {% endif %} --sslProtocols {{sslProtocols}}'
