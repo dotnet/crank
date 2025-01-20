@@ -479,7 +479,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                         if (TlsVersions is not null)
                         {
                             Log("Using sslProtocols: {0}", TlsVersions);
-                            _httpHandler.SslOptions.EnabledSslProtocols = TlsVersions;
+                            _httpHandler.SslOptions.EnabledSslProtocols = TlsVersions.Value;
                         }
 
                         // Accept any SSL certificate
