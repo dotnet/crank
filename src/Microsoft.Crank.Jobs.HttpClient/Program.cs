@@ -184,27 +184,28 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
 
                 Headers = new List<string>(optionHeaders.Values);
 
-                var sslProtocols = ParseSslProtocols(optionSslProtocols.Values);
-                _httpClientHandler.SslProtocols = sslProtocols;
-                Log("Using sslProtocols: {0}. input: {1}", sslProtocols, string.Join(";", optionSslProtocols.Values));
-
-                static SslProtocols ParseSslProtocols(List<string> inputProtocols)
+                if (optionSslProtocols.HasValue())
                 {
-                    if (inputProtocols is null)
+                    var sslProtocols = ParseSslProtocols(optionSslProtocols.Values);
+                    if (sslProtocols is not SslProtocols.None)
                     {
-                        return SslProtocols.Tls12 | SslProtocols.Tls13;
+                        Log("Using sslProtocols: {0}", sslProtocols);
+                        _httpClientHandler.SslProtocols = sslProtocols;
                     }
 
-                    var result = SslProtocols.None;
-                    foreach (var protocol in inputProtocols)
+                    static SslProtocols ParseSslProtocols(List<string> inputProtocols)
                     {
-                        if (Enum.TryParse<SslProtocols>(protocol, ignoreCase: true, out var mask))
+                        var result = SslProtocols.None;
+                        foreach (var protocol in inputProtocols)
                         {
-                            result |= mask;
+                            if (Enum.TryParse<SslProtocols>(protocol, ignoreCase: true, out var mask))
+                            {
+                                result |= mask;
+                            }
                         }
-                    }
 
-                    return result;
+                        return result;
+                    }
                 }
 
                 if (optionBody.HasValue())
