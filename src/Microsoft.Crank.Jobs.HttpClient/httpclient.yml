@@ -10,8 +10,8 @@
 jobs:
   httpclient:
     source:
-      repository: https://github.com/deaglegross/crank.git
-      branchOrCommit: "dmkorolev/httpclient/add-tls-protocol-override"
+      repository: https://github.com/dotnet/crank.git
+      branchOrCommit: main
       project: src/Microsoft.Crank.Jobs.HttpClient/Microsoft.Crank.Jobs.HttpClient.csproj
     readyStateText: Http Client
     isConsoleApp: true
