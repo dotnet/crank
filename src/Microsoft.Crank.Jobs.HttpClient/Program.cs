@@ -11,6 +11,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Security;
+using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using System.Threading;
@@ -87,6 +88,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
             var optionHarNoDelay = app.Option("--har-no-delay", "when set, delays between HAR requests are not followed.", CommandOptionType.NoValue);
             var optionScript = app.Option("-s|--script <filename>", "A .js script file altering the current client.", CommandOptionType.SingleValue);
             var optionLocal = app.Option("-l|--local", "Ignore requests outside of the main domain.", CommandOptionType.NoValue);
+            var optionSslProtocols = app.Option("--sslProtocols", "SSL protocols versions to use", CommandOptionType.MultipleValue);
 
             app.OnValidate(ctx =>
             {
@@ -181,6 +183,26 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                     : 10;
 
                 Headers = new List<string>(optionHeaders.Values);
+
+                _httpClientHandler.SslProtocols = ParseSslProtocols(optionSslProtocols.Values);
+                static SslProtocols ParseSslProtocols(List<string> inputProtocols)
+                {
+                    if (inputProtocols is null)
+                    {
+                        return SslProtocols.Tls12 | SslProtocols.Tls13;
+                    }
+
+                    var result = SslProtocols.None;
+                    foreach (var protocol in inputProtocols)
+                    {
+                        if (Enum.TryParse<SslProtocols>(protocol, ignoreCase: true, out var mask))
+                        {
+                            result |= mask;
+                        }
+                    }
+
+                    return result;
+                }
 
                 if (optionBody.HasValue())
                 {
