@@ -41,6 +41,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
         public static int WarmupTimeSeconds { get; set; }
         public static int ExecutionTimeSeconds { get; set; }
         public static int Connections { get; set; }
+        public static SslProtocols? TlsVersions { get; set; }
         public static List<string> Headers { get; set; }
         public static byte[] Body { get; set; }
         public static Version Version { get; set; }
@@ -189,8 +190,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                     var sslProtocols = ParseSslProtocols(optionSslProtocols.Values);
                     if (sslProtocols is not SslProtocols.None)
                     {
-                        Log("Using sslProtocols: {0}", sslProtocols);
-                        _httpClientHandler.SslProtocols = sslProtocols;
+                        TlsVersions = sslProtocols;
                     }
 
                     static SslProtocols ParseSslProtocols(List<string> inputProtocols)
@@ -475,6 +475,12 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                             UseProxy = false,
                             AutomaticDecompression = DecompressionMethods.None
                         };
+
+                        if (TlsVersions is not null)
+                        {
+                            Log("Using sslProtocols: {0}", TlsVersions);
+                            _httpHandler.SslOptions.EnabledSslProtocols = TlsVersions;
+                        }
 
                         // Accept any SSL certificate
                         _httpHandler.SslOptions.RemoteCertificateValidationCallback += (object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => true;
