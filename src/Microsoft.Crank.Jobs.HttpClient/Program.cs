@@ -184,7 +184,10 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
 
                 Headers = new List<string>(optionHeaders.Values);
 
-                _httpClientHandler.SslProtocols = ParseSslProtocols(optionSslProtocols.Values);
+                var sslProtocols = ParseSslProtocols(optionSslProtocols.Values);
+                _httpClientHandler.SslProtocols = sslProtocols;
+                Log("Using sslProtocols: {0}", sslProtocols);
+
                 static SslProtocols ParseSslProtocols(List<string> inputProtocols)
                 {
                     if (inputProtocols is null)
