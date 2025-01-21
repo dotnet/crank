@@ -650,7 +650,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
 
                     if (_measuring)
                     {
-                        if (measuringStart == 0)
+                        if (measuringStart == -1L)
                         {
                             measuringStart = sw.ElapsedTicks - 1;
                         }
