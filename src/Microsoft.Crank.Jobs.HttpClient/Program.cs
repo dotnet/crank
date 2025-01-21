@@ -596,7 +596,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
             var maxLatency = 0D;
             var totalLatency = 0D;
             var transferred = 0L;
-            var measuringStart = 0L;
+            var measuringStart = -1L;
 
             var sw = new Stopwatch();
             sw.Start();
@@ -652,7 +652,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                     {
                         if (measuringStart == 0)
                         {
-                            measuringStart = sw.ElapsedTicks;
+                            measuringStart = sw.ElapsedTicks - 1;
                         }
 
                         transferred += responseMessage.Content.Headers.ContentLength ?? 0;
@@ -709,16 +709,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                 }
             }
 
-            long throughput = 0;
-            try
-            {
-                throughput = transferred / ((sw.ElapsedTicks - measuringStart) / Stopwatch.Frequency);
-            }
-            catch (DivideByZeroException ex)
-            {
-                Log("Error during throughput calculation: {0}", ex.Message);
-            }
-
+            var throughput = transferred / ((sw.ElapsedTicks - measuringStart) / Stopwatch.Frequency);
 
             if (!String.IsNullOrWhiteSpace(Script) && !worker.Script.GetValue("stop").IsUndefined())
             {
