@@ -99,6 +99,7 @@ namespace Microsoft.Crank.Controller.Serializers
 
             var insertCmd =
                 @"
+                IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = @TableName)
                 INSERT INTO [dbo].[" + tableName + @"]
                            ([DateTimeUtc]
                            ,[Session]
@@ -127,6 +128,7 @@ namespace Microsoft.Crank.Controller.Serializers
                     p.AddWithValue("@Scenario", scenario ?? "");
                     p.AddWithValue("@Description", description ?? "");
                     p.AddWithValue("@Document", document);
+                    p.AddWithValue("@TableName", tableName);
 
                     await command.ExecuteNonQueryAsync();
 
