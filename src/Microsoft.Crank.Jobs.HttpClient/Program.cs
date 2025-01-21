@@ -709,7 +709,8 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                 }
             }
 
-            var throughput = transferred / ((sw.ElapsedTicks - measuringStart) / Stopwatch.Frequency);
+            var throughput = transferred / ((double)(sw.ElapsedTicks - measuringStart) / Stopwatch.Frequency);
+            var throughputBps = (long)throughput;
 
             if (!String.IsNullOrWhiteSpace(Script) && !worker.Script.GetValue("stop").IsUndefined())
             {
@@ -733,7 +734,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                 SocketErrors = socketErrors,
                 LatencyMaxMs = maxLatency / Stopwatch.Frequency * 1000,
                 LatencyMeanMs = (totalLatency / counters.Sum()) / Stopwatch.Frequency * 1000,
-                ThroughputBps = throughput
+                ThroughputBps = throughputBps
             };
         }
     }
