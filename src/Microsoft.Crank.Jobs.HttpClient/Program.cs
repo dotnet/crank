@@ -89,13 +89,29 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
             var optionHarNoDelay = app.Option("--har-no-delay", "when set, delays between HAR requests are not followed.", CommandOptionType.NoValue);
             var optionScript = app.Option("-s|--script <filename>", "A .js script file altering the current client.", CommandOptionType.SingleValue);
             var optionLocal = app.Option("-l|--local", "Ignore requests outside of the main domain.", CommandOptionType.NoValue);
-            var optionSslProtocols = app.Option("--sslProtocols", "SSL protocols versions to use", CommandOptionType.MultipleValue);
+            var optionSslProtocols = app.Option("--ssl-protocol", "SSL protocols versions to use. Can be set multiple times. Allowed values: none (default), tls12, tls13", CommandOptionType.MultipleValue);
 
             app.OnValidate(ctx =>
             {
                 if (!optionHar.HasValue() && !optionUrl.HasValue())
                 {
                     return new ValidationResult($"The --{optionUrl.LongName} field is required.");
+                }
+
+                if (optionSslProtocols.HasValue())
+                {
+                    TlsVersions = SslProtocols.None;
+                    foreach (var protocol in optionSslProtocols.Values)
+                    {
+                        try
+                        {
+                            TlsVersions |= Enum.Parse<SslProtocols>(protocol, ignoreCase: true);
+                        }
+                        catch
+                        {
+                            return new ValidationResult($"Invalid value for --ssl-protocol: '{protocol}'.");
+                        }
+                    }
                 }
 
                 return ValidationResult.Success;
@@ -184,29 +200,6 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                     : 10;
 
                 Headers = new List<string>(optionHeaders.Values);
-
-                if (optionSslProtocols.HasValue())
-                {
-                    var sslProtocols = ParseSslProtocols(optionSslProtocols.Values);
-                    if (sslProtocols is not SslProtocols.None)
-                    {
-                        TlsVersions = sslProtocols;
-                    }
-
-                    static SslProtocols ParseSslProtocols(List<string> inputProtocols)
-                    {
-                        var result = SslProtocols.None;
-                        foreach (var protocol in inputProtocols)
-                        {
-                            if (Enum.TryParse<SslProtocols>(protocol, ignoreCase: true, out var mask))
-                            {
-                                result |= mask;
-                            }
-                        }
-
-                        return result;
-                    }
-                }
 
                 if (optionBody.HasValue())
                 {
