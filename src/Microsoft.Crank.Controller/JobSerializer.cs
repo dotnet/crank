@@ -55,7 +55,7 @@ namespace Microsoft.Crank.Controller.Serializers
         {
             var createCmd =
                 @"
-                IF OBJECT_ID(N'dbo." + tableName + @"', N'U') IS NULL
+                IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = @TableName)
                 BEGIN
                     CREATE TABLE [dbo].[" + tableName + @"](
                         [Id] [int] IDENTITY(1,1) NOT NULL PRIMARY KEY,
@@ -69,9 +69,9 @@ namespace Microsoft.Crank.Controller.Serializers
                 END
                 ";
 
-            await RetryOnExceptionAsync(5, () => InitializeDatabaseInternalAsync(connectionString, createCmd, certificateOptions), 5000);
+            await RetryOnExceptionAsync(5, () => InitializeDatabaseInternalAsync(connectionString, createCmd, tableName, certificateOptions), 5000);
 
-            static async Task InitializeDatabaseInternalAsync(string connectionString, string createCmd, CertificateOptions certificateOptions)
+            static async Task InitializeDatabaseInternalAsync(string connectionString, string createCmd, string tableName, CertificateOptions certificateOptions)
             {
                 using (var connection = GetSqlConnection(connectionString, certificateOptions))
                 {
@@ -79,6 +79,8 @@ namespace Microsoft.Crank.Controller.Serializers
 
                     using (var command = new SqlCommand(createCmd, connection))
                     {
+                        var p = command.Parameters;
+                        p.AddWithValue("@TableName", tableName);
                         await command.ExecuteNonQueryAsync();
                     }
                 }
@@ -121,7 +123,7 @@ namespace Microsoft.Crank.Controller.Serializers
 
                 try
                 {
-                    var command = new SqlCommand(insertCmd, connection, transaction);
+                    using var command = new SqlCommand(insertCmd, connection, transaction);
                     var p = command.Parameters;
                     p.AddWithValue("@DateTimeUtc", utcNow);
                     p.AddWithValue("@Session", session);
