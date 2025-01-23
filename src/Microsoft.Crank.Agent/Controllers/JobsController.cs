@@ -712,18 +712,12 @@ namespace Microsoft.Crank.Agent.Controllers
 
                     try
                     {
-                        if (!System.IO.File.Exists(fullPath))
-                        {
-                            Log.Error($"Client was requested to copy image from not existing path '{path}'");
-                            return NotFound();
-                        }
-
                         // docker cp mycontainer:/foo.txt foo.txt 
 
                         var destinationFilename = Path.Combine(tempDirectory, Path.GetFileName(path));
 
                         // Delete container if the same name already exists
-                        var result = await ProcessUtil.RunAsync("docker", $"cp {job.GetNormalizedImageName()}:{fullPath} {destinationFilename}", throwOnError: false, log: true);
+                        var result = await ProcessUtil.RunAsync("docker", [ "cp", $"{job.GetNormalizedImageName()}:{path}", destinationFilename ], throwOnError: false, log: true);
 
                         return new GZipFileResult(destinationFilename);
                     }
