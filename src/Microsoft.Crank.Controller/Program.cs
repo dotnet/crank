@@ -456,6 +456,11 @@ namespace Microsoft.Crank.Controller
                         _tableName = Environment.GetEnvironmentVariable(_tableName);
                     }
                 }
+                if (_tableName.Contains(']'))
+                {
+                    Console.WriteLine($"Invalid table name {_tableName}.");
+                    return -1;
+                }
 
                 if (_sqlConnectionStringOption.HasValue())
                 {
