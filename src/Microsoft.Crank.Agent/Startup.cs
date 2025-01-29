@@ -30,6 +30,8 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Hosting.WindowsServices;
 using Microsoft.Azure.Relay;
+using Microsoft.Crank.Agent.MachineCounters;
+using Microsoft.Crank.Agent.MachineCounters.OS;
 using Microsoft.Crank.EventSources;
 using Microsoft.Crank.Models;
 using Microsoft.Crank.Models.Security;
@@ -4916,6 +4918,30 @@ namespace Microsoft.Crank.Agent
 
             providerList.Add(metricsEventSourceProvider);
 
+            var machinePerformanceCounterEmitters = new List<IMachinePerformanceCounterEmitter>();
+#pragma warning disable CA1416 // Validate platform compatibility
+            if (OperatingSystem == OperatingSystem.Windows)
+            {
+                var totalCpuCounterEmitter = new WindowsMachinePerformanceCounterEmitter(
+                    new PerformanceCounter("Processor", "% Processor Time", "_Total", readOnly: true));
+
+                machinePerformanceCounterEmitters.Add(totalCpuCounterEmitter);
+            }
+            else if (OperatingSystem is OperatingSystem.Linux or OperatingSystem.OSX)
+            {
+                // TODO
+            }
+
+            foreach (var perfCounterEmitter in machinePerformanceCounterEmitters)
+            {
+                perfCounterEmitter.Start();
+                Log.Info($"Started perfCounter {perfCounterEmitter.CounterName} emitter");
+            }
+#pragma warning restore CA1416 // Validate platform compatibility
+
+            var machineLevelEventSourceProvider = new EventPipeProvider(MachineCountersEventSource.Log.Name, EventLevel.Informational, (long)EventKeywords.All);
+            providerList.Add(machineLevelEventSourceProvider);
+
             context.EventPipeSession = null;
 
             var retries = 0;
@@ -5068,6 +5094,34 @@ namespace Microsoft.Crank.Agent
                             }
                         }
                     }
+                    else if (eventData.ProviderName == MachineCountersEventSource.Log.Name)
+                    {
+                        var payloadVal = (IDictionary<string, object>)(eventData.PayloadValue(0));
+                        var payloadFields = (IDictionary<string, object>)(payloadVal["Payload"]);
+                        var counterName = payloadFields["Name"].ToString();
+
+                        var measurement = new Measurement();
+
+                        // measurement.Name = counter.Measurement;
+                        measurement.Name = "my measurement?";
+
+                        switch (payloadFields["CounterType"])
+                        {
+                            case "Sum":
+                                measurement.Value = payloadFields["Increment"];
+                                break;
+                            case "Mean":
+                                measurement.Value = payloadFields["Mean"];
+                                break;
+                            default:
+                                Log.Info($"Unknown CounterType: {payloadFields["CounterType"]}");
+                                break;
+                        }
+
+                        measurement.Timestamp = eventData.TimeStamp.ToUniversalTime();
+
+                        job.Measurements.Enqueue(measurement);
+                    }
                     else if (eventData.EventName.Equals("EventCounters"))
                     {
                         var payloadVal = (IDictionary<string, object>)(eventData.PayloadValue(0));
@@ -5171,6 +5225,19 @@ namespace Microsoft.Crank.Agent
                 {
                     context.EventPipeSession.Dispose();
                     context.EventPipeSession = null;
+                }
+
+                // no need to emit events from custom perfCounters: so dispose
+                try
+                {
+                    foreach (var perfCounterEmitter in machinePerformanceCounterEmitters)
+                    {
+                        perfCounterEmitter.Dispose();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Info($"Failed to stop machine-level performance counter emitters: {ex}");
                 }
             });
 

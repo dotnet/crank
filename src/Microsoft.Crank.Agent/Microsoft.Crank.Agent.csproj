@@ -34,6 +34,7 @@
     <PackageReference Include="Serilog.Sinks.Console" />
     <PackageReference Include="Serilog.Sinks.File" />
     <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="System.Diagnostics.PerformanceCounter" />
     <PackageReference Include="System.IO.Hashing" />
 
     <!-- Forced versions for Component Governance compliance -->
