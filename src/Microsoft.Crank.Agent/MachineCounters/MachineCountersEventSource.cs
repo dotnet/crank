@@ -7,12 +7,7 @@ namespace Microsoft.Crank.Agent.MachineCounters
     {
         public static readonly MachineCountersEventSource Log = new MachineCountersEventSource();
 
-        public void EmitEvent(EventId eventId, string counterName, double value) 
-            => WriteEvent((int)eventId, counterName, value);
-
-        public enum EventId
-        {
-            CpuUsage = 1
-        }
+        public void WriteCounterValue(string counterName, double value) 
+            => WriteEvent(1, counterName, value);
     }
 }

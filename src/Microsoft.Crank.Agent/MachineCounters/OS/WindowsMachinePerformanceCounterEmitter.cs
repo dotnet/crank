@@ -14,22 +14,30 @@ namespace Microsoft.Crank.Agent.MachineCounters.OS
         private Timer _timer;
         private readonly TimeSpan _interval;
 
-        public string CounterName => _performanceCounter.CounterName;
+        public string MeasurementName { get; }
+        public string Description { get; }
 
-        public WindowsMachinePerformanceCounterEmitter(PerformanceCounter performanceCounter)
-            : this(MachineCountersEventSource.Log, TimeSpan.FromSeconds(1), performanceCounter)
+        public string CounterName
+            => $"{_performanceCounter.CategoryName}({_performanceCounter.InstanceName})\\{_performanceCounter.CounterName}";
+
+        public WindowsMachinePerformanceCounterEmitter(PerformanceCounter performanceCounter, string measurementName, string description)
+            : this(MachineCountersEventSource.Log, TimeSpan.FromSeconds(1), performanceCounter, measurementName, description)
         {
         }
 
         public WindowsMachinePerformanceCounterEmitter(
             MachineCountersEventSource eventSource,
             TimeSpan interval,
-            PerformanceCounter performanceCounter)
+            PerformanceCounter performanceCounter,
+            string measurementName,
+            string description)
         {
             _eventSource = eventSource;
-            _performanceCounter = performanceCounter;
-
             _interval = interval;
+
+            _performanceCounter = performanceCounter;
+            MeasurementName = measurementName;
+            Description = description;
         }
 
         public void Start()
@@ -48,7 +56,7 @@ namespace Microsoft.Crank.Agent.MachineCounters.OS
             try
             {
                 var currentCounterValue = _performanceCounter.NextValue();
-                _eventSource.EmitEvent(MachineCountersEventSource.EventId.CpuUsage, _performanceCounter.CounterName, currentCounterValue);
+                _eventSource.WriteCounterValue(MeasurementName, currentCounterValue);
             }
             catch (Exception ex)
             {
