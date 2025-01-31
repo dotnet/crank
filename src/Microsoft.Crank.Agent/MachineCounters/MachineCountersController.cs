@@ -14,8 +14,6 @@ namespace Microsoft.Crank.Agent.MachineCounters;
 
 public class MachineCountersController : IDisposable
 {
-    private readonly MachineCountersEventSource _eventSource;
-
     private EventPipeSession _eventPipeSession;
     private readonly Job _job;
 
