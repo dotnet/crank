@@ -40,7 +40,7 @@ public class MachineCountersController : IDisposable
 #pragma warning disable CA1416 // Validate platform compatibility
         if (_job.OperatingSystem == OperatingSystem.Windows)
         {
-            var windowsCpu = new WindowsMachinePerformanceCounterEmitter(
+            var windowsCpu = new WindowsMachineCpuUsageEmitter(
                     performanceCounter: new PerformanceCounter("Processor", "% Processor Time", "_Total", readOnly: true),
                     measurementName: GetMachineMeasurementName("cpu"));
             RegisterMachineCpuMeasurement(windowsCpu);
@@ -49,24 +49,28 @@ public class MachineCountersController : IDisposable
         }
         else if (_job.OperatingSystem is OperatingSystem.Linux or OperatingSystem.OSX)
         {
-            var linuxCpu = new LinuxMachinePerformanceCounterEmitter(GetMachineMeasurementName("cpu"), "vmstat");
+            var linuxCpu = new LinuxMachineCpuUsageEmitter(GetMachineMeasurementName("cpu"), counterName: "vmstat");
             RegisterMachineCpuMeasurement(linuxCpu);
 
             _machinePerfCounters.Add(linuxCpu);
         }
 #pragma warning restore CA1416 // Validate platform compatibility
 
+        return this;
+    }
+
+    public Task _streamCountersTask;
+    public Task RunStreamCountersTask()
+    {
         foreach (var counter in _machinePerfCounters)
         {
             counter.Start();
             Log.Info($"Started {counter.MeasurementName} counter ({counter.CounterName}) emitter");
         }
 
-        return this;
+        _streamCountersTask = Task.Run(Stream);
+        return _streamCountersTask;
     }
-
-    public Task _streamCountersTask;
-    public Task RunStreamCountersTask() => (_streamCountersTask = Task.Run(Stream));
     public Task RunStopCountersTask(Task cancellationTask) => Task.Run(() => Stop(cancellationTask));
 
     private void Stream()

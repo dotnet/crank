@@ -6,7 +6,7 @@ using System.Threading;
 namespace Microsoft.Crank.Agent.MachineCounters.OS
 {
     [SupportedOSPlatform("linux")]
-    internal class LinuxMachinePerformanceCounterEmitter : IMachinePerformanceCounterEmitter
+    internal class LinuxMachineCpuUsageEmitter : IMachinePerformanceCounterEmitter
     {
         private readonly MachineCountersEventSource _eventSource;
 
@@ -16,12 +16,12 @@ namespace Microsoft.Crank.Agent.MachineCounters.OS
         public string MeasurementName { get; }
         public string CounterName { get; }
 
-        public LinuxMachinePerformanceCounterEmitter(string measurementName, string counterName)
+        public LinuxMachineCpuUsageEmitter(string measurementName, string counterName)
             : this(MachineCountersEventSource.Log, TimeSpan.FromSeconds(1), measurementName, counterName)
         {
         }
 
-        public LinuxMachinePerformanceCounterEmitter(
+        public LinuxMachineCpuUsageEmitter(
             MachineCountersEventSource eventSource,
             TimeSpan interval,
             string measurementName,
@@ -51,7 +51,7 @@ namespace Microsoft.Crank.Agent.MachineCounters.OS
             }
             catch (Exception ex)
             {
-                Log.Error(ex, $"error during emitting machine-level counter {nameof(LinuxMachinePerformanceCounterEmitter)}");
+                Log.Error(ex, $"error during emitting machine-level counter {nameof(LinuxMachineCpuUsageEmitter)}");
             }
         }
 

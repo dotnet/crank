@@ -5175,7 +5175,9 @@ namespace Microsoft.Crank.Agent
                 }
             });
 
-            var machineCountersController = MachineCountersController.Build(job);
+            var machineCountersController = MachineCountersController
+                .Build(job)
+                .RegisterCounters();
 
             context.CountersTask = Task.WhenAll(
                 streamTask, machineCountersController.RunStreamCountersTask(),
