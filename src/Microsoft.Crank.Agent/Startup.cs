@@ -5825,7 +5825,8 @@ namespace Microsoft.Crank.Agent
                 using var response = _httpClient.Send(httpMessage);
 
                 // If the file exists, it will return a 304, otherwise a 404
-                if (response.StatusCode == HttpStatusCode.NotModified)
+                // Some servers ignore the IfModifiedSince header, so check for success too
+                if (response.IsSuccessStatusCode || response.StatusCode == HttpStatusCode.NotModified)
                 {
                     return true;
                 }
