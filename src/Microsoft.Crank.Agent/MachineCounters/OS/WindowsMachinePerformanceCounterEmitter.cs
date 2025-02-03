@@ -15,13 +15,12 @@ namespace Microsoft.Crank.Agent.MachineCounters.OS
         private readonly TimeSpan _interval;
 
         public string MeasurementName { get; }
-        public string Description { get; }
 
         public string CounterName
             => $"{_performanceCounter.CategoryName}({_performanceCounter.InstanceName})\\{_performanceCounter.CounterName}";
 
-        public WindowsMachinePerformanceCounterEmitter(PerformanceCounter performanceCounter, string measurementName, string description)
-            : this(MachineCountersEventSource.Log, TimeSpan.FromSeconds(1), performanceCounter, measurementName, description)
+        public WindowsMachinePerformanceCounterEmitter(PerformanceCounter performanceCounter, string measurementName)
+            : this(MachineCountersEventSource.Log, TimeSpan.FromSeconds(1), performanceCounter, measurementName)
         {
         }
 
@@ -29,15 +28,13 @@ namespace Microsoft.Crank.Agent.MachineCounters.OS
             MachineCountersEventSource eventSource,
             TimeSpan interval,
             PerformanceCounter performanceCounter,
-            string measurementName,
-            string description)
+            string measurementName)
         {
             _eventSource = eventSource;
             _interval = interval;
 
             _performanceCounter = performanceCounter;
             MeasurementName = measurementName;
-            Description = description;
         }
 
         public void Start()
