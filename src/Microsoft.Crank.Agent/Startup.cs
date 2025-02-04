@@ -31,7 +31,6 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Hosting.WindowsServices;
 using Microsoft.Azure.Relay;
 using Microsoft.Crank.Agent.MachineCounters;
-using Microsoft.Crank.Agent.MachineCounters.OS;
 using Microsoft.Crank.EventSources;
 using Microsoft.Crank.Models;
 using Microsoft.Crank.Models.Security;
@@ -735,7 +734,7 @@ namespace Microsoft.Crank.Agent
                                             Reduce = Operation.Max,
                                             Format = "n0",
                                             LongDescription = "Amount of time the process has utilized the CPU out of 100%",
-                                            ShortDescription = "Max CPU Usage (%)"
+                                            ShortDescription = "Max Process CPU Usage (%)"
                                         });
                                     }
 

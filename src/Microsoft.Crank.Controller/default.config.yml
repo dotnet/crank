@@ -325,7 +325,7 @@ results: # creates results from measurements
 # Machine counters
 - name: machine/cpu-usage
   measurement: machine/cpu-usage
-  description: Max CPU Usage (%)
+  description: Machine Total CPU Usage (%)
   format: n0
   aggregate: avg
   reduce: avg
@@ -333,7 +333,7 @@ results: # creates results from measurements
 # System.Runtime counters
 - name: runtime-counter/cpu-usage
   measurement: runtime-counter/cpu-usage
-  description: Max Process CPU Usage (%)
+  description: Max CPU Usage (%)
   format: n0
   aggregate: max
   reduce: max

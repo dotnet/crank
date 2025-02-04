@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Runtime.Versioning;
-using System.Threading.Tasks;
-using System.Threading;
+using System.Diagnostics;
 
 namespace Microsoft.Crank.Agent.MachineCounters.OS
 {
@@ -9,26 +8,22 @@ namespace Microsoft.Crank.Agent.MachineCounters.OS
     internal class LinuxMachineCpuUsageEmitter : IMachinePerformanceCounterEmitter
     {
         private readonly MachineCountersEventSource _eventSource;
-
-        private Timer _timer;
-        private readonly TimeSpan _interval;
+        private Process _vmstatProcess;
 
         public string MeasurementName { get; }
         public string CounterName { get; }
 
         public LinuxMachineCpuUsageEmitter(string measurementName, string counterName)
-            : this(MachineCountersEventSource.Log, TimeSpan.FromSeconds(1), measurementName, counterName)
+            : this(MachineCountersEventSource.Log, measurementName, counterName)
         {
         }
 
         public LinuxMachineCpuUsageEmitter(
             MachineCountersEventSource eventSource,
-            TimeSpan interval,
             string measurementName,
             string counterName)
         {
             _eventSource = eventSource;
-            _interval = interval;
 
             MeasurementName = measurementName;
             CounterName = counterName;
@@ -36,18 +31,23 @@ namespace Microsoft.Crank.Agent.MachineCounters.OS
 
         public void Start()
         {
-            _timer = new Timer(async _ => await WritePerformanceData(), null, TimeSpan.Zero, _interval);
-        }
-
-        private async Task WritePerformanceData()
-        {
             try
             {
-                var counterValue = await GetCpuUsageAsync();
-                if (counterValue is not null)
-                {
-                    _eventSource.WriteCounterValue(MeasurementName, counterValue.Value);
-                }
+                _vmstatProcess = ProcessUtil.StreamOutput(
+                    filename: "vmstat",
+                    arguments: "1 100", // 'x y' mean 'get vmstat for y seconds every x second'
+                    outputDataReceivedCallback: output =>
+                    {
+                        var cpuUsage = ParseCpuUsage(output);
+                        if (cpuUsage is not null)
+                        {
+                            _eventSource.WriteCounterValue(MeasurementName, cpuUsage.Value);
+                        }
+                    },
+                    errorDataReceivedCallback: error =>
+                    {
+                        Log.Warning("vmstat error: " + error);
+                    });
             }
             catch (Exception ex)
             {
@@ -55,36 +55,18 @@ namespace Microsoft.Crank.Agent.MachineCounters.OS
             }
         }
 
-        private async Task<double?> GetCpuUsageAsync()
+        private double? ParseCpuUsage(string vmStatOutput)
         {
-            var processResult = await ProcessUtil.RunAsync(
-                filename: "vmstat",
-                arguments: "1 5", // definitely need to run it via interval, because otherwise it counts towards the cpu time after system boot (aka always 0%)
-                captureError: true,
-                captureOutput: true);
-
-            if (!string.IsNullOrEmpty(processResult.StandardError))
+            if (string.IsNullOrEmpty(vmStatOutput))
             {
-                Log.Error($"vmstat error (exitCode {processResult.ExitCode}): " + processResult.StandardError);
+                // no output -> skip it
                 return null;
             }
 
-            Console.WriteLine("vmstats verbose: " + processResult.StandardOutput);
-            Console.WriteLine("===============================");
-
-            string[] lines = processResult.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-            if (lines.Length < 3)
-            {
-                Log.Warning("Unexpected vmstat output: " + processResult.StandardOutput);
-                return null;
-            }
-
-            string lastLine = lines[^1]; // Last line contains the latest stats
-            string[] columns = lastLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
+            string[] columns = vmStatOutput.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (columns.Length < 15)
             {
-                Log.Warning("Unexpected vmstat output: " + lastLine);
+                // it is not a metrics values line, just skip it
                 return null;
             }
 
@@ -104,7 +86,7 @@ namespace Microsoft.Crank.Agent.MachineCounters.OS
 
             if (!parsed)
             {
-                Log.Warning("Could not parse cpu stats: " + lastLine);
+                // probably a line of metric names, so just skip it
                 return null;
             }
 
@@ -113,8 +95,10 @@ namespace Microsoft.Crank.Agent.MachineCounters.OS
 
         public void Dispose()
         {
-            _timer?.Dispose();
-            _timer = null;
+            _eventSource?.Dispose();
+
+            _vmstatProcess?.Close(); // is that sufficient to stop the process?
+            _vmstatProcess?.Dispose();
         }
     }
 }
