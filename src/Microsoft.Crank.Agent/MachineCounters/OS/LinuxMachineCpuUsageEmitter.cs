@@ -57,12 +57,20 @@ namespace Microsoft.Crank.Agent.MachineCounters.OS
 
         private async Task<double?> GetCpuUsageAsync()
         {
-            var processResult = await ProcessUtil.RunAsync(filename: "vmstat", arguments: "");
+            var processResult = await ProcessUtil.RunAsync(
+                filename: "vmstat",
+                arguments: "1 5", // definitely need to run it via interval, because otherwise it counts towards the cpu time after system boot (aka always 0%)
+                captureError: true,
+                captureOutput: true);
+
             if (!string.IsNullOrEmpty(processResult.StandardError))
             {
-                Log.Error(processResult.StandardError);
+                Log.Error($"vmstat error (exitCode {processResult.ExitCode}): " + processResult.StandardError);
                 return null;
             }
+
+            Console.WriteLine("vmstats verbose: " + processResult.StandardOutput);
+            Console.WriteLine("===============================");
 
             string[] lines = processResult.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
             if (lines.Length < 3)

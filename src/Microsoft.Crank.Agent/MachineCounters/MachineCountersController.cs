@@ -42,14 +42,14 @@ public class MachineCountersController : IDisposable
         {
             var windowsCpu = new WindowsMachineCpuUsageEmitter(
                     performanceCounter: new PerformanceCounter("Processor", "% Processor Time", "_Total", readOnly: true),
-                    measurementName: GetMachineMeasurementName("cpu"));
+                    measurementName: GetMachineMeasurementName("cpu-usage"));
             RegisterMachineCpuMeasurement(windowsCpu);
 
             _machinePerfCounters.Add(windowsCpu);
         }
         else if (_job.OperatingSystem is OperatingSystem.Linux or OperatingSystem.OSX)
         {
-            var linuxCpu = new LinuxMachineCpuUsageEmitter(GetMachineMeasurementName("cpu"), counterName: "vmstat");
+            var linuxCpu = new LinuxMachineCpuUsageEmitter(GetMachineMeasurementName("cpu-usage"), counterName: "vmstat");
             RegisterMachineCpuMeasurement(linuxCpu);
 
             _machinePerfCounters.Add(linuxCpu);
