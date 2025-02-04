@@ -101,7 +101,7 @@ namespace Microsoft.Crank.Agent.Controllers
             job.LastDriverCommunicationUtc = DateTime.UtcNow;
             job = _jobs.Add(job);
             job.Url = Url.ActionLink("GetById", "Jobs", new { job.Id });
-
+            
             Response.Headers["Location"] = $"/jobs/{job.Id}";
             return new StatusCodeResult((int)HttpStatusCode.Accepted);
         }

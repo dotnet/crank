@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Tracing;
 using System.Threading.Tasks;
 using Microsoft.Crank.Agent.MachineCounters.OS;
@@ -37,24 +38,17 @@ public class MachineCountersController : IDisposable
 
     public MachineCountersController RegisterCounters()
     {
-#pragma warning disable CA1416 // Validate platform compatibility
-        if (_job.OperatingSystem == OperatingSystem.Windows)
-        {
-            var windowsCpu = new WindowsMachineCpuUsageEmitter(
-                    performanceCounter: new PerformanceCounter("Processor", "% Processor Time", "_Total", readOnly: true),
-                    measurementName: GetMachineMeasurementName("cpu-usage"));
-            RegisterMachineCpuMeasurement(windowsCpu);
+        var cpuEmitter = GetAndRegisterMachineCpuUsageEmitter();
+        var lsassEmitter = GetAndRegisterLsassCpuUsageEmitter();
 
-            _machinePerfCounters.Add(windowsCpu);
-        }
-        else if (_job.OperatingSystem is OperatingSystem.Linux or OperatingSystem.OSX)
+        if (cpuEmitter is not null)
         {
-            var linuxCpu = new LinuxMachineCpuUsageEmitter(GetMachineMeasurementName("cpu-usage"), counterName: "vmstat");
-            RegisterMachineCpuMeasurement(linuxCpu);
-
-            _machinePerfCounters.Add(linuxCpu);
+            _machinePerfCounters.Add(cpuEmitter);
         }
-#pragma warning restore CA1416 // Validate platform compatibility
+        if (lsassEmitter is not null)
+        {
+            _machinePerfCounters.Add(lsassEmitter);
+        }
 
         return this;
     }
@@ -175,18 +169,62 @@ public class MachineCountersController : IDisposable
         _job.Measurements.Enqueue(measurement);
     }
 
-    void RegisterMachineCpuMeasurement(IMachinePerformanceCounterEmitter counterEmitter)
+    IMachinePerformanceCounterEmitter GetAndRegisterMachineCpuUsageEmitter()
     {
+        IMachinePerformanceCounterEmitter cpuEmitter = null;
+        var measurementName = GetMachineMeasurementName("cpu-usage");
+
+#pragma warning disable CA1416 // Validate platform compatibility
+        if (_job.OperatingSystem == OperatingSystem.Windows)
+        {
+            cpuEmitter = new WindowsMachineCpuUsageEmitter(
+                performanceCounter: new PerformanceCounter("Processor", "% Processor Time", "_Total", readOnly: true),
+                measurementName: measurementName);
+        }
+        else if (_job.OperatingSystem is OperatingSystem.Linux or OperatingSystem.OSX)
+        {
+            cpuEmitter = new LinuxMachineCpuUsageEmitter(measurementName, counterName: "vmstat");
+        }
+#pragma warning restore CA1416 // Validate platform compatibility
+
         _job.Metadata.Enqueue(new MeasurementMetadata
         {
             Source = "Agent Machine",
-            Name = counterEmitter.MeasurementName,
+            Name = measurementName,
             Aggregate = Operation.Avg,
             Reduce = Operation.Avg,
             Format = "n0",
-            LongDescription = $"Machine-level counter: '{counterEmitter.CounterName}'",
-            ShortDescription = "[machine] CPU total time (%)"
+            LongDescription = $"Machine-level counter: '{cpuEmitter.CounterName}'",
+            ShortDescription = "Machine Total CPU Usage (%)"
         });
+
+        return cpuEmitter;
+    }
+
+    [SuppressMessage("Interoperability", "CA1416:Validate platform compatibility", Justification = "has a check for OS")]
+    IMachinePerformanceCounterEmitter GetAndRegisterLsassCpuUsageEmitter()
+    {
+        if (_job.Options.CollectMachineCounters != true
+            || _job.OperatingSystem != OperatingSystem.Windows)
+        {
+            return null;
+        }
+
+        var measurementName = GetMachineMeasurementName("lsass-cpu-usage");
+        var lsassEmitter = new WindowsProcessCpuTimeEmitter("lsass", measurementName);
+
+        _job.Metadata.Enqueue(new MeasurementMetadata
+        {
+            Source = "Agent Machine",
+            Name = measurementName,
+            Aggregate = Operation.Avg,
+            Reduce = Operation.Avg,
+            Format = "n0",
+            LongDescription = $"Machine-level counter: '{lsassEmitter.CounterName}'",
+            ShortDescription = "Lsass Process CPU Usage (%)"
+        });
+
+        return lsassEmitter;
     }
 
     private static string GetMachineMeasurementName(string measurementName)

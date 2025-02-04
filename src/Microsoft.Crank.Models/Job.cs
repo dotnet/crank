@@ -418,6 +418,10 @@ namespace Microsoft.Crank.Models
         public List<string> OutputArchives { get; set; } = new List<string>();
         public bool BenchmarkDotNet { get; set; }
         public bool? CollectCounters { get; set; }
+        /// <summary>
+        /// In contrast to <see cref="CollectCounters"/>, collects the machine-level counters (not process-level).
+        /// </summary>
+        public bool? CollectMachineCounters { get; set; }
         public List<string> CounterProviders { get; set; } = new List<string>();
 
         // Don't clone and don't build if already cloned and built. 

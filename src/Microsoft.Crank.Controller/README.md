@@ -112,6 +112,7 @@ Run 'crank [command] -?|-h|--help' for more information about a command.
   --[JOB].options.traceOutput <filename>                        The name of the trace file. Can be a file prefix (app will add *.DATE*.zip) , or a specific name and no DATE*
                                                                 will be added e.g., c:\traces\mytrace
   --[JOB].options.collectCounters <true|false>                  Whether to collect dotnet counters. If set and 'counterProviders' is not, System.Runtime will be used by default.
+  --[JOB].options.collectMachineCounters <true|false>           Whether to collect machine-level counters. I.e. some known processes like `lsass` on windows etc.
   --[JOB].options.counterProviders <provider>                   The name of a performance counter provider from which to collect. e.g., System.Runtime,
                                                                 Microsoft-AspNetCore-Server-Kestrel, Microsoft.AspNetCore.Hosting, Microsoft.AspNetCore.Http.Connections,
                                                                 Grpc.AspNetCore.Server, Grpc.Net.client, Npgsql
