@@ -450,8 +450,9 @@ namespace Microsoft.Crank.Models
         public bool? CollectCounters { get; set; }
         /// <summary>
         /// In contrast to <see cref="CollectCounters"/>, collects the machine-level counters (not process-level).
+        /// note: undocumented before upcoming changes
         /// </summary>
-        public bool? CollectMachineCounters { get; set; }
+        public bool? CollectLsass { get; set; }
         public List<string> CounterProviders { get; set; } = new List<string>();
 
         // Don't clone and don't build if already cloned and built. 
