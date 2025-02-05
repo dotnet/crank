@@ -390,6 +390,36 @@ namespace Microsoft.Crank.Models
                 DockerContextDirectory = DockerContextDirectory
             };
         }
+
+        public List<int> CalculateCpuList()
+        {
+            if (string.IsNullOrWhiteSpace(CpuSet))
+            {
+                return new();
+            }
+
+            var result = new List<int>();
+
+            var ranges = CpuSet.Split(',', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var r in ranges)
+            {
+                var bounds = r.Split('-', 2);
+
+                if (bounds.Length == 1)
+                {
+                    result.Add(int.Parse(bounds[0]));
+                }
+                else
+                {
+                    for (var i = int.Parse(bounds[0]); i <= int.Parse(bounds[1]); i++)
+                    {
+                        result.Add(i);
+                    }
+                }
+            }
+
+            return result;
+        }
     }
 
     /// <summary>
