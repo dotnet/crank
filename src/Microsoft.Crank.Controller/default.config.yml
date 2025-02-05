@@ -330,6 +330,13 @@ results: # creates results from measurements
   aggregate: avg
   reduce: avg
 
+- name: machine/cpuSet-usage
+  measurement: machine/cpuSet-usage
+  description: Machine Total Cpu-Set Usage (%)
+  format: n0
+  aggregate: avg
+  reduce: avg
+
 - name: machine/lsass-cpu-usage
   measurement: machine/lsass-cpu-usage
   description: Process lsass CPU Usage (%)
