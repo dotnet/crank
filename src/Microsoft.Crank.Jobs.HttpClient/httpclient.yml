@@ -29,4 +29,5 @@ jobs:
       certPath: # the path or url of the certificate used for authentication
       certPwd: # the password of the certificate specified in certPath
       sslProtocol: # the SSL protocol to use, e.g. Tls12, Tls13.
-    arguments: '--url "{{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}" --connections {{connections}} --warmup {{warmup}} --duration {{duration}} {{headers[presetHeaders]}} --version {{httpVersion}} {% if certPath %} --cert {{certPath}} {% endif %} {% if certPwd %} --certpwd {{certPwd}} {% endif %} {% if sslProtocol %} --ssl-protocol {{sslProtocol}} {% endif %}'
+      customHeaders: [ ] # list of headers with the format: '<name1>: <value1>', e.g. [ 'content-type: application/json' ]. In yml should look like: - "content-type: application/json"
+    arguments: '--url "{{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}" --connections {{connections}} --warmup {{warmup}} --duration {{duration}} {{headers[presetHeaders]}} {% for h in customHeaders %}{% assign s = h | split : ':' %}--header \"{{ s[0] }}: {{ s[1] | strip }}\" {% endfor %} --version {{httpVersion}} {% if certPath %} --cert {{certPath}} {% endif %} {% if certPwd %} --certpwd {{certPwd}} {% endif %} {% if sslProtocol %} --ssl-protocol {{sslProtocol}} {% endif %}'
