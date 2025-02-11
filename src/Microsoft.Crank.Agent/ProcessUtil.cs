@@ -19,7 +19,7 @@ namespace Microsoft.Crank.Agent
         private static extern int sys_kill(int pid, int sig);
 
         // Strings in arguments collection don't need to be previously escaped
-        public static async Task<ProcessResult> RunAsync(
+        public static Task<ProcessResult> RunAsync(
             string filename,
             IEnumerable<string> arguments,
             TimeSpan? timeout = null,
@@ -36,16 +36,13 @@ namespace Microsoft.Crank.Agent
             CancellationToken cancellationToken = default
         )
         {
-            using var process = new Process()
-            {
-                StartInfo = new ProcessStartInfo(filename, arguments)
-            };
-            return await RunAsync(process, timeout, workingDirectory, throwOnError, environmentVariables, outputDataReceived, log, onStart, onStop, captureOutput, captureError, runAsRoot, cancellationToken);
+            var startInfo = new ProcessStartInfo(filename, arguments);
+            return RunAsync(startInfo, timeout, workingDirectory, throwOnError, environmentVariables, outputDataReceived, log, onStart, onStop, captureOutput, captureError, runAsRoot, cancellationToken);
         }
 
-        public static async Task<ProcessResult> RunAsync(
+        public static Task<ProcessResult> RunAsync(
             string filename,
-            string arguments,
+            string encodedArguments,
             TimeSpan? timeout = null,
             string workingDirectory = null,
             bool throwOnError = true,
@@ -60,15 +57,12 @@ namespace Microsoft.Crank.Agent
             CancellationToken cancellationToken = default
         )
         {
-            using var process = new Process()
-            {
-                StartInfo = new ProcessStartInfo(filename, arguments)
-            };
-            return await RunAsync(process, timeout, workingDirectory, throwOnError, environmentVariables, outputDataReceived, log, onStart, onStop, captureOutput, captureError, runAsRoot, cancellationToken);
+            var startInfo = new ProcessStartInfo(filename, encodedArguments);
+            return RunAsync(startInfo, timeout, workingDirectory, throwOnError, environmentVariables, outputDataReceived, log, onStart, onStop, captureOutput, captureError, runAsRoot, cancellationToken);
         }
 
         private static async Task<ProcessResult> RunAsync(
-            Process process,
+            ProcessStartInfo startInfo,
             TimeSpan? timeout = null,
             string workingDirectory = null,
             bool throwOnError = true,
@@ -84,13 +78,16 @@ namespace Microsoft.Crank.Agent
         )
         {
             var logWorkingDirectory = workingDirectory ?? Directory.GetCurrentDirectory();
-            var arguments = string.IsNullOrWhiteSpace(process.StartInfo.Arguments) ? string.Join(" ", process.StartInfo.ArgumentList) : process.StartInfo.Arguments;
+
+            var arguments = string.IsNullOrWhiteSpace(startInfo.Arguments) ? string.Join(" ", startInfo.ArgumentList) : startInfo.Arguments;
 
             if (log)
             {
-                Log.Info($"[{logWorkingDirectory}] {process.StartInfo.FileName} {arguments}");
+                Log.Info($"[{logWorkingDirectory}] {startInfo.FileName} {arguments}");
             }
 
+            using var process = new Process();
+            process.StartInfo = startInfo;
             process.StartInfo.CreateNoWindow = true;
             process.EnableRaisingEvents = true;
 
@@ -178,7 +175,7 @@ namespace Microsoft.Crank.Agent
 
                 if (throwOnError && process.ExitCode != 0)
                 {
-                    processLifetimeTask.TrySetException(new InvalidOperationException($"Command {process.StartInfo.FileName} {arguments} returned exit code {process.ExitCode}"));
+                    processLifetimeTask.TrySetException(new InvalidOperationException($"Command {startInfo.FileName} {arguments} returned exit code {process.ExitCode}"));
                 }
                 else
                 {
