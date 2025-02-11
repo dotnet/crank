@@ -1,4 +1,3 @@
-# The pool section has been filled with placeholder values, check the following link for guidance: https://eng.ms/docs/cloud-ai-platform/devdiv/one-engineering-system-1es/1es-pipeline-templates/onboardingesteams/overview, replace the pool section with your hosted pool, os, and image name. If you are using a Linux image, you must specify an additional windows image for SDL: https://eng.ms/docs/cloud-ai-platform/devdiv/one-engineering-system-1es/1es-pipeline-templates/features/sdlanalysis/overview#how-to-specify-a-windows-pool-for-the-sdl-source-analysis-stage
 trigger: none
 name: $(Date:yyyyMMdd).$(Rev:r)
 parameters:
@@ -28,8 +27,7 @@ extends:
       image: windows-latest
       os: windows
     stages:
-    - stage: Publish_Stage
-      displayName: Publish Crank NuGet Packages
+    - stage: Publish
       jobs:
       - job: Publish_Job
         displayName: Publish Crank NuGet Packages
@@ -68,5 +66,5 @@ extends:
                   nuget push -Source $env:NuGetFeed -ApiKey $env:NuGetApiKey $_.FullName
                 }
               }
-            env:
-              NuGetApiKey: $(NuGetApiKey)
+          env:
+            NuGetApiKey: $(NuGetApiKey)
