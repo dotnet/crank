@@ -5159,6 +5159,7 @@ namespace Microsoft.Crank.Agent
 
             // The event pipe session needs to be disposed after the source is interrupted
             machineCountersController?.Dispose();
+            machineCountersController = null;
             context.EventPipeSession?.Dispose();
             context.EventPipeSession = null;
 

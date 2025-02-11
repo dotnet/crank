@@ -95,9 +95,9 @@ namespace Microsoft.Crank.Agent.MachineCounters.OS
 
         public void Dispose()
         {
-            _eventSource?.Dispose();
-
-            _vmstatProcess?.Close(); // is that sufficient to stop the process?
+            _vmstatProcess.Kill();
+            _vmstatProcess.WaitForExit();
+            Log.Info($"vmstat process killed and stopped");
             _vmstatProcess?.Dispose();
         }
     }

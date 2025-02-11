@@ -79,7 +79,7 @@ namespace Microsoft.Crank.Agent
             process.Start();
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
-            Console.WriteLine($"Started process '{process.Id}' for streaming");
+            Log.Info($"Started process '{process.ProcessName}#{process.Id}' for streaming");
 
             return process;
         }
