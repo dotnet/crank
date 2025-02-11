@@ -54,9 +54,16 @@ RUN curl -LO https://packages.microsoft.com/keys/microsoft.asc && \
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         g++ make binutils autoconf automake autotools-dev libtool pkg-config \
-        zlib1g-dev libcunit1-dev libssl-dev libxml2-dev libev-dev libevent-dev libjansson-dev \
+        zlib1g-dev libcunit1-dev libxml2-dev libev-dev libevent-dev libjansson-dev \
         libc-ares-dev libjemalloc-dev libsystemd-dev \
         python-is-python3 python3-dev python3-setuptools
+
+ENV DEBIAN_FRONTEND=noninteractive
+# Add Debian testing repository
+RUN echo 'deb http://deb.debian.org/debian testing main' >> /etc/apt/sources.list 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    -t testing openssl=3.4.0-2 libssl-dev=3.4.0-2
 
 # If nghttp2 build fail just ignore it
 ENV NGHTTP2_VERSION=1.58.0

@@ -18,6 +18,72 @@ namespace Microsoft.Crank.Agent
         [DllImport("libc", SetLastError = true, EntryPoint = "kill")]
         private static extern int sys_kill(int pid, int sig);
 
+        public static Process StreamOutput(
+            string filename,
+            string arguments,
+            Action<string> outputDataReceivedCallback,
+            Action<string> errorDataReceivedCallback,
+            string workingDirectory = null,
+            IDictionary<string, string> environmentVariables = null)
+        {
+            var process = new Process()
+            {
+                StartInfo =
+                {
+                    FileName = filename,
+                    Arguments = arguments,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                },
+                EnableRaisingEvents = true
+            };
+
+            if (workingDirectory != null)
+            {
+                process.StartInfo.WorkingDirectory = workingDirectory;
+            }
+            if (environmentVariables != null)
+            {
+                foreach (var kvp in environmentVariables)
+                {
+                    process.StartInfo.Environment.Add(kvp);
+                }
+            }
+
+            process.OutputDataReceived += (_, e) =>
+            {
+                if (e.Data is not null)
+                {
+                    outputDataReceivedCallback(e.Data);
+                }
+            };
+
+            process.ErrorDataReceived += (_, e) =>
+            {
+                if (e.Data is not null)
+                {
+                    errorDataReceivedCallback(e.Data);
+                }
+            };
+
+            process.Exited += (_, e) =>
+            {
+                // Even though the Exited event has been raised, WaitForExit() must still be called to ensure the output buffers
+                // have been flushed before the process is considered completely done.
+                // However, lets not give it infinite time to exit: 1 second should do it
+                process.WaitForExit(TimeSpan.FromSeconds(1));
+            };
+
+            process.Start();
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+            Console.WriteLine($"Started process '{process.Id}' for streaming");
+
+            return process;
+        }
+
         public static async Task<ProcessResult> RunAsync(
             string filename, 
             string arguments, 

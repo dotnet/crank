@@ -391,6 +391,36 @@ namespace Microsoft.Crank.Models
                 DockerContextDirectory = DockerContextDirectory
             };
         }
+
+        public List<int> CalculateCpuList()
+        {
+            if (string.IsNullOrWhiteSpace(CpuSet))
+            {
+                return new();
+            }
+
+            var result = new List<int>();
+
+            var ranges = CpuSet.Split(',', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var r in ranges)
+            {
+                var bounds = r.Split('-', 2);
+
+                if (bounds.Length == 1)
+                {
+                    result.Add(int.Parse(bounds[0]));
+                }
+                else
+                {
+                    for (var i = int.Parse(bounds[0]); i <= int.Parse(bounds[1]); i++)
+                    {
+                        result.Add(i);
+                    }
+                }
+            }
+
+            return result;
+        }
     }
 
     /// <summary>
@@ -419,6 +449,11 @@ namespace Microsoft.Crank.Models
         public List<string> OutputArchives { get; } = [];
         public bool BenchmarkDotNet { get; set; }
         public bool? CollectCounters { get; set; }
+        /// <summary>
+        /// In contrast to <see cref="CollectCounters"/>, collects the machine-level counters (not process-level).
+        /// note: undocumented before upcoming changes
+        /// </summary>
+        public bool? CollectLsass { get; set; }
         public List<string> CounterProviders { get; } = [];
 
         // Don't clone and don't build if already cloned and built. 
