@@ -23,9 +23,9 @@ extends:
   template: v1/1ES.Official.PipelineTemplate.yml@1ESPipelineTemplates
   parameters:
     pool:
-      name: Azure Pipelines
-      image: windows-latest
-      os: windows
+      name: NetCore1ESPool-Svc-Internal
+      image: 1es-windows-2022
+
     stages:
     - stage: Publish
       jobs:
