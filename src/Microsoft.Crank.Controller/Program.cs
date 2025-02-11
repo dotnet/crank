@@ -26,6 +26,7 @@ using Microsoft.Azure.Relay;
 using Microsoft.Crank.Controller.Serializers;
 using Microsoft.Crank.Models;
 using Microsoft.Crank.Models.Security;
+using Microsoft.Data.SqlClient;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
@@ -455,11 +456,6 @@ namespace Microsoft.Crank.Controller
                     {
                         _tableName = Environment.GetEnvironmentVariable(_tableName);
                     }
-                }
-                if (_tableName.Contains(']'))
-                {
-                    Console.WriteLine($"Invalid table name {_tableName}.");
-                    return -1;
                 }
 
                 if (_sqlConnectionStringOption.HasValue())
