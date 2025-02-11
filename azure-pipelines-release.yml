@@ -34,7 +34,6 @@ extends:
       - job: Publish_Job
         displayName: Publish Crank NuGet Packages
         condition: succeeded()
-        type: releaseJob
         timeoutInMinutes: 0
         templateContext:
           inputs:
