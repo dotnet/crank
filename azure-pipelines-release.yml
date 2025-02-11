@@ -1,0 +1,73 @@
+# The pool section has been filled with placeholder values, check the following link for guidance: https://eng.ms/docs/cloud-ai-platform/devdiv/one-engineering-system-1es/1es-pipeline-templates/onboardingesteams/overview, replace the pool section with your hosted pool, os, and image name. If you are using a Linux image, you must specify an additional windows image for SDL: https://eng.ms/docs/cloud-ai-platform/devdiv/one-engineering-system-1es/1es-pipeline-templates/features/sdlanalysis/overview#how-to-specify-a-windows-pool-for-the-sdl-source-analysis-stage
+trigger: none
+name: $(Date:yyyyMMdd).$(Rev:r)
+parameters:
+- name: DryRun
+  type: boolean
+  default: false
+variables:
+- name: NuGetApiKey
+  value: 
+- name: NuGetFeed
+  value: https://api.nuget.org/v3/index.json
+resources:
+  pipelines:
+  - pipeline: '_dotnet-crank-ci-official'
+    project: 'internal'
+    source: 'dotnet\crank\dotnet-crank-ci-official'
+  repositories:
+  - repository: 1ESPipelineTemplates
+    type: git
+    name: 1ESPipelineTemplates/1ESPipelineTemplates
+    ref: refs/tags/release
+extends:
+  template: v1/1ES.Official.PipelineTemplate.yml@1ESPipelineTemplates
+  parameters:
+    pool:
+      name: Azure Pipelines
+      image: windows-latest
+      os: windows
+    stages:
+    - stage: Publish_Stage
+      displayName: Publish Crank NuGet Packages
+      jobs:
+      - job: Publish_Job
+        displayName: Publish Crank NuGet Packages
+        condition: succeeded()
+        type: releaseJob
+        timeoutInMinutes: 0
+        templateContext:
+          inputs:
+          - input: pipelineArtifact
+            pipeline: '_dotnet-crank-ci-official'
+            artifactName: 'PackageArtifacts'
+            targetPath: '$(Pipeline.Workspace)/PackageArtifacts'
+        steps:
+        - task: NuGetToolInstaller@1
+          displayName: Install NuGet
+        - task: PowerShell@2
+          displayName: Publish NuGet Packages
+          inputs:
+            targetType: inline
+            script: |-
+              if(!$env:NuGetFeed) {
+                throw "Missing 'NuGetFeed' variable!"
+              }
+              if(${{ parameters.DryRun }}) {
+                Write-Host "Dry run enabled. The following packages would have been published:"
+                Get-ChildItem "$(Pipeline.Workspace)\PackageArtifacts\" -Filter *.nupkg | ForEach-Object {
+                  $name = $_.Name
+                  Write-Host "Would publish $name"
+                }
+              } else {
+                if(!$env:NuGetApiKey) {
+                  throw "Missing 'NuGetApiKey' variable!"
+                }
+                Get-ChildItem "$(Pipeline.Workspace)\PackageArtifacts\" -Filter *.nupkg | ForEach-Object {
+                  $name = $_.Name
+                  Write-Host "Publishing $name"
+                  nuget push -Source $env:NuGetFeed -ApiKey $env:NuGetApiKey $_.FullName
+                }
+              }
+            env:
+              NuGetApiKey: $(NuGetApiKey)
