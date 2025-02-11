@@ -11,6 +11,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Security;
+using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using System.Threading;
@@ -40,6 +41,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
         public static int WarmupTimeSeconds { get; set; }
         public static int ExecutionTimeSeconds { get; set; }
         public static int Connections { get; set; }
+        public static SslProtocols? TlsVersions { get; set; }
         public static List<string> Headers { get; set; }
         public static byte[] Body { get; set; }
         public static Version Version { get; set; }
@@ -87,12 +89,29 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
             var optionHarNoDelay = app.Option("--har-no-delay", "when set, delays between HAR requests are not followed.", CommandOptionType.NoValue);
             var optionScript = app.Option("-s|--script <filename>", "A .js script file altering the current client.", CommandOptionType.SingleValue);
             var optionLocal = app.Option("-l|--local", "Ignore requests outside of the main domain.", CommandOptionType.NoValue);
+            var optionSslProtocols = app.Option("--ssl-protocol", "SSL protocols versions to use. Can be set multiple times. Allowed values: none (default), tls12, tls13", CommandOptionType.MultipleValue);
 
             app.OnValidate(ctx =>
             {
                 if (!optionHar.HasValue() && !optionUrl.HasValue())
                 {
                     return new ValidationResult($"The --{optionUrl.LongName} field is required.");
+                }
+
+                if (optionSslProtocols.HasValue())
+                {
+                    TlsVersions = SslProtocols.None;
+                    foreach (var protocol in optionSslProtocols.Values)
+                    {
+                        try
+                        {
+                            TlsVersions |= Enum.Parse<SslProtocols>(protocol, ignoreCase: true);
+                        }
+                        catch
+                        {
+                            return new ValidationResult($"Invalid value for --ssl-protocol: '{protocol}'.");
+                        }
+                    }
                 }
 
                 return ValidationResult.Success;
@@ -450,6 +469,12 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                             AutomaticDecompression = DecompressionMethods.None
                         };
 
+                        if (TlsVersions is not null)
+                        {
+                            Log("Using sslProtocols: {0}", TlsVersions);
+                            _httpHandler.SslOptions.EnabledSslProtocols = TlsVersions.Value;
+                        }
+
                         // Accept any SSL certificate
                         _httpHandler.SslOptions.RemoteCertificateValidationCallback += (object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => true;
 
@@ -571,7 +596,8 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
             var maxLatency = 0D;
             var totalLatency = 0D;
             var transferred = 0L;
-            var measuringStart = 0L;
+            var measuringStart = -1L;
+
             var sw = new Stopwatch();
             sw.Start();
 
@@ -624,9 +650,9 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
 
                     if (_measuring)
                     {
-                        if (measuringStart == 0)
+                        if (measuringStart == -1L)
                         {
-                            measuringStart = sw.ElapsedTicks;
+                            measuringStart = sw.ElapsedTicks - 1;
                         }
 
                         transferred += responseMessage.Content.Headers.ContentLength ?? 0;
@@ -683,7 +709,8 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                 }
             }
 
-            var throughput = transferred / ((sw.ElapsedTicks - measuringStart) / Stopwatch.Frequency);
+            var throughput = transferred / ((double)(sw.ElapsedTicks - measuringStart) / Stopwatch.Frequency);
+            var throughputBps = (long)throughput;
 
             if (!String.IsNullOrWhiteSpace(Script) && !worker.Script.GetValue("stop").IsUndefined())
             {
@@ -707,7 +734,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                 SocketErrors = socketErrors,
                 LatencyMaxMs = maxLatency / Stopwatch.Frequency * 1000,
                 LatencyMeanMs = (totalLatency / counters.Sum()) / Stopwatch.Frequency * 1000,
-                ThroughputBps = throughput
+                ThroughputBps = throughputBps
             };
         }
     }

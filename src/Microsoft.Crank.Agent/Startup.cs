@@ -30,6 +30,7 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Hosting.WindowsServices;
 using Microsoft.Azure.Relay;
+using Microsoft.Crank.Agent.MachineCounters;
 using Microsoft.Crank.EventSources;
 using Microsoft.Crank.Models;
 using Microsoft.Crank.Models.Security;
@@ -648,7 +649,7 @@ namespace Microsoft.Crank.Agent
                             var realCpuCount = Environment.ProcessorCount;
                             if (!string.IsNullOrEmpty(job.CpuSet))
                             {
-                                realCpuCount = CalculateCpuList(job.CpuSet).Count;
+                                realCpuCount = job.CalculateCpuList().Count;
                             }
 
                             var context = group[job];
@@ -733,7 +734,7 @@ namespace Microsoft.Crank.Agent
                                             Reduce = Operation.Max,
                                             Format = "n0",
                                             LongDescription = "Amount of time the process has utilized the CPU out of 100%",
-                                            ShortDescription = "Max CPU Usage (%)"
+                                            ShortDescription = "Max Process CPU Usage (%)"
                                         });
                                     }
 
@@ -4756,10 +4757,12 @@ namespace Microsoft.Crank.Agent
                 process.WaitForExit();
             };
 
+            var cpuList = job.CalculateCpuList();
+
             // .NET doesn't respect a cpu affinity if a ratio is not set too. https://github.com/dotnet/runtime/issues/94364
             if (!String.IsNullOrWhiteSpace(job.CpuSet))
             {
-                process.StartInfo.EnvironmentVariables.Add("DOTNET_PROCESSOR_COUNT", CalculateCpuList(job.CpuSet).Count.ToString(CultureInfo.InvariantCulture));
+                process.StartInfo.EnvironmentVariables.Add("DOTNET_PROCESSOR_COUNT", cpuList.Count.ToString(CultureInfo.InvariantCulture));
             }
 
             stopwatch.Start();
@@ -4773,7 +4776,7 @@ namespace Microsoft.Crank.Agent
                 job.CpuLimitRatio = Math.Clamp(job.CpuLimitRatio, 0, 1);
 
                 var limiter = new WindowsLimiter(process);
-                limiter.SetCpuLimits(job.CpuLimitRatio, CalculateCpuList(job.CpuSet));
+                limiter.SetCpuLimits(job.CpuLimitRatio, cpuList);
                 limiter.SetMemLimit(job.MemoryLimitInBytes);
                 limiter.Apply();
 
@@ -4831,36 +4834,6 @@ namespace Microsoft.Crank.Agent
                     }
                 }
             }
-        }
-
-        public static List<int> CalculateCpuList(string cpuSet)
-        {
-            if (string.IsNullOrWhiteSpace(cpuSet))
-            {
-                return new List<int>();
-            }
-
-            var result = new List<int>();
-
-            var ranges = cpuSet.Split(',', StringSplitOptions.RemoveEmptyEntries);
-            foreach (var r in ranges)
-            {
-                var bounds = r.Split('-', 2);
-
-                if (bounds.Length == 1)
-                {
-                    result.Add(int.Parse(bounds[0]));
-                }
-                else
-                {
-                    for (var i = int.Parse(bounds[0]); i <= int.Parse(bounds[1]); i++)
-                    {
-                        result.Add(i);
-                    }
-                }
-            }
-
-            return result;
         }
 
         private static async Task StartCountersAsync(Job job, JobContext context)
@@ -5156,7 +5129,6 @@ namespace Microsoft.Crank.Agent
                 {
                     // It also interrupts the source.Process() blocking operation
                     await context.EventPipeSession.StopAsync(default);
-
                     Log.Info($"Event pipe session stopped ({job.Service}:{job.Id})");
                 }
                 catch (ServerNotAvailableException)
@@ -5174,11 +5146,19 @@ namespace Microsoft.Crank.Agent
                 }
             });
 
-            context.CountersTask = Task.WhenAll(streamTask, stopTask);
+            var machineCountersController = MachineCountersController
+                .Build(job)
+                .RegisterCounters();
+
+            context.CountersTask = Task.WhenAll(
+                streamTask, machineCountersController.RunStreamCountersTask(),
+                stopTask, machineCountersController.RunStopCountersTask(context.CountersCompletionSource.Task)
+            );
 
             await context.CountersTask;
 
             // The event pipe session needs to be disposed after the source is interrupted
+            machineCountersController?.Dispose();
             context.EventPipeSession?.Dispose();
             context.EventPipeSession = null;
 
@@ -5825,7 +5805,8 @@ namespace Microsoft.Crank.Agent
                 using var response = _httpClient.Send(httpMessage);
 
                 // If the file exists, it will return a 304, otherwise a 404
-                if (response.StatusCode == HttpStatusCode.NotModified)
+                // Some servers ignore the IfModifiedSince header, so check for success too
+                if (response.IsSuccessStatusCode || response.StatusCode == HttpStatusCode.NotModified)
                 {
                     return true;
                 }
