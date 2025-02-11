@@ -717,7 +717,7 @@ namespace Microsoft.Crank.Agent.Controllers
                         var destinationFilename = Path.Combine(tempDirectory, Path.GetFileName(path));
 
                         // Delete container if the same name already exists
-                        var result = await ProcessUtil.RunAsync("docker", $"cp {job.GetNormalizedImageName()}:{path} {destinationFilename}", throwOnError: false, log: true);
+                        var result = await ProcessUtil.RunAsync("docker", [ "cp", $"{job.GetNormalizedImageName()}:{path}", destinationFilename ], throwOnError: false, log: true);
 
                         return new GZipFileResult(destinationFilename);
                     }

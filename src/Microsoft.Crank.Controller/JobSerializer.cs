@@ -34,11 +34,13 @@ namespace Microsoft.Crank.Controller.Serializers
 
             var document = JsonConvert.SerializeObject(jobResults, Formatting.None, new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() });
 
+            var quotedTableName = new SqlCommandBuilder().QuoteIdentifier(unquotedIdentifier: tableName);
+
             return RetryOnExceptionAsync(5, () =>
                  WriteResultsToSql(
                     utcNow,
                     sqlConnectionString,
-                    tableName,
+                    quotedTableName: quotedTableName,
                     session,
                     scenario,
                     description,
@@ -53,11 +55,14 @@ namespace Microsoft.Crank.Controller.Serializers
             string tableName,
             CertificateOptions certificateOptions)
         {
+            var quotedTableName = new SqlCommandBuilder().QuoteIdentifier(unquotedIdentifier: tableName);
+            var encodedQuotedTableName = quotedTableName.Replace("'", "''");
+
             var createCmd =
-                @"
-                IF OBJECT_ID(N'dbo." + tableName + @"', N'U') IS NULL
+                $$"""
+                IF OBJECT_ID(N'[dbo].{{encodedQuotedTableName}}', N'U') IS NULL
                 BEGIN
-                    CREATE TABLE [dbo].[" + tableName + @"](
+                    CREATE TABLE [dbo].{{encodedQuotedTableName}}(
                         [Id] [int] IDENTITY(1,1) NOT NULL PRIMARY KEY,
                         [Excluded] [bit] DEFAULT 0,
                         [DateTimeUtc] [datetimeoffset](7) NOT NULL,
@@ -67,7 +72,7 @@ namespace Microsoft.Crank.Controller.Serializers
                         [Document] [nvarchar](max) NOT NULL
                     )
                 END
-                ";
+                """;
 
             await RetryOnExceptionAsync(5, () => InitializeDatabaseInternalAsync(connectionString, createCmd, certificateOptions), 5000);
 
@@ -88,7 +93,7 @@ namespace Microsoft.Crank.Controller.Serializers
         private static async Task WriteResultsToSql(
             DateTime utcNow,
             string connectionString,
-            string tableName,
+            string quotedTableName,
             string session,
             string scenario,
             string description,
@@ -98,8 +103,8 @@ namespace Microsoft.Crank.Controller.Serializers
         {
 
             var insertCmd =
-                @"
-                INSERT INTO [dbo].[" + tableName + @"]
+                $$"""
+                INSERT INTO [dbo].{{quotedTableName}}"
                            ([DateTimeUtc]
                            ,[Session]
                            ,[Scenario]
@@ -111,7 +116,7 @@ namespace Microsoft.Crank.Controller.Serializers
                            ,@Scenario
                            ,@Description
                            ,@Document)
-                ";
+                """;
 
             using (var connection = GetSqlConnection(connectionString, certificateOptions))
             {
