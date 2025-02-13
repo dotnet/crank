@@ -5,8 +5,6 @@ parameters:
   type: boolean
   default: false
 variables:
-- name: NuGetApiKey
-  value: 
 - name: NuGetFeed
   value: https://api.nuget.org/v3/index.json
 resources:
@@ -50,7 +48,7 @@ extends:
               if(!$env:NuGetFeed) {
                 throw "Missing 'NuGetFeed' variable!"
               }
-              if(!$env:NuGetApiKey) {
+              if(!$env:NUGET_API_KEY) {
                 throw "Missing 'NuGetApiKey' variable!"
               }
               Write-Host "Dry run: $env:DryRun"
@@ -61,7 +59,7 @@ extends:
                   Write-Host "Would publish $name"
                 }
               } else {
-                if(!$env:NuGetApiKey) {
+                if(!$env:NUGET_API_KEY) {
                   throw "Missing 'NuGetApiKey' variable!"
                 }
                 Get-ChildItem "$(Pipeline.Workspace)\PackageArtifacts\" -Filter *.nupkg | ForEach-Object {
@@ -71,5 +69,5 @@ extends:
                 }
               }
           env:
-            NuGetApiKey: $(NuGetApiKey)
+            NUGET_API_KEY: $(NuGetApiKey)
             DryRun: ${{ parameters.DryRun }}
