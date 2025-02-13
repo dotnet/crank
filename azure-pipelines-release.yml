@@ -50,6 +50,9 @@ extends:
               if(!$env:NuGetFeed) {
                 throw "Missing 'NuGetFeed' variable!"
               }
+              if(!$env:NuGetApiKey) {
+                throw "Missing 'NuGetApiKey' variable!"
+              }
               Write-Host "Dry run: $env:DryRun"
               if($env:DryRun) {
                 Write-Host "Dry run enabled. The following packages would have been published:"
