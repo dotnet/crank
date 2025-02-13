@@ -1,9 +1,5 @@
 trigger: none
 name: $(Date:yyyyMMdd).$(Rev:r)
-parameters:
-- name: DryRun
-  type: boolean
-  default: false
 variables:
 - name: NuGetFeed
   value: https://api.nuget.org/v3/index.json
@@ -40,25 +36,16 @@ extends:
         steps:
         - task: NuGetToolInstaller@1
           displayName: Install NuGet
-        - task: PowerShell@2
-          displayName: Publish NuGet Packages
-          inputs:
-            targetType: inline
-            script: |-
-              if(!$env:NuGetFeed) {
-                throw "Missing 'NuGetFeed' variable!"
-              }
-              if(!$env:NUGET_API_KEY) {
-                throw "Missing 'NuGetApiKey' variable!"
-              }
-              Write-Host "Dry run: $env:DryRun"
-              if($env:DryRun) {
-                Write-Host "Dry run enabled. The following packages would have been published:"
-                Get-ChildItem "$(Pipeline.Workspace)\PackageArtifacts\" -Filter *.nupkg | ForEach-Object {
-                  $name = $_.Name
-                  Write-Host "Would publish $name"
+        
+        - ${{ if and(ne(variables['System.TeamProject'], 'public'), notin(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/main')) }}:
+          - task: PowerShell@2
+            displayName: Publish NuGet Packages
+            inputs:
+              targetType: inline
+              script: |-
+                if(!$env:NuGetFeed) {
+                  throw "Missing 'NuGetFeed' variable!"
                 }
-              } else {
                 if(!$env:NUGET_API_KEY) {
                   throw "Missing 'NuGetApiKey' variable!"
                 }
@@ -67,7 +54,5 @@ extends:
                   Write-Host "Publishing $name"
                   nuget push -Source $env:NuGetFeed -ApiKey $env:NuGetApiKey $_.FullName
                 }
-              }
-          env:
-            NUGET_API_KEY: $(NuGetApiKey)
-            DryRun: ${{ parameters.DryRun }}
+            env:
+              NUGET_API_KEY: $(NuGetApiKey)
