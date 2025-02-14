@@ -309,9 +309,9 @@ namespace Microsoft.Crank.Models
         public bool CollectDependencies { get; set; }
 
         /// <summary>
-        /// if specified, will try to collect CPU usage for the processes
+        /// Names of additional processes to track.
         /// </summary>
-        public List<string> ProcessesCpuToCollect { get; set; } = [];
+        public List<string> AdditionalProcesses { get; set; } = [];
 
         /// <summary>
         /// Whether to patch the TFM of project references.

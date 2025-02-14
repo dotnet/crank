@@ -107,9 +107,9 @@ Run 'crank [command] -?|-h|--help' for more information about a command.
   --[JOB].profileType <true|false>                              The name of the profiler to use. Values: "ultra", "dotnet-trace" (default), "perfview"
   --[JOB].dotnetTrace <true|false>                              Whether to collect a diagnostics trace using dotnet-trace.
   --[JOB].dotnetTraceProviders <profile|provider|clrevent>      A comma-separated list of trace providers. By default the profile 'cpu-sampling' is used. See
-  --[JOB].processesCpuToCollect <process-name>                  Names of processes which CPU usage should be collected. Can be used multiple times to define multiple values.
                                                                 https://github.com/dotnet/diagnostics/blob/master/documentation/dotnet-trace-instructions.md for details.
                                                                 e.g., "Microsoft-DotNETCore-SampleProfiler, gc-verbose, JIT+Contention".
+  --[JOB].additionalProcesses <process-name>                    Name of the processes for which the CPU usage should be recorded. Can be used multiple times to define multiple values.
   --[JOB].options.traceOutput <filename>                        The name of the trace file. Can be a file prefix (app will add *.DATE*.zip) , or a specific name and no DATE*
                                                                 will be added e.g., c:\traces\mytrace
   --[JOB].options.collectCounters <true|false>                  Whether to collect dotnet counters. If set and 'counterProviders' is not, System.Runtime will be used by default.

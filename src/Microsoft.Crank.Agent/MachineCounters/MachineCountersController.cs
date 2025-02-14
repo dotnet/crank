@@ -210,14 +210,14 @@ public class MachineCountersController : IDisposable
     [SuppressMessage("Interoperability", "CA1416:Validate platform compatibility", Justification = "has a check for OS")]
     List<IMachinePerformanceCounterEmitter> GetAndRegisterProcessCpuUsageEmitters()
     {
-        var processNames = _job.ProcessesCpuToCollect;
-        if (processNames is null || processNames.Count == 0)
+
+        if (_job.AdditionalProcesses is null || _job.AdditionalProcesses.Count == 0)
         {
             return null;
         }
 
         var cpuEmitters = new List<IMachinePerformanceCounterEmitter>();
-        foreach (var processName in processNames.Distinct())
+        foreach (var processName in _job.AdditionalProcesses.Distinct())
         {
             var measurementName = Measurements.GetBenchmarkProcessCpu(processName);
 
