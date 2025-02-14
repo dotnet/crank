@@ -29,7 +29,7 @@ namespace Microsoft.Crank.Agent.MachineCounters.OS
             CounterName = counterName;
         }
 
-        public void Start()
+        public bool TryStart()
         {
             try
             {
@@ -48,10 +48,13 @@ namespace Microsoft.Crank.Agent.MachineCounters.OS
                     {
                         Log.Warning("vmstat error: " + error);
                     });
+
+                return true;
             }
             catch (Exception ex)
             {
-                Log.Error(ex, $"error during emitting machine-level counter {nameof(LinuxMachineCpuUsageEmitter)}");
+                Log.Error(ex, $"Error starting {nameof(LinuxMachineCpuUsageEmitter)}");
+                return false;
             }
         }
 

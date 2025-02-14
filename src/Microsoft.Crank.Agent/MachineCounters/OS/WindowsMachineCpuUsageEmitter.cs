@@ -37,9 +37,10 @@ namespace Microsoft.Crank.Agent.MachineCounters.OS
             MeasurementName = measurementName;
         }
 
-        public void Start()
+        public bool TryStart()
         {
             _timer = new Timer(_ => WritePerformanceData(), null, TimeSpan.Zero, _interval);
+            return true;
         }
 
         public void Dispose()

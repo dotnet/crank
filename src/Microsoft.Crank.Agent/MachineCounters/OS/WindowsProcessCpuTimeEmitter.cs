@@ -16,7 +16,7 @@ namespace Microsoft.Crank.Agent.MachineCounters.OS
         private DateTime _prevTime;
 
         public string MeasurementName { get; }
-        public string CounterName { get; } = "Process Total Time (%)";
+        public string CounterName => $"Process {_processName} Time (%)";
 
         public WindowsProcessCpuTimeEmitter(string processName, string measurementName)
             : this(MachineCountersEventSource.Log, processName, measurementName)
@@ -33,18 +33,27 @@ namespace Microsoft.Crank.Agent.MachineCounters.OS
             MeasurementName = measurementName;
         }
 
-        public void Start()
+        public bool TryStart()
         {
             _process = GetProcessByName(_processName);
             if (_process == null)
             {
-                Log.Warning($"Process {_processName} not found.");
-                return;
+                Log.Warning($"Process '{_processName}' not found.");
+                return false;
             }
 
-            _prevCpuTime = _process.TotalProcessorTime;
-            _prevTime = DateTime.UtcNow;
-            _timer = new Timer(CalculateCpuUsage, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
+            try
+            {
+                _prevCpuTime = _process.TotalProcessorTime;
+                _prevTime = DateTime.UtcNow;
+                _timer = new Timer(CalculateCpuUsage, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, $"Error starting {nameof(WindowsProcessCpuTimeEmitter)} for process '{_processName}'");
+                return false;
+            }
         }
 
         private void CalculateCpuUsage(object state)
