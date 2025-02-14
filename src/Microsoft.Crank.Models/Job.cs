@@ -309,6 +309,11 @@ namespace Microsoft.Crank.Models
         public bool CollectDependencies { get; set; }
 
         /// <summary>
+        /// if specified, will try to collect CPU usage for the processes
+        /// </summary>
+        public List<string> ProcessesCpuToCollect { get; set; } = [];
+
+        /// <summary>
         /// Whether to patch the TFM of project references.
         /// </summary>
         public bool PatchReferences { get; set; } = false;
@@ -449,11 +454,6 @@ namespace Microsoft.Crank.Models
         public List<string> OutputArchives { get; } = [];
         public bool BenchmarkDotNet { get; set; }
         public bool? CollectCounters { get; set; }
-        /// <summary>
-        /// In contrast to <see cref="CollectCounters"/>, collects the machine-level counters (not process-level).
-        /// note: undocumented before upcoming changes
-        /// </summary>
-        public bool? CollectLsass { get; set; }
         public List<string> CounterProviders { get; } = [];
 
         // Don't clone and don't build if already cloned and built. 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Tracing;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Crank.Agent.MachineCounters.OS;
 using Microsoft.Crank.Models;
@@ -39,15 +40,15 @@ public class MachineCountersController : IDisposable
     public MachineCountersController RegisterCounters()
     {
         var cpuEmitter = GetAndRegisterMachineCpuUsageEmitter();
-        var lsassEmitter = GetAndRegisterLsassCpuUsageEmitter();
+        var processCpuEmitters = GetAndRegisterProcessCpuUsageEmitters();
 
         if (cpuEmitter is not null)
         {
             _machinePerfCounters.Add(cpuEmitter);
         }
-        if (lsassEmitter is not null)
+        if (processCpuEmitters is not null && processCpuEmitters.Count != 0)
         {
-            _machinePerfCounters.Add(lsassEmitter);
+            _machinePerfCounters.AddRange(processCpuEmitters);
         }
 
         return this;
@@ -58,8 +59,14 @@ public class MachineCountersController : IDisposable
     {
         foreach (var counter in _machinePerfCounters)
         {
-            counter.Start();
-            Log.Info($"Started {counter.MeasurementName} counter ({counter.CounterName}) emitter");
+            if (counter.TryStart())
+            {
+                Log.Info($"Started '{counter.MeasurementName}' counter ({counter.CounterName}) emitter");
+            }
+            else
+            {
+                Log.Error($"Failed to start '{counter.MeasurementName}' counter ({counter.CounterName}) emitter");
+            }
         }
 
         _streamCountersTask = Task.Run(Stream);
@@ -201,28 +208,49 @@ public class MachineCountersController : IDisposable
     }
 
     [SuppressMessage("Interoperability", "CA1416:Validate platform compatibility", Justification = "has a check for OS")]
-    IMachinePerformanceCounterEmitter GetAndRegisterLsassCpuUsageEmitter()
+    List<IMachinePerformanceCounterEmitter> GetAndRegisterProcessCpuUsageEmitters()
     {
-        if (_job.Options.CollectLsass != true
-            || _job.OperatingSystem != OperatingSystem.Windows)
+        var processNames = _job.ProcessesCpuToCollect;
+        if (processNames is null || processNames.Count == 0)
         {
             return null;
         }
 
-        var lsassEmitter = new WindowsProcessCpuTimeEmitter("lsass", Measurements.BenchmarksLsassCpu);
-
-        _job.Metadata.Enqueue(new MeasurementMetadata
+        var cpuEmitters = new List<IMachinePerformanceCounterEmitter>();
+        foreach (var processName in processNames.Distinct())
         {
-            Source = "Agent",
-            Name = Measurements.BenchmarksLsassCpu,
-            Aggregate = Operation.Max,
-            Reduce = Operation.Max,
-            Format = "n0",
-            LongDescription = $"Machine-level counter: '{lsassEmitter.CounterName}'",
-            ShortDescription = "Max Lsass CPU Usage (%)"
-        });
+            var measurementName = Measurements.GetBenchmarkProcessCpu(processName);
 
-        return lsassEmitter;
+            IMachinePerformanceCounterEmitter cpuEmitter;
+            if (_job.OperatingSystem == OperatingSystem.Windows)
+            {
+                cpuEmitter = new  WindowsProcessCpuTimeEmitter(processName, measurementName);
+            }
+            else if (_job.OperatingSystem is OperatingSystem.Linux or OperatingSystem.OSX)
+            {
+                Log.Warning($"Operating system '{_job.OperatingSystem}' is not supported for process cpu usage collection.");
+                continue;
+            }
+            else
+            {
+                Log.Warning($"Operating system '{_job.OperatingSystem}' is not supported for process cpu usage collection.");
+                continue;
+            }
+
+            cpuEmitters.Add(cpuEmitter);
+            _job.Metadata.Enqueue(new MeasurementMetadata
+            {
+                Source = "Agent",
+                Name = measurementName,
+                Aggregate = Operation.Max,
+                Reduce = Operation.Max,
+                Format = "n0",
+                LongDescription = $"Process counter: '{cpuEmitter.CounterName}'",
+                ShortDescription = $"Max {processName} CPU Usage (%)"
+            });
+        }
+
+        return cpuEmitters;
     }
 
     public void Dispose()
