@@ -52,7 +52,7 @@ extends:
                 Get-ChildItem "$(Pipeline.Workspace)\PackageArtifacts\" -Filter *.nupkg | ForEach-Object {
                   $name = $_.Name
                   Write-Host "Publishing $name"
-                  nuget push $_.FullName $env:NuGetApiKey -Source $env:NuGetFeed
+                  nuget push $_.FullName $env:NUGET_API_KEY -Source $env:NuGetFeed
                 }
             env:
               NUGET_API_KEY: $(NuGetApiKey)
