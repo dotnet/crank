@@ -104,7 +104,7 @@ namespace Microsoft.Crank.Controller.Serializers
 
             var insertCmd =
                 $$"""
-                INSERT INTO [dbo].{{quotedTableName}}"
+                INSERT INTO [dbo].{{quotedTableName}}
                            ([DateTimeUtc]
                            ,[Session]
                            ,[Scenario]
@@ -139,8 +139,6 @@ namespace Microsoft.Crank.Controller.Serializers
                 }
                 catch
                 {
-                    Console.WriteLine($"SQL: {insertCmd}");
-
                     transaction.Rollback();
                     throw;
                 }
