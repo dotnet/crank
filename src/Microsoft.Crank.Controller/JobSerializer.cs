@@ -104,7 +104,7 @@ namespace Microsoft.Crank.Controller.Serializers
 
             var insertCmd =
                 $$"""
-                INSERT INTO [dbo].{{quotedTableName}}"
+                INSERT INTO [dbo].{{quotedTableName}}
                            ([DateTimeUtc]
                            ,[Session]
                            ,[Scenario]
