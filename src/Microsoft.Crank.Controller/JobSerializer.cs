@@ -139,6 +139,8 @@ namespace Microsoft.Crank.Controller.Serializers
                 }
                 catch
                 {
+                    Console.WriteLine($"SQL: {insertCmd}");
+
                     transaction.Rollback();
                     throw;
                 }
