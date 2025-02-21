@@ -63,7 +63,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN echo 'deb http://deb.debian.org/debian testing main' >> /etc/apt/sources.list 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-    -t testing openssl=3.4.0-2 libssl-dev=3.4.0-2
+    -t testing openssl=3.4.* libssl-dev=3.4.*
 
 # If nghttp2 build fail just ignore it
 ENV NGHTTP2_VERSION=1.58.0
