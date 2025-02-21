@@ -5010,6 +5010,7 @@ namespace Microsoft.Crank.Agent
                             {
                                 case "GaugeValuePublished":
                                 case "CounterRateValuePublished":
+                                case "UpDownCounterRateValuePublished":
 
                                     meterName = (string)eventData.PayloadValue(1);
                                     instrumentName = (string)eventData.PayloadValue(3);
