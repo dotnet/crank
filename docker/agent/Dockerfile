@@ -65,7 +65,7 @@ RUN echo 'deb http://deb.debian.org/debian sid main' >> /etc/apt/sources.list \
 # Update package lists and install specific versions of OpenSSL, libssl-dev, and their debug symbols
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        openssl=3.4.* libssl-dev=3.4.* openssl-dbgsym=3.4.* \
+        openssl=3.4.* libssl-dev=3.4.* openssl-dbgsym=3.4.* libssl3t64-dbgsym=3.4.* \
     && apt-get clean
 
 # If nghttp2 build fail just ignore it
