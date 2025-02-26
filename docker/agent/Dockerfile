@@ -59,11 +59,14 @@ RUN apt-get update \
         python-is-python3 python3-dev python3-setuptools
 
 ENV DEBIAN_FRONTEND=noninteractive
-# Add Debian testing repository
-RUN echo 'deb http://deb.debian.org/debian testing main' >> /etc/apt/sources.list 
+# Add the Debian sid repository
+RUN echo 'deb http://deb.debian.org/debian sid main' >> /etc/apt/sources.list \
+    && echo 'deb http://deb.debian.org/debian-debug sid-debug main' >> /etc/apt/sources.list
+# Update package lists and install specific versions of OpenSSL, libssl-dev, and their debug symbols
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-    -t testing openssl=3.4.* libssl-dev=3.4.*
+        openssl=3.4.* libssl-dev=3.4.* openssl-dbgsym=3.4.* \
+    && apt-get clean
 
 # If nghttp2 build fail just ignore it
 ENV NGHTTP2_VERSION=1.58.0
