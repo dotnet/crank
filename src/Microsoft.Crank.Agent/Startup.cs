@@ -83,9 +83,6 @@ namespace Microsoft.Crank.Agent
                 https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9-transport/nuget/v3/index.json;
                 https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet10/nuget/v3/index.json;
                 https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet10-transport/nuget/v3/index.json;
-                https://dotnetfeed.blob.core.windows.net/aspnet-extensions/index.json;
-                https://dotnetfeed.blob.core.windows.net/aspnet-aspnetcore-tooling/index.json;
-                https://dotnetfeed.blob.core.windows.net/aspnet-entityframeworkcore/index.json;
                 https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-public/nuget/v3/index.json;
             """;
 
@@ -6119,11 +6116,6 @@ namespace Microsoft.Crank.Agent
     <add key=""benchmarks-dotnet9-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9-transport/nuget/v3/index.json"" />
     <add key=""benchmarks-dotnet8"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8/nuget/v3/index.json"" />
     <add key=""benchmarks-dotnet8-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8-transport/nuget/v3/index.json"" />
-    <add key=""benchmarks-aspnetcore"" value=""https://dotnetfeed.blob.core.windows.net/aspnet-aspnetcore/index.json"" />
-    <add key=""benchmarks-dotnet-core"" value=""https://dotnetfeed.blob.core.windows.net/dotnet-core/index.json"" />
-    <add key=""benchmarks-extensions"" value=""https://dotnetfeed.blob.core.windows.net/aspnet-extensions/index.json"" />
-    <add key=""benchmarks-aspnetcore-tooling"" value=""https://dotnetfeed.blob.core.windows.net/aspnet-aspnetcore-tooling/index.json"" />
-    <add key=""benchmarks-entityframeworkcore"" value=""https://dotnetfeed.blob.core.windows.net/aspnet-entityframeworkcore/index.json"" />
     <add key=""dotnet-public"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-public/nuget/v3/index.json"" />
   </packageSources>
 </configuration>
