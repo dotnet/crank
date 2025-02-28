@@ -106,7 +106,6 @@ namespace Microsoft.Crank.Agent
             "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet10/nuget/v3/flat2",
             "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9/nuget/v3/flat2",
             "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8/nuget/v3/flat2",
-            "https://dotnetfeed.blob.core.windows.net/dotnet-core/flatcontainer",
             "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-public/nuget/v3/flat2"
             ];
 
@@ -3386,7 +3385,7 @@ namespace Microsoft.Crank.Agent
             // Copy crossgen in the app folder
             if (job.Collect && OperatingSystem == OperatingSystem.Linux)
             {
-                // https://dotnetfeed.blob.core.windows.net/dotnet-core/flatcontainer/microsoft.netcore.app.runtime.linux-x64/index.json
+                // https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-public/nuget/v3/flat2/microsoft.netcore.app.runtime.linux-x64/index.json
                 // This is because the package names were changed.For 3.0 +, look for ~/.nuget/packages/microsoft.netcore.app.runtime.linux-x64/<version>/tools/crossgen.
 
                 Log.Info("Copying crossgen to application folder");
