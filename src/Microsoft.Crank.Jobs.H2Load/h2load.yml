@@ -29,6 +29,6 @@ jobs:
       serverScheme: http
       serverAddress: localhost      
       serverPort: 5000
-    arguments: "-c {{connections}} -t {{threads}} -m {{streams}} -d {{duration}} -w {{warmup}} -n {{requests}} -u {% if serverUri == blank %} {{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}} {% else %} {{serverUri}}:{{serverPort}}{{path}} {% endif %} -p {{ protocol }} {{headers[presetHeaders]}} {% if body != blank %} --body {{ body }} {% endif %} {% if bodyFile %} --bodyFile {{ bodyFile }} {% endif %}"
+    arguments: "-c {{connections}} -t {{threads}} -m {{streams}} -d {{duration}} -w {{warmup}} -n {{requests}} -u {% if serverUri == blank %} {{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}} {% else %} {{serverUri}}:{{serverPort}}{{path}} {% endif %} -p {{ protocol }} {{headers[presetHeaders]}} {% if body != blank %} --body {{ body }} {% endif %} {% if bodyFile != blank %} --bodyFile {{ bodyFile }} {% endif %}"
     options:
       requiredOperatingSystem: linux
