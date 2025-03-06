@@ -42,6 +42,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
         public static int ExecutionTimeSeconds { get; set; }
         public static int Connections { get; set; }
         public static SslProtocols? TlsVersions { get; set; }
+        public static List<TlsCipherSuite> CipherSuites { get; set; }
         public static List<string> Headers { get; set; }
         public static byte[] Body { get; set; }
         public static Version Version { get; set; }
@@ -90,6 +91,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
             var optionScript = app.Option("-s|--script <filename>", "A .js script file altering the current client.", CommandOptionType.SingleValue);
             var optionLocal = app.Option("-l|--local", "Ignore requests outside of the main domain.", CommandOptionType.NoValue);
             var optionSslProtocols = app.Option("--ssl-protocol", "SSL protocols versions to use. Can be set multiple times. Allowed values: none (default), tls12, tls13", CommandOptionType.MultipleValue);
+            var optionCipherSuites = app.Option("--cipher-suite", "Cipher suite to be used. Can be set multiple times.", CommandOptionType.MultipleValue);
 
             app.OnValidate(ctx =>
             {
@@ -110,6 +112,22 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                         catch
                         {
                             return new ValidationResult($"Invalid value for --ssl-protocol: '{protocol}'.");
+                        }
+                    }
+                }
+
+                if (optionCipherSuites.HasValue())
+                {
+                    CipherSuites = new List<TlsCipherSuite>();
+                    foreach (var cipherSuite in optionCipherSuites.Values)
+                    {
+                        try
+                        {
+                            CipherSuites.Add(Enum.Parse<TlsCipherSuite>(cipherSuite, ignoreCase: true));
+                        }
+                        catch
+                        {
+                            return new ValidationResult($"Invalid value for --cipher-suite: '{cipherSuite}'.");
                         }
                     }
                 }
@@ -473,6 +491,19 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                         {
                             Log("Using sslProtocols: {0}", TlsVersions);
                             _httpHandler.SslOptions.EnabledSslProtocols = TlsVersions.Value;
+                        }
+
+                        if (!OperatingSystem.IsWindows())
+                        {
+                            if (CipherSuites is not null && CipherSuites.Count != 0)
+                            {
+                                Log("Using cipher suites: {0}", string.Join(",", CipherSuites));
+                                _httpHandler.SslOptions.CipherSuitesPolicy = new CipherSuitesPolicy(CipherSuites);
+                            }
+                        }
+                        else
+                        {
+                            Log("Setting cipher suites is not supported on windows");
                         }
 
                         // Accept any SSL certificate
