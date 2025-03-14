@@ -4565,7 +4565,7 @@ namespace Microsoft.Crank.Agent
             if (!String.IsNullOrEmpty(job.BeforeScript))
             {
                 var segments = job.BeforeScript.Split(' ', 2);
-                var result = await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: workingDirectory, log: true, outputDataReceived: text => job.Output.AddLine(text), runAsRoot: true);
+                var result = await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: workingDirectory, log: true, outputDataReceived: text => job.Output.AddLine(text), runAsRoot: false);
             }
 
             var commandLine = benchmarksDll ?? "";
