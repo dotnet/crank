@@ -2232,7 +2232,7 @@ namespace Microsoft.Crank.Agent
                 };
 
                 var segments = job.BeforeScript.Split(' ', 2);
-                var processResult = await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: workingDirectory, log: true, outputDataReceived: job.Output.AddLine, environmentVariables: environmentVariables, runAsRoot: true);
+                var processResult = await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: workingDirectory, log: true, outputDataReceived: job.Output.AddLine, environmentVariables: environmentVariables, runAsRoot: false);
             }
 
             if (cancellationToken.IsCancellationRequested)
