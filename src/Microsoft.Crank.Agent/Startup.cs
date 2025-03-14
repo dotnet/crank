@@ -1829,7 +1829,7 @@ namespace Microsoft.Crank.Agent
                                     };
 
                                     var segments = job.AfterScript.Split(' ', 2);
-                                    var processResult = await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", log: true, workingDirectory: workingDirectory, environmentVariables: environmentVariables, runAsRoot: true);
+                                    var processResult = await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", log: true, workingDirectory: workingDirectory, environmentVariables: environmentVariables, runAsRoot: false);
 
                                     // TODO: Update the output with the result of AfterScript, and change the driver so that it polls the job a last time even when the job is stopped
                                     // if there is an AfterScript
@@ -2232,7 +2232,7 @@ namespace Microsoft.Crank.Agent
                 };
 
                 var segments = job.BeforeScript.Split(' ', 2);
-                var processResult = await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: workingDirectory, log: true, outputDataReceived: job.Output.AddLine, environmentVariables: environmentVariables, runAsRoot: true);
+                var processResult = await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: workingDirectory, log: true, outputDataReceived: job.Output.AddLine, environmentVariables: environmentVariables, runAsRoot: false);
             }
 
             if (cancellationToken.IsCancellationRequested)
@@ -4565,7 +4565,7 @@ namespace Microsoft.Crank.Agent
             if (!String.IsNullOrEmpty(job.BeforeScript))
             {
                 var segments = job.BeforeScript.Split(' ', 2);
-                var result = await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: workingDirectory, log: true, outputDataReceived: text => job.Output.AddLine(text), runAsRoot: true);
+                var result = await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: workingDirectory, log: true, outputDataReceived: text => job.Output.AddLine(text), runAsRoot: false);
             }
 
             var commandLine = benchmarksDll ?? "";
