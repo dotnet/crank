@@ -1,5 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>net8.0</TargetFrameworks>
     <Description>Schedules jobs on the benchmarks agent.</Description>
@@ -12,7 +11,6 @@
     <PackageId>Microsoft.Crank.Controller</PackageId>
     <LangVersion>12.0</LangVersion>
   </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="Azure.Identity" />
     <PackageReference Include="Fluid.Core" />
@@ -26,16 +24,16 @@
     <PackageReference Include="System.IO.Hashing" />
     <PackageReference Include="YamlDotNet" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Crank.Models\Microsoft.Crank.Models.csproj" />
   </ItemGroup>
-
   <ItemGroup>
     <Content Include="benchmarks.schema.json" CopyToOutputDirectory="PreserveNewest" />
     <Compile Remove="benchmarks.schema.json" />
     <Content Include="default.config.yml" CopyToOutputDirectory="PreserveNewest" />
     <Compile Remove="default.config.yml" />
   </ItemGroup>
-
+  <ItemGroup>
+    <InternalsVisibleTo Include="Microsoft.Crank.Controller.UnitTests" />
+  </ItemGroup>
 </Project>
