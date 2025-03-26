@@ -1,14 +1,14 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <Description>Class to transfer data to/from the benchmark server.</Description>
     <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
-
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="Azure.Identity" />
   </ItemGroup>
-
+  <ItemGroup>
+    <InternalsVisibleTo Include="Microsoft.Crank.Models.UnitTests" />
+  </ItemGroup>
 </Project>
