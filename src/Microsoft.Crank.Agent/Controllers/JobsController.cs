@@ -13,6 +13,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Crank.Models;
+using Microsoft.Internal.AntiSSRF;
 using Repository;
 
 namespace Microsoft.Crank.Agent.Controllers
@@ -801,7 +802,14 @@ namespace Microsoft.Crank.Agent.Controllers
             try
             {
                 var job = _jobs.Find(id);
-                var response = await _httpClient.GetStringAsync(new Uri(new Uri(job.Url), path));
+                var requestUri = new Uri(new Uri(job.Url), path);
+             
+                if(!URIValidate.InDomain(requestUri, _jobs.AllowedDomains.ToArray()))
+                {
+                    return StatusCode((int)HttpStatusCode.Forbidden, $"Job url {requestUri} not allowed.");
+                }
+
+                var response = await _httpClient.GetStringAsync(requestUri);
                 return Content(response);
             }
             catch (Exception e)

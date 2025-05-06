@@ -124,7 +124,7 @@ namespace Microsoft.Crank.Agent
         private static string _dotnetInstallPath;
         private static string _localUrl;
 
-        private static readonly IJobRepository _jobs = new InMemoryJobRepository();
+        private static IJobRepository _jobs;
         private static string _rootTempDir;
 
         private static string _buildPath;
@@ -263,6 +263,17 @@ namespace Microsoft.Crank.Agent
             _certPath = app.Option("--cert-path", "Location of the certificate to be used for auth.", CommandOptionType.SingleValue);
             _certPassword = app.Option("--cert-pwd", "Password of the certificate to be used for auth.", CommandOptionType.SingleValue);
             _certSniAuth = app.Option("--cert-sni", "Enable subject name / issuer based authentication (SNI).", CommandOptionType.NoValue);
+
+            var domains = new List<string>() { new Uri(_defaultHostname).Host };
+            if (hostnameOption.HasValue())
+            {
+                domains.Add(new Uri(hostnameOption.Value()).Host);
+            }
+            if (dockerHostnameOption.HasValue())
+            {
+                domains.Add(new Uri(dockerHostnameOption.Value()).Host);
+            }
+            _jobs = new InMemoryJobRepository(domains);
 
             app.OnExecute(() =>
             {

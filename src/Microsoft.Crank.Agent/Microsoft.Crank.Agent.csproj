@@ -27,6 +27,7 @@
     <PackageReference Include="Mono.Cecil" />
     <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" />
     <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" />
+    <PackageReference Include="Microsoft.Internal.AntiSSRF" />
     <PackageReference Include="Microsoft.Windows.CsWin32" PrivateAssets="all" />
     <PackageReference Include="Mono.Unix" />
     <PackageReference Include="NuGet.Versioning" />
