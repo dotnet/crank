@@ -1,5 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>net8.0</TargetFrameworks>
     <Description>Execute crank jobs added to an Azure Service Bus queue by Azure DevOps.</Description>
@@ -11,24 +10,20 @@
     <Authors>Microsoft</Authors>
     <PackageId>Microsoft.Crank.AzureDevOpsWorker</PackageId>
   </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="Azure.Identity" />
     <PackageReference Include="Azure.Messaging.ServiceBus" />
     <PackageReference Include="Jint" />
     <PackageReference Include="McMaster.Extensions.CommandLineUtils" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
-
     <!-- Force version for Component Governance compliance -->
     <PackageReference Include="System.Text.Encodings.Web">
       <AllowExplicitReference>true</AllowExplicitReference>
     </PackageReference>
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Crank.Models\Microsoft.Crank.Models.csproj" />
   </ItemGroup>
-  
   <ItemGroup>
     <None Update="jobs.example.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -36,5 +31,8 @@
     <None Update="jobs.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Microsoft.Crank.AzureDevOpsWorker.UnitTests" />
   </ItemGroup>
 </Project>
