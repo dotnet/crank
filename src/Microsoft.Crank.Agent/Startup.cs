@@ -31,6 +31,7 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Hosting.WindowsServices;
 using Microsoft.Azure.Relay;
 using Microsoft.Crank.Agent.MachineCounters;
+using Microsoft.Crank.Agent.UriValidator;
 using Microsoft.Crank.EventSources;
 using Microsoft.Crank.Models;
 using Microsoft.Crank.Models.Security;
@@ -125,6 +126,7 @@ namespace Microsoft.Crank.Agent
         private static string _localUrl;
 
         private static readonly IJobRepository _jobs = new InMemoryJobRepository();
+        private static IUriValidator _uriValidator;
         private static string _rootTempDir;
 
         private static string _buildPath;
@@ -207,6 +209,7 @@ namespace Microsoft.Crank.Agent
         {
             services.AddControllersWithViews().AddNewtonsoftJson();
             services.AddSingleton(_jobs);
+            services.AddSingleton(_uriValidator);
         }
 
         public void Configure(IApplicationBuilder app, IHostApplicationLifetime hostApplicationLifetime)
@@ -263,6 +266,17 @@ namespace Microsoft.Crank.Agent
             _certPath = app.Option("--cert-path", "Location of the certificate to be used for auth.", CommandOptionType.SingleValue);
             _certPassword = app.Option("--cert-pwd", "Password of the certificate to be used for auth.", CommandOptionType.SingleValue);
             _certSniAuth = app.Option("--cert-sni", "Enable subject name / issuer based authentication (SNI).", CommandOptionType.NoValue);
+
+            var domains = new List<string>() { new Uri(_defaultHostname).Host };
+            if (hostnameOption.HasValue())
+            {
+                domains.Add(new Uri(hostnameOption.Value()).Host);
+            }
+            if (dockerHostnameOption.HasValue())
+            {
+                domains.Add(new Uri(dockerHostnameOption.Value()).Host);
+            }
+            _uriValidator = new DomainUriValidator(domains);
 
             app.OnExecute(() =>
             {
