@@ -9,7 +9,6 @@ namespace Repository
 {
     public interface IJobRepository
     {
-        string[] AllowedDomains { get; }
         Job Add(Job item);
         IEnumerable<Job> GetAll();
         Job Find(int id);

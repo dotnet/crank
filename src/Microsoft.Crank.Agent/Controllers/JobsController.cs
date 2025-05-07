@@ -12,23 +12,19 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Crank.Agent.UriValidator;
 using Microsoft.Crank.Models;
-using Microsoft.Internal.AntiSSRF;
 using Repository;
 
 namespace Microsoft.Crank.Agent.Controllers
 {
     [Route("[controller]")]
-    public class JobsController : Controller
+    public class JobsController(IJobRepository jobs, IUriValidator uriValidator) : Controller
     {
         private static readonly HttpClient _httpClient = new HttpClient();
 
-        private readonly IJobRepository _jobs;
-
-        public JobsController(IJobRepository jobs)
-        {
-            _jobs = jobs;
-        }
+        private readonly IJobRepository _jobs = jobs;
+        private readonly IUriValidator _uriValidator = uriValidator;
 
         [HttpGet("all")]
         public IEnumerable<JobResult> GetAll()
@@ -802,15 +798,13 @@ namespace Microsoft.Crank.Agent.Controllers
             try
             {
                 var job = _jobs.Find(id);
-                var requestUri = new Uri(new Uri(job.Url), path);
-             
-                if(!URIValidate.InDomain(requestUri, _jobs.AllowedDomains.ToArray()))
+                if (Uri.TryCreate(job.Url, UriKind.Absolute, out var uriBase) && Uri.TryCreate(uriBase, path, out var requestUri) && _uriValidator.IsValid(requestUri))
                 {
-                    return StatusCode((int)HttpStatusCode.Forbidden, $"Job url {requestUri} not allowed.");
+                    var response = await _httpClient.GetStringAsync(requestUri);
+                    return Content(response);
                 }
 
-                var response = await _httpClient.GetStringAsync(requestUri);
-                return Content(response);
+                return StatusCode((int)HttpStatusCode.Forbidden, $"Job url {job.Url}/{path} not allowed.");
             }
             catch (Exception e)
             {

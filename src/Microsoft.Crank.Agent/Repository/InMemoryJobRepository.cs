@@ -5,18 +5,15 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using Microsoft.Crank.Models;
 
 namespace Repository
 {
-    public class InMemoryJobRepository(IEnumerable<string> allowedDomains = null) : IJobRepository
+    public class InMemoryJobRepository : IJobRepository
     {
         private readonly object _lock = new object();
         private readonly ConcurrentDictionary<int, Job> _items = new ConcurrentDictionary<int, Job>();
         private int _nextId = 1;
-
-        public string[] AllowedDomains { get; } = allowedDomains?.ToArray() ?? [];
 
         public Job Add(Job item)
         {
