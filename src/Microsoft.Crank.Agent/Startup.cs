@@ -207,6 +207,7 @@ namespace Microsoft.Crank.Agent
         {
             services.AddControllersWithViews().AddNewtonsoftJson();
             services.AddSingleton(_jobs);
+            services.AddSerilog();
         }
 
         public void Configure(IApplicationBuilder app, IHostApplicationLifetime hostApplicationLifetime)
@@ -368,8 +369,7 @@ namespace Microsoft.Crank.Agent
                     .UseKestrel()
                     .ConfigureKestrel(o => o.Limits.MaxRequestBodySize = (long)10 * 1024 * 1024 * 1024)
                     .UseStartup<Startup>()
-                    .UseUrls(url)
-                    .UseSerilog(Logger);
+                    .UseUrls(url);
 
             if (_relayConnectionStringOption.HasValue())
             {
