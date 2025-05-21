@@ -21,6 +21,7 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
         public static int WarmupTimeSeconds { get; set; }
         public static int ExecutionTimeSeconds { get; set; }
         public static int Connections { get; set; }
+        public static bool DetailedResponseStats { get; set; }
         public static List<string> Headers { get; set; }
 
         private static List<KeyValuePair<int, int>> _statistics = new List<KeyValuePair<int, int>>();
@@ -36,6 +37,7 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
             var optionDuration = app.Option<int>("-d|--duration <N>", "Duration of the test in seconds. Default is 5.", CommandOptionType.SingleValue);
             var optionHeaders = app.Option("-H|--header <HEADER>", "HTTP header to add to request, e.g. \"User-Agent: edge\"", CommandOptionType.MultipleValue);
             var optionPipeline = app.Option<int>("-p|--pipeline <N>", "The pipelining depth", CommandOptionType.SingleValue);
+            var optionDetailedResponseStats = app.Option<bool>("--detailedResponseStats", "Detailed stats of responses", CommandOptionType.NoValue);
 
             app.OnExecuteAsync(cancellationToken =>
             {
@@ -60,6 +62,8 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                     : 10;
 
                 Headers = new List<string>(optionHeaders.Values);
+
+                DetailedResponseStats = optionDetailedResponseStats.HasValue();
 
                 return RunAsync();
             });
@@ -228,6 +232,16 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                                         result.SocketErrors++;
                                         doBreak = true;
                                     }
+                                }
+                            }
+
+                            if (DetailedResponseStats)
+                            {
+                                Console.WriteLine("Detailed responses info: ");
+                                var grouped = responses.GroupBy(r => r.StatusCode);
+                                foreach (var group in grouped)
+                                {
+                                    Console.WriteLine($"\t Status Code: {group.Key} - Count: {group.Count()}");
                                 }
                             }
 
