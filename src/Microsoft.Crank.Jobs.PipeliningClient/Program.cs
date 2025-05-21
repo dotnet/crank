@@ -145,8 +145,14 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                 Status3xx = workerTasks.Select(x => x.Result.Status3xx).Sum(),
                 Status4xx = workerTasks.Select(x => x.Result.Status4xx).Sum(),
                 Status5xx = workerTasks.Select(x => x.Result.Status5xx).Sum(),
-                SocketErrors = workerTasks.Select(x => x.Result.SocketErrors).Sum()
+                SocketErrors = workerTasks.Select(x => x.Result.SocketErrors).Sum(),
             };
+
+            var resultStatusCodes = new List<int>();
+            foreach (var workerTask in workerTasks)
+            {
+                resultStatusCodes.AddRange(workerTask.Result.StatusCodes);
+            }
 
             var totalTps = (int)((result.Status1xx + result.Status2xx + result.Status3xx + result.Status4xx + result.Status5xx) / (stopTime - startTime).TotalSeconds);
 
@@ -157,6 +163,18 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
             Console.WriteLine($"4xx:             {result.Status4xx:N0}");
             Console.WriteLine($"5xx:             {result.Status5xx:N0}");
             Console.WriteLine($"Socket Errors:   {result.SocketErrors:N0}");
+
+            if (DetailedResponseStats)
+            {
+                Console.WriteLine("\nDetailed status codes: ");
+                var grouped = resultStatusCodes.GroupBy(r => r);
+                foreach (var group in grouped)
+                {
+                    Console.WriteLine($"\t Status Code: {group.Key} - Count: {group.Count()}");
+                }
+                Console.WriteLine();
+            }
+            
 
             // If multiple samples are provided, take the max RPS, then sum the result from all clients
             BenchmarksEventSource.Register("pipelineclient/connections", Operations.Max, Operations.Sum, "Connections", "Number of active connections", "n0");
@@ -232,16 +250,11 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                                         result.SocketErrors++;
                                         doBreak = true;
                                     }
-                                }
-                            }
 
-                            if (DetailedResponseStats)
-                            {
-                                Console.WriteLine("Detailed responses info: ");
-                                var grouped = responses.GroupBy(r => r.StatusCode);
-                                foreach (var group in grouped)
-                                {
-                                    Console.WriteLine($"\t Status Code: {group.Key} - Count: {group.Count()}");
+                                    if (DetailedResponseStats)
+                                    {
+                                        result.StatusCodes.Add(response.StatusCode);
+                                    }
                                 }
                             }
 
