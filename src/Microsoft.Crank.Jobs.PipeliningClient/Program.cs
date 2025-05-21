@@ -21,6 +21,7 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
         public static int WarmupTimeSeconds { get; set; }
         public static int ExecutionTimeSeconds { get; set; }
         public static int Connections { get; set; }
+        public static bool DetailedResponseStats { get; set; }
         public static List<string> Headers { get; set; }
 
         private static List<KeyValuePair<int, int>> _statistics = new List<KeyValuePair<int, int>>();
@@ -36,6 +37,7 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
             var optionDuration = app.Option<int>("-d|--duration <N>", "Duration of the test in seconds. Default is 5.", CommandOptionType.SingleValue);
             var optionHeaders = app.Option("-H|--header <HEADER>", "HTTP header to add to request, e.g. \"User-Agent: edge\"", CommandOptionType.MultipleValue);
             var optionPipeline = app.Option<int>("-p|--pipeline <N>", "The pipelining depth", CommandOptionType.SingleValue);
+            var optionDetailedResponseStats = app.Option<bool>("--detailedResponseStats", "Detailed stats of responses", CommandOptionType.NoValue);
 
             app.OnExecuteAsync(cancellationToken =>
             {
@@ -60,6 +62,8 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                     : 10;
 
                 Headers = new List<string>(optionHeaders.Values);
+
+                DetailedResponseStats = optionDetailedResponseStats.HasValue();
 
                 return RunAsync();
             });
@@ -141,8 +145,14 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                 Status3xx = workerTasks.Select(x => x.Result.Status3xx).Sum(),
                 Status4xx = workerTasks.Select(x => x.Result.Status4xx).Sum(),
                 Status5xx = workerTasks.Select(x => x.Result.Status5xx).Sum(),
-                SocketErrors = workerTasks.Select(x => x.Result.SocketErrors).Sum()
+                SocketErrors = workerTasks.Select(x => x.Result.SocketErrors).Sum(),
             };
+
+            var resultStatusCodes = new List<int>();
+            foreach (var workerTask in workerTasks)
+            {
+                resultStatusCodes.AddRange(workerTask.Result.StatusCodes);
+            }
 
             var totalTps = (int)((result.Status1xx + result.Status2xx + result.Status3xx + result.Status4xx + result.Status5xx) / (stopTime - startTime).TotalSeconds);
 
@@ -153,6 +163,18 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
             Console.WriteLine($"4xx:             {result.Status4xx:N0}");
             Console.WriteLine($"5xx:             {result.Status5xx:N0}");
             Console.WriteLine($"Socket Errors:   {result.SocketErrors:N0}");
+
+            if (DetailedResponseStats)
+            {
+                Console.WriteLine("\nDetailed status codes: ");
+                var grouped = resultStatusCodes.GroupBy(r => r);
+                foreach (var group in grouped)
+                {
+                    Console.WriteLine($"\t Status Code: {group.Key} - Count: {group.Count()}");
+                }
+                Console.WriteLine();
+            }
+            
 
             // If multiple samples are provided, take the max RPS, then sum the result from all clients
             BenchmarksEventSource.Register("pipelineclient/connections", Operations.Max, Operations.Sum, "Connections", "Number of active connections", "n0");
@@ -227,6 +249,11 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                                     {
                                         result.SocketErrors++;
                                         doBreak = true;
+                                    }
+
+                                    if (DetailedResponseStats)
+                                    {
+                                        result.StatusCodes.Add(response.StatusCode);
                                     }
                                 }
                             }
