@@ -1,18 +1,15 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
-
-using System;
+﻿using System;
 using System.Buffers;
 using System.Buffers.Text;
 using System.Collections.Generic;
+using System.IO;
 using System.IO.Pipelines;
 using System.Linq;
 using System.Net;
+using System.Net.Security;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http.Extensions;
 
@@ -23,15 +20,17 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
         private readonly string _url;
         private readonly int _pipelineDepth;
         private readonly Memory<byte> _requestBytes;
-        private readonly Socket _socket;
         private readonly IPEndPoint _hostEndPoint;
         private readonly Pipe _pipe;
+        private readonly bool _useTls;
+        private readonly HttpResponse[] _responses;
+
+        private Socket _socket;
+        private Stream _stream;
 
         private static ReadOnlySpan<byte> Http11 => new byte[] { (byte)'H', (byte)'T', (byte)'T', (byte)'P', (byte)'/', (byte)'1', (byte)'.', (byte)'1' };
         private static ReadOnlySpan<byte> ContentLength => new byte[] { (byte)'C', (byte)'o', (byte)'n', (byte)'t', (byte)'e', (byte)'n', (byte)'t', (byte)'-', (byte)'L', (byte)'e', (byte)'n', (byte)'g', (byte)'t', (byte)'h' };
         private static ReadOnlySpan<byte> NewLine => new byte[] { (byte)'\r', (byte)'\n' };
-
-        private readonly HttpResponse[] _responses;
 
         public HttpConnection(string url, int pipelineDepth, IEnumerable<string> headers)
         {
@@ -40,6 +39,7 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
             _responses = Enumerable.Range(1, pipelineDepth).Select(x => new HttpResponse()).ToArray();
 
             UriHelper.FromAbsolute(_url, out var scheme, out var host, out var path, out var query, out var fragment);
+            _useTls = string.Equals(scheme, "https", StringComparison.OrdinalIgnoreCase);
 
             var getPath = path.Value;
 
@@ -62,14 +62,14 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
 
             if (headers.Any())
             {
-                request += String.Join("\r\n", headers) + "\r\n";
+                request += string.Join("\r\n", headers) + "\r\n";
             }
 
             // TODO: If a body is defined, add the Content-Length header 
             // request += "Content-Length: 0\r\n";
 
             request += "\r\n";
-            
+
             var requestPayload = Encoding.UTF8.GetBytes(request);
             var buffer = new byte[requestPayload.Length * pipelineDepth];
 
@@ -95,12 +95,32 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
         public async Task ConnectAsync()
         {
             await _socket.ConnectAsync(_hostEndPoint);
-            var writing = FillPipeAsync(_socket, _pipe.Writer);
+            var networkStream = new NetworkStream(_socket, ownsSocket: true);
+
+            if (_useTls)
+            {
+                var sslStream = new SslStream(networkStream, leaveInnerStreamOpen: false,
+                    (sender, cert, chain, errors) => true); // Accept all certs
+
+                await sslStream.AuthenticateAsClientAsync(new SslClientAuthenticationOptions
+                {
+                    TargetHost = _hostEndPoint.Address.ToString(),
+                });
+
+                _stream = sslStream;
+            }
+            else
+            {
+                _stream = networkStream;
+            }
+
+            _ = FillPipeAsync(_stream, _pipe.Writer);
         }
 
         public async Task<HttpResponse[]> SendRequestsAsync()
         {
-            await _socket.SendAsync(_requestBytes, SocketFlags.None);
+            await _stream.WriteAsync(_requestBytes);
+            await _stream.FlushAsync();
 
             for (var k = 0; k < _pipelineDepth; k++)
             {
@@ -109,7 +129,6 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
 
                 await ReadPipeAsync(_pipe.Reader, httpResponse);
 
-                // Stop sending request if the communication faced a problem (socket error)
                 if (httpResponse.State != HttpResponseState.Completed)
                 {
                     break;
@@ -119,16 +138,7 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
             return _responses;
         }
 
-        public void Dispose()
-        {
-            if (_socket != null && _socket.Connected)
-            {
-                _socket.Shutdown(SocketShutdown.Both);
-                _socket.Close();
-            }
-        }
-
-        private async Task FillPipeAsync(Socket socket, PipeWriter writer)
+        private async Task FillPipeAsync(Stream stream, PipeWriter writer)
         {
             const int minimumBufferSize = 512;
 
@@ -136,28 +146,18 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
             {
                 // Allocate at least 512 bytes from the PipeWriter
                 Memory<byte> memory = writer.GetMemory(minimumBufferSize);
+                int bytesRead = await stream.ReadAsync(memory);
 
-                int bytesRead = await socket.ReceiveAsync(memory, SocketFlags.None);
-
-                // Indicates that the server is done with sending more data
                 if (bytesRead == 0)
-                {
                     break;
-                }
 
-                // Tell the PipeWriter how much was read from the Socket
                 writer.Advance(bytesRead);
 
-                // Make the data available to the PipeReader
-                FlushResult result = await writer.FlushAsync();
-
+                var result = await writer.FlushAsync();
                 if (result.IsCompleted)
-                {
                     break;
-                }
             }
 
-            // Tell the PipeReader that there's no more data coming
             writer.Complete();
         }
 
@@ -169,31 +169,20 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                 var buffer = result.Buffer;
 
                 ParseHttpResponse(ref buffer, httpResponse, out var examined);
-
                 reader.AdvanceTo(buffer.Start, examined);
 
-                // Stop when the response is complete
-                if (httpResponse.State == HttpResponseState.Completed)
-                {
+                if (httpResponse.State is HttpResponseState.Completed or HttpResponseState.Error || result.IsCompleted)
                     break;
-                }
+            }
+        }
 
-                // Stop if there is incorrect data
-                if (httpResponse.State == HttpResponseState.Error)
-                {
-                    // Incomplete request, close the connection with an error
-                    break;
-                }
-
-                // Stop reading if there's no more data coming
-                if (result.IsCompleted)
-                {
-                    if (httpResponse.State != HttpResponseState.Completed)
-                    {
-                        // Incomplete request, close the connection with an error
-                        break;
-                    }
-                }
+        public void Dispose()
+        {
+            _stream?.Dispose();
+            if (_socket?.Connected == true)
+            {
+                _socket.Shutdown(SocketShutdown.Both);
+                _socket.Dispose();
             }
         }
 
