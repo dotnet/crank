@@ -92,8 +92,13 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
             _pipe = new Pipe();
         }
 
-        public async Task ConnectAsync()
+        public async Task TryConnectAsync()
         {
+            if (_socket.Connected && _stream is not null)
+            {
+                return;
+            }
+
             await _socket.ConnectAsync(_hostEndPoint);
             var networkStream = new NetworkStream(_socket, ownsSocket: true);
 
