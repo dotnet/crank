@@ -27,4 +27,6 @@ jobs:
       serverPort: 5000
       path: /
       customHeaders: [ ] # list of headers with the format: '<name1>: <value1>', e.g. [ 'content-type: application/json' ]. In yml should look like: - "content-type: application/json"
-    arguments: "--url \"{{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}\" --connections {{connections}} --warmup {{warmup}} --duration {{duration}} --pipeline {{pipeline}} {{headers[presetHeaders]}} {% for h in customHeaders %}{% assign s = h | split : ':' %}--header \"{{ s[0] }}: {{ s[1] | strip }}\" {% endfor %}"
+      detailedResponseStats: false
+      verboseConnectionLogs: false
+    arguments: "--url \"{{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}\" --connections {{connections}} --warmup {{warmup}} --duration {{duration}} --pipeline {{pipeline}} {{headers[presetHeaders]}} {% for h in customHeaders %}{% assign s = h | split : ':' %}--header \"{{ s[0] }}: {{ s[1] | strip }}\" {% endfor %} {% if detailedResponseStats == true %} --detailedResponseStats {% endif %} {% if verboseConnectionLogs == true %} --verboseConnectionLogs {% endif %}"

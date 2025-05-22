@@ -22,6 +22,7 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
         public static int ExecutionTimeSeconds { get; set; }
         public static int Connections { get; set; }
         public static bool DetailedResponseStats { get; set; }
+        public static bool VerboseConnectionLogs { get; set; }
         public static List<string> Headers { get; set; }
 
         private static List<KeyValuePair<int, int>> _statistics = new List<KeyValuePair<int, int>>();
@@ -38,6 +39,7 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
             var optionHeaders = app.Option("-H|--header <HEADER>", "HTTP header to add to request, e.g. \"User-Agent: edge\"", CommandOptionType.MultipleValue);
             var optionPipeline = app.Option<int>("-p|--pipeline <N>", "The pipelining depth", CommandOptionType.SingleValue);
             var optionDetailedResponseStats = app.Option<bool>("--detailedResponseStats", "Detailed stats of responses", CommandOptionType.NoValue);
+            var optionVerboseLogConnection = app.Option<bool>("--verboseConnectionLogs", "include verbose connection logs", CommandOptionType.NoValue);
 
             app.OnExecuteAsync(cancellationToken =>
             {
@@ -64,6 +66,7 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                 Headers = new List<string>(optionHeaders.Values);
 
                 DetailedResponseStats = optionDetailedResponseStats.HasValue();
+                VerboseConnectionLogs = optionVerboseLogConnection.HasValue();
 
                 return RunAsync();
             });
@@ -208,16 +211,18 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                 // Creating a new connection every time it is necessary
                 using (var connection = new HttpConnection(ServerUrl, PipelineDepth, Headers))
                 {
-                    Console.WriteLine("Connection created ({0})", connectionId);
-
-                    await connection.ConnectAsync();
-
                     try
                     {
                         // var sw = new Stopwatch();
 
                         while (_running)
                         {
+                            await connection.TryConnectAsync();
+                            if (VerboseConnectionLogs)
+                            {
+                                Log($"Connection created. Id={connectionId}");
+                            }
+
                             // sw.Start();
 
                             var responses = await connection.SendRequestsAsync();
@@ -264,17 +269,26 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                             }
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        if (VerboseConnectionLogs)
+                        {
+                            Log($" Connection error. Id={connectionId}: {ex.Message}");
+                        }
+
                         result.SocketErrors++;
                     }
                 }
             }
 
-            Console.WriteLine("Connection closed {0}", connectionId);
-
+            if (VerboseConnectionLogs)
+            {
+                Log($"Connection closed. Id={connectionId}");
+            }
 
             return result;
         }
+
+        private static void Log(string message) => Console.WriteLine($"[{DateTime.Now:hh:mm:ss.fff}] {message}");
     }
 }
