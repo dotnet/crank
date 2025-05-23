@@ -1,5 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>net8.0</TargetFrameworks>
     <Description>Runs benchmarks out of GitHub pull-requests.</Description>
@@ -12,27 +11,29 @@
     <PackageId>Microsoft.Crank.PullRequestBot</PackageId>
     <LangVersion>9.0</LangVersion>
   </PropertyGroup>
-
   <ItemGroup>
     <None Remove="pullrequestbot.schema.json" />
   </ItemGroup>
-
   <ItemGroup>
     <Content Include="pullrequestbot.schema.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="System.CommandLine" />
     <PackageReference Include="Octokit" />
     <PackageReference Include="YamlDotNet" />
     <PackageReference Include="Fluid.Core" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Crank.Controller\Microsoft.Crank.Controller.csproj" />
   </ItemGroup>
-
-  <ProjectExtensions><VisualStudio><UserProperties sample_1config_1json__JsonSchema="pullrequestbot.schema.json" /></VisualStudio></ProjectExtensions>
+  <ProjectExtensions>
+    <VisualStudio>
+      <UserProperties sample_1config_1json__JsonSchema="pullrequestbot.schema.json" />
+    </VisualStudio>
+  </ProjectExtensions>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Microsoft.Crank.PullRequestBot.UnitTests" />
+  </ItemGroup>
 </Project>

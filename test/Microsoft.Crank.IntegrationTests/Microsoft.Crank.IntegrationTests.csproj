@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <AssemblyName>Microsoft.Crank.IntegrationTests</AssemblyName>
@@ -8,29 +7,27 @@
     <TestRunnerName>XUnit</TestRunnerName>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
-
   <ItemGroup>
     <!-- We need the Agent to be built before the tests run -->
     <ProjectReference Include="..\..\src\Microsoft.Crank.Agent\Microsoft.Crank.Agent.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Crank.AzureDevOpsWorker\Microsoft.Crank.AzureDevOpsWorker.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Crank.Controller\Microsoft.Crank.Controller.csproj" />
   </ItemGroup>
-
   <ItemGroup>
     <Content Include="assets\**\*" CopyToOutputDirectory="PreserveNewest" />
     <Compile Remove="assets\**\*" />
   </ItemGroup>
-
   <ItemGroup>
     <Hello Include="$(MSBuildProjectDirectory)\..\..\samples\hello\**\*" />
     <Post Include="$(MSBuildProjectDirectory)\..\..\samples\post\**\*" />
     <Src Include="$(MSBuildProjectDirectory)\..\..\src\**\*" />
   </ItemGroup>
-
   <Target Name="CopyFiles" AfterTargets="BeforeBuild">
-    <Copy SourceFiles="@(Hello)" DestinationFiles="@(Hello->'$(OutputPath)hello\%(RecursiveDir)%(Filename)%(Extension)')" />
-    <Copy SourceFiles="@(Post)" DestinationFiles="@(Post->'$(OutputPath)post\%(RecursiveDir)%(Filename)%(Extension)')" />
-    <Copy SourceFiles="@(Src)" DestinationFiles="@(Src->'$(OutputPath)src\%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="@(Hello)" DestinationFiles="@(Hello-&gt;'$(OutputPath)hello\%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="@(Post)" DestinationFiles="@(Post-&gt;'$(OutputPath)post\%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="@(Src)" DestinationFiles="@(Src-&gt;'$(OutputPath)src\%(RecursiveDir)%(Filename)%(Extension)')" />
   </Target>
-
+  <ItemGroup>
+    <InternalsVisibleTo Include="Microsoft.Crank.IntegrationTests.UnitTests" />
+  </ItemGroup>
 </Project>
