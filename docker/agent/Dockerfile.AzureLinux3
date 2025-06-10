@@ -40,10 +40,7 @@ RUN tdnf update \
 # Install HTTP/3 support
 RUN tdnf install -y libmsquic
 
-# Build and install h2load. Required as there isn't a way to distribute h2load as a single file to download # TODO: Figure out which of these are valid, which have equivalents, and which are not needed.
-# autotools-dev Not found, seems to not exist in AL3. May be covered by autoconf, automake, and libtool.
-# Replaced tools: zlib1g-dev, libcunit1-dev, a bunch of -dev -> -devel, libjansson-dev, libc-ares-dev, libjemalloc-dev, libsystemd-dev
-# python-is-python3 is not needed as python3 is already the default python version in AL3.
+# Build and install h2load. Required as there isn't a way to distribute h2load as a single file to download
 RUN tdnf update \
     && tdnf install -y \
         gcc-c++ make binutils autoconf automake libtool pkg-config \
