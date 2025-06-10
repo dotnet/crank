@@ -25,17 +25,17 @@ do
     esac
 done
 
-if [ -n "CRANK_AGENT_AZURE_RELAY_CERT_CLIENT_ID" ]
+if [ -n "$CRANK_AGENT_AZURE_RELAY_CERT_CLIENT_ID" ]
 then
     dockerargs+=" --env CRANK_AGENT_AZURE_RELAY_CERT_CLIENT_ID"
 fi
 
-if [ -n "CRANK_AGENT_AZURE_RELAY_CERT_TENANT_ID" ]
+if [ -n "$CRANK_AGENT_AZURE_RELAY_CERT_TENANT_ID" ]
 then
     dockerargs+=" --env CRANK_AGENT_AZURE_RELAY_CERT_TENANT_ID"
 fi
 
-if [ -n "CRANK_AGENT_AZURE_RELAY_CERT_PATH" ]
+if [ -n "$CRANK_AGENT_AZURE_RELAY_CERT_PATH" ]
 then
     dockerargs+=" -v $CRANK_AGENT_AZURE_RELAY_CERT_PATH:/certs/relay.pfx --env CRANK_AGENT_AZURE_RELAY_CERT_PATH=/certs/relay.pfx"
 fi
