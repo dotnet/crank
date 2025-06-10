@@ -45,6 +45,7 @@ cd ~/src/crank/docker/agent
 ```
 
 This will build the image with all the dependencies (perfcollect, ...) and start a container named `crank-agent`.
+Optionally, a dockerfile can be passed in as an argument to `./build.sh` to use different base images (i.e. Dockerfile.AzureLinux3) via `--dockerfile <file path>`.
 To stop the container, run `./stop.sh`
 
 ### Displaying the agent log
