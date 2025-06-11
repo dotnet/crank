@@ -19,4 +19,4 @@ do
     esac
 done
 
-docker build -t crank-agent --build-arg CPUNAME=$cpuname -f $dockerfile ../../
+docker build -t crank-agent --build-arg CPUNAME=$cpuname -f "$dockerfile" ../../
