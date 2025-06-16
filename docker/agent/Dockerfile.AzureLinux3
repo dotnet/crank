@@ -20,7 +20,7 @@ RUN dotnet tool install -g dotnet-symbol
 ENV PATH="${PATH}:/root/.dotnet/tools"
 
 # Install dependencies
-RUN tdnf update \
+RUN tdnf update -y \
     && tdnf install -y \
         git \
         procps-ng \
@@ -41,7 +41,7 @@ RUN tdnf update \
 RUN tdnf install -y libmsquic
 
 # Build and install h2load. Required as there isn't a way to distribute h2load as a single file to download
-RUN tdnf update \
+RUN tdnf update -y \
     && tdnf install -y \
         gcc-c++ make binutils autoconf automake libtool pkg-config \
         zlib-devel cunit-devel libxml2-devel libev-devel libevent-devel jansson-devel \
@@ -49,14 +49,14 @@ RUN tdnf update \
         python3-devel python3-setuptools
 
 # ENV OPENSSL_VERSION=3.3.3 Version pinning does not work the same way in AL3 as it does in Debian/Ubuntu. Cannot use * in version, so we will use the latest version available in the repository.
-RUN tdnf update \
+RUN tdnf update -y \
     && tdnf install -y \
         openssl openssl-devel \
     && tdnf clean all
 
 # If nghttp2 build fail just ignore it
 ENV NGHTTP2_VERSION=1.58.0
-RUN tdnf update \
+RUN tdnf update -y \
     && tdnf install -y \
         glibc-devel gawk kernel-headers
         
