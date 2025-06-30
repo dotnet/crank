@@ -42,7 +42,7 @@ RUN apt-get update \
 
 # Install HTTP/3 support
 RUN curl -LO https://packages.microsoft.com/keys/microsoft.asc && \
-    echo 2cfd20a306b2fa5e25522d78f2ef50a1f429d35fd30bd983e2ebffc2b80944fa microsoft.asc| sha256sum --check - && \
+    echo 2fa9c05d591a1582a9aba276272478c262e95ad00acf60eaee1644d93941e3c6 microsoft.asc| sha256sum --check - && \
     apt-key add microsoft.asc && \
     rm microsoft.asc && \
     echo deb https://packages.microsoft.com/debian/12/prod bookworm main >> /etc/apt/sources.list.d/microsoft.list && \
