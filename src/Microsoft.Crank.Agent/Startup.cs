@@ -2909,7 +2909,7 @@ namespace Microsoft.Crank.Agent
                                 throw new InvalidOperationException();
                             }
 
-                            result = await ProcessUtil.RunAsync("powershell", $"-NoProfile -ExecutionPolicy unrestricted -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; .\\dotnet-install.ps1 -Version {sdkVersion} -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome} -AzureFeed {dotnetFeed}\"",
+                            result = await ProcessUtil.RunAsync("powershell", $"-NoProfile -ExecutionPolicy unrestricted -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Unblock-File -Path .\\dotnet-install.ps1; .\\dotnet-install.ps1 -Version {sdkVersion} -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome} -AzureFeed {dotnetFeed}\"",
                                 log: false,
                                 throwOnError: false,
                                 workingDirectory: _dotnetInstallPath,
@@ -2937,7 +2937,7 @@ namespace Microsoft.Crank.Agent
                             throw new InvalidOperationException();
                         }
 
-                        ProcessResult result = await ProcessUtil.RunAsync("powershell", $"-NoProfile -ExecutionPolicy unrestricted -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; .\\dotnet-install.ps1 -Version {runtimeVersion} -Runtime dotnet -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome} -AzureFeed {dotnetFeed}\"",
+                        ProcessResult result = await ProcessUtil.RunAsync("powershell", $"-NoProfile -ExecutionPolicy unrestricted -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Unblock-File -Path .\\dotnet-install.ps1; .\\dotnet-install.ps1 -Version {runtimeVersion} -Runtime dotnet -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome} -AzureFeed {dotnetFeed}\"",
                                 log: false,
                                 throwOnError: false,
                                 workingDirectory: _dotnetInstallPath,
@@ -2969,7 +2969,7 @@ namespace Microsoft.Crank.Agent
                             //    throw new InvalidOperationException();
                             //}
 
-                            ProcessResult result = await ProcessUtil.RunAsync("powershell", $"-NoProfile -ExecutionPolicy unrestricted -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; .\\dotnet-install.ps1 -Version {desktopVersion} -Runtime windowsdesktop -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome}\"",
+                            ProcessResult result = await ProcessUtil.RunAsync("powershell", $"-NoProfile -ExecutionPolicy unrestricted -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Unblock-File -Path .\\dotnet-install.ps1; .\\dotnet-install.ps1 -Version {desktopVersion} -Runtime windowsdesktop -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome}\"",
                                     log: false,
                                     throwOnError: false,
                                     workingDirectory: _dotnetInstallPath,
@@ -3013,7 +3013,7 @@ namespace Microsoft.Crank.Agent
                             throw new InvalidOperationException();
                         }
 
-                        ProcessResult result = await ProcessUtil.RunAsync("powershell", $"-NoProfile -ExecutionPolicy unrestricted -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; .\\dotnet-install.ps1 -Version {aspNetCoreVersion} -Runtime aspnetcore -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome} -AzureFeed {dotnetFeed}\"",
+                        ProcessResult result = await ProcessUtil.RunAsync("powershell", $"-NoProfile -ExecutionPolicy unrestricted -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Unblock-File -Path .\\dotnet-install.ps1; .\\dotnet-install.ps1 -Version {aspNetCoreVersion} -Runtime aspnetcore -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome} -AzureFeed {dotnetFeed}\"",
                                 log: false,
                                 throwOnError: false,
                                 workingDirectory: _dotnetInstallPath,
