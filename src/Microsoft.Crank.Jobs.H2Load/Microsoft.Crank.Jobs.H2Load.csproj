@@ -1,16 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="McMaster.Extensions.CommandLineUtils" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Crank.EventSources\Microsoft.Crank.EventSources.csproj" />
   </ItemGroup>
-  
+  <ItemGroup>
+    <InternalsVisibleTo Include="Microsoft.Crank.Jobs.H2Load.UnitTests" />
+  </ItemGroup>
 </Project>

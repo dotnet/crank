@@ -1,12 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <IsPackable>true</IsPackable>
     <Description>Helper classes to register metrics with the Microsoft.Crank tools.</Description>
     <IsPackable>true</IsPackable>
     <Authors>Microsoft</Authors>
-    <PackageId>Microsoft.Crank.EventSources</PackageId>    
+    <PackageId>Microsoft.Crank.EventSources</PackageId>
   </PropertyGroup>
-
+  <ItemGroup>
+    <InternalsVisibleTo Include="Microsoft.Crank.EventSources.UnitTests" />
+  </ItemGroup>
 </Project>
