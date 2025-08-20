@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -133,7 +134,10 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
                 if (Verbose)
                 {
-                    Console.WriteLine($"{LogNow} Payload (Base64): {Convert.ToBase64String(bodyArray)}");
+                    // Truncate verbose payload logging to avoid huge console output
+                    var payloadB64 = Convert.ToBase64String(bodyArray);
+                    var max = 2048;
+                    Console.WriteLine($"{LogNow} Payload (Base64, len={payloadB64.Length}): {payloadB64.Substring(0, Math.Min(payloadB64.Length, max))}{(payloadB64.Length > max ? "...(truncated)" : "")}");
                 }
 
                 // The only way to detect if a Task still needs to be executed is to download all the details of all tasks (there is no API to retrieve the status of a single task.
@@ -206,8 +210,14 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                             Console.WriteLine($"{LogNow} Job failed, attempt ({retries + 1} out of {jobPayload.Retries + 1}).");
                         }
 
+                        // The directory where the crank executable is located, taken from the default in the below crank job creation.
+                        var workingDirectory = Path.GetDirectoryName("crank");
+
+                        // Save the job payload files to disk (extracted step)
+                        MaterializeFiles(jobPayload, workingDirectory);
+
                         // The DriverJob manages the application's lifetime and standard output
-                        driverJob = new Job("crank", arguments);
+                        driverJob = new Job("crank", arguments, workingDirectory);
 
                         driverJob.OnStandardOutput = log => Console.WriteLine(log);
 
@@ -344,5 +354,58 @@ namespace Microsoft.Crank.AzureDevOpsWorker
         }
 
         private static string LogNow => $"[{DateTime.Now.ToString("hh:mm:ss.fff")}]";
+
+        private static void MaterializeFiles(JobPayload jobPayload, string workingDirectory)
+        {
+            if (jobPayload?.Files == null || jobPayload.Files.Count == 0)
+            {
+                return;
+            }
+
+            var baseDir = Path.GetFullPath(string.IsNullOrEmpty(workingDirectory)
+                ? Directory.GetCurrentDirectory()
+                : workingDirectory);
+
+            foreach (var file in jobPayload.Files)
+            {
+                var relativePath = file.Key?.Replace('\\', '/');
+                if (string.IsNullOrWhiteSpace(relativePath))
+                {
+                    Console.WriteLine($"{LogNow} Skipping empty file path entry.");
+                    continue;
+                }
+
+                var targetPath = Path.GetFullPath(Path.Combine(baseDir, relativePath));
+
+                // Ensure targetPath stays within baseDir to prevent path traversal
+                var normalizedBaseDir = Path.GetFullPath(baseDir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var normalizedTarget = Path.GetFullPath(targetPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                // Allow baseDir itself (e.g., "./") and any child path
+                var baseWithSep = normalizedBaseDir + Path.DirectorySeparatorChar;
+                if (!(normalizedTarget.Equals(normalizedBaseDir, StringComparison.OrdinalIgnoreCase) ||
+                      normalizedTarget.StartsWith(baseWithSep, StringComparison.OrdinalIgnoreCase)))
+                {
+                    Console.WriteLine($"{LogNow} Skipping unsafe path: {relativePath}");
+                    continue;
+                }
+
+                var parentDir = Path.GetDirectoryName(targetPath);
+                if (!string.IsNullOrEmpty(parentDir))
+                {
+                    Directory.CreateDirectory(parentDir);
+                }
+
+                try
+                {
+                    var fileContent = Convert.FromBase64String(file.Value ?? string.Empty);
+                    File.WriteAllBytes(targetPath, fileContent);
+                }
+                catch (FormatException)
+                {
+                    Console.WriteLine($"{LogNow} Invalid base64 content for file: {relativePath}. Skipping.");
+                }
+            }
+        }
     }
 }

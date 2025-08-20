@@ -5,6 +5,7 @@
 using System;
 using System.Text;
 using System.Text.Json;
+using System.Collections.Generic;
 
 namespace Microsoft.Crank.AzureDevOpsWorker
 {
@@ -28,6 +29,9 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
         // A JavaScript condition that must evaluate to true. "job" 
         public string Condition { get; set; }
+
+        // Map of relative file path to create -> base64-encoded content
+        public Dictionary<string, string> Files { get; set; } = [];
 
         public static JobPayload Deserialize(byte[] data)
         {
