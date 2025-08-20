@@ -403,7 +403,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 }
                 catch (FormatException)
                 {
-                    Console.WriteLine($"{LogNow} Invalid base64 content for file: {relativePath}. Skipping.");
+                    Console.WriteLine($"{LogNow} Invalid base64 content for file: {relativePath}. Skipping. Content: {file.Value} \n\n");
                 }
             }
         }
