@@ -3,6 +3,10 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.IO;
+using System.Text;
+using System.Reflection;
+using System.Collections.Generic;
 using Microsoft.Crank.AzureDevOpsWorker;
 using Xunit;
 
@@ -71,6 +75,132 @@ namespace Microsoft.Crank.IntegrationTests
             var payload = JobPayload.Deserialize(bytes);
 
             Assert.Equal(timeSpan, payload.Timeout.ToString());
+        }
+
+        [Fact]
+        public void ShouldParseFilesFromPayload()
+        {
+            var content1 = "file-1";
+            var content2 = "{\"k\":\"v\"}";
+            var b64_1 = Convert.ToBase64String(Encoding.UTF8.GetBytes(content1));
+            var b64_2 = Convert.ToBase64String(Encoding.UTF8.GetBytes(content2));
+
+            var json = $@"{{
+  ""name"": ""crank"",
+  ""condition"": ""(true)"",
+  ""args"": [ ""--scenario x"" ],
+  ""files"": {{
+    ""scenarios/benchmarks.yml"": ""{b64_1}"",
+    ""scenarios/assets/payload.json"": ""{b64_2}""
+  }}
+}}";
+
+            var bytes = Encoding.UTF8.GetBytes(json);
+            var payload = JobPayload.Deserialize(bytes);
+
+            Assert.NotNull(payload.Files);
+            Assert.Equal(2, payload.Files.Count);
+            Assert.True(payload.Files.ContainsKey("scenarios/benchmarks.yml"));
+            Assert.True(payload.Files.ContainsKey("scenarios/assets/payload.json"));
+            Assert.Equal(content1, Encoding.UTF8.GetString(Convert.FromBase64String(payload.Files["scenarios/benchmarks.yml"])));
+            Assert.Equal(content2, Encoding.UTF8.GetString(Convert.FromBase64String(payload.Files["scenarios/assets/payload.json"])));
+        }
+
+        [Fact]
+        public void MaterializeFiles_WritesFiles_AndCreatesDirectories()
+        {
+            var tmp = Path.Combine(Path.GetTempPath(), "crank-test-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tmp);
+
+            try
+            {
+                var payload = new JobPayload
+                {
+                    Files = new Dictionary<string, string>
+                    {
+                        ["nested/dir/a.txt"] = Convert.ToBase64String(Encoding.UTF8.GetBytes("A")),
+                        ["b.json"] = Convert.ToBase64String(Encoding.UTF8.GetBytes("{\"ok\":true}")),
+                    }
+                };
+
+                var method = typeof(Program).GetMethod("MaterializeFiles", BindingFlags.NonPublic | BindingFlags.Static);
+                Assert.NotNull(method);
+
+                method.Invoke(null, new object[] { payload, tmp });
+
+                var aPath = Path.Combine(tmp, "nested", "dir", "a.txt");
+                var bPath = Path.Combine(tmp, "b.json");
+
+                Assert.True(File.Exists(aPath));
+                Assert.True(File.Exists(bPath));
+                Assert.Equal("A", File.ReadAllText(aPath));
+                Assert.Equal("{\"ok\":true}", File.ReadAllText(bPath));
+            }
+            finally
+            {
+                TryDelete(tmp);
+            }
+        }
+
+        [Fact]
+        public void MaterializeFiles_SkipsUnsafeAndInvalidEntries()
+        {
+            var tmp = Path.Combine(Path.GetTempPath(), "crank-test-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tmp);
+
+            try
+            {
+                var outsidePath = Path.GetFullPath(Path.Combine(tmp, "..", "outside.txt"));
+                if (File.Exists(outsidePath)) File.Delete(outsidePath);
+
+                var payload = new JobPayload
+                {
+                    Files = new Dictionary<string, string>
+                    {
+                        // Unsafe traversal
+                        ["../outside.txt"] = Convert.ToBase64String(Encoding.UTF8.GetBytes("NOPE")),
+                        // Invalid base64
+                        ["invalid.bin"] = "***not-base64***",
+                        // Valid to ensure method still processes others
+                        ["safe.txt"] = Convert.ToBase64String(Encoding.UTF8.GetBytes("SAFE"))
+                    }
+                };
+
+                var method = typeof(Program).GetMethod("MaterializeFiles", BindingFlags.NonPublic | BindingFlags.Static);
+                Assert.NotNull(method);
+
+                method.Invoke(null, new object[] { payload, tmp });
+
+                // Traversal should be skipped
+                Assert.False(File.Exists(outsidePath));
+
+                // Invalid base64 should not produce a file
+                Assert.False(File.Exists(Path.Combine(tmp, "invalid.bin")));
+
+                // Safe file should exist
+                var safePath = Path.Combine(tmp, "safe.txt");
+                Assert.True(File.Exists(safePath));
+                Assert.Equal("SAFE", File.ReadAllText(safePath));
+            }
+            finally
+            {
+                TryDelete(tmp);
+            }
+        }
+
+        private static void TryDelete(string dir)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
+                {
+                    Directory.Delete(dir, true);
+                }
+            }
+            catch
+            {
+                // best effort cleanup
+            }
         }
     }
 }
