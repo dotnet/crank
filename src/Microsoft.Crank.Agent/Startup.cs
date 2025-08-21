@@ -2925,12 +2925,14 @@ namespace Microsoft.Crank.Agent
 
                         // Install latest SDK version (and associated runtime)
 
-                        await ProcessUtil.RetryOnExceptionAsync(3, async () =>
+                        await ProcessUtil.RetryOnExceptionAsync(3, () =>
                         {
                             if (!TryGetAzureFeedForPackage(PackageTypes.Sdk, sdkVersion, out dotnetFeed))
                             {
                                 throw new InvalidOperationException();
                             }
+
+                            return Task.CompletedTask;
                         });
 
                         var result = await ProcessUtil.RunAsync(_pwsh, $"-NoProfile -ExecutionPolicy unrestricted -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Unblock-File -Path .\\dotnet-install.ps1; .\\dotnet-install.ps1 -Version {sdkVersion} -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome} -AzureFeed {dotnetFeed}\"",
