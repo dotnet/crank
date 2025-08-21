@@ -210,8 +210,9 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                             Console.WriteLine($"{LogNow} Job failed, attempt ({retries + 1} out of {jobPayload.Retries + 1}).");
                         }
 
-                        // The directory where the crank executable is located, taken from the default in the below crank job creation.
-                        var workingDirectory = Path.GetDirectoryName("crank");
+                        // Create a per-attempt temp working directory
+                        var workingDirectory = CreateTempWorkingDirectory();
+                        Console.WriteLine($"{LogNow} Created temp working directory: {workingDirectory}");
 
                         // Save the job payload files to disk (extracted step)
                         MaterializeFiles(jobPayload, workingDirectory);
@@ -271,6 +272,9 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                                 await Task.Delay(TaskLogFeedDelay);
                             }
                         }
+
+                        // Attempt-specific cleanup of the temp working directory
+                        TryDeleteDirectory(workingDirectory);
 
                         retries++;
                     }
@@ -366,6 +370,9 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 ? Directory.GetCurrentDirectory()
                 : workingDirectory);
 
+            // Ensure base working directory exists
+            Directory.CreateDirectory(baseDir);
+
             foreach (var file in jobPayload.Files)
             {
                 var relativePath = file.Key?.Replace('\\', '/');
@@ -405,6 +412,30 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 {
                     Console.WriteLine($"{LogNow} Invalid base64 content for file: {relativePath}. Skipping. Content: {file.Value} \n\n");
                 }
+            }
+        }
+
+        // Create a unique temp working directory
+        private static string CreateTempWorkingDirectory()
+        {
+            var dir = Path.Combine(Path.GetTempPath(), "crank-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            return dir;
+        }
+
+        // Best-effort deletion of the temp directory
+        private static void TryDeleteDirectory(string dir)
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
+                {
+                    Directory.Delete(dir, recursive: true);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"{LogNow} Failed to delete temp directory '{dir}': {ex.Message}");
             }
         }
     }
