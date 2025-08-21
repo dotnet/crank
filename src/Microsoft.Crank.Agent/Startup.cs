@@ -175,6 +175,9 @@ namespace Microsoft.Crank.Agent
 
         internal static Serilog.Core.Logger Logger { get; private set; }
 
+        private static readonly string[] _powershellCommands = ["pwsh", "powershell"];
+        private static string _pwsh;
+
         static Startup()
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
@@ -193,7 +196,6 @@ namespace Microsoft.Crank.Agent
             {
                 throw new InvalidOperationException($"Invalid OSPlatform: {RuntimeInformation.OSDescription}");
             }
-
 
             // Configuring the http client to trust the self-signed certificate
             _httpClientHandler = new HttpClientHandler();
@@ -354,6 +356,29 @@ namespace Microsoft.Crank.Agent
                 if (dotnethomeOption.HasValue())
                 {
                     InitializeDotnetHome(dotnethomeOption.Value());
+                }
+
+                // Check if Powershell or Powershell Core is installed
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    foreach (var command in _powershellCommands)
+                    {
+                        var result = ProcessUtil.RunAsync(command, "--version",
+                            log: false,
+                            throwOnError: false
+                        ).GetAwaiter().GetResult();
+
+                        if (result.ExitCode == 0)
+                        {
+                            _pwsh = command;
+                            break;
+                        }
+                    }
+
+                    if (string.IsNullOrEmpty(_pwsh))
+                    {
+                        throw new InvalidOperationException("PowerShell executable not found. Please ensure it is installed and available in the PATH.");
+                    }
                 }
 
                 return Run(url, hostname, dockerHostname).Result;
@@ -2900,27 +2925,25 @@ namespace Microsoft.Crank.Agent
 
                         // Install latest SDK version (and associated runtime)
 
-                        ProcessResult result = null;
-
                         await ProcessUtil.RetryOnExceptionAsync(3, async () =>
                         {
                             if (!TryGetAzureFeedForPackage(PackageTypes.Sdk, sdkVersion, out dotnetFeed))
                             {
                                 throw new InvalidOperationException();
                             }
-
-                            result = await ProcessUtil.RunAsync("powershell", $"-NoProfile -ExecutionPolicy unrestricted -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Unblock-File -Path .\\dotnet-install.ps1; .\\dotnet-install.ps1 -Version {sdkVersion} -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome} -AzureFeed {dotnetFeed}\"",
-                                log: false,
-                                throwOnError: false,
-                                workingDirectory: _dotnetInstallPath,
-                                environmentVariables: env,
-                                cancellationToken: cancellationToken);
-
-                            if (result.ExitCode != 0)
-                            {
-                                throw new InvalidOperationException();
-                            }
                         });
+
+                        var result = await ProcessUtil.RunAsync(_pwsh, $"-NoProfile -ExecutionPolicy unrestricted -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Unblock-File -Path .\\dotnet-install.ps1; .\\dotnet-install.ps1 -Version {sdkVersion} -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome} -AzureFeed {dotnetFeed}\"",
+                            log: false,
+                            throwOnError: false,
+                            workingDirectory: _dotnetInstallPath,
+                            environmentVariables: env,
+                            cancellationToken: cancellationToken);
+
+                        if (result.ExitCode != 0)
+                        {
+                            throw new InvalidOperationException();
+                        }
 
                         _installedSdks.Add(sdkVersion);
                     }
@@ -2937,7 +2960,7 @@ namespace Microsoft.Crank.Agent
                             throw new InvalidOperationException();
                         }
 
-                        ProcessResult result = await ProcessUtil.RunAsync("powershell", $"-NoProfile -ExecutionPolicy unrestricted -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Unblock-File -Path .\\dotnet-install.ps1; .\\dotnet-install.ps1 -Version {runtimeVersion} -Runtime dotnet -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome} -AzureFeed {dotnetFeed}\"",
+                        var result = await ProcessUtil.RunAsync(_pwsh, $"-NoProfile -ExecutionPolicy unrestricted -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Unblock-File -Path .\\dotnet-install.ps1; .\\dotnet-install.ps1 -Version {runtimeVersion} -Runtime dotnet -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome} -AzureFeed {dotnetFeed}\"",
                                 log: false,
                                 throwOnError: false,
                                 workingDirectory: _dotnetInstallPath,
@@ -2969,7 +2992,7 @@ namespace Microsoft.Crank.Agent
                             //    throw new InvalidOperationException();
                             //}
 
-                            ProcessResult result = await ProcessUtil.RunAsync("powershell", $"-NoProfile -ExecutionPolicy unrestricted -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Unblock-File -Path .\\dotnet-install.ps1; .\\dotnet-install.ps1 -Version {desktopVersion} -Runtime windowsdesktop -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome}\"",
+                            var result = await ProcessUtil.RunAsync(_pwsh, $"-NoProfile -ExecutionPolicy unrestricted -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Unblock-File -Path .\\dotnet-install.ps1; .\\dotnet-install.ps1 -Version {desktopVersion} -Runtime windowsdesktop -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome}\"",
                                     log: false,
                                     throwOnError: false,
                                     workingDirectory: _dotnetInstallPath,
@@ -3013,7 +3036,7 @@ namespace Microsoft.Crank.Agent
                             throw new InvalidOperationException();
                         }
 
-                        ProcessResult result = await ProcessUtil.RunAsync("powershell", $"-NoProfile -ExecutionPolicy unrestricted -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Unblock-File -Path .\\dotnet-install.ps1; .\\dotnet-install.ps1 -Version {aspNetCoreVersion} -Runtime aspnetcore -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome} -AzureFeed {dotnetFeed}\"",
+                        var result = await ProcessUtil.RunAsync(_pwsh, $"-NoProfile -ExecutionPolicy unrestricted -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Unblock-File -Path .\\dotnet-install.ps1; .\\dotnet-install.ps1 -Version {aspNetCoreVersion} -Runtime aspnetcore -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome} -AzureFeed {dotnetFeed}\"",
                                 log: false,
                                 throwOnError: false,
                                 workingDirectory: _dotnetInstallPath,
@@ -4838,7 +4861,7 @@ namespace Microsoft.Crank.Agent
             {
                 throw new ArgumentException($"Undefined process id for '{job.Service}'");
             }
-
+            
             Log.Info($"Starting counters for process {job.ActiveProcessId}");
 
             var metricsEventSourceSessionId = Guid.NewGuid().ToString();
