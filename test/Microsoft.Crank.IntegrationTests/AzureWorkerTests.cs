@@ -123,10 +123,7 @@ namespace Microsoft.Crank.IntegrationTests
                     }
                 };
 
-                var method = typeof(Program).GetMethod("MaterializeFiles", BindingFlags.NonPublic | BindingFlags.Static);
-                Assert.NotNull(method);
-
-                method.Invoke(null, new object[] { payload, tmp });
+                Program.MaterializeFiles(payload, tmp);
 
                 var aPath = Path.Combine(tmp, "nested", "dir", "a.txt");
                 var bPath = Path.Combine(tmp, "b.json");
@@ -166,10 +163,7 @@ namespace Microsoft.Crank.IntegrationTests
                     }
                 };
 
-                var method = typeof(Program).GetMethod("MaterializeFiles", BindingFlags.NonPublic | BindingFlags.Static);
-                Assert.NotNull(method);
-
-                method.Invoke(null, new object[] { payload, tmp });
+                Program.MaterializeFiles(payload, tmp);
 
                 // Traversal should be skipped
                 Assert.False(File.Exists(outsidePath));
