@@ -2376,11 +2376,10 @@ namespace Microsoft.Crank.Controller
                         // Format json in case the schema validation fails and we need to render error line numbers
                         localconfiguration = JObject.Parse(json);
 
-                        var schemaJson = File.ReadAllText(Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "benchmarks.schema.json"));
-                        var schema = Json.Schema.JsonSchema.FromText(schemaJson);
-
+                        var schemaFilename = Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "benchmarks.schema.json");
+                        var schema = Json.Schema.JsonSchema.FromFile(schemaFilename);
                         var jsonToValidate = System.Text.Json.Nodes.JsonNode.Parse(json);
-                        var validationResults = schema.Validate(jsonToValidate, new Json.Schema.ValidationOptions { OutputFormat = Json.Schema.OutputFormat.Detailed });
+                        var validationResults = schema.Evaluate(jsonToValidate, new Json.Schema.EvaluationOptions { OutputFormat = Json.Schema.OutputFormat.Flag });
 
                         if (!validationResults.IsValid)
                         {
@@ -2393,7 +2392,10 @@ namespace Microsoft.Crank.Controller
                             var errorBuilder = new StringBuilder();
 
                             errorBuilder.AppendLine($"Invalid configuration file '{configurationFilenameOrUrl}' at '{validationResults.InstanceLocation}'");
-                            errorBuilder.AppendLine($"{validationResults.Message}");
+                            foreach (var error in validationResults.Errors)
+                            {
+                                errorBuilder.AppendLine($"{error.Key} : {error.Value}");
+                            }
                             errorBuilder.AppendLine($"Debug file created at '{debugFilename}'");
 
                             throw new ControllerException(errorBuilder.ToString());
