@@ -5,7 +5,6 @@
 using System;
 using System.IO;
 using System.Text;
-using System.Reflection;
 using System.Collections.Generic;
 using Microsoft.Crank.AzureDevOpsWorker;
 using Xunit;
