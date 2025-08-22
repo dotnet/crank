@@ -632,7 +632,7 @@ namespace Microsoft.Crank.PullRequestBot
                         // Format json in case the schema validation fails and we need to render error line numbers
                         localconfiguration = JObject.Parse(json);
 
-                        var schemaFilename = File.ReadAllText(Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "pullrequestbot.schema.json"));
+                        var schemaFilename = Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "pullrequestbot.schema.json");
                         var schema = Json.Schema.JsonSchema.FromFile(schemaFilename);
 
                         var jsonToValidate = System.Text.Json.Nodes.JsonNode.Parse(json);
