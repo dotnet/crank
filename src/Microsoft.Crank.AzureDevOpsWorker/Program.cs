@@ -137,7 +137,8 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                     // Truncate verbose payload logging to avoid huge console output
                     var payloadB64 = Convert.ToBase64String(bodyArray);
                     var max = 2048;
-                    Console.WriteLine($"{LogNow} Payload (Base64, len={payloadB64.Length}): {payloadB64.Substring(0, Math.Min(payloadB64.Length, max))}{(payloadB64.Length > max ? "...(truncated)" : "")}");
+                    // Log only payload metadata to avoid exposing sensitive content
+                    Console.WriteLine($"{LogNow} Payload metadata: byte length = {bodyArray.Length}");
                 }
 
                 // The only way to detect if a Task still needs to be executed is to download all the details of all tasks (there is no API to retrieve the status of a single task.
