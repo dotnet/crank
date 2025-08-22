@@ -134,9 +134,6 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
                 if (Verbose)
                 {
-                    // Truncate verbose payload logging to avoid huge console output
-                    var payloadB64 = Convert.ToBase64String(bodyArray);
-                    var max = 2048;
                     // Log only payload metadata to avoid exposing sensitive content
                     Console.WriteLine($"{LogNow} Payload metadata: byte length = {bodyArray.Length}");
                 }
@@ -419,7 +416,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
         // Create a unique temp working directory
         private static string CreateTempWorkingDirectory()
         {
-            var dir = Path.Combine(Path.GetTempPath(), "crank-" + Guid.NewGuid().ToString("N"));
+            var dir = Path.Combine(Directory.GetCurrentDirectory(), "crank-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(dir);
             return dir;
         }
