@@ -373,7 +373,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
             foreach (var file in jobPayload.Files)
             {
-                var relativePath = file.Key?.Replace('\\', '/');
+                var relativePath = file.Key?.Replace('\\', Path.DirectorySeparatorChar);
                 if (string.IsNullOrWhiteSpace(relativePath))
                 {
                     Console.WriteLine($"{LogNow} Skipping empty file path entry.");
@@ -383,13 +383,12 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 var targetPath = Path.GetFullPath(Path.Combine(baseDir, relativePath));
 
                 // Ensure targetPath stays within baseDir to prevent path traversal
-                var normalizedBaseDir = Path.GetFullPath(baseDir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                var normalizedTarget = Path.GetFullPath(targetPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var normalizedBaseDir = baseDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var normalizedTarget = targetPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
                 // Allow baseDir itself (e.g., "./") and any child path
                 var baseWithSep = normalizedBaseDir + Path.DirectorySeparatorChar;
-                if (!(normalizedTarget.Equals(normalizedBaseDir, StringComparison.OrdinalIgnoreCase) ||
-                      normalizedTarget.StartsWith(baseWithSep, StringComparison.OrdinalIgnoreCase)))
+                if (!normalizedTarget.StartsWith(baseWithSep, StringComparison.OrdinalIgnoreCase))
                 {
                     Console.WriteLine($"{LogNow} Skipping unsafe path: {relativePath}");
                     continue;

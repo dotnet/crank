@@ -8,6 +8,7 @@ using System.Text;
 using System.Collections.Generic;
 using Microsoft.Crank.AzureDevOpsWorker;
 using Xunit;
+using System.Linq;
 
 namespace Microsoft.Crank.IntegrationTests
 {
@@ -76,104 +77,92 @@ namespace Microsoft.Crank.IntegrationTests
             Assert.Equal(timeSpan, payload.Timeout.ToString());
         }
 
-        [Fact]
-        public void ShouldParseFilesFromPayload()
+        [Theory]
+        [InlineData("7b0a2020226e616d65223a20226372616e6b222c0a202022636f6e646974696f6e223a2022287472756529222c0a20202261726773223a205b20222d2d7363656e6172696f207822205d2c0a20202266696c6573223a207b0a20202020227363656e6172696f732f62656e63686d61726b732e796d6c223a20225a6d6c735a533078222c0a20202020227363656e6172696f732f6173736574732f7061796c6f61642e6a736f6e223a202265794a72496a6f6964694a39220a20207d0a7d",
+        new[] { "scenarios/benchmarks.yml", "scenarios/assets/payload.json" },
+        new[] { "file-1", "{\"k\":\"v\"}" },
+        2)]
+        public void ShouldParseFilesFromPayload(string hexPayload, IEnumerable<string> expectedRelativePaths, IEnumerable<string> expectedContents, int fileCount)
         {
-            var content1 = "file-1";
-            var content2 = "{\"k\":\"v\"}";
-            var b64_1 = Convert.ToBase64String(Encoding.UTF8.GetBytes(content1));
-            var b64_2 = Convert.ToBase64String(Encoding.UTF8.GetBytes(content2));
-
-            var json = $@"{{
-  ""name"": ""crank"",
-  ""condition"": ""(true)"",
-  ""args"": [ ""--scenario x"" ],
-  ""files"": {{
-    ""scenarios/benchmarks.yml"": ""{b64_1}"",
-    ""scenarios/assets/payload.json"": ""{b64_2}""
-  }}
-}}";
-
-            var bytes = Encoding.UTF8.GetBytes(json);
+            var bytes = Convert.FromHexString(hexPayload);
             var payload = JobPayload.Deserialize(bytes);
 
             Assert.NotNull(payload.Files);
-            Assert.Equal(2, payload.Files.Count);
-            Assert.True(payload.Files.ContainsKey("scenarios/benchmarks.yml"));
-            Assert.True(payload.Files.ContainsKey("scenarios/assets/payload.json"));
-            Assert.Equal(content1, Encoding.UTF8.GetString(Convert.FromBase64String(payload.Files["scenarios/benchmarks.yml"])));
-            Assert.Equal(content2, Encoding.UTF8.GetString(Convert.FromBase64String(payload.Files["scenarios/assets/payload.json"])));
-        }
-
-        [Fact]
-        public void MaterializeFiles_WritesFiles_AndCreatesDirectories()
-        {
-            var tmp = Path.Combine(Path.GetTempPath(), "crank-test-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(tmp);
-
-            try
+            Assert.Equal(fileCount, payload.Files.Count);
+            for (var i = 0; i < fileCount; i++)
             {
-                var payload = new JobPayload
-                {
-                    Files = new Dictionary<string, string>
-                    {
-                        ["nested/dir/a.txt"] = Convert.ToBase64String(Encoding.UTF8.GetBytes("A")),
-                        ["b.json"] = Convert.ToBase64String(Encoding.UTF8.GetBytes("{\"ok\":true}")),
-                    }
-                };
-
-                Program.MaterializeFiles(payload, tmp);
-
-                var aPath = Path.Combine(tmp, "nested", "dir", "a.txt");
-                var bPath = Path.Combine(tmp, "b.json");
-
-                Assert.True(File.Exists(aPath));
-                Assert.True(File.Exists(bPath));
-                Assert.Equal("A", File.ReadAllText(aPath));
-                Assert.Equal("{\"ok\":true}", File.ReadAllText(bPath));
-            }
-            finally
-            {
-                TryDelete(tmp);
+                Assert.True(payload.Files.ContainsKey(expectedRelativePaths.ElementAt(i)));
+                Assert.Equal(expectedContents.ElementAt(i), Encoding.UTF8.GetString(Convert.FromBase64String(payload.Files[expectedRelativePaths.ElementAt(i)])));
             }
         }
 
-        [Fact]
-        public void MaterializeFiles_SkipsUnsafeAndInvalidEntries()
+        [Theory]
+        // Case 1: Writes files and creates directories (reuses the payload used in ShouldParseFilesFromPayload)
+        [InlineData(
+            "7b0a2020226e616d65223a20226372616e6b222c0a202022636f6e646974696f6e223a2022287472756529222c0a20202261726773223a205b20222d2d7363656e6172696f207822205d2c0a20202266696c6573223a207b0a20202020227363656e6172696f732f62656e63686d61726b732e796d6c223a20225a6d6c735a533078222c0a20202020227363656e6172696f732f6173736574732f7061796c6f61642e6a736f6e223a202265794a72496a6f6964694a39220a20207d0a7d",
+            new[] { "scenarios/benchmarks.yml", "scenarios/assets/payload.json" },
+            new[] { "file-1", "{\"k\":\"v\"}" },
+            new string[] { })]
+        // Case 2: Skips unsafe traversal and invalid base64, but writes safe file
+        [InlineData(
+            "7b226e616d65223a226372616e6b222c22636f6e646974696f6e223a22287472756529222c2261726773223a5b222d2d7363656e6172696f2078225d2c2266696c6573223a7b222e2e2f6f7574736964652e747874223a22546b395152513d3d222c22696e76616c69642e62696e223a222a2a2a6e6f742d6261736536342d2a2a2a222c22736166652e747874223a225530464752513d3d227d7d",
+            new[] { "safe.txt" },
+            new[] { "SAFE" },
+            new[] { "invalid.bin" })]
+        // Case 3: Attempts unsafe traversal (after traversing one folder in) and writes nothing
+        [InlineData(
+            "7B0D0A20202020226E616D65223A20226372616E6B222C0D0A2020202022636F6E646974696F6E223A22287472756529222C0D0A202020202261726773223A5B222D2D7363656E6172696F20746869735F69735F756E736166655F74726176657273616C5F66696C65225D2C0D0A202020202266696C6573223A0D0A202020207B0D0A2020202020202020222E2E2F6F7574736964652E747874223A226233563063326C6B5A53426A623235305A573530222C0D0A2020202020202020222E2E2F696E76616C69642E62696E223A222A2A2A6E6F742D6261736536342D2A2A2A222C0D0A2020202020202020226173736574732F2E2E2F2E2E2F6F757473696465322E747874223A226233563063326C6B5A544967593239756447567564413D3D220D0A202020207D7D",
+            new string[] { },
+            new string[] { },
+            new[] { "../invalid.bin", "../outside.txt", "assets/../../outside2.txt" })]
+        public void MaterializeFiles_FromPayload_WritesAndSkipsAsExpected(
+            string hexPayload,
+            IEnumerable<string> expectedExistingRelativePaths,
+            IEnumerable<string> expectedExistingContents,
+            IEnumerable<string> expectedNonExistingRelativePaths)
         {
+            var bytes = Convert.FromHexString(hexPayload);
+            var payload = JobPayload.Deserialize(bytes);
+
             var tmp = Path.Combine(Path.GetTempPath(), "crank-test-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tmp);
 
+            var outsidePath = Path.GetFullPath(Path.Combine(tmp, "..", "outside.txt"));
+            if (File.Exists(outsidePath)) File.Delete(outsidePath);
+
             try
             {
-                var outsidePath = Path.GetFullPath(Path.Combine(tmp, "..", "outside.txt"));
-                if (File.Exists(outsidePath)) File.Delete(outsidePath);
-
-                var payload = new JobPayload
-                {
-                    Files = new Dictionary<string, string>
-                    {
-                        // Unsafe traversal
-                        ["../outside.txt"] = Convert.ToBase64String(Encoding.UTF8.GetBytes("NOPE")),
-                        // Invalid base64
-                        ["invalid.bin"] = "***not-base64***",
-                        // Valid to ensure method still processes others
-                        ["safe.txt"] = Convert.ToBase64String(Encoding.UTF8.GetBytes("SAFE"))
-                    }
-                };
-
                 Program.MaterializeFiles(payload, tmp);
 
-                // Traversal should be skipped
-                Assert.False(File.Exists(outsidePath));
+                // Validate created files and contents
+                var numFilesChecked = 0;
+                Assert.Equal(expectedExistingRelativePaths.Count(), expectedExistingContents.Count());
+                for (var i = 0; i < expectedExistingRelativePaths.Count(); i++)
+                {
+                    var rel = expectedExistingRelativePaths.ElementAt(i);
+                    var expectedContent = expectedExistingContents.ElementAt(i);
+                    var full = Path.Combine(new[] { tmp }.Concat(rel.Split('/', '\\')).ToArray());
+                    Assert.True(File.Exists(full));
+                    Assert.Equal(expectedContent, File.ReadAllText(full));
+                    numFilesChecked++;
+                }
 
-                // Invalid base64 should not produce a file
-                Assert.False(File.Exists(Path.Combine(tmp, "invalid.bin")));
+                // Validate files that should not exist inside tmp
+                foreach (var rel in expectedNonExistingRelativePaths ?? Array.Empty<string>())
+                {
+                    var full = Path.Combine(new[] { tmp }.Concat(rel.Split('/', '\\')).ToArray());
+                    Assert.False(File.Exists(full));
+                    numFilesChecked++;
+                }
+                // Validate that we checked the expected number of files
+                Assert.Equal(expectedExistingRelativePaths.Count() + expectedNonExistingRelativePaths.Count(), numFilesChecked);
 
-                // Safe file should exist
-                var safePath = Path.Combine(tmp, "safe.txt");
-                Assert.True(File.Exists(safePath));
-                Assert.Equal("SAFE", File.ReadAllText(safePath));
+                // If the payload contains traversal attempts, ensure outside path wasn't created
+                var hasTraversal = payload?.Files?.Keys?.Any(k => k.Contains("../") || k.Contains("..\\")) == true;
+                if (hasTraversal)
+                {
+                    Assert.False(File.Exists(outsidePath));
+                }
             }
             finally
             {
