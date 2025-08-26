@@ -257,7 +257,7 @@ namespace Microsoft.Crank.Agent
             {
                 if (captureError)
                 {
-                    errorBuilder.AppendLine(e.Data);
+                    errorBuilder.AppendLine(e.Message);
                 }
                 
                 return new ProcessResult(-1, outputBuilder.ToString(), errorBuilder.ToString());
