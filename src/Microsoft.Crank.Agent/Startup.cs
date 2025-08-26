@@ -363,7 +363,7 @@ namespace Microsoft.Crank.Agent
                 {
                     foreach (var command in _powershellCommands)
                     {
-                        var result = ProcessUtil.RunAsync(command, "--version",
+                        var result = ProcessUtil.RunAsync(command, "-help",
                             log: false,
                             throwOnError: false
                         ).GetAwaiter().GetResult();
