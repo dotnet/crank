@@ -249,7 +249,24 @@ namespace Microsoft.Crank.Agent
                 }
             };
 
-            process.Start();
+            try
+            {
+                process.Start();
+            }
+            catch (Exception e)
+            {
+                if (captureError)
+                {
+                    errorBuilder.AppendLine(e.Message);
+                }
+                
+                if (throwOnError)
+                {
+                    throw;
+                }
+
+                return new ProcessResult(-1, outputBuilder.ToString(), errorBuilder.ToString());
+            }
 
             onStart?.Invoke(process.Id);
 
