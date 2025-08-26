@@ -1733,6 +1733,12 @@ namespace Microsoft.Crank.Agent
 
                                     foreach (var processId in job.AllProcessIds)
                                     {
+                                        // Should we keep the child process alive?
+                                        if (processId == job.ProcessId && job.KeepChildProcessAlive)
+                                        {
+                                            continue;
+                                        }
+
                                         Process localProcess;
 
                                         try
@@ -4727,6 +4733,7 @@ namespace Microsoft.Crank.Agent
             process.ErrorDataReceived += (_, e) =>
             {
                 const string processIdMarker = "##ChildProcessId:";
+                const string KeepAliveMarker = "KeepAlive:";
 
                 if (e != null && e.Data != null)
                 {
@@ -4743,12 +4750,24 @@ namespace Microsoft.Crank.Agent
                     }
 
                     // Detect the app is wrapping a child process
-                    if (e.Data.StartsWith(processIdMarker)
-                        && int.TryParse(e.Data.Substring(processIdMarker.Length), out var childProcessId))
+                    if (e.Data.Trim().StartsWith(processIdMarker))
                     {
-                        Log.Info($"Tracking child process id: {childProcessId}");
-                        job.ChildProcessId = childProcessId;
-                        stopwatch.Restart();
+                        // ##ChildProcessId: 12345[; KeepAlive: true]
+                        var segments = e.Data.Split(';', 2); // Max 2 arguments
+
+                        if (int.TryParse(segments[0].Trim().AsSpan(processIdMarker.Length).Trim(), out var childProcessId))
+                        {
+                            Log.Info($"Tracking child process id: {childProcessId}");
+                            job.ChildProcessId = childProcessId;
+                            stopwatch.Restart();
+                        }
+
+                        if (segments.Length > 1 && 
+                            segments[1].Trim().StartsWith(KeepAliveMarker, StringComparison.OrdinalIgnoreCase) && 
+                            bool.TryParse(segments[1].Trim().AsSpan(KeepAliveMarker.Length), out var keepAlive) && keepAlive)
+                        {
+                            job.KeepChildProcessAlive = true;
+                        }
                     }
                 }
             };

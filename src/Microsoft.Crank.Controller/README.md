@@ -144,6 +144,7 @@ Run 'crank [command] -?|-h|--help' for more information about a command.
   ## Debugging
 
   --[JOB].noClean <true|false>                                  Whether to keep the work folder on the server or not. Default is false, such that each job is cleaned once it's finished.
+  --[JOB].keepChildProcessAlive <true|false>                    Whether to keep the child process, if tracked, alive. Default is false.
   --[JOB].options.fetch <true|false>                            Whether the benchmark folder is downloaded. e.g., true. For Docker see '--[JOB].dockerFetchPath'
   --[JOB].options.fetchOutput <filename>                        The name of the fetched archive. Can be a file prefix (app will add *.DATE*.zip) , or a specific name (end in *.zip) and no DATE* will be added e.g., c:\publishedapps\myApp
   --[JOB].options.displayOutput <true|false>                    Whether to download and display the standard output of the benchmark.
