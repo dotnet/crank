@@ -260,6 +260,11 @@ namespace Microsoft.Crank.Agent
                     errorBuilder.AppendLine(e.Message);
                 }
                 
+                if (throwOnError)
+                {
+                    throw;
+                }
+
                 return new ProcessResult(-1, outputBuilder.ToString(), errorBuilder.ToString());
             }
 
