@@ -260,7 +260,7 @@ namespace Microsoft.Crank.Agent
                     errorBuilder.AppendLine(e.Data);
                 }
                 
-                return new ProcessResult(-1, outputBuilder.ToString(), errorBuilder.ToString())
+                return new ProcessResult(-1, outputBuilder.ToString(), errorBuilder.ToString());
             }
 
             onStart?.Invoke(process.Id);
