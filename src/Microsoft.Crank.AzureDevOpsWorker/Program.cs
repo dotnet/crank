@@ -415,9 +415,8 @@ namespace Microsoft.Crank.AzureDevOpsWorker
         // Create a unique temp working directory
         private static string CreateTempWorkingDirectory()
         {
-            var dir = Path.Combine(Directory.GetCurrentDirectory(), "crank-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(dir);
-            return dir;
+            var dir = Directory.CreateTempSubdirectory("crank-");
+            return dir.FullName;
         }
 
         // Best-effort deletion of the temp directory
