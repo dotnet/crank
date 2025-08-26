@@ -1734,7 +1734,7 @@ namespace Microsoft.Crank.Agent
                                     foreach (var processId in job.AllProcessIds)
                                     {
                                         // Should we keep the child process alive?
-                                        if (processId == job.ProcessId && job.KeepChildProcessAlive)
+                                        if (processId == job.ChildProcessId && job.KeepChildProcessAlive)
                                         {
                                             continue;
                                         }
@@ -4733,7 +4733,7 @@ namespace Microsoft.Crank.Agent
             process.ErrorDataReceived += (_, e) =>
             {
                 const string processIdMarker = "##ChildProcessId:";
-                const string KeepAliveMarker = "KeepAlive:";
+                const string keepAliveMarker = "KeepAlive:";
 
                 if (e != null && e.Data != null)
                 {
@@ -4755,7 +4755,7 @@ namespace Microsoft.Crank.Agent
                         // ##ChildProcessId: 12345[; KeepAlive: true]
                         var segments = e.Data.Split(';', 2); // Max 2 arguments
 
-                        if (int.TryParse(segments[0].Trim().AsSpan(processIdMarker.Length).Trim(), out var childProcessId))
+                        if (int.TryParse(segments[0].Trim().AsSpan(processIdMarker.Length), out var childProcessId))
                         {
                             Log.Info($"Tracking child process id: {childProcessId}");
                             job.ChildProcessId = childProcessId;
@@ -4763,8 +4763,8 @@ namespace Microsoft.Crank.Agent
                         }
 
                         if (segments.Length > 1 && 
-                            segments[1].Trim().StartsWith(KeepAliveMarker, StringComparison.OrdinalIgnoreCase) && 
-                            bool.TryParse(segments[1].Trim().AsSpan(KeepAliveMarker.Length), out var keepAlive) && keepAlive)
+                            segments[1].Trim().StartsWith(keepAliveMarker, StringComparison.OrdinalIgnoreCase) && 
+                            bool.TryParse(segments[1].Trim().AsSpan(keepAliveMarker.Length), out var keepAlive) && keepAlive)
                         {
                             job.KeepChildProcessAlive = true;
                         }
