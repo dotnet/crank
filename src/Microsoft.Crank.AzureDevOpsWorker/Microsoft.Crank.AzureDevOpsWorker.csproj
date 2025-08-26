@@ -29,6 +29,11 @@
     <ProjectReference Include="..\Microsoft.Crank.Models\Microsoft.Crank.Models.csproj" />
   </ItemGroup>
   
+  <!-- Expose internals to the test project so it can call helper methods without reflection -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Microsoft.Crank.IntegrationTests" />
+  </ItemGroup>
+  
   <ItemGroup>
     <None Update="jobs.example.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

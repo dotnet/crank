@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -133,7 +134,8 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
                 if (Verbose)
                 {
-                    Console.WriteLine($"{LogNow} Payload (Base64): {Convert.ToBase64String(bodyArray)}");
+                    // Log only payload metadata to avoid exposing sensitive content
+                    Console.WriteLine($"{LogNow} Payload metadata: byte length = {bodyArray.Length}");
                 }
 
                 // The only way to detect if a Task still needs to be executed is to download all the details of all tasks (there is no API to retrieve the status of a single task.
@@ -206,8 +208,15 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                             Console.WriteLine($"{LogNow} Job failed, attempt ({retries + 1} out of {jobPayload.Retries + 1}).");
                         }
 
+                        // Create a per-attempt temp working directory
+                        var workingDirectory = CreateTempWorkingDirectory();
+                        Console.WriteLine($"{LogNow} Created temp working directory: {workingDirectory}");
+
+                        // Save the job payload files to disk (extracted step)
+                        MaterializeFiles(jobPayload, workingDirectory);
+
                         // The DriverJob manages the application's lifetime and standard output
-                        driverJob = new Job("crank", arguments);
+                        driverJob = new Job("crank", arguments, workingDirectory);
 
                         driverJob.OnStandardOutput = log => Console.WriteLine(log);
 
@@ -261,6 +270,9 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                                 await Task.Delay(TaskLogFeedDelay);
                             }
                         }
+
+                        // Attempt-specific cleanup of the temp working directory
+                        TryDeleteDirectory(workingDirectory);
 
                         retries++;
                     }
@@ -344,5 +356,84 @@ namespace Microsoft.Crank.AzureDevOpsWorker
         }
 
         private static string LogNow => $"[{DateTime.Now.ToString("hh:mm:ss.fff")}]";
+
+        internal static void MaterializeFiles(JobPayload jobPayload, string workingDirectory)
+        {
+            if (jobPayload?.Files == null || jobPayload.Files.Count == 0)
+            {
+                return;
+            }
+
+            var baseDir = Path.GetFullPath(string.IsNullOrEmpty(workingDirectory)
+                ? Directory.GetCurrentDirectory()
+                : workingDirectory);
+
+            // Ensure base working directory exists
+            Directory.CreateDirectory(baseDir);
+
+            foreach (var file in jobPayload.Files)
+            {
+                var relativePath = file.Key?.Replace('\\', Path.DirectorySeparatorChar);
+                if (string.IsNullOrWhiteSpace(relativePath))
+                {
+                    Console.WriteLine($"{LogNow} Skipping empty file path entry.");
+                    continue;
+                }
+
+                var targetPath = Path.GetFullPath(Path.Combine(baseDir, relativePath));
+
+                // Ensure targetPath stays within baseDir to prevent path traversal
+                var normalizedBaseDir = baseDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var normalizedTarget = targetPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                // Allow baseDir itself (e.g., "./") and any child path
+                var baseWithSep = normalizedBaseDir + Path.DirectorySeparatorChar;
+                if (!normalizedTarget.StartsWith(baseWithSep, StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine($"{LogNow} Skipping unsafe path: {relativePath}");
+                    continue;
+                }
+
+                var parentDir = Path.GetDirectoryName(targetPath);
+                if (!string.IsNullOrEmpty(parentDir))
+                {
+                    Directory.CreateDirectory(parentDir);
+                }
+
+                try
+                {
+                    var fileContent = Convert.FromBase64String(file.Value ?? string.Empty);
+                    File.WriteAllBytes(targetPath, fileContent);
+                }
+                catch (FormatException)
+                {
+                    Console.WriteLine($"{LogNow} Invalid base64 content for file: {relativePath}. Skipping.");
+                }
+            }
+        }
+
+        // Create a unique temp working directory
+        private static string CreateTempWorkingDirectory()
+        {
+            var dir = Path.Combine(Directory.GetCurrentDirectory(), "crank-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            return dir;
+        }
+
+        // Best-effort deletion of the temp directory
+        private static void TryDeleteDirectory(string dir)
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
+                {
+                    Directory.Delete(dir, recursive: true);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"{LogNow} Failed to delete temp directory '{dir}': {ex.Message}");
+            }
+        }
     }
 }
