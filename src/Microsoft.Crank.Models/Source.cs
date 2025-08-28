@@ -80,7 +80,7 @@ namespace Microsoft.Crank.Models
         public string BranchOrCommit { get; set; }
         public string Repository { get; set; }
         public bool InitSubmodules { get; set; }
-    public string LocalFolder { get; set; }
-    public string Archive { get; set; }
+        public string LocalFolder { get; set; }
+        public string Archive { get; set; }
     }
 }

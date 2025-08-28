@@ -412,7 +412,7 @@ namespace Microsoft.Crank.Controller
             }
         }
 
-    private async Task UploadLocalArchiveAsync(string sourceName, string archivePath)
+        private async Task UploadLocalArchiveAsync(string sourceName, string archivePath)
         {
             if (!File.Exists(archivePath))
             {
