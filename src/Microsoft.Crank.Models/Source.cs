@@ -17,6 +17,7 @@ namespace Microsoft.Crank.Models
         public string Repository { get; set; }
         public bool InitSubmodules { get; set; }
         public string LocalFolder { get; set; }
+    public string Archive { get; set; }
 
         /// <summary>
         /// When set, will specify where the source data will be copied to on the agent.
@@ -65,7 +66,8 @@ namespace Microsoft.Crank.Models
                 BranchOrCommit = BranchOrCommit,
                 Repository = Repository,
                 InitSubmodules = InitSubmodules,
-                LocalFolder = LocalFolder
+                LocalFolder = LocalFolder,
+                Archive = Archive
             };
         }
     }
@@ -78,6 +80,7 @@ namespace Microsoft.Crank.Models
         public string BranchOrCommit { get; set; }
         public string Repository { get; set; }
         public bool InitSubmodules { get; set; }
-        public string LocalFolder { get; set; }
+    public string LocalFolder { get; set; }
+    public string Archive { get; set; }
     }
 }

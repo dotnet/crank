@@ -169,6 +169,10 @@ namespace Microsoft.Crank.Controller
                         {
                             uploadLocalSourceTasks.Add(UploadLocalSourceAsync(sourceName, source.LocalFolder));
                         }
+                        else if (!String.IsNullOrEmpty(source.Archive) && !source.Archive.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                        {
+                            uploadLocalSourceTasks.Add(UploadLocalArchiveAsync(sourceName, source.Archive));
+                        }
                     }
 
                     await Task.WhenAll(uploadLocalSourceTasks);
@@ -405,6 +409,24 @@ namespace Microsoft.Crank.Controller
             if (result != 0)
             {
                 throw new Exception("Error while uploading source files");
+            }
+        }
+
+    private async Task UploadLocalArchiveAsync(string sourceName, string archivePath)
+        {
+            if (!File.Exists(archivePath))
+            {
+                throw new ControllerException($"Archive not found: {archivePath}");
+            }
+
+            Log.Write($"Using local archive: \"{archivePath}\"");
+
+            var uploadUri = $"{Combine(_serverJobUri, "/source")}?sourceName={sourceName}";
+            var result = await UploadFileAsync(archivePath, uploadUri, gzipped: false);
+
+            if (result != 0)
+            {
+                throw new Exception("Error while uploading source archive");
             }
         }
 
