@@ -68,7 +68,7 @@ stages:
             parallel: true
 
       - job: Ubuntu
-        displayName: 'Ubuntu 20.04'
+        displayName: 'Ubuntu 24.04'
         pool:
           vmImage: ubuntu-latest
         variables:
