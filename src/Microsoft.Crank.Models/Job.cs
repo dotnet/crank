@@ -233,6 +233,11 @@ namespace Microsoft.Crank.Models
         public RollingLog Output { get; set; } = new RollingLog(10000);
         public bool SelfContained { get; set; }
         public string BeforeScript { get; set; }
+        /// <summary>
+        /// A command line to execute before any docker image operations (build/pull/load) occur.
+        /// Executed in the docker working directory. Similar to BeforeScript but specific to docker setup.
+        /// </summary>
+        public string DockerBeforeScript { get; set; }
         public string AfterScript { get; set; }
         public string StoppingScript { get; set; }
         public ulong MemoryLimitInBytes { get; set; }

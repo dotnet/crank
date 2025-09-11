@@ -91,6 +91,7 @@ Run 'crank [command] -?|-h|--help' for more information about a command.
 
   ## Docker options
 
+  --[JOB].dockerBeforeScript <commandline>                      A command line to execute before docker file, image, etc is setup. Useful for setting up auth.
   --[JOB].dockerFile                                            The local path to the Docker file, e.g., frameworks/Rust/actix/actix-raw.dockerfile
   --[JOB].dockerImageName                                       The name of the docker image to create, e.g., actix_raw
   --[JOB].dockerContextDirectory                                The folder in which the Docker file is built relative to, e.g., frameworks/Rust/actix/
