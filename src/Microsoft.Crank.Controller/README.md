@@ -91,7 +91,7 @@ Run 'crank [command] -?|-h|--help' for more information about a command.
 
   ## Docker options
 
-  --[JOB].dockerInitScript <commandline>                      A command line to execute before docker file, image, etc is setup. Useful for setting up auth.
+  --[JOB].initScript <commandline>                            A command line executed very early after sources are retrieved (and working directory set), before any Docker build/pull/load or .NET restore/build. Useful for setting up auth (e.g., 'docker login'), private feeds, or environment preparation.
   --[JOB].dockerFile                                            The local path to the Docker file, e.g., frameworks/Rust/actix/actix-raw.dockerfile
   --[JOB].dockerImageName                                       The name of the docker image to create, e.g., actix_raw
   --[JOB].dockerContextDirectory                                The folder in which the Docker file is built relative to, e.g., frameworks/Rust/actix/

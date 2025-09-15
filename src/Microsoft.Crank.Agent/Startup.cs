@@ -2120,18 +2120,17 @@ namespace Microsoft.Crank.Agent
 
             job.BasePath = workingDirectory;
 
-            // Run docker specific pre-script after workingDirectory/BasePath are set but before docker build/pull/load operations
-            if (!String.IsNullOrEmpty(job.DockerInitScript))
+            if (!String.IsNullOrEmpty(job.InitScript))
             {
                 try
                 {
-                    var segments = job.DockerInitScript.Split(' ', 2);
-                    Log.Info($"Running dockerInitScript: {job.DockerInitScript}");
+                    var segments = job.InitScript.Split(' ', 2);
+                    Log.Info($"Running initScript: {job.InitScript}");
                     await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: workingDirectory, log: true, outputDataReceived: job.BuildLog.AddLine, runAsRoot: false);
                 }
                 catch (Exception ex)
                 {
-                    Log.Error($"dockerInitScript failed: {ex.Message}");
+                    Log.Error($"initScript failed: {ex.Message}");
                     throw;
                 }
             }
@@ -2804,6 +2803,22 @@ namespace Microsoft.Crank.Agent
         private static async Task<string> CloneRestoreAndBuild(string path, Job job, string dotnetHome, CancellationToken cancellationToken = default)
         {
             var reuseFolder = await RetrieveSourcesAsync(job, path);
+
+            // Run early init script (non-docker path). Working directory is current 'path'.
+            if (!string.IsNullOrEmpty(job.InitScript))
+            {
+                try
+                {
+                    var segments = job.InitScript.Split(' ', 2);
+                    Log.Info($"Running initScript: {job.InitScript}");
+                    await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: path, log: true, outputDataReceived: job.BuildLog.AddLine, runAsRoot: false);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"initScript failed: {ex.Message}");
+                    throw;
+                }
+            }
 
             // Computes the location of the benchmarked app
             var benchmarkedApp = path;
