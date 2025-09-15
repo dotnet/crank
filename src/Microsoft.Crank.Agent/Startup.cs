@@ -2121,17 +2121,17 @@ namespace Microsoft.Crank.Agent
             job.BasePath = workingDirectory;
 
             // Run docker specific pre-script after workingDirectory/BasePath are set but before docker build/pull/load operations
-            if (!String.IsNullOrEmpty(job.DockerBeforeScript))
+            if (!String.IsNullOrEmpty(job.DockerInitScript))
             {
                 try
                 {
-                    var segments = job.DockerBeforeScript.Split(' ', 2);
-                    Log.Info($"Running dockerBeforeScript: {job.DockerBeforeScript}");
+                    var segments = job.DockerInitScript.Split(' ', 2);
+                    Log.Info($"Running dockerInitScript: {job.DockerInitScript}");
                     await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: workingDirectory, log: true, outputDataReceived: job.BuildLog.AddLine, runAsRoot: false);
                 }
                 catch (Exception ex)
                 {
-                    Log.Error($"dockerBeforeScript failed: {ex.Message}");
+                    Log.Error($"dockerInitScript failed: {ex.Message}");
                     throw;
                 }
             }

@@ -237,7 +237,7 @@ namespace Microsoft.Crank.Models
         /// A command line to execute before any docker image operations (build/pull/load) occur.
         /// Executed in the docker working directory. Similar to BeforeScript but specific to docker setup.
         /// </summary>
-        public string DockerBeforeScript { get; set; }
+        public string DockerInitScript { get; set; }
         public string AfterScript { get; set; }
         public string StoppingScript { get; set; }
         public ulong MemoryLimitInBytes { get; set; }
