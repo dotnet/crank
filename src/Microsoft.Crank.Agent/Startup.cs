@@ -3334,7 +3334,7 @@ namespace Microsoft.Crank.Agent
                     };
 
                     var segments = job.InitScript.Split(' ', 2);
-                    await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: path, log: true, outputDataReceived: job.BuildLog.AddLine, runAsRoot: false);
+                    await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: benchmarkedApp, log: true, outputDataReceived: job.BuildLog.AddLine, runAsRoot: false);
                 }
                 catch (Exception ex)
                 {
