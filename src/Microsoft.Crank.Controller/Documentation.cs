@@ -37,7 +37,6 @@ internal class Documentation
 
   ## Docker options
 
-  --[JOB].initScript <commandline>                            A command line executed very early after sources are retrieved (and working directory set), before any Docker build/pull/load or .NET restore/build. Useful for setting up auth (e.g., 'docker login'), private feeds, or environment preparation.
   --[JOB].dockerFile                                            The local path to the Docker file, e.g., frameworks/Rust/actix/actix-raw.dockerfile
   --[JOB].dockerImageName                                       The name of the docker image to create, e.g., actix_raw
   --[JOB].dockerContextDirectory                                The folder in which the Docker file is built relative to, e.g., frameworks/Rust/actix/
@@ -104,6 +103,7 @@ internal class Documentation
   --[JOB].options.outputFiles <filename>                        Output files that will be copied in the published folder after the application is built. Accepts globing patterns and recursive marker (**). Format is 'path[;destination]'. Path can be a URL. e.g., c:\build\Microsoft.AspNetCore.Mvc.dll, c:\files\samples\picture.png;wwwroot\picture.png. If provided, the destination needs to be a folder name, relative to the published path.
   --[JOB].options.reuseSource <true|false>                      Reuse local or remote sources across benchmarks for the same source.
   --[JOB].options.reuseBuild <true|false>                       Reuse build files across benchmarks. Don't use with floating runtime versions.
+  --[JOB].initScript <commandline>                              A command line executed very early after sources are retrieved (and working directory set), before any Docker build/pull/load or .NET restore/build. Useful for setting up auth (e.g., 'docker login'), private feeds, or environment preparation.
   --[JOB].beforeScript <commandline>                            A command line to execute before the job is started. Current directory is the same as the project or docker file.
   --[JOB].afterScript <commandline>                             A command line to execute after the job is stopped. Current directory is the same as the project or docker file.
   --[JOB].stoppingScript <commandline>                          A command line to execute after the job is stopped. Current directory is the same as the project or docker file.
