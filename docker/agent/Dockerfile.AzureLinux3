@@ -35,7 +35,9 @@ RUN tdnf update -y \
         zlib-devel \
         krb5-devel \
         # .NET 9.0 requirement
-        glibc 
+        glibc \
+        # Azure CLI
+        azure-cli
 
 # Install HTTP/3 support
 RUN tdnf install -y libmsquic

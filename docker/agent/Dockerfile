@@ -88,6 +88,23 @@ RUN cd /tmp \
     && cp docker/docker /usr/bin \
     && rm -rf docker.tgz docker
 
+# Install Azure CLI - https://learn.microsoft.com/en-us/cli/azure/install-azure-cli-linux?pivots=apt#option-2-step-by-step-installation-instructions
+# We cannot use the helper script to install the CLI with one command as the script
+# gets an amd64-only DEB package while this image needs to support both amd64 and arm64.
+RUN apt-get update \
+    && apt-get install -y \
+        apt-transport-https \
+        ca-certificates \
+        lsb-release \
+        gnupg \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -sLS https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor | tee /etc/apt/keyrings/microsoft.gpg > /dev/null \ 
+    && chmod go+r /etc/apt/keyrings/microsoft.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/azure-cli.list \
+    && apt-get update \
+    && apt-get install -y azure-cli \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install perfcollect
 ADD https://raw.githubusercontent.com/microsoft/perfview/main/src/perfcollect/perfcollect /usr/bin/perfcollect
 RUN chmod +x /usr/bin/perfcollect
