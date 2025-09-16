@@ -2120,21 +2120,6 @@ namespace Microsoft.Crank.Agent
 
             job.BasePath = workingDirectory;
 
-            if (!String.IsNullOrEmpty(job.InitScript))
-            {
-                try
-                {
-                    var segments = job.InitScript.Split(' ', 2);
-                    Log.Info($"Running initScript: {job.InitScript}");
-                    await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: workingDirectory, log: true, outputDataReceived: job.BuildLog.AddLine, runAsRoot: false);
-                }
-                catch (Exception ex)
-                {
-                    Log.Error($"initScript failed: {ex.Message}");
-                    throw;
-                }
-            }
-
             // Copy build files before building/publishing
             foreach (var attachment in job.BuildAttachments)
             {
@@ -2152,7 +2137,22 @@ namespace Microsoft.Crank.Agent
                 File.Copy(attachment.TempFilename, filename);
                 File.Delete(attachment.TempFilename);
             }
-
+            
+            if (!String.IsNullOrEmpty(job.InitScript))
+            {
+                try
+                {
+                    var segments = job.InitScript.Split(' ', 2);
+                    Log.Info($"Running initScript: {job.InitScript}");
+                    await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: workingDirectory, log: true, outputDataReceived: job.BuildLog.AddLine, runAsRoot: false);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"initScript failed: {ex.Message}");
+                    throw;
+                }
+            }
+            
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
@@ -2804,22 +2804,6 @@ namespace Microsoft.Crank.Agent
         {
             var reuseFolder = await RetrieveSourcesAsync(job, path);
 
-            // Run early init script (non-docker path). Working directory is current 'path'.
-            if (!string.IsNullOrEmpty(job.InitScript))
-            {
-                try
-                {
-                    var segments = job.InitScript.Split(' ', 2);
-                    Log.Info($"Running initScript: {job.InitScript}");
-                    await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: path, log: true, outputDataReceived: job.BuildLog.AddLine, runAsRoot: false);
-                }
-                catch (Exception ex)
-                {
-                    Log.Error($"initScript failed: {ex.Message}");
-                    throw;
-                }
-            }
-
             // Computes the location of the benchmarked app
             var benchmarkedApp = path;
 
@@ -3333,6 +3317,22 @@ namespace Microsoft.Crank.Agent
 
                 File.Copy(attachment.TempFilename, filename);
                 File.Delete(attachment.TempFilename);
+            }
+
+            // Run init script.
+            if (!string.IsNullOrEmpty(job.InitScript))
+            {
+                try
+                {
+                    var segments = job.InitScript.Split(' ', 2);
+                    Log.Info($"Running initScript: {job.InitScript}");
+                    await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: path, log: true, outputDataReceived: job.BuildLog.AddLine, runAsRoot: false);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"initScript failed: {ex.Message}");
+                    throw;
+                }
             }
 
             var outputFolder = benchmarkedApp;
