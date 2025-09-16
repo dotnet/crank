@@ -2142,8 +2142,12 @@ namespace Microsoft.Crank.Agent
             {
                 try
                 {
+                    var environmentVariables = new Dictionary<string, string>()
+                    {
+                        ["CRANK_WORKING_DIRECTORY"] = workingDirectory
+                    };
+
                     var segments = job.InitScript.Split(' ', 2);
-                    Log.Info($"Running initScript: {job.InitScript}");
                     await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: workingDirectory, log: true, outputDataReceived: job.BuildLog.AddLine, runAsRoot: false);
                 }
                 catch (Exception ex)
@@ -3324,8 +3328,12 @@ namespace Microsoft.Crank.Agent
             {
                 try
                 {
+                    var environmentVariables = new Dictionary<string, string>()
+                    {
+                        ["CRANK_WORKING_DIRECTORY"] = benchmarkedApp
+                    };
+
                     var segments = job.InitScript.Split(' ', 2);
-                    Log.Info($"Running initScript: {job.InitScript}");
                     await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: path, log: true, outputDataReceived: job.BuildLog.AddLine, runAsRoot: false);
                 }
                 catch (Exception ex)
