@@ -2137,7 +2137,26 @@ namespace Microsoft.Crank.Agent
                 File.Copy(attachment.TempFilename, filename);
                 File.Delete(attachment.TempFilename);
             }
+            
+            if (!String.IsNullOrEmpty(job.InitScript))
+            {
+                try
+                {
+                    var environmentVariables = new Dictionary<string, string>()
+                    {
+                        ["CRANK_WORKING_DIRECTORY"] = workingDirectory
+                    };
 
+                    var segments = job.InitScript.Split(' ', 2);
+                    await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: workingDirectory, log: true, outputDataReceived: job.BuildLog.AddLine, runAsRoot: false);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"initScript failed: {ex.Message}");
+                    throw;
+                }
+            }
+            
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
@@ -3302,6 +3321,26 @@ namespace Microsoft.Crank.Agent
 
                 File.Copy(attachment.TempFilename, filename);
                 File.Delete(attachment.TempFilename);
+            }
+
+            // Run init script.
+            if (!string.IsNullOrEmpty(job.InitScript))
+            {
+                try
+                {
+                    var environmentVariables = new Dictionary<string, string>()
+                    {
+                        ["CRANK_WORKING_DIRECTORY"] = benchmarkedApp
+                    };
+
+                    var segments = job.InitScript.Split(' ', 2);
+                    await ProcessUtil.RunAsync(segments[0], segments.Length > 1 ? segments[1] : "", workingDirectory: benchmarkedApp, log: true, outputDataReceived: job.BuildLog.AddLine, runAsRoot: false);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"initScript failed: {ex.Message}");
+                    throw;
+                }
             }
 
             var outputFolder = benchmarkedApp;

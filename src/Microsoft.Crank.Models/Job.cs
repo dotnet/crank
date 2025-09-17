@@ -233,6 +233,12 @@ namespace Microsoft.Crank.Models
         public RollingLog Output { get; set; } = new RollingLog(10000);
         public bool SelfContained { get; set; }
         public string BeforeScript { get; set; }
+        /// <summary>
+        /// A script executed very early in the job lifecycle, after sources are retrieved and the working directory is known,
+        /// but before any Docker build/pull/load or .NET restore/build steps. Can be used to perform authentication (e.g. docker login),
+        /// prepare private feeds, mutate source, etc.
+        /// </summary>
+        public string InitScript { get; set; }
         public string AfterScript { get; set; }
         public string StoppingScript { get; set; }
         public ulong MemoryLimitInBytes { get; set; }
