@@ -1,0 +1,9 @@
+schemaVersion: 0.0.1
+isProduction: true
+accountableOwners:
+  service: dc9f7233-4f4a-491d-b775-8a01bced321c
+routing:
+  defaultAreaPath:
+    org: devdiv
+    path: DevDiv\NET Fundamentals\Performance
+    
