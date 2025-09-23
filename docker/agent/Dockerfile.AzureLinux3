@@ -35,7 +35,7 @@ RUN tdnf update -y \
         zlib-devel \
         krb5-devel \
         # .NET 9.0 requirement
-        glibc 
+        glibc
 
 # Install HTTP/3 support
 RUN tdnf install -y libmsquic
