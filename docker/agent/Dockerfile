@@ -63,12 +63,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN echo 'deb http://deb.debian.org/debian sid main' >> /etc/apt/sources.list \
     && echo 'deb http://deb.debian.org/debian-debug sid-debug main' >> /etc/apt/sources.list
 
-ENV OPENSSL_VERSION=3.5.*
-# Update package lists and install specific versions of OpenSSL, libssl-dev, and their debug symbols
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        openssl=${OPENSSL_VERSION} libssl-dev=${OPENSSL_VERSION} openssl-dbgsym=${OPENSSL_VERSION} libssl3t64-dbgsym=${OPENSSL_VERSION} \
-    && apt-get clean
+        openssl libssl-dev openssl-dbgsym libssl3t64-dbgsym \
+    && openssl version
 
 # If nghttp2 build fail just ignore it
 ENV NGHTTP2_VERSION=1.58.0
