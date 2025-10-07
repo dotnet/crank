@@ -5689,17 +5689,20 @@ namespace Microsoft.Crank.Agent
                     Value = customMeasurement.Value
                 });
 
-                // Also add metadata for the custom measurement
-                job.Metadata.Enqueue(new MeasurementMetadata
+                // Also add metadata for the custom measurement if it doesn't exist
+                if (!job.Metadata.Any(x => x.Name == customMeasurement.Key))
                 {
-                    Source = "Agent",
-                    Name = customMeasurement.Key,
-                    Aggregate = Operation.First,
-                    Reduce = Operation.First,
-                    Format = "",
-                    LongDescription = $"Custom measurement: {customMeasurement.Key}",
-                    ShortDescription = customMeasurement.Key
-                });
+                    job.Metadata.Enqueue(new MeasurementMetadata
+                    {
+                        Source = "Agent",
+                        Name = customMeasurement.Key,
+                        Aggregate = Operation.First,
+                        Reduce = Operation.First,
+                        Format = "",
+                        LongDescription = $"Custom measurement: {customMeasurement.Key}",
+                        ShortDescription = customMeasurement.Key
+                    });
+                }
 
                 Log.Info($"Added custom measurement to job {job.Id}: {customMeasurement.Key} = {customMeasurement.Value}");
             }
