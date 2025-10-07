@@ -270,7 +270,7 @@ namespace Microsoft.Crank.Agent
             _certPath = app.Option("--cert-path", "Location of the certificate to be used for auth.", CommandOptionType.SingleValue);
             _certPassword = app.Option("--cert-pwd", "Password of the certificate to be used for auth.", CommandOptionType.SingleValue);
             _certSniAuth = app.Option("--cert-sni", "Enable subject name / issuer based authentication (SNI).", CommandOptionType.NoValue);
-            _recordOption = app.Option("-r|--record", "Records a custom measurement for each benchmark. Format: 'name=value'. Can use command substitution with $(command). Can be specified multiple times.", CommandOptionType.MultipleValue);
+            _recordOption = app.Option("-r|--record", "Records a custom measurement for each benchmark. Format: 'name=value'. Can be specified multiple times.", CommandOptionType.MultipleValue);
 
             app.OnExecute(() =>
             {
@@ -411,9 +411,6 @@ namespace Microsoft.Crank.Agent
                             Log.Warning($"Invalid --record format: '{recordValue}'. Name cannot be empty.");
                             continue;
                         }
-
-                        // Check if value contains command substitution
-                        value = ProcessCommandSubstitution(value);
 
                         _customMeasurements[name] = value;
                         Log.Info($"Recording custom measurement: {name} = {value}");
@@ -5593,65 +5590,6 @@ namespace Microsoft.Crank.Agent
                                                 workingDirectory: dotnetMonoRootPath,
                                                 log: true,
                                                 captureOutput: true);
-        }
-
-        /// <summary>
-        /// Process command substitution in the format $(command)
-        /// </summary>
-        private static string ProcessCommandSubstitution(string value)
-        {
-            if (string.IsNullOrEmpty(value))
-            {
-                return value;
-            }
-
-            // Check for command substitution pattern $(...)
-            var pattern = @"\$\(([^)]+)\)";
-            var regex = new Regex(pattern);
-            var match = regex.Match(value);
-
-            if (!match.Success)
-            {
-                return value;
-            }
-
-            try
-            {
-                var command = match.Groups[1].Value;
-                string output;
-
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                {
-                    // On Windows, use cmd.exe to execute the command
-                    var result = ProcessUtil.RunAsync("cmd.exe", $"/c {command}",
-                        captureOutput: true,
-                        log: false,
-                        throwOnError: false
-                    ).GetAwaiter().GetResult();
-
-                    output = result.StandardOutput.Trim();
-                }
-                else
-                {
-                    // On Linux/macOS, use sh
-                    var result = ProcessUtil.RunAsync("/bin/sh", $"-c \"{command}\"",
-                        captureOutput: true,
-                        log: false,
-                        throwOnError: false
-                    ).GetAwaiter().GetResult();
-
-                    output = result.StandardOutput.Trim();
-                }
-
-                // Replace the command substitution with the output
-                value = regex.Replace(value, output);
-            }
-            catch (Exception ex)
-            {
-                Log.Warning($"Failed to execute command substitution in value '{value}': {ex.Message}");
-            }
-
-            return value;
         }
 
         private static string ConvertCmd2Arg(string cmd)

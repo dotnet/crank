@@ -161,23 +161,23 @@ crank-agent --record "system/openssl=$(openssl version)" --record "system/kernel
 
 - The name and value are separated by the first `=` character
 - The name portion becomes the measurement name
-- The value can be a literal string or include command substitution using `$(command)` syntax
+- The value can be a literal string
 
 #### Command Substitution
 
-When a value contains `$(command)`, the agent will execute the command and use its output as the measurement value:
+Command substitution is handled by the shell before the arguments reach the agent. Use your shell's command substitution syntax:
 
-**Linux/macOS example:**
+**Linux/macOS example (using bash/sh):**
 ```bash
 crank-agent --record "system/openssl=$(openssl version)" \
             --record "system/kernel=$(uname -r)" \
             --record "system/hostname=$(hostname)"
 ```
 
-**Windows example:**
+**Windows example (using PowerShell):**
 ```powershell
 crank-agent --record "system/dotnet=$(dotnet --version)" `
-            --record "system/os=$(systeminfo | findstr /B /C:'OS Name')"
+            --record "system/os=$(systeminfo | Select-String 'OS Name')"
 ```
 
 #### Behavior
@@ -190,7 +190,6 @@ crank-agent --record "system/dotnet=$(dotnet --version)" `
   - `ShortDescription`: The measurement name
   - `LongDescription`: "Custom measurement: {name}"
 - Invalid formats (missing `=` or empty name) will be logged as warnings and skipped
-- Command substitution failures are logged as warnings, and the original value is used
 
 #### Example
 
