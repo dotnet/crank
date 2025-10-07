@@ -26,6 +26,8 @@ RUN tdnf update -y \
         procps-ng \
         curl \
         wget \
+        libcgroup \
+        libcgroup-tools \
         # dotnet performance repo microbenchmark dependencies
         libgdiplus \
         # libmsquic requirements
