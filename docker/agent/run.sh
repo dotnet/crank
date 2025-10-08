@@ -41,9 +41,11 @@ then
 fi
 
 # cgroupfs is mapped to allow docker to create cgroups without permissions issues (cgroup v2)
+# set cgroupns to host to allow the container to share the host's cgroup namespace (matches v1 and v2 namespace modes: https://docs.docker.com/engine/containers/runmetrics/#running-docker-on-cgroup-v2)
 # docker.sock is mapped to be able to manage other docker instances from this one
 docker run -it --name $name -d --network host --restart always \
     --log-opt max-size=1G --privileged \
+    --cgroupns=host \
     -v /sys/fs/cgroup/:/sys/fs/cgroup/ \
     -v /var/run/docker.sock:/var/run/docker.sock $dockerargs \
     crank-agent \
