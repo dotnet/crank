@@ -3968,7 +3968,7 @@ namespace Microsoft.Crank.Agent
                             break;
                         case "10.0":
                             aspNetCoreVersion = "10.0.0-rtm.25513.102";
-                            Log.Info($"SDK: {aspNetCoreVersion} (Hard-coded until GA)");
+                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Hard-coded until GA)");
 
                             // productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions100Url, cacheDuration: _latestProductVersionsCacheDuration));
                             // aspNetCoreVersion = productsInfo["aspnetcore"]["version"].ToString();
@@ -4301,7 +4301,7 @@ namespace Microsoft.Crank.Agent
                         Log.Info($"SDK: {sdkVersion} (Latest - From Product Commit)");
                         break;
                     case "net10.0":
-                        sdkVersion = "10.0.0-rtm.25513.102";
+                        sdkVersion = "10.0.100-rtm.25513.102";
                         Log.Info($"SDK: {sdkVersion} (Hard-coded until GA)");
 
                         // var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions100Url, cacheDuration: _latestProductVersionsCacheDuration));
@@ -4385,7 +4385,7 @@ namespace Microsoft.Crank.Agent
                         break;
                     case "10.0":
                         runtimeVersion = "10.0.0-rtm.25513.102";
-                        Log.Info($"SDK: {runtimeVersion} (Hard-coded until GA)");
+                        Log.Info($"Runtime: {runtimeVersion} (Hard-coded until GA)");
 
                         // productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions100Url, cacheDuration: _latestProductVersionsCacheDuration));
                         // runtimeVersion = productsInfo["runtime"]["version"].ToString();
