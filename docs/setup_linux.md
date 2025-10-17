@@ -66,6 +66,10 @@ In order to restart and update the agent regularly, the following cron job can b
 crontab -e
 ```
 
+_build.sh uses arguments, so depending on the machine you could choose behavior building docker image:_
+- Change dockerfile used: `--dockerfile ...`
+- Change openssl.conf to FIPS compliant CipherSuties and ECs: `--enable-fips`
+
 - Add this entry:
 
 ```
