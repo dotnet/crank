@@ -15,6 +15,7 @@ RUN dotnet publish -c Release src/Microsoft.Crank.Agent --output /app --framewor
 FROM mcr.microsoft.com/dotnet/sdk:8.0
 
 ARG CPUNAME=x86_64
+ARG ENABLE_FIPS_MODE=false
 
 # Install dotnet-symbols
 RUN dotnet tool install -g dotnet-symbol
@@ -28,6 +29,7 @@ RUN apt-get update \
         cgroup-tools \
         curl \
         wget \
+        nano \
         # dotnet performance repo microbenchmark dependencies
         libgdiplus \
         # libmsquic requirements
@@ -67,6 +69,25 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         openssl libssl-dev openssl-dbgsym libssl3t64-dbgsym \
     && openssl version
+
+# Configure OpenSSL for FIPS-compliant cipher suites if $ENABLE_FIPS_MODE
+RUN if [ "$ENABLE_FIPS_MODE" = "true" ]; then \
+        echo "=== FIPS MODE ENABLED - Configuring OpenSSL ===" && \
+        cat /etc/ssl/openssl.cnf && \
+        echo "" >> /etc/ssl/openssl.cnf && \
+        echo "openssl_conf = openssl_init" >> /etc/ssl/openssl.cnf && \
+        echo "[openssl_init]" >> /etc/ssl/openssl.cnf && \
+        echo "ssl_conf = ssl_sect" >> /etc/ssl/openssl.cnf && \
+        echo "[ssl_sect]" >> /etc/ssl/openssl.cnf && \
+        echo "system_default = system_default_sect" >> /etc/ssl/openssl.cnf && \
+        echo "[system_default_sect]" >> /etc/ssl/openssl.cnf && \
+        echo "CipherString = TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256" >> /etc/ssl/openssl.cnf && \
+        echo "Groups = P-384:P-256:P-521" >> /etc/ssl/openssl.cnf && \
+        echo "=== FIPS Configuration Applied ===" && \
+        tail -15 /etc/ssl/openssl.cnf; \
+    else \
+        echo "=== FIPS MODE DISABLED ==="; \
+    fi
 
 # If nghttp2 build fail just ignore it
 ENV NGHTTP2_VERSION=1.58.0
