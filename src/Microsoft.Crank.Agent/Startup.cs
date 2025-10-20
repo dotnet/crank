@@ -4554,7 +4554,6 @@ namespace Microsoft.Crank.Agent
                 }
                 catch (HttpRequestException ex)
                 {
-                    Log.Warning($"Error while downloading {url}, Exception: {ex}");
 
                     // No need to retry on a 404
                     if (response != null && response.StatusCode == System.Net.HttpStatusCode.NotFound)
