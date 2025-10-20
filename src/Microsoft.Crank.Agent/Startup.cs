@@ -4552,9 +4552,8 @@ namespace Microsoft.Crank.Agent
                 {
                     Log.Info($"Timeout trying to download {url}, attempt {i + 1}");
                 }
-                catch (HttpRequestException ex)
+                catch (HttpRequestException)
                 {
-
                     // No need to retry on a 404
                     if (response != null && response.StatusCode == System.Net.HttpStatusCode.NotFound)
                     {
