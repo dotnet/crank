@@ -6266,19 +6266,28 @@ namespace Microsoft.Crank.Agent
                     var archivePath = Path.Combine(_rootTempDir, "ultra", UltraVersion, "ultra.zip");
                     Directory.CreateDirectory(Path.GetDirectoryName(archivePath));
 
+                    bool ultraDownloaded = true;
                     if (!File.Exists(archivePath))
                     {
-                        if (!await DownloadFileAsync(_ultraUrl, archivePath, maxRetries: 5, timeout: 60, throwOnError: false))
+                        ultraDownloaded = await DownloadFileAsync(_ultraUrl, archivePath, maxRetries: 5, timeout: 60, throwOnError: false);
+                        if (!ultraDownloaded)
                         {
                             Log.Warning("Failed to download Ultra from NuGet");
                         }
                     }
 
-                    var ultraFilesPath = Path.Combine(_rootTempDir, "ultra", UltraVersion);
-                    ZipFile.ExtractToDirectory(archivePath, ultraFilesPath);
+                    if (ultraDownloaded)
+                    {
+                        var ultraFilesPath = Path.Combine(_rootTempDir, "ultra", UltraVersion);
+                        ZipFile.ExtractToDirectory(archivePath, ultraFilesPath);
 
-                    _ultraPath = Path.Combine(ultraFilesPath, "tools", "net8.0", "any", "ultra.dll");
-                    Log.Info($"Ultra available at '{_ultraPath}'");
+                        _ultraPath = Path.Combine(ultraFilesPath, "tools", "net8.0", "any", "ultra.dll");
+                        Log.Info($"Ultra available at '{_ultraPath}'");
+                    }
+                    else
+                    {
+                        Log.Warning($"Failed to download ultra via {_ultraUrl}. It will not be available.");
+                    }
                 }
             }
 
