@@ -289,6 +289,6 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
             return result;
         }
 
-        private static void Log(string message) => Console.WriteLine($"[{DateTime.Now:hh:mm:ss.fff}] {message}");
+        private static void Log(string message) => Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] {message}");
     }
 }

@@ -14,7 +14,7 @@ namespace Microsoft.Crank.Agent
             {
                 if (Startup.Logger == null)
                 {
-                    Console.WriteLine($"[{DateTime.Now:hh:mm:ss.fff}] {message}");
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] {message}");
                 }
                 else
                 {
@@ -40,11 +40,11 @@ namespace Microsoft.Crank.Agent
             {
                 if (string.IsNullOrEmpty(message))
                 {
-                    Console.WriteLine($"[{DateTime.Now:hh:mm:ss.fff}] {e.Message}");
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] {e.Message}");
                 }
                 else
                 {
-                    Console.WriteLine($"[{DateTime.Now:hh:mm:ss.fff}] {message} {e.Message}");
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] {message} {e.Message}");
                 }
             }
             else
@@ -56,7 +56,7 @@ namespace Microsoft.Crank.Agent
         {
             if (Startup.Logger == null)
             {
-                Console.WriteLine($"[{DateTime.Now:hh:mm:ss.fff}] {message}");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] {message}");
             }
             else
             {
@@ -68,7 +68,7 @@ namespace Microsoft.Crank.Agent
         {
             if (Startup.Logger == null)
             {
-                Console.WriteLine($"[{DateTime.Now:hh:mm:ss.fff}] {message}");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] {message}");
             }
             else
             {

@@ -36,7 +36,7 @@ namespace Microsoft.Crank.Controller
 
             if (!IsQuiet)
             {
-                var time = DateTime.Now.ToString("hh:mm:ss.fff");
+                var time = DateTime.Now.ToString("HH:mm:ss.fff");
                 if (notime)
                 {
                     Console.WriteLine(message);
