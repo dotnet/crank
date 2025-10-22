@@ -388,7 +388,7 @@ namespace H2LoadClient
 
         private static void Log(string message)
         {
-            var time = DateTime.Now.ToString("hh:mm:ss.fff");
+            var time = DateTime.Now.ToString("HH:mm:ss.fff");
             Console.WriteLine($"[{time}] {message}");
         }
     }

@@ -355,7 +355,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             return Task.CompletedTask;
         }
 
-        private static string LogNow => $"[{DateTime.Now.ToString("hh:mm:ss.fff")}]";
+        private static string LogNow => $"[{DateTime.Now.ToString("HH:mm:ss.fff")}]";
 
         internal static void MaterializeFiles(JobPayload jobPayload, string workingDirectory)
         {
