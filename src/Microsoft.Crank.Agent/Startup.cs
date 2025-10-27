@@ -180,8 +180,12 @@ namespace Microsoft.Crank.Agent
             _certClientId,
             _certTenantId,
             _certThumbprint,
-            _certSniAuth
+            _certSniAuth,
+            _recordOption
             ;
+
+        // Stores custom measurements to record for each job
+        private static readonly Dictionary<string, string> _customMeasurements = new Dictionary<string, string>();
 
         internal static Serilog.Core.Logger Logger { get; private set; }
 
@@ -276,6 +280,7 @@ namespace Microsoft.Crank.Agent
             _certPath = app.Option("--cert-path", "Location of the certificate to be used for auth.", CommandOptionType.SingleValue);
             _certPassword = app.Option("--cert-pwd", "Password of the certificate to be used for auth.", CommandOptionType.SingleValue);
             _certSniAuth = app.Option("--cert-sni", "Enable subject name / issuer based authentication (SNI).", CommandOptionType.NoValue);
+            _recordOption = app.Option("-r|--record", "Records a custom measurement for each benchmark. Format: 'name=value'. Can be specified multiple times.", CommandOptionType.MultipleValue);
 
             app.OnExecute(() =>
             {
@@ -388,6 +393,37 @@ namespace Microsoft.Crank.Agent
                     if (string.IsNullOrEmpty(_pwsh))
                     {
                         throw new InvalidOperationException("PowerShell executable not found. Please ensure it is installed and available in the PATH.");
+                    }
+                }
+
+                // Process custom measurement records
+                if (_recordOption.HasValue())
+                {
+                    foreach (var recordValue in _recordOption.Values)
+                    {
+                        if (string.IsNullOrWhiteSpace(recordValue))
+                        {
+                            continue;
+                        }
+
+                        var separatorIndex = recordValue.IndexOf('=');
+                        if (separatorIndex <= 0)
+                        {
+                            Log.Warning($"Invalid --record format: '{recordValue}'. Expected format: 'name=value'");
+                            continue;
+                        }
+
+                        var name = recordValue.Substring(0, separatorIndex).Trim();
+                        var value = recordValue.Substring(separatorIndex + 1).Trim();
+
+                        if (string.IsNullOrEmpty(name))
+                        {
+                            Log.Warning($"Invalid --record format: '{recordValue}'. Name cannot be empty.");
+                            continue;
+                        }
+
+                        _customMeasurements[name] = value;
+                        Log.Info($"Recording custom measurement: {name} = {value}");
                     }
                 }
 
@@ -5636,6 +5672,34 @@ namespace Microsoft.Crank.Agent
                 Value = stopwatch.ElapsedMilliseconds
             });
             BenchmarksEventSource.Start();
+
+            // Add custom measurements from --record options
+            foreach (var customMeasurement in _customMeasurements)
+            {
+                job.Measurements.Enqueue(new Measurement
+                {
+                    Name = customMeasurement.Key,
+                    Timestamp = DateTime.UtcNow,
+                    Value = customMeasurement.Value
+                });
+
+                // Also add metadata for the custom measurement if it doesn't exist
+                if (!job.Metadata.Any(x => x.Name == customMeasurement.Key))
+                {
+                    job.Metadata.Enqueue(new MeasurementMetadata
+                    {
+                        Source = "Agent",
+                        Name = customMeasurement.Key,
+                        Aggregate = Operation.First,
+                        Reduce = Operation.First,
+                        Format = "",
+                        LongDescription = $"Custom measurement: {customMeasurement.Key}",
+                        ShortDescription = customMeasurement.Key
+                    });
+                }
+
+                Log.Info($"Added custom measurement to job {job.Id}: {customMeasurement.Key} = {customMeasurement.Value}");
+            }
 
             Log.Info($"Running job '{job.Service}' ({job.Id})");
             job.Url = ComputeServerUrl(hostname, job);
