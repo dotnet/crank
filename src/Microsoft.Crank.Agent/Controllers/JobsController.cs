@@ -801,7 +801,23 @@ namespace Microsoft.Crank.Agent.Controllers
             try
             {
                 var job = _jobs.Find(id);
-                var response = await _httpClient.GetStringAsync(new Uri(new Uri(job.Url), path));
+
+                if (!Uri.TryCreate(job.Url, UriKind.Absolute, out var baseUri))
+                {
+                    Log.Error($"Invalid job URL: '{job.Url}'");
+                    return BadRequest("Invalid job configuration.");
+                }
+                var combinedUri = new Uri(baseUri, path);
+
+                // Ensure the resulting URL is still under the same host/port as the base
+                if (combinedUri.Host != baseUri.Host || combinedUri.Port != baseUri.Port)
+                {
+                    Log.Error($"Trying to access different host. Base: {baseUri.Host}:{baseUri.Port}, Target: {combinedUri.Host}:{combinedUri.Port}");
+                    return BadRequest("Cannot invoke requests to different hosts.");
+                }
+
+                Log.Info($"Invoking: {combinedUri}");
+                var response = await _httpClient.GetStringAsync(combinedUri);
                 return Content(response);
             }
             catch (Exception e)
