@@ -4483,7 +4483,7 @@ namespace Microsoft.Crank.Agent
         private static async Task<(string Runtime, string Desktop, string AspNet, string Sdk)> GetCurrentVersions(string targetFramework)
         {
             var frameworkVersion = ExtractVersionPrefix(targetFramework); // 6.0
-            var metadataUrl = $"https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/{frameworkVersion}/releases.json";
+            var metadataUrl = $"https://builds.dotnet.microsoft.com/dotnet/release-metadata/{frameworkVersion}/releases.json";
 
             try
             {
