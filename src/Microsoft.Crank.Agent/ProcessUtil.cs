@@ -102,7 +102,7 @@ namespace Microsoft.Crank.Agent
             CancellationToken cancellationToken = default
         )
         {
-            var startInfo = new ProcessStartInfo(filename, arguments); // CodeQL [SM05274] justification: Arguments are passed explicitly from the caller
+            var startInfo = new ProcessStartInfo(filename, arguments);
             return RunAsync(startInfo, timeout, workingDirectory, throwOnError, environmentVariables, outputDataReceived, log, onStart, onStop, captureOutput, captureError, runAsRoot, cancellationToken);
         }
 

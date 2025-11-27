@@ -665,10 +665,19 @@ namespace Microsoft.Crank.Agent.Controllers
             try
             {
                 var job = _jobs.Find(id);
-
                 if (job == null)
                 {
                     return NotFound();
+                }
+
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    return BadRequest("Path parameter is required.");
+                }
+                if (PathValidator.ContainsDangerousCharacters(path))
+                {
+                    Log.Error($"Path contains dangerous characters: '{path}'");
+                    return BadRequest("Path contains invalid characters.");
                 }
 
                 // Downloads can't get out of this path
@@ -685,9 +694,7 @@ namespace Microsoft.Crank.Agent.Controllers
 
                 // Resolve dot notation in path
                 var fullPath = Path.GetFullPath(path, job.BasePath);
-
                 Log.Info($"Download requested: '{path}'");
-
                 if (!fullPath.StartsWith(rootPath, StringComparison.OrdinalIgnoreCase))
                 {
                     Log.Error($"Client is not allowed to download '{fullPath}'");
@@ -1043,6 +1050,20 @@ namespace Microsoft.Crank.Agent.Controllers
             }
 
             return new ObjectResult(obj);
+        }
+
+        private class PathValidator
+        {
+            private static readonly char[] _dangerousChars 
+                = { ';', '|', '&', '$', '`', '\n', '\r', '<', '>', '"', '\'' };
+
+            /// <summary>
+            /// Returns true if detects shell metacharacters and control characters. False otherwise
+            /// </summary>
+            public static bool ContainsDangerousCharacters(string path)
+            {
+                return path.IndexOfAny(_dangerousChars) >= 0;
+            }
         }
     }
 }
