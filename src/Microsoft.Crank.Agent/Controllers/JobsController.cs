@@ -817,9 +817,11 @@ namespace Microsoft.Crank.Agent.Controllers
                 var combinedUri = new Uri(baseUri, path);
 
                 // Ensure the resulting URL is still under the same host/port as the base
-                if (combinedUri.Host != baseUri.Host || combinedUri.Port != baseUri.Port)
+                var combinedUriComponents = combinedUri.GetComponents(UriComponents.SchemeAndServer | UriComponents.StrongAuthority, UriFormat.Unescaped);
+                var baseUriComponents = baseUri.GetComponents(UriComponents.SchemeAndServer | UriComponents.StrongAuthority, UriFormat.Unescaped);
+                if (!combinedUriComponents.Equals(baseUriComponents, StringComparison.InvariantCulture))
                 {
-                    Log.Error($"Trying to access different host. Base: {baseUri.Host}:{baseUri.Port}, Target: {combinedUri.Host}:{combinedUri.Port}");
+                    Log.Error($"Trying to access different address. Base: {baseUri.Host}:{baseUri.Port}, Target: {combinedUri.Host}:{combinedUri.Port}");
                     return BadRequest("Cannot invoke requests to different hosts.");
                 }
 
