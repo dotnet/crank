@@ -20,7 +20,7 @@ namespace Microsoft.Crank.UnitTests
         }
 
         [Theory]
-        [InlineData("$&\n\r.\\execute")] // Dangerous characters
+        [InlineData("$&\n\r.\\execute")]
         [InlineData("../../../../../../etc/passwd")]  // Unix-style traversal
         [InlineData("..\\..\\..\\Windows\\System32\\config\\SAM")]  // Windows system files
         [InlineData("../../../../../../../var/log/syslog")]  // Absolute path traversal
@@ -120,6 +120,96 @@ namespace Microsoft.Crank.UnitTests
                     // Ignore cleanup errors
                 }
             }
+        }
+
+        [Theory]
+        [InlineData("http://localhost:5000/api", "http://evil.com/steal")]  // Different domain
+        [InlineData("http://localhost:5000", "http://localhost:8080/api")]  // Different port
+        [InlineData("http://localhost:5000", "https://localhost:5000/api")] // Different scheme
+        [InlineData("http://example.com", "http://attacker.com")]           // Completely different host
+        [InlineData("http://api.example.com", "http://evil.example.com")]   // Subdomain manipulation
+        [InlineData("http://localhost:5000", "//evil.com/steal")]           // Protocol-relative URL
+        [InlineData("http://localhost:5000", "http://127.0.0.1:5000/api")]  // IP vs hostname
+        public async Task Invoke_DifferentHostRequests_ReturnsBadRequest(string jobUrl, string path)
+        {
+            var jobRepo = new JobsRepository();
+            jobRepo.Add(new()
+            {
+                Id = 1,
+                State = JobState.Running,
+                BasePath = Path.GetTempPath(),
+                Url = jobUrl
+            });
+
+            var jobsController = new JobsController(jobRepo);
+            var result = await jobsController.Invoke(1, path);
+
+            _output.WriteLine($"Job URL: {jobUrl}");
+            _output.WriteLine($"Request path: {path}");
+            _output.WriteLine($"Result type: {result.GetType().Name}");
+
+            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        }
+
+        [Fact]
+        public async Task Invoke_InvalidJobUrl_ReturnsBadRequest()
+        {
+            var jobRepo = new JobsRepository();
+            jobRepo.Add(new()
+            {
+                Id = 1,
+                State = JobState.Running,
+                BasePath = Path.GetTempPath(),
+                Url = "not-a-valid-url"  // Invalid URL
+            });
+
+            var jobsController = new JobsController(jobRepo);
+            var result = await jobsController.Invoke(1, "/api/test");
+
+            _output.WriteLine($"Result type: {result.GetType().Name}");
+
+            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+            Assert.Equal("Invalid job configuration.", badRequestResult.Value);
+        }
+
+        [Fact]
+        public async Task Invoke_NonExistentJob_ReturnsStatusCode500()
+        {
+            var jobRepo = new JobsRepository();
+            var jobsController = new JobsController(jobRepo);
+            
+            var result = await jobsController.Invoke(999, "/api/test");
+
+            _output.WriteLine($"Result type: {result.GetType().Name}");
+
+            // When job is null, job.Url will throw NullReferenceException, caught by the catch block
+            Assert.IsType<ObjectResult>(result);
+            var objectResult = result as ObjectResult;
+            Assert.Equal(500, objectResult.StatusCode);
+        }
+
+        [Theory]
+        [InlineData("http://localhost:5000", "http://localhost@evil.com/steal")]  // Username in URL trick
+        [InlineData("http://localhost:5000", "http://evil.com#localhost:5000")]  // Fragment manipulation
+        public async Task Invoke_AdvancedSSRFAttempts_ReturnsBadRequest(string jobUrl, string path)
+        {
+            var jobRepo = new JobsRepository();
+            jobRepo.Add(new()
+            {
+                Id = 1,
+                State = JobState.Running,
+                BasePath = Path.GetTempPath(),
+                Url = jobUrl
+            });
+
+            var jobsController = new JobsController(jobRepo);
+            var result = await jobsController.Invoke(1, path);
+
+            _output.WriteLine($"Job URL: {jobUrl}");
+            _output.WriteLine($"Request path: {path}");
+            _output.WriteLine($"Result type: {result.GetType().Name}");
+
+            Assert.IsType<BadRequestObjectResult>(result);
         }
 
         private class JobsRepository : IJobRepository
