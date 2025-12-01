@@ -140,3 +140,71 @@ Here is a working example:
     }]
 }
 ```
+
+### From the Agent Command Line
+
+The agent can be configured to record custom measurements for every benchmark it runs using the `--record` (or `-r`) command line option. This is useful for recording system information or configuration details that should be captured for all benchmarks.
+
+#### Usage
+
+```bash
+crank-agent --record "name=value"
+```
+
+The option can be specified multiple times to record multiple measurements:
+
+```bash
+crank-agent --record "system/openssl=$(openssl version)" --record "system/kernel=$(uname -r)"
+```
+
+#### Format
+
+- The name and value are separated by the first `=` character
+- The name portion becomes the measurement name
+- The value can be a literal string
+
+#### Command Substitution
+
+Command substitution is handled by the shell before the arguments reach the agent. Use your shell's command substitution syntax:
+
+**Linux/macOS example (using bash/sh):**
+```bash
+crank-agent --record "system/openssl=$(openssl version)" \
+            --record "system/kernel=$(uname -r)" \
+            --record "system/hostname=$(hostname)"
+```
+
+**Windows example (using PowerShell):**
+```powershell
+crank-agent --record "system/dotnet=$(dotnet --version)" `
+            --record "system/os=$(systeminfo | Select-String 'OS Name')"
+```
+
+#### Behavior
+
+- Custom measurements are automatically added to every job that the agent runs
+- Each measurement includes metadata with:
+  - `Source`: "Agent"
+  - `Aggregate`: First
+  - `Reduce`: First
+  - `ShortDescription`: The measurement name
+  - `LongDescription`: "Custom measurement: {name}"
+- Invalid formats (missing `=` or empty name) will be logged as warnings and skipped
+
+#### Example
+
+Start an agent that records the OpenSSL version:
+
+```bash
+crank-agent --record "system/openssl=$(openssl version)"
+```
+
+When this agent runs a benchmark, the measurement will automatically include:
+
+```json
+{
+  "name": "system/openssl",
+  "timestamp": "2024-02-23T13:01:56.12Z",
+  "value": "OpenSSL 3.0.13 30 Jan 2024"
+}
+```
