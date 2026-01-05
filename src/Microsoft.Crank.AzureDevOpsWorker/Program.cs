@@ -34,6 +34,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             var certPath = app.Option("--cert-path", "Path to a certificate.", CommandOptionType.SingleValue);
             var certPassword = app.Option("--cert-pwd", "Password of the certificate to be used for auth.", CommandOptionType.SingleValue);
             var certSniAuth = app.Option("--cert-sni", "Enable subject name / issuer based authentication (SNI).", CommandOptionType.NoValue);
+            var managedIdentityClientId = app.Option("--mi-client-id", "Client ID of the user-assigned managed identity to use for authentication.", CommandOptionType.SingleValue);
             var verboseOption = app.Option("-v|--verbose", "Display verbose log.", CommandOptionType.NoValue);
 
             app.OnExecuteAsync(async cancellationToken =>
@@ -57,6 +58,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 }
 
                 CertificateOptions certificateOptions = null;
+                ManagedIdentityOptions managedIdentityOptions = null;
 
                 if (certThumbprint.HasValue() || certPath.HasValue())
                 {
@@ -68,17 +70,27 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                     certificateOptions = new CertificateOptions(certClientId.Value(), certTenantId.Value(), certThumbprint.Value(), certPath.Value(), certPassword.Value(), certSniAuth.HasValue());
                 }
 
-                await ProcessAzureQueue(connectionString, queue, certificateOptions);
+                if (managedIdentityClientId.HasValue())
+                {
+                    managedIdentityOptions = new ManagedIdentityOptions(managedIdentityClientId.Value());
+                }
+
+                await ProcessAzureQueue(connectionString, queue, certificateOptions, managedIdentityOptions);
             });
 
             return app.Execute(args);
         }
 
-        private static async Task ProcessAzureQueue(string connectionString, string queue, CertificateOptions certificateOptions)
+        private static async Task ProcessAzureQueue(string connectionString, string queue, CertificateOptions certificateOptions, ManagedIdentityOptions managedIdentityOptions)
         {
             ServiceBusClient client;
 
-            if (certificateOptions != null)
+            if (managedIdentityOptions != null)
+            {
+                var managedIdentityCredential = managedIdentityOptions.GetManagedIdentityCredential();
+                client = new ServiceBusClient(connectionString, managedIdentityCredential);
+            }
+            else if (certificateOptions != null)
             {
                 var clientCertificateCredentials = certificateOptions.GetClientCertificateCredential();
 

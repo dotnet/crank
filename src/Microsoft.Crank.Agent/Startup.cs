@@ -168,6 +168,7 @@ namespace Microsoft.Crank.Agent
         private static string _startPerfviewArguments;
 
         private static CertificateOptions _certificateOptions;
+        private static ManagedIdentityOptions _managedIdentityOptions;
 
         private static CommandOption
             _relayConnectionStringOption,
@@ -180,7 +181,8 @@ namespace Microsoft.Crank.Agent
             _certClientId,
             _certTenantId,
             _certThumbprint,
-            _certSniAuth
+            _certSniAuth,
+            _managedIdentityClientId
             ;
 
         internal static Serilog.Core.Logger Logger { get; private set; }
@@ -276,6 +278,7 @@ namespace Microsoft.Crank.Agent
             _certPath = app.Option("--cert-path", "Location of the certificate to be used for auth.", CommandOptionType.SingleValue);
             _certPassword = app.Option("--cert-pwd", "Password of the certificate to be used for auth.", CommandOptionType.SingleValue);
             _certSniAuth = app.Option("--cert-sni", "Enable subject name / issuer based authentication (SNI).", CommandOptionType.NoValue);
+            _managedIdentityClientId = app.Option("--mi-client-id", "Client ID of the user-assigned managed identity to use for authentication.", CommandOptionType.SingleValue);
 
             app.OnExecute(() =>
             {
@@ -298,6 +301,11 @@ namespace Microsoft.Crank.Agent
                     }
 
                     _certificateOptions = new CertificateOptions(_certClientId.Value(), _certTenantId.Value(), _certThumbprint.Value(), _certPath.Value(), _certPassword.Value(), _certSniAuth.HasValue());
+                }
+
+                if (_managedIdentityClientId.HasValue())
+                {
+                    _managedIdentityOptions = new ManagedIdentityOptions(_managedIdentityClientId.Value());
                 }
 
                 if (_logPath.HasValue())
@@ -416,7 +424,27 @@ namespace Microsoft.Crank.Agent
 
                     var rcsb = new RelayConnectionStringBuilder(relayConnectionString);
 
-                    if (_certificateOptions != null)
+                    if (_managedIdentityOptions != null)
+                    {
+                        var credentials = _managedIdentityOptions.GetManagedIdentityCredential();
+
+                        options.TokenProvider = TokenProvider.CreateAzureActiveDirectoryTokenProvider(
+                            async (audience, authority, state) =>
+                            {
+                                try
+                                {
+                                    var token = (await credentials.GetTokenAsync(new TokenRequestContext([$"{audience}/.default"]))).Token;
+                                    Log.Info("Authentication with managed identity successful.");
+                                    return token;
+                                }
+                                catch (Exception e)
+                                {
+                                    Log.Error(e, "Failed to get token with managed identity");
+                                    throw;
+                                }
+                            }, null);
+                    }
+                    else if (_certificateOptions != null)
                     {
                         var credentials = _certificateOptions.GetClientCertificateCredential();
 
