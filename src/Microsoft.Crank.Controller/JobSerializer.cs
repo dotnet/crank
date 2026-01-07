@@ -27,7 +27,8 @@ namespace Microsoft.Crank.Controller.Serializers
             string session,
             string scenario,
             string description,
-            CertificateOptions certificateOptions
+            CertificateOptions certificateOptions,
+            ManagedIdentityOptions managedIdentityOptions = null
             )
         {
             var utcNow = DateTime.UtcNow;
@@ -45,7 +46,8 @@ namespace Microsoft.Crank.Controller.Serializers
                     scenario,
                     description,
                     document,
-                    certificateOptions
+                    certificateOptions,
+                    managedIdentityOptions
                     )
                 , 5000);
         }
@@ -53,7 +55,8 @@ namespace Microsoft.Crank.Controller.Serializers
         public static async Task InitializeDatabaseAsync(
             string connectionString,
             string tableName,
-            CertificateOptions certificateOptions)
+            CertificateOptions certificateOptions,
+            ManagedIdentityOptions managedIdentityOptions = null)
         {
             var quotedTableName = new SqlCommandBuilder().QuoteIdentifier(unquotedIdentifier: tableName);
             var encodedQuotedTableName = quotedTableName.Replace("'", "''");
@@ -74,11 +77,11 @@ namespace Microsoft.Crank.Controller.Serializers
                 END
                 """;
 
-            await RetryOnExceptionAsync(5, () => InitializeDatabaseInternalAsync(connectionString, createCmd, certificateOptions), 5000);
+            await RetryOnExceptionAsync(5, () => InitializeDatabaseInternalAsync(connectionString, createCmd, certificateOptions, managedIdentityOptions), 5000);
 
-            static async Task InitializeDatabaseInternalAsync(string connectionString, string createCmd, CertificateOptions certificateOptions)
+            static async Task InitializeDatabaseInternalAsync(string connectionString, string createCmd, CertificateOptions certificateOptions, ManagedIdentityOptions managedIdentityOptions)
             {
-                using (var connection = GetSqlConnection(connectionString, certificateOptions))
+                using (var connection = GetSqlConnection(connectionString, certificateOptions, managedIdentityOptions))
                 {
                     await connection.OpenAsync();
 
@@ -98,7 +101,8 @@ namespace Microsoft.Crank.Controller.Serializers
             string scenario,
             string description,
             string document,
-            CertificateOptions certificateOptions
+            CertificateOptions certificateOptions,
+            ManagedIdentityOptions managedIdentityOptions
             )
         {
 
@@ -231,14 +235,20 @@ namespace Microsoft.Crank.Controller.Serializers
           }
       }
 
-        private static SqlConnection GetSqlConnection(string connectionString, CertificateOptions certificateOptions)
+        private static SqlConnection GetSqlConnection(string connectionString, CertificateOptions certificateOptions, ManagedIdentityOptions managedIdentityOptions = null)
         {
             // The Sql Connection is always initialized from the connection string as it contains custom settings which are
             // not related to authentication.
 
             var connection = new SqlConnection(connectionString);
 
-            if (certificateOptions != null)
+            if (managedIdentityOptions != null)
+            {
+                var managedIdentityCredential = managedIdentityOptions.GetManagedIdentityCredential();
+                var token = managedIdentityCredential.GetToken(new TokenRequestContext(AzureSqlScopes));
+                connection.AccessToken = token.Token;
+            }
+            else if (certificateOptions != null)
             {
                 var clientCertificateCredentials = certificateOptions.GetClientCertificateCredential();
 

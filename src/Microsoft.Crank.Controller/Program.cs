@@ -52,6 +52,7 @@ namespace Microsoft.Crank.Controller
         private static readonly ScriptConsole _scriptConsole = new();
         private static readonly ScriptFile _scriptFile = new();
         private static CertificateOptions _certificateOptions;
+        private static ManagedIdentityOptions _managedIdentityOptions;
 
         private static CommandOption
             _configOption,
@@ -92,7 +93,8 @@ namespace Microsoft.Crank.Controller
             _certClientId,
             _certTenantId,
             _certThumbprint,
-            _certSniAuth
+            _certSniAuth,
+            _managedIdentityClientId
             ;
 
         private static CommandOption<ValueTuple<string, JToken>>
@@ -209,6 +211,7 @@ namespace Microsoft.Crank.Controller
             _certPath = app.Option("--cert-path", "Location of the certificate to be used for auth.", CommandOptionType.SingleValue);
             _certPassword = app.Option("--cert-pwd", "Password of the certificate to be used for auth.", CommandOptionType.SingleValue);
             _certSniAuth = app.Option("--cert-sni", "Enable subject name / issuer based authentication (SNI).", CommandOptionType.NoValue);
+            _managedIdentityClientId = app.Option("--mi-client-id", "Client ID of the user-assigned managed identity to use for authentication.", CommandOptionType.SingleValue);
 
             _ignoredCommands = new HashSet<CommandOption>()
             {
@@ -237,7 +240,8 @@ namespace Microsoft.Crank.Controller
                 _certClientId,
                 _certTenantId,
                 _certThumbprint,
-                _certSniAuth
+                _certSniAuth,
+                _managedIdentityClientId
             };
 
             app.Command("compare", compareCmd =>
@@ -447,6 +451,11 @@ namespace Microsoft.Crank.Controller
                     _certificateOptions = new CertificateOptions(_certClientId.Value(), _certTenantId.Value(), _certThumbprint.Value(), _certPath.Value(), _certPassword.Value(), _certSniAuth.HasValue());
                 }
 
+                if (_managedIdentityClientId.HasValue())
+                {
+                    _managedIdentityOptions = new ManagedIdentityOptions(_managedIdentityClientId.Value());
+                }
+
                 if (_sqlTableOption.HasValue())
                 {
                     _tableName = _sqlTableOption.Value();
@@ -647,7 +656,7 @@ namespace Microsoft.Crank.Controller
                 // Initialize database
                 if (!String.IsNullOrWhiteSpace(_sqlConnectionString))
                 {
-                    await JobSerializer.InitializeDatabaseAsync(_sqlConnectionString, _tableName, _certificateOptions);
+                    await JobSerializer.InitializeDatabaseAsync(_sqlConnectionString, _tableName, _certificateOptions, _managedIdentityOptions);
                 }
 
                 // Initialize elasticsearch index
@@ -1316,7 +1325,7 @@ namespace Microsoft.Crank.Controller
                     // Skip storing results if running with iterations and not the last run
                     if (i == iterations)
                     {
-                        await JobSerializer.WriteJobResultsToSqlAsync(executionResult.JobResults, _sqlConnectionString, _tableName, session, _scenarioOption.Value(), _descriptionOption.Value(), _certificateOptions);
+                        await JobSerializer.WriteJobResultsToSqlAsync(executionResult.JobResults, _sqlConnectionString, _tableName, session, _scenarioOption.Value(), _descriptionOption.Value(), _certificateOptions, _managedIdentityOptions);
                     }
                 }
 
@@ -1525,7 +1534,7 @@ namespace Microsoft.Crank.Controller
                     executionResult.JobResults = jobResults;
 
                     await JobSerializer.WriteJobResultsToSqlAsync(executionResult.JobResults, _sqlConnectionString, _tableName, session, _scenarioOption.Value(),
-                        String.Join(" ", _descriptionOption.Value(), fullName), _certificateOptions);
+                        String.Join(" ", _descriptionOption.Value(), fullName), _certificateOptions, _managedIdentityOptions);
                 }
                 if (!String.IsNullOrEmpty(_elasticSearchUrl))
                 {
@@ -1671,7 +1680,7 @@ namespace Microsoft.Crank.Controller
 
                     if (!String.IsNullOrEmpty(_sqlConnectionString))
                     {
-                        await JobSerializer.WriteJobResultsToSqlAsync(jobResults, _sqlConnectionString, _tableName, session, _scenarioOption.Value(), _descriptionOption.Value(), _certificateOptions);
+                        await JobSerializer.WriteJobResultsToSqlAsync(jobResults, _sqlConnectionString, _tableName, session, _scenarioOption.Value(), _descriptionOption.Value(), _certificateOptions, _managedIdentityOptions);
                     }
 
                     if (!String.IsNullOrEmpty(_elasticSearchUrl))
@@ -3396,6 +3405,22 @@ namespace Microsoft.Crank.Controller
                 catch (AuthenticationFailedException ex)
                 {
                     Log.WriteError($"Failed to authenticate with connection string: {ex.Message}");
+                }
+            }
+
+            // Try managed identity if configured
+            if (_managedIdentityOptions != null)
+            {
+                try
+                {
+                    var managedIdentityCredential = _managedIdentityOptions.GetManagedIdentityCredential();
+                    var uri = new Uri(endpointUri.GetLeftPart(UriPartial.Authority));
+
+                    return (await managedIdentityCredential.GetTokenAsync(new TokenRequestContext([$"{uri}/.default"]))).Token;
+                }
+                catch (AuthenticationFailedException ex)
+                {
+                    Log.WriteError($"Failed to authenticate with managed identity: {ex.Message}");
                 }
             }
 
