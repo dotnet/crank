@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using Azure.Identity;
 
 namespace Microsoft.Crank.Models.Security
 {
@@ -21,6 +22,14 @@ namespace Microsoft.Crank.Models.Security
             }
 
             ClientId = clientId;
+        }
+
+        /// <summary>
+        /// Gets a ManagedIdentityCredential for the configured user-assigned managed identity.
+        /// </summary>
+        public ManagedIdentityCredential GetManagedIdentityCredential()
+        {
+            return new ManagedIdentityCredential(ClientId);
         }
     }
 }
