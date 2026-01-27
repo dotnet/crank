@@ -181,23 +181,23 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
 
             // If multiple samples are provided, take the max RPS, then sum the result from all clients
             BenchmarksEventSource.Register("pipelineclient/connections", Operations.Max, Operations.Sum, "Connections", "Number of active connections", "n0");
-            BenchmarksEventSource.Register("pipelineclient/badresponses", Operations.Max, Operations.Sum, "Bad responses", "Non-2xx or 3xx responses", "n0");
-            BenchmarksEventSource.Register("pipelineclient/latency/mean", Operations.Max, Operations.Avg, "Mean latency (us)", "Mean latency (us)", "n0");
-            BenchmarksEventSource.Register("pipelineclient/latency/max", Operations.Max, Operations.Max, "Max latency (us)", "Max latency (us)", "n0");
-            BenchmarksEventSource.Register("pipelineclient/requests", Operations.Max, Operations.Sum, "Requests", "Total number of requests", "n0");
-            BenchmarksEventSource.Register("pipelineclient/rps/mean", Operations.Max, Operations.Sum, "Requests/sec", "Requests per second", "n0");
-            BenchmarksEventSource.Register("pipelineclient/throughput", Operations.Max, Operations.Sum, "Read throughput (MB/s)", "Read throughput (MB/s)", "n2");
-            BenchmarksEventSource.Register("pipelineclient/errors", Operations.Sum, Operations.Sum, "Socket Errors", "Socket Errors", "n0");
+            BenchmarksEventSource.Register("pipelineclient/badresponses;http/requests/badresponses", Operations.Max, Operations.Sum, "Bad responses", "Non-2xx or 3xx responses", "n0");
+            BenchmarksEventSource.Register("pipelineclient/latency/mean;http/latency/mean", Operations.Max, Operations.Avg, "Mean latency (us)", "Mean latency (us)", "n0");
+            BenchmarksEventSource.Register("pipelineclient/latency/max;http/latency/max", Operations.Max, Operations.Max, "Max latency (us)", "Max latency (us)", "n0");
+            BenchmarksEventSource.Register("pipelineclient/requests;http/requests", Operations.Max, Operations.Sum, "Requests", "Total number of requests", "n0");
+            BenchmarksEventSource.Register("pipelineclient/rps/mean;http/rps/mean", Operations.Max, Operations.Sum, "Requests/sec", "Requests per second", "n0");
+            BenchmarksEventSource.Register("pipelineclient/throughput;http/throughput", Operations.Max, Operations.Sum, "Read throughput (MB/s)", "Read throughput (MB/s)", "n2");
+            BenchmarksEventSource.Register("pipelineclient/errors;http/requests/errors", Operations.Sum, Operations.Sum, "Socket Errors", "Socket Errors", "n0");
 
-            BenchmarksEventSource.Measure("pipelineclient/rps/mean", totalTps);
+            BenchmarksEventSource.Measure("pipelineclient/rps/mean;http/rps/mean", totalTps);
             BenchmarksEventSource.Measure("pipelineclient/connections", Connections);
-            BenchmarksEventSource.Measure("pipelineclient/requests", result.Status1xx + result.Status2xx + result.Status3xx + result.Status4xx + result.Status5xx + result.SocketErrors);
-            BenchmarksEventSource.Measure("pipelineclient/badresponses", result.Status1xx + result.Status4xx + result.Status5xx);
-            BenchmarksEventSource.Measure("pipelineclient/errors", result.SocketErrors);
+            BenchmarksEventSource.Measure("pipelineclient/requests;http/requests", result.Status1xx + result.Status2xx + result.Status3xx + result.Status4xx + result.Status5xx + result.SocketErrors);
+            BenchmarksEventSource.Measure("pipelineclient/badresponses;http/requests/badresponses", result.Status1xx + result.Status4xx + result.Status5xx);
+            BenchmarksEventSource.Measure("pipelineclient/errors;http/requests/errors", result.SocketErrors);
 
-            BenchmarksEventSource.Measure("httpclient/latency/mean", 0);
-            BenchmarksEventSource.Measure("httpclient/latency/max", 0);
-            BenchmarksEventSource.Measure("httpclient/throughput", 0);
+            BenchmarksEventSource.Measure("pipelineclient/latency/mean;http/latency/mean", 0);
+            BenchmarksEventSource.Measure("pipelineclient/latency/max;http/latency/max", 0);
+            BenchmarksEventSource.Measure("pipelineclient/throughput;http/throughput", 0);
         }
 
         private static int _connectionCount = 0;
