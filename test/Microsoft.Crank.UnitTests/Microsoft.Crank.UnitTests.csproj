@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>Microsoft.Crank.UnitTests</AssemblyName>
+    <IsTestProject>true</IsTestProject>
+    <IsUnitTestProject>true</IsUnitTestProject>
+    <TestRunnerName>XUnit</TestRunnerName>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Microsoft.Crank.Agent\Microsoft.Crank.Agent.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Crank.AzureDevOpsWorker\Microsoft.Crank.AzureDevOpsWorker.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Crank.Controller\Microsoft.Crank.Controller.csproj" />
+  </ItemGroup>
+
+  <Target Name="CopyFiles" AfterTargets="BeforeBuild">
+    <!--<Copy SourceFiles="@(Hello)" DestinationFiles="@(Hello->'$(OutputPath)hello\%(RecursiveDir)%(Filename)%(Extension)')" />-->
+    <Copy SourceFiles="@(Post)" DestinationFiles="@(Post->'$(OutputPath)post\%(RecursiveDir)%(Filename)%(Extension)')" />
+    <!--<Copy SourceFiles="@(Src)" DestinationFiles="@(Src->'$(OutputPath)src\%(RecursiveDir)%(Filename)%(Extension)')" />-->
+  </Target>
+
+</Project>
