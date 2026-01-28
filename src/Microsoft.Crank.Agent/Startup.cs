@@ -3995,12 +3995,9 @@ namespace Microsoft.Crank.Agent
                             Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - Coherent version in 11.0 SDK)");
                             break;
                         case "10.0":
-                            aspNetCoreVersion = "10.0.0-rtm.25513.102";
-                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Hard-coded until GA)");
-
-                            // productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions100Url, cacheDuration: _latestProductVersionsCacheDuration));
-                            // aspNetCoreVersion = productsInfo["aspnetcore"]["version"].ToString();
-                            // Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - Coherent version in 10.0 SDK)");
+                            productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions100Url, cacheDuration: _latestProductVersionsCacheDuration));
+                            aspNetCoreVersion = productsInfo["aspnetcore"]["version"].ToString();
+                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - Coherent version in 10.0 SDK)");
                             break;
                         case "9.0":
                             aspNetCoreVersion = await GetFlatContainerVersion(_aspnet9FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
@@ -4329,12 +4326,9 @@ namespace Microsoft.Crank.Agent
                         Log.Info($"SDK: {sdkVersion} (Latest - From Product Commit)");
                         break;
                     case "net10.0":
-                        sdkVersion = "10.0.100-rtm.25513.102";
-                        Log.Info($"SDK: {sdkVersion} (Hard-coded until GA)");
-
-                        // var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions100Url, cacheDuration: _latestProductVersionsCacheDuration));
-                        // sdkVersion = productsInfo["sdk"]["version"].ToString();
-                        // Log.Info($"SDK: {sdkVersion} (Latest - From Product Commit)");
+                        productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions100Url, cacheDuration: _latestProductVersionsCacheDuration));
+                        sdkVersion = productsInfo["sdk"]["version"].ToString();
+                        Log.Info($"SDK: {sdkVersion} (Latest - From Product Commit)");
                         break;
                     case "net9.0":
                         productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url, cacheDuration: _latestProductVersionsCacheDuration));
@@ -4412,13 +4406,10 @@ namespace Microsoft.Crank.Agent
                         Log.Info($"Runtime: {runtimeVersion} (Latest - From 11.0 SDK)");
                         break;
                     case "10.0":
-                        runtimeVersion = "10.0.0-rtm.25513.102";
-                        Log.Info($"Runtime: {runtimeVersion} (Hard-coded until GA)");
-
-                        // productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions100Url, cacheDuration: _latestProductVersionsCacheDuration));
-                        // runtimeVersion = productsInfo["runtime"]["version"].ToString();
-                        // Log.Info($"Runtime: {runtimeVersion} (Latest - From 10.0 SDK)");
-                         break;
+                        productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions100Url, cacheDuration: _latestProductVersionsCacheDuration));
+                        runtimeVersion = productsInfo["runtime"]["version"].ToString();
+                        Log.Info($"Runtime: {runtimeVersion} (Latest - From 10.0 SDK)");
+                        break;
                     case "9.0":
                         runtimeVersion = await GetFlatContainerVersion(_netcore9FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
                         Log.Info($"Runtime: {runtimeVersion} (Latest - From 9.0 feed)");
