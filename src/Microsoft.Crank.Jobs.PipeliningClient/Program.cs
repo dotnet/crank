@@ -63,7 +63,7 @@ namespace Microsoft.Crank.Jobs.PipeliningClient
                     ? int.Parse(optionConnections.Value())
                     : 10;
 
-                Headers = new List<string>(optionHeaders.Values);
+                Headers = new List<string>(optionHeaders.Values.Select(StringEscaper.Unescape));
 
                 DetailedResponseStats = optionDetailedResponseStats.HasValue();
                 VerboseConnectionLogs = optionVerboseLogConnection.HasValue();

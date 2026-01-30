@@ -217,7 +217,7 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
                     ? int.Parse(optionConnections.Value())
                     : 10;
 
-                Headers = new List<string>(optionHeaders.Values);
+                Headers = new List<string>(optionHeaders.Values.Select(StringEscaper.Unescape));
 
                 if (optionBody.HasValue())
                 {

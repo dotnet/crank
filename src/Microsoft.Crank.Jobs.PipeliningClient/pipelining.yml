@@ -26,7 +26,7 @@ jobs:
       serverAddress: localhost
       serverPort: 5000
       path: /
-      customHeaders: [ ] # list of headers with the format: '<name1>: <value1>', e.g. [ 'content-type: application/json' ]. In yml should look like: - "content-type: application/json"
+      customHeaders: [ ] # list of headers with the format: '<name1>: <value1>', e.g. [ 'content-type: application/json' ]. Supports escape sequences: \x00 (hex), \0 (null), \n, \r, \t, \\ for testing invalid header values.
       detailedResponseStats: false
       verboseConnectionLogs: false
     arguments: "--url \"{{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}\" --connections {{connections}} --warmup {{warmup}} --duration {{duration}} --pipeline {{pipeline}} {{headers[presetHeaders]}} {% for h in customHeaders %}{% assign s = h | split : ':' %}--header \"{{ s[0] }}: {{ s[1] | strip }}\" {% endfor %} {% if detailedResponseStats == true %} --detailedResponseStats {% endif %} {% if verboseConnectionLogs == true %} --verboseConnectionLogs {% endif %}"

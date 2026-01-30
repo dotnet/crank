@@ -30,5 +30,5 @@ jobs:
       certPwd: # the password of the certificate specified in certPath
       sslProtocol: # the SSL protocol to use, e.g. Tls12, Tls13.
       cipherSuite: # the cipher suite to use, e.g. TLS_RSA_WITH_AES_128_CBC_SHA
-      customHeaders: [ ] # list of headers with the format: '<name1>: <value1>', e.g. [ 'content-type: application/json' ]. In yml should look like: - "content-type: application/json"
+      customHeaders: [ ] # list of headers with the format: '<name1>: <value1>', e.g. [ 'content-type: application/json' ]. Supports escape sequences: \x00 (hex), \0 (null), \n, \r, \t, \\ for testing invalid header values.
     arguments: "--url \"{{serverScheme}}://{{serverAddress}}:{{serverPort}}{{path}}\" --connections {{connections}} --warmup {{warmup}} --duration {{duration}} {{headers[presetHeaders]}} {% for h in customHeaders %}{% assign s = h | split : ':' %}--header \"{{ s[0] }}: {{ s[1] | strip }}\" {% endfor %} --version {{httpVersion}} {% if certPath  != blank %} --cert {{certPath}} {% endif %} {% if certPwd  != blank %} --certpwd {{certPwd}} {% endif %} {% if sslProtocol  != blank %} --ssl-protocol {{sslProtocol}} {% endif %} {% if cipherSuite != blank %} --cipher-suite {{cipherSuite}} {% endif %}"
