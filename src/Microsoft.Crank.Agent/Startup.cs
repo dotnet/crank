@@ -2932,7 +2932,7 @@ namespace Microsoft.Crank.Agent
             }
             else
             {
-                if (targetFramework is "net10.0" or "net11.0")
+                if (targetFramework is "net11.0")
                 {
                     channel = "latest";
                 }
@@ -5900,7 +5900,7 @@ namespace Microsoft.Crank.Agent
             const string internalFeed = "https://ci.dot.net/public";
             const string publicFeed = "https://builds.dotnet.microsoft.com/dotnet";
 
-            string[] dotnetFeeds = version.StartsWith("10.0") || version.StartsWith("11.0")
+            string[] dotnetFeeds = version.StartsWith("11.0")
                 ? [internalFeed, publicFeed] // for vnext and preview versions we check on the internal feed first
                 : [publicFeed, internalFeed] // for older versions odds are that we are looking for a public package
                 ;
@@ -6250,12 +6250,12 @@ namespace Microsoft.Crank.Agent
   <packageSources>
     <add key=""dotnet11"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet11/nuget/v3/index.json"" />
     <add key=""dotnet11-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet11-transport/nuget/v3/index.json"" />
-    <add key=""benchmarks-dotnet10"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet10/nuget/v3/index.json"" />
-    <add key=""benchmarks-dotnet10-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet10-transport/nuget/v3/index.json"" />
-    <add key=""benchmarks-dotnet9"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9/nuget/v3/index.json"" />
-    <add key=""benchmarks-dotnet9-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9-transport/nuget/v3/index.json"" />
-    <add key=""benchmarks-dotnet8"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8/nuget/v3/index.json"" />
-    <add key=""benchmarks-dotnet8-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8-transport/nuget/v3/index.json"" />
+    <add key=""dotnet10"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet10/nuget/v3/index.json"" />
+    <add key=""dotnet10-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet10-transport/nuget/v3/index.json"" />
+    <add key=""dotnet9"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9/nuget/v3/index.json"" />
+    <add key=""dotnet9-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9-transport/nuget/v3/index.json"" />
+    <add key=""dotnet8"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8/nuget/v3/index.json"" />
+    <add key=""dotnet8-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8-transport/nuget/v3/index.json"" />
     <add key=""dotnet-public"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-public/nuget/v3/index.json"" />
   </packageSources>
 </configuration>
