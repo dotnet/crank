@@ -4113,7 +4113,7 @@ namespace Microsoft.Crank.Agent
         /// Patches or creates NuGet.config to ensure required package sources are available.
         /// Also adds packageSourceMapping entries when that section exists to ensure sources aren't ignored.
         /// </summary>
-        private static void PatchNuGetConfig(string benchmarkedApp)
+        internal static void PatchNuGetConfig(string benchmarkedApp)
         {
             // Look for the nearest NuGet.config file up the directory tree
             var currentDir = new DirectoryInfo(benchmarkedApp);
