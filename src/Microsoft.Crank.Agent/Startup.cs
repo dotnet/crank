@@ -80,19 +80,9 @@ namespace Microsoft.Crank.Agent
         private static readonly string _netcore10FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet10/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.linux-x64/index.json";
         private static readonly string _netcore11FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet11/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.linux-x64/index.json";
 
-        private static readonly string additionalProjectSources = """
-                https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9/nuget/v3/index.json;
-                https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9-transport/nuget/v3/index.json;
-                https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet10/nuget/v3/index.json;
-                https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet10-transport/nuget/v3/index.json;
-                https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet11/nuget/v3/index.json;
-                https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet11-transport/nuget/v3/index.json;
-                https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-public/nuget/v3/index.json;
-            """;
-
         private static TimeSpan _latestProductVersionsCacheDuration = TimeSpan.FromDays(1);
 
-        // The following files contains the latest coherently built versions, e.g., 
+        // The following files contains the latest coherently built versions, e.g.,
         // {
         //   "runtime": { "commit": "d3981726bc8b0e179db50301daf9f22d42393096", "version": "9.0.0" },
         //   "aspnetcore": { "commit": "1e7a7af6d2417242b244d2a0f4f23fcce8e88d2f", "version": "9.0.0" },
@@ -2966,6 +2956,9 @@ namespace Microsoft.Crank.Agent
 
             sdkVersion = PatchOrCreateGlobalJson(job, benchmarkedApp, sdkVersion);
 
+            // Patch NuGet.config to ensure crank sources are included in packageSourceMapping
+            PatchNuGetConfig(benchmarkedApp);
+
             var dotnetInstallStep = "";
             string dotnetFeed = "";
 
@@ -3843,19 +3836,6 @@ namespace Microsoft.Crank.Agent
                         }
                     }
 
-                    // Inject additional NuGet feeds directly in the csproj file.
-                    // The global NuGet.config file created by crank may be ignored if the local project has 
-                    // a custom one with a <clear /> statement.
-
-                    var propertyGroup = project.Root.Elements("PropertyGroup").FirstOrDefault(); ;
-
-                    if (propertyGroup == null)
-                    {
-                        project.Root.Add(propertyGroup = new XElement("PropertyGroup"));
-                    }
-
-                    propertyGroup.Add(new XElement("RestoreAdditionalProjectSources", additionalProjectSources));
-
                     // Add FrameworkReference tags
 
                     if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
@@ -4115,6 +4095,154 @@ namespace Microsoft.Crank.Agent
             }
 
             return sdkVersion;
+        }
+
+        // NuGet sources that crank injects for package restore (key -> URL)
+        private static readonly Dictionary<string, string> _crankNuGetSources = new()
+        {
+            ["dotnet9"] = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9/nuget/v3/index.json",
+            ["dotnet9-transport"] = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9-transport/nuget/v3/index.json",
+            ["dotnet10"] = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet10/nuget/v3/index.json",
+            ["dotnet10-transport"] = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet10-transport/nuget/v3/index.json",
+            ["dotnet11"] = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet11/nuget/v3/index.json",
+            ["dotnet11-transport"] = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet11-transport/nuget/v3/index.json",
+            ["dotnet-public"] = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-public/nuget/v3/index.json"
+        };
+
+        /// <summary>
+        /// Patches or creates NuGet.config to ensure required package sources are available.
+        /// Also adds packageSourceMapping entries when that section exists to ensure sources aren't ignored.
+        /// </summary>
+        private static void PatchNuGetConfig(string benchmarkedApp)
+        {
+            // Look for the nearest NuGet.config file up the directory tree
+            var currentDir = new DirectoryInfo(benchmarkedApp);
+            FileInfo nugetConfigFile = null;
+
+            while (currentDir != null && nugetConfigFile == null)
+            {
+                // NuGet.config can have various casings
+                nugetConfigFile = currentDir.GetFiles("nuget.config", SearchOption.TopDirectoryOnly)
+                    .Concat(currentDir.GetFiles("NuGet.config", SearchOption.TopDirectoryOnly))
+                    .Concat(currentDir.GetFiles("NuGet.Config", SearchOption.TopDirectoryOnly))
+                    .FirstOrDefault();
+
+                if (nugetConfigFile == null)
+                {
+                    currentDir = currentDir.Parent;
+                }
+            }
+
+            XDocument doc;
+            string configPath;
+
+            if (nugetConfigFile != null)
+            {
+                // Load existing NuGet.config
+                configPath = nugetConfigFile.FullName;
+                try
+                {
+                    doc = XDocument.Load(configPath);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning($"Failed to load NuGet.config at {configPath}: {ex.Message}");
+                    return;
+                }
+            }
+            else
+            {
+                // Create a new NuGet.config in the benchmarked app directory
+                configPath = Path.Combine(benchmarkedApp, "NuGet.config");
+                doc = new XDocument(
+                    new XElement("configuration",
+                        new XElement("packageSources")
+                    )
+                );
+                Log.Info($"Creating new NuGet.config at {configPath}");
+            }
+
+            var root = doc.Root;
+            if (root == null)
+            {
+                Log.Warning($"Invalid NuGet.config at {configPath}: no root element");
+                return;
+            }
+
+            // Ensure packageSources section exists
+            var packageSources = root.Element("packageSources");
+            if (packageSources == null)
+            {
+                packageSources = new XElement("packageSources");
+                root.Add(packageSources);
+            }
+
+            // Track which source keys we actually add (for packageSourceMapping)
+            var addedSourceKeys = new List<string>();
+
+            // Add sources if they don't already exist (check by key or URL)
+            foreach (var source in _crankNuGetSources)
+            {
+                var existingByKey = packageSources.Elements("add")
+                    .FirstOrDefault(e => string.Equals(e.Attribute("key")?.Value, source.Key, StringComparison.OrdinalIgnoreCase));
+
+                var existingByUrl = packageSources.Elements("add")
+                    .FirstOrDefault(e => string.Equals(e.Attribute("value")?.Value, source.Value, StringComparison.OrdinalIgnoreCase));
+
+                if (existingByKey == null && existingByUrl == null)
+                {
+                    packageSources.Add(new XElement("add",
+                        new XAttribute("key", source.Key),
+                        new XAttribute("value", source.Value)
+                    ));
+                    addedSourceKeys.Add(source.Key);
+                }
+                else if (existingByUrl != null)
+                {
+                    // Source exists with same URL but different key - use that key for mapping
+                    var existingKey = existingByUrl.Attribute("key")?.Value;
+                    if (!string.IsNullOrEmpty(existingKey))
+                    {
+                        addedSourceKeys.Add(existingKey);
+                    }
+                }
+                else
+                {
+                    // Source exists with same key
+                    addedSourceKeys.Add(source.Key);
+                }
+            }
+
+            // If packageSourceMapping exists, add mappings for our sources
+            var packageSourceMapping = root.Element("packageSourceMapping");
+            if (packageSourceMapping != null)
+            {
+                Log.Info($"Found packageSourceMapping in {configPath}, adding mappings for crank sources");
+
+                foreach (var sourceKey in addedSourceKeys)
+                {
+                    var existingMapping = packageSourceMapping.Elements("packageSource")
+                        .FirstOrDefault(e => string.Equals(e.Attribute("key")?.Value, sourceKey, StringComparison.OrdinalIgnoreCase));
+
+                    if (existingMapping == null)
+                    {
+                        packageSourceMapping.Add(new XElement("packageSource",
+                            new XAttribute("key", sourceKey),
+                            new XElement("package", new XAttribute("pattern", "*"))
+                        ));
+                    }
+                }
+            }
+
+            try
+            {
+                doc.Save(configPath);
+                Log.Info($"Patched NuGet.config at {configPath}");
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"Failed to save NuGet.config at {configPath}: {ex.Message}");
+            }
         }
 
         private static List<Dependency> GetDependencies(Job job, string publishFolder, string aspnetcoreversion, string runtimeversion, string projectHash)
