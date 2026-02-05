@@ -264,6 +264,9 @@ namespace Microsoft.Crank.UnitTests
         public void PatchNuGetConfig_ConfigWithClearElement_AddsSources()
         {
             // Arrange - this is the problematic case from grpc-dotnet
+            // The global NuGet.config file created by crank may be ignored if the local project has 
+            // a custom one with a <clear /> statement. This test ensures we patch the local config
+            // so sources are available even with <clear />.
             var appDir = Path.Combine(_testDir, "app");
             Directory.CreateDirectory(appDir);
 
@@ -292,6 +295,7 @@ namespace Microsoft.Crank.UnitTests
             // Assert
             var doc = XDocument.Load(configPath);
             var packageSources = doc.Root?.Element("packageSources");
+            var allElements = packageSources.Elements().ToList();
             var sources = packageSources.Elements("add").ToList();
 
             // Clear element should still be there
@@ -301,12 +305,163 @@ namespace Microsoft.Crank.UnitTests
             Assert.Contains(sources, s => s.Attribute("key")?.Value == "dotnet11");
             Assert.Contains(sources, s => s.Attribute("key")?.Value == "dotnet11-transport");
 
+            // CRITICAL: Verify sources are added AFTER the <clear /> element
+            // If sources were added before <clear />, they would be cleared and unavailable
+            var clearIndex = allElements.FindIndex(e => e.Name.LocalName == "clear");
+            var dotnet11Index = allElements.FindIndex(e => 
+                e.Name.LocalName == "add" && e.Attribute("key")?.Value == "dotnet11");
+            Assert.True(dotnet11Index > clearIndex, 
+                $"dotnet11 source (index {dotnet11Index}) should be after <clear /> (index {clearIndex})");
+
             // Mappings should be added
             var packageSourceMapping = doc.Root?.Element("packageSourceMapping");
             var mappings = packageSourceMapping.Elements("packageSource").ToList();
             Assert.Contains(mappings, m => m.Attribute("key")?.Value == "dotnet11");
 
             _output.WriteLine($"Patched config with clear:\n{doc}");
+        }
+
+        [Fact]
+        public void PatchNuGetConfig_GlobalConfigIgnoredByClear_LocalConfigPatched()
+        {
+            // This test simulates the exact scenario from the comment:
+            // "The global NuGet.config file created by crank may be ignored if the local project has 
+            // a custom one with a <clear /> statement."
+            //
+            // Previously, crank created a global NuGet.config at the temp root, but local configs
+            // with <clear /> would ignore it. Now we patch the local config directly.
+
+            // Arrange - simulate a repo structure with a local config that clears global sources
+            var repoRoot = Path.Combine(_testDir, "repo");
+            var srcDir = Path.Combine(repoRoot, "src", "MyApp");
+            Directory.CreateDirectory(srcDir);
+
+            // This is like grpc-dotnet's NuGet.config - it clears all parent sources
+            var localConfigPath = Path.Combine(repoRoot, "NuGet.config");
+            var localConfig = @"<?xml version=""1.0"" encoding=""utf-8""?>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key=""nuget.org"" value=""https://api.nuget.org/v3/index.json"" />
+  </packageSources>
+  <packageSourceMapping>
+    <packageSource key=""nuget.org"">
+      <package pattern=""*"" />
+    </packageSource>
+  </packageSourceMapping>
+</configuration>";
+            File.WriteAllText(localConfigPath, localConfig);
+
+            // Act - patch from the app directory (like crank would do)
+            Startup.PatchNuGetConfig(srcDir);
+
+            // Assert - the local config should now have crank sources
+            var doc = XDocument.Load(localConfigPath);
+            var packageSources = doc.Root?.Element("packageSources");
+            var sources = packageSources.Elements("add").ToList();
+
+            // All crank sources should be in the local config
+            Assert.Contains(sources, s => s.Attribute("key")?.Value == "dotnet11");
+            Assert.Contains(sources, s => s.Attribute("key")?.Value == "dotnet11-transport");
+            Assert.Contains(sources, s => s.Attribute("key")?.Value == "dotnet-public");
+
+            // packageSourceMapping should have wildcard mappings for crank sources
+            var packageSourceMapping = doc.Root?.Element("packageSourceMapping");
+            var mappings = packageSourceMapping.Elements("packageSource").ToList();
+            
+            var dotnet11Mapping = mappings.FirstOrDefault(m => m.Attribute("key")?.Value == "dotnet11");
+            Assert.NotNull(dotnet11Mapping);
+            Assert.Contains(dotnet11Mapping.Elements("package"), 
+                p => p.Attribute("pattern")?.Value == "*");
+
+            _output.WriteLine($"Local config after patching:\n{doc}");
+            _output.WriteLine("\nThis config now has crank sources that won't be cleared, " +
+                "and packageSourceMapping entries so sources aren't ignored.");
+        }
+
+        [Fact]
+        public void PatchNuGetConfig_NestedConfigWithClear_PatchesNearestConfig()
+        {
+            // This test verifies that when there's a NuGet.config hierarchy where a subfolder
+            // has its own config with <clear />, we patch the nearest (subfolder) config.
+            // This is critical because the subfolder's <clear /> would ignore sources from
+            // the parent config, so we must add sources to the subfolder config.
+
+            // Arrange - create a hierarchy:
+            // repo/
+            //   NuGet.config (parent - has sources)
+            //   src/
+            //     project/
+            //       NuGet.config (child - has <clear /> and packageSourceMapping)
+
+            var repoRoot = Path.Combine(_testDir, "repo");
+            var projectDir = Path.Combine(repoRoot, "src", "project");
+            Directory.CreateDirectory(projectDir);
+
+            // Parent config at repo root
+            var parentConfigPath = Path.Combine(repoRoot, "NuGet.config");
+            var parentConfig = @"<?xml version=""1.0"" encoding=""utf-8""?>
+<configuration>
+  <packageSources>
+    <add key=""nuget.org"" value=""https://api.nuget.org/v3/index.json"" />
+    <add key=""company-feed"" value=""https://company.example.com/nuget/v3/index.json"" />
+  </packageSources>
+</configuration>";
+            File.WriteAllText(parentConfigPath, parentConfig);
+
+            // Child config in project folder with <clear /> - this ignores parent sources
+            var childConfigPath = Path.Combine(projectDir, "NuGet.config");
+            var childConfig = @"<?xml version=""1.0"" encoding=""utf-8""?>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key=""nuget.org"" value=""https://api.nuget.org/v3/index.json"" />
+    <add key=""project-feed"" value=""https://project.example.com/nuget/v3/index.json"" />
+  </packageSources>
+  <packageSourceMapping>
+    <packageSource key=""nuget.org"">
+      <package pattern=""*"" />
+    </packageSource>
+    <packageSource key=""project-feed"">
+      <package pattern=""Project.*"" />
+    </packageSource>
+  </packageSourceMapping>
+</configuration>";
+            File.WriteAllText(childConfigPath, childConfig);
+
+            // Act - patch from the project directory
+            Startup.PatchNuGetConfig(projectDir);
+
+            // Assert - the CHILD config (nearest) should be patched, not the parent
+            var childDoc = XDocument.Load(childConfigPath);
+            var childPackageSources = childDoc.Root?.Element("packageSources");
+            var childSources = childPackageSources.Elements("add").ToList();
+
+            // Crank sources should be in the child config
+            Assert.Contains(childSources, s => s.Attribute("key")?.Value == "dotnet11");
+            Assert.Contains(childSources, s => s.Attribute("key")?.Value == "dotnet11-transport");
+
+            // Verify sources are added AFTER <clear />
+            var allElements = childPackageSources.Elements().ToList();
+            var clearIndex = allElements.FindIndex(e => e.Name.LocalName == "clear");
+            var dotnet11Index = allElements.FindIndex(e => 
+                e.Name.LocalName == "add" && e.Attribute("key")?.Value == "dotnet11");
+            Assert.True(dotnet11Index > clearIndex, 
+                "Crank sources must be added after <clear /> to not be cleared");
+
+            // packageSourceMapping should have mappings for crank sources
+            var childMapping = childDoc.Root?.Element("packageSourceMapping");
+            var childMappings = childMapping.Elements("packageSource").ToList();
+            Assert.Contains(childMappings, m => m.Attribute("key")?.Value == "dotnet11");
+
+            // Parent config should NOT be modified (we patch the nearest config only)
+            var parentDoc = XDocument.Load(parentConfigPath);
+            var parentPackageSources = parentDoc.Root?.Element("packageSources");
+            var parentSources = parentPackageSources.Elements("add").ToList();
+            Assert.DoesNotContain(parentSources, s => s.Attribute("key")?.Value == "dotnet11");
+
+            _output.WriteLine($"Child config (patched):\n{childDoc}");
+            _output.WriteLine($"\nParent config (unchanged):\n{parentDoc}");
         }
 
         [Fact]
