@@ -2333,10 +2333,10 @@ namespace Microsoft.Crank.Controller
                         configurationContent = File.ReadAllText(configurationFilenameOrUrl);
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
                     var path = isRemoteConfiguration ? configurationFilenameOrUrl : Path.GetFullPath(configurationFilenameOrUrl);
-                    throw new ControllerException($"Configuration '{path}' could not be loaded.");
+                    throw new ControllerException($"Configuration '{path}' could not be loaded: {ex.Message}", ex);
                 }
 
                 localconfiguration = null;

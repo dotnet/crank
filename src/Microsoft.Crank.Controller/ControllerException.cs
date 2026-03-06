@@ -12,5 +12,10 @@ namespace Microsoft.Crank.Controller
         {
 
         }
+
+        public ControllerException(string message, Exception innerException) : base(message, innerException)
+        {
+
+        }
     }
 }
