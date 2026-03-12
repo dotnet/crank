@@ -220,6 +220,7 @@ namespace Microsoft.Crank.Models
         public string BasePath { get; set; }
         public int ProcessId { get; set; }
         public int ChildProcessId { get; set; }
+        public bool KeepChildProcessAlive { get; set; } = false;
         public int ActiveProcessId => ChildProcessId > 0 ? ChildProcessId : ProcessId;
         public int[] AllProcessIds => ChildProcessId > 0 ? [ChildProcessId, ProcessId] : [ProcessId];
         public Dictionary<string, string> EnvironmentVariables { get; } = [];
