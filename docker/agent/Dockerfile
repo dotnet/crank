@@ -66,7 +66,7 @@ RUN echo 'deb http://deb.debian.org/debian sid main' >> /etc/apt/sources.list \
     && echo 'deb http://deb.debian.org/debian-debug sid-debug main' >> /etc/apt/sources.list
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
+    && apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-overwrite" \
         openssl libssl-dev openssl-dbgsym libssl3t64-dbgsym \
     && openssl version
 
