@@ -68,7 +68,7 @@ namespace Microsoft.Crank.Agent
         private static readonly string _dotnetInstallShUrl = "https://dot.net/v1/dotnet-install.sh";
         private static readonly string _dotnetInstallPs1Url = "https://dot.net/v1/dotnet-install.ps1";
         private static readonly string _perfviewUrl = $"https://github.com/Microsoft/perfview/releases/download/{PerfViewVersion}/PerfView.exe";
-        private static readonly string _ultraUrl = $"https://www.nuget.org/api/v2/package/ultra/{UltraVersion}";
+        private static readonly string _ultraUrl = $"https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-public/nuget/v3/flat2/ultra/{UltraVersion}/ultra.{UltraVersion}.nupkg";
 
         private static readonly string _aspnet8FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
         private static readonly string _aspnet9FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
@@ -4156,7 +4156,9 @@ namespace Microsoft.Crank.Agent
                 configPath = Path.Combine(benchmarkedApp, "NuGet.config");
                 doc = new XDocument(
                     new XElement("configuration",
-                        new XElement("packageSources")
+                        new XElement("packageSources",
+                            new XElement("clear")
+                        )
                     )
                 );
                 Log.Info($"Creating new NuGet.config at {configPath}");
@@ -4175,6 +4177,12 @@ namespace Microsoft.Crank.Agent
             {
                 packageSources = new XElement("packageSources");
                 root.Add(packageSources);
+            }
+
+            // Ensure <clear /> is present to prevent inheriting nuget.org from machine/user-level configs
+            if (packageSources.Element("clear") == null)
+            {
+                packageSources.AddFirst(new XElement("clear"));
             }
 
             // Track which source keys we actually add (for packageSourceMapping)
@@ -6376,6 +6384,7 @@ namespace Microsoft.Crank.Agent
                 File.WriteAllText(rootNugetConfig, @"<?xml version=""1.0"" encoding=""utf-8""?>
 <configuration>
   <packageSources>
+    <clear />
     <add key=""dotnet11"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet11/nuget/v3/index.json"" />
     <add key=""dotnet11-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet11-transport/nuget/v3/index.json"" />
     <add key=""dotnet10"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet10/nuget/v3/index.json"" />

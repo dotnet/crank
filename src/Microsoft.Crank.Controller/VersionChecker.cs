@@ -16,7 +16,7 @@ namespace Microsoft.Crank.Controller
     public static class VersionChecker
     {
         static TimeSpan CacheTimeout = TimeSpan.FromDays(1);
-        static string PackageVersionUrl = "https://api.nuget.org/v3-flatcontainer/microsoft.crank.controller/index.json";
+        static string PackageVersionUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-public/nuget/v3/flat2/microsoft.crank.controller/index.json";
 
         public static async Task CheckUpdateAsync(HttpClient client)
         {
