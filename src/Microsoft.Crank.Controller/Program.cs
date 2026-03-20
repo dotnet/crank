@@ -2890,6 +2890,18 @@ namespace Microsoft.Crank.Controller
             }
         }
 
+        // Version result keys that are text metadata, not numeric benchmarks.
+        // When stored alongside numeric results they pollute data consumers
+        // (e.g. Power BI) that expect every result key to be a chartable metric.
+        private static readonly string[] VersionResultKeys = new[]
+        {
+            "netCoreAppVersion",
+            "NetCoreAppVersion",
+            "aspNetCoreVersion",
+            "AspNetCoreVersion",
+            "netSdkVersion",
+        };
+
         private static void CleanMeasurements(JobResults jobResults)
         {
             // Remove metadata
@@ -2899,6 +2911,11 @@ namespace Microsoft.Crank.Controller
                 if (_excludeMetadataOption.HasValue())
                 {
                     jobResult.Metadata = Array.Empty<ResultMetadata>();
+
+                    foreach (var key in VersionResultKeys)
+                    {
+                        jobResult.Results.Remove(key);
+                    }
                 }
 
                 // Exclude measurements
