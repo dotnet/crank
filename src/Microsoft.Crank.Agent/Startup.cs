@@ -2632,6 +2632,39 @@ namespace Microsoft.Crank.Agent
                     await Git.InitSubModulesAsync(targetDir);
                 }
             }
+            else if (!String.IsNullOrEmpty(source.Archive))
+            {
+                // If archive is remote, download it first
+                var archivePath = source.Archive;
+
+                if (archivePath.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    var tempArchive = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".zip");
+
+                    Log.Info($"Downloading archive from '{archivePath}' to '{tempArchive}'");
+
+                    var ok = await DownloadFileAsync(archivePath, tempArchive, maxRetries: 3, timeout: 60, throwOnError: true);
+
+                    if (!ok)
+                    {
+                        throw new InvalidOperationException($"Could not download archive from {archivePath}");
+                    }
+
+                    ZipFile.ExtractToDirectory(tempArchive, targetDir);
+
+                    try { File.Delete(tempArchive); } catch { }
+                }
+                else
+                {
+                    // Local path
+                    if (!File.Exists(archivePath))
+                    {
+                        throw new InvalidOperationException($"Archive not found: {archivePath}");
+                    }
+
+                    ZipFile.ExtractToDirectory(archivePath, targetDir);
+                }
+            }
 
             if (!targetDir.Equals(destinationFolder))
             {
