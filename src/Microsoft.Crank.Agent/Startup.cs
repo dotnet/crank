@@ -4331,6 +4331,19 @@ namespace Microsoft.Crank.Agent
                             }
                         }
 
+                        // Prefer RepoOriginalSourceRevisionId if present as it contains the original source repo's commit hash
+                        // (e.g., aspnetcore or runtime), rather than the VMR (dotnet/dotnet) commit hash
+
+                        var repoOriginalSourceRevisionIdAttribute = assembly.CustomAttributes.Where(x =>
+                            x.AttributeType.Name == nameof(AssemblyMetadataAttribute) &&
+                            x.ConstructorArguments[0].Value.ToString() == "RepoOriginalSourceRevisionId")
+                            .FirstOrDefault();
+
+                        if (repoOriginalSourceRevisionIdAttribute != null)
+                        {
+                            dependency.CommitHash = repoOriginalSourceRevisionIdAttribute.ConstructorArguments[1].Value.ToString();
+                        }
+
                         dependency.Names = new[] { Path.GetFileName(assemblyFilename) };
 
                         dependencies.Add(dependency);
