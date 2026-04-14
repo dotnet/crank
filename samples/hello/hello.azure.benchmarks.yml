@@ -1,0 +1,111 @@
+imports:
+  - https://raw.githubusercontent.com/dotnet/crank/main/src/Microsoft.Crank.Jobs.Bombardier/bombardier.yml
+
+jobs:
+  server:
+    sources:
+      crank:
+        repository: https://github.com/dotnet/crank
+        branchOrCommit: main
+    project: crank/samples/hello/hello.csproj
+    readyStateText: Application started.
+
+scenarios:
+  hello:
+    application:
+      job: server
+    load:
+      job: bombardier
+      variables:
+        serverPort: 5000
+        path: /
+
+profiles:
+  # Original local profile (unchanged - backward compatible)
+  local:
+    variables:
+      serverAddress: localhost
+    jobs: 
+      application:
+        endpoints: 
+          - http://localhost:5010
+      load:
+        endpoints: 
+          - http://localhost:5010
+
+  # NEW: Dynamic Azure provisioning profile
+  # Usage: crank --config hello.azure.benchmarks.yml --scenario hello --profile azure
+  azure:
+    variables:
+      serverAddress: "{{ serverAddress }}"
+    agents:
+      application:
+        provision:
+          provider: azure
+          vmSize: Standard_D4s_v5
+          os: linux
+          region: eastus2
+          image: ubuntu-22.04
+          count: 1
+          agentPort: 5010
+      load:
+        provision:
+          provider: azure
+          vmSize: Standard_D4s_v5
+          os: linux
+          region: eastus2
+          count: 1
+          agentPort: 5010
+
+  # Dynamic Azure provisioning with Spot VMs for cost savings
+  azure-spot:
+    variables:
+      serverAddress: "{{ serverAddress }}"
+    agents:
+      application:
+        provision:
+          provider: azure
+          vmSize: Standard_D8s_v5
+          os: linux
+          region: westus2
+          image: ubuntu-24.04
+          count: 1
+          agentPort: 5010
+          spotInstance: true
+          tags:
+            team: perf-testing
+            environment: ci
+      load:
+        provision:
+          provider: azure
+          vmSize: Standard_D4s_v5
+          os: linux
+          region: westus2
+          image: ubuntu-24.04
+          count: 1
+          agentPort: 5010
+          spotInstance: true
+
+  # Dynamic provisioning using a custom Docker-based agent image
+  azure-docker:
+    variables:
+      serverAddress: "{{ serverAddress }}"
+    agents:
+      application:
+        provision:
+          provider: azure
+          vmSize: Standard_D4s_v5
+          os: linux
+          region: eastus2
+          count: 1
+          agentPort: 5010
+          agentImage: mcr.microsoft.com/dotnet/crank-agent:latest
+      load:
+        provision:
+          provider: azure
+          vmSize: Standard_D4s_v5
+          os: linux
+          region: eastus2
+          count: 1
+          agentPort: 5010
+          agentImage: mcr.microsoft.com/dotnet/crank-agent:latest

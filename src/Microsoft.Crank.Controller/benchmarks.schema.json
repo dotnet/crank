@@ -192,6 +192,98 @@
       "required": [],
       "additionalProperties": { "$ref": "#/definitions/job" }
 
+    },
+    "provision": {
+      "type": "object",
+      "title": "Dynamic infrastructure provisioning configuration",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "title": "The cloud provider to use for provisioning",
+          "default": "azure",
+          "enum": ["azure"]
+        },
+        "vmSize": {
+          "type": "string",
+          "title": "The VM size/SKU to provision",
+          "default": "Standard_D4s_v5",
+          "examples": ["Standard_D2s_v5", "Standard_D4s_v5", "Standard_D8s_v5", "Standard_D16s_v5"]
+        },
+        "os": {
+          "type": "string",
+          "title": "The operating system for the VM",
+          "default": "linux",
+          "enum": ["linux", "windows"]
+        },
+        "region": {
+          "type": "string",
+          "title": "The Azure region to deploy to",
+          "default": "eastus2",
+          "examples": ["eastus2", "westus2", "centralus", "westeurope"]
+        },
+        "image": {
+          "type": "string",
+          "title": "The OS image to use",
+          "default": "ubuntu-22.04",
+          "examples": ["ubuntu-22.04", "ubuntu-24.04", "windows-2022", "windows-2025"]
+        },
+        "customImageId": {
+          "type": "string",
+          "title": "A custom VM image resource ID (overrides image)"
+        },
+        "count": {
+          "type": "integer",
+          "title": "Number of VM instances to provision",
+          "default": 1,
+          "minimum": 1
+        },
+        "agentPort": {
+          "type": "integer",
+          "title": "The port the crank agent will listen on",
+          "default": 5010
+        },
+        "agentImage": {
+          "type": "string",
+          "title": "Docker image containing the crank agent"
+        },
+        "subscriptionId": {
+          "type": "string",
+          "title": "Azure subscription ID to use"
+        },
+        "resourceGroup": {
+          "type": "string",
+          "title": "Azure Resource Group name (auto-generated if not set)"
+        },
+        "spotInstance": {
+          "type": "boolean",
+          "title": "Whether to use Azure Spot/Low-priority VMs",
+          "default": false
+        },
+        "tags": {
+          "type": "object",
+          "title": "Additional tags to apply to Azure resources",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "profile_agent": {
+      "type": "object",
+      "title": "Agent configuration within a profile",
+      "properties": {
+        "endpoints": {
+          "type": "array",
+          "title": "Static agent endpoint URLs",
+          "items": { "type": "string" }
+        },
+        "provision": {
+          "$ref": "#/definitions/provision"
+        },
+        "aliases": {
+          "type": "array",
+          "title": "Alternative names for this agent",
+          "items": { "type": "string" }
+        }
+      }
     }
   },
   "properties": {
@@ -222,6 +314,29 @@
       ],
       "properties": {},
       "additionalProperties": { "$ref": "#/definitions/job_reference" }
+    },
+    "profiles": {
+      "type": "object",
+      "title": "Named profiles defining agent endpoints or provisioning configurations",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "variables": {
+            "type": "object",
+            "title": "Variables scoped to this profile"
+          },
+          "jobs": {
+            "type": "object",
+            "title": "Agent definitions (legacy name)",
+            "additionalProperties": { "$ref": "#/definitions/profile_agent" }
+          },
+          "agents": {
+            "type": "object",
+            "title": "Agent definitions",
+            "additionalProperties": { "$ref": "#/definitions/profile_agent" }
+          }
+        }
+      }
     }
   },
   "minProperties": 1,

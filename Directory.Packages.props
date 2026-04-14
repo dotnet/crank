@@ -6,6 +6,10 @@
   <ItemGroup>
     <PackageVersion Include="Azure.Identity" Version="1.15.0" />
     <PackageVersion Include="Azure.Messaging.ServiceBus" Version="7.20.1" />
+    <PackageVersion Include="Azure.ResourceManager" Version="1.13.0" />
+    <PackageVersion Include="Azure.ResourceManager.Compute" Version="1.6.0" />
+    <PackageVersion Include="Azure.ResourceManager.Network" Version="1.9.0" />
+    <PackageVersion Include="Azure.ResourceManager.Resources" Version="1.9.0" />
     <PackageVersion Include="Fluid.Core" Version="2.8.0" />
     <PackageVersion Include="Jint" Version="3.0.0" />
     <PackageVersion Include="JsonSchema.Net" Version="7.3.4" />

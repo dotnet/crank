@@ -24,6 +24,7 @@ using Jint.Runtime;
 using McMaster.Extensions.CommandLineUtils;
 using Microsoft.Azure.Relay;
 using Microsoft.Crank.Controller.Serializers;
+using Microsoft.Crank.Controller.Provisioning;
 using Microsoft.Crank.Models;
 using Microsoft.Crank.Models.Security;
 using Newtonsoft.Json;
@@ -94,7 +95,10 @@ namespace Microsoft.Crank.Controller
             _certTenantId,
             _certThumbprint,
             _certSniAuth,
-            _managedIdentityClientId
+            _managedIdentityClientId,
+            _provisionTimeoutOption,
+            _noTeardownOption,
+            _provisionCleanupOption
             ;
 
         private static CommandOption<ValueTuple<string, JToken>>
@@ -212,6 +216,9 @@ namespace Microsoft.Crank.Controller
             _certPassword = app.Option("--cert-pwd", "Password of the certificate to be used for auth.", CommandOptionType.SingleValue);
             _certSniAuth = app.Option("--cert-sni", "Enable subject name / issuer based authentication (SNI).", CommandOptionType.NoValue);
             _managedIdentityClientId = app.Option("--mi-client-id", "Client ID of the user-assigned managed identity to use for authentication.", CommandOptionType.SingleValue);
+            _provisionTimeoutOption = app.Option("--provision-timeout", "Maximum time in minutes to wait for dynamically provisioned agents to become ready. Default is 10.", CommandOptionType.SingleValue);
+            _noTeardownOption = app.Option("--no-teardown", "Skip tearing down dynamically provisioned infrastructure after the benchmark completes. Useful for debugging.", CommandOptionType.NoValue);
+            _provisionCleanupOption = app.Option("--provision-cleanup", "Clean up orphaned provisioned resource groups older than the specified number of hours. e.g., '--provision-cleanup 2'", CommandOptionType.SingleValue);
 
             _ignoredCommands = new HashSet<CommandOption>()
             {
@@ -241,7 +248,10 @@ namespace Microsoft.Crank.Controller
                 _certTenantId,
                 _certThumbprint,
                 _certSniAuth,
-                _managedIdentityClientId
+                _managedIdentityClientId,
+                _provisionTimeoutOption,
+                _noTeardownOption,
+                _provisionCleanupOption
             };
 
             app.Command("compare", compareCmd =>
@@ -588,6 +598,96 @@ namespace Microsoft.Crank.Controller
 
                 string groupId = Guid.NewGuid().ToString("n");
 
+                // === Dynamic Infrastructure Provisioning ===
+                // If any services in the profile use "provision" blocks instead of static "endpoints",
+                // we provision Azure VMs, deploy crank-agents, wait for readiness, then inject the
+                // resulting endpoint URIs into the job configuration before proceeding.
+
+                IInfrastructureProvisioner provisioner = null;
+                IReadOnlyList<ProvisionedAgent> provisionedAgents = null;
+
+                try
+                {
+
+                // Check for provisioning cleanup command
+                if (_provisionCleanupOption.HasValue())
+                {
+                    var cleanupHours = double.Parse(_provisionCleanupOption.Value());
+                    var credential = new global::Azure.Identity.DefaultAzureCredential();
+                    await using var cleanupProvisioner = new AzureProvisioner(credential);
+                    var cleaned = await cleanupProvisioner.CleanupOrphanedResourcesAsync(TimeSpan.FromHours(cleanupHours));
+                    Log.Write($"Cleaned up {cleaned} orphaned resource group(s).");
+
+                    if (!_scenarioOption.HasValue() && !_jobOption.HasValue())
+                    {
+                        return 0;
+                    }
+                }
+
+                // Detect provisioning needs from the merged profile
+                var provisioningConfigs = DetectProvisioningConfigs(configuration, dependencies, _profileOption.Values);
+
+                if (provisioningConfigs.Count > 0)
+                {
+                    Log.Write($"Detected dynamic provisioning for {provisioningConfigs.Count} service(s): {string.Join(", ", provisioningConfigs.Keys)}");
+
+                    var subscriptionId = provisioningConfigs.Values.FirstOrDefault(c => !string.IsNullOrEmpty(c.SubscriptionId))?.SubscriptionId;
+                    var credential = new global::Azure.Identity.DefaultAzureCredential();
+                    provisioner = new AzureProvisioner(credential, subscriptionId);
+
+                    // Provision infrastructure
+                    provisionedAgents = await provisioner.ProvisionAsync(session, provisioningConfigs);
+
+                    // Wait for agents to become ready
+                    var provisionTimeout = _provisionTimeoutOption.HasValue()
+                        ? TimeSpan.FromMinutes(double.Parse(_provisionTimeoutOption.Value()))
+                        : TimeSpan.FromMinutes(10);
+
+                    var allReady = await provisioner.WaitForAgentsReadyAsync(provisionedAgents, provisionTimeout);
+
+                    if (!allReady)
+                    {
+                        Log.WriteError("Not all provisioned agents became ready within the timeout. Aborting.");
+                        return -1;
+                    }
+
+                    // Inject provisioned endpoints into job configuration
+                    foreach (var agent in provisionedAgents)
+                    {
+                        if (configuration.Jobs.TryGetValue(agent.ServiceName, out var job))
+                        {
+                            job.Endpoints.Add(agent.EndpointUri.ToString());
+                            Log.Write($"Injected endpoint {agent.EndpointUri} for service '{agent.ServiceName}'");
+                        }
+                    }
+
+                    // Set serverAddress variable to the first application agent's IP if available
+                    var applicationAgent = provisionedAgents.FirstOrDefault(a => a.ServiceName == "application");
+                    if (applicationAgent != null)
+                    {
+                        foreach (var jobName in dependencies)
+                        {
+                            var job = configuration.Jobs[jobName];
+                            if (job.Variables == null)
+                            {
+                                job.Variables = new JObject();
+                            }
+                            job.Variables["serverAddress"] = applicationAgent.IpAddress;
+                        }
+                    }
+                    // Register Ctrl+C handler to ensure teardown on interruption
+                    Console.CancelKeyPress += async (sender, e) =>
+                    {
+                        e.Cancel = true; // Prevent immediate exit
+                        Log.WriteWarning("Ctrl+C detected. Tearing down provisioned infrastructure...");
+                        if (provisioner != null && !_noTeardownOption.HasValue())
+                        {
+                            await provisioner.TeardownAsync(session);
+                            Log.Write("Emergency teardown complete.");
+                        }
+                    };
+                }
+
                 // Verifying jobs
                 foreach (var jobName in dependencies)
                 {
@@ -753,6 +853,32 @@ namespace Microsoft.Crank.Controller
                 }
 
                 return results.ReturnCode;
+
+                } // end try for provisioning
+                finally
+                {
+                    // Tear down provisioned infrastructure
+                    if (provisioner != null && provisionedAgents != null && !_noTeardownOption.HasValue())
+                    {
+                        Log.Write("Tearing down provisioned infrastructure...");
+                        await provisioner.TeardownAsync(session);
+                        Log.Write("Infrastructure teardown complete.");
+                    }
+                    else if (_noTeardownOption.HasValue() && provisionedAgents != null)
+                    {
+                        Log.WriteWarning("Skipping infrastructure teardown (--no-teardown specified).");
+                        Log.WriteWarning("Remember to manually delete the provisioned resource groups when done.");
+                        foreach (var agent in provisionedAgents)
+                        {
+                            Log.Write($"  Resource group: {agent.ResourceGroupName}, VM: {agent.VmName}, IP: {agent.IpAddress}", notime: true);
+                        }
+                    }
+
+                    if (provisioner != null)
+                    {
+                        await provisioner.DisposeAsync();
+                    }
+                }
             });
 
             try
@@ -2486,6 +2612,51 @@ namespace Microsoft.Crank.Controller
                     source["localFolder"] = resolvedFilename;
                 }
             }
+        }
+
+        /// <summary>
+        /// Detects provisioning configurations from the merged profile for the current scenario.
+        /// Returns a dictionary of service name → ProvisioningConfig for services that need 
+        /// dynamic infrastructure provisioning.
+        /// </summary>
+        private static Dictionary<string, ProvisioningConfig> DetectProvisioningConfigs(
+            Configuration configuration,
+            string[] dependencies,
+            IList<string> profileNames)
+        {
+            if (profileNames == null || !profileNames.Any())
+            {
+                return new Dictionary<string, ProvisioningConfig>();
+            }
+
+            // Re-load the raw profile JObject to inspect for provision blocks.
+            // The Configuration class doesn't parse provision blocks, so we need to
+            // look at the raw profile data.
+            var mergedProfile = new JObject();
+
+            foreach (var profileName in profileNames)
+            {
+                if (string.IsNullOrEmpty(profileName) || !configuration.Profiles.ContainsKey(profileName))
+                {
+                    continue;
+                }
+
+                // The Profiles dictionary stores the raw deserialized data
+                var profileData = configuration.Profiles[profileName];
+                if (profileData is JObject profileJObject)
+                {
+                    PatchObject(mergedProfile, profileJObject);
+                }
+                else
+                {
+                    // Try to convert via JSON serialization
+                    var json = JsonConvert.SerializeObject(profileData);
+                    var jobj = JObject.Parse(json);
+                    PatchObject(mergedProfile, jobj);
+                }
+            }
+
+            return ProvisioningConfigParser.ExtractProvisioningConfigs(mergedProfile, dependencies);
         }
 
         /// <summary>
