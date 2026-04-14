@@ -109,6 +109,11 @@ namespace Microsoft.Crank.Agent
             "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-public/nuget/v3/flat2"
             ];
 
+        // Build Cache Service configuration
+        private static string _buildCacheBaseUrl = "https://pvscmdupload.z22.web.core.windows.net";
+        private static string _buildCacheRepoName = "runtime";
+        private static bool _buildCacheEnabled = true;
+
         // Cached lists of SDKs and runtimes already installed
         private static readonly HashSet<string> _installedAspNetRuntimes = new(StringComparer.OrdinalIgnoreCase);
         private static readonly HashSet<string> _installedDotnetRuntimes = new(StringComparer.OrdinalIgnoreCase);
@@ -270,6 +275,10 @@ namespace Microsoft.Crank.Agent
             _certSniAuth = app.Option("--cert-sni", "Enable subject name / issuer based authentication (SNI).", CommandOptionType.NoValue);
             _managedIdentityClientId = app.Option("--mi-client-id", "Client ID of the user-assigned managed identity to use for authentication.", CommandOptionType.SingleValue);
 
+            var buildCacheBaseUrlOption = app.Option("--build-cache-base-url", $"Base URL for Build Cache Service blob storage. Default is '{_buildCacheBaseUrl}'.", CommandOptionType.SingleValue);
+            var buildCacheRepoNameOption = app.Option("--build-cache-repo-name", $"Repository name for Build Cache Service. Default is '{_buildCacheRepoName}'.", CommandOptionType.SingleValue);
+            var buildCacheDisabledOption = app.Option("--build-cache-disabled", "Disable Build Cache Service integration.", CommandOptionType.NoValue);
+
             app.OnExecute(() =>
             {
                 var logConf = new LoggerConfiguration()
@@ -277,6 +286,21 @@ namespace Microsoft.Crank.Agent
                  .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
                  .Enrich.FromLogContext()
                  .WriteTo.Console(theme: AnsiConsoleTheme.Code);
+
+                if (buildCacheBaseUrlOption.HasValue())
+                {
+                    _buildCacheBaseUrl = buildCacheBaseUrlOption.Value();
+                }
+
+                if (buildCacheRepoNameOption.HasValue())
+                {
+                    _buildCacheRepoName = buildCacheRepoNameOption.Value();
+                }
+
+                if (buildCacheDisabledOption.HasValue())
+                {
+                    _buildCacheEnabled = false;
+                }
 
                 if (_runAsService.HasValue() && OperatingSystem != OperatingSystem.Windows)
                 {
@@ -2933,22 +2957,70 @@ namespace Microsoft.Crank.Agent
                 runtimeVersion = channel;
             }
 
+            // For buildcache channel, SDK/ASP.NET/Desktop use "latest" since BCS only has runtime
+            var nonRuntimeChannel = String.Equals(channel, "buildcache", StringComparison.OrdinalIgnoreCase) ? "latest" : channel;
+
             if (String.IsNullOrEmpty(desktopVersion))
             {
-                desktopVersion = channel;
+                desktopVersion = nonRuntimeChannel;
             }
 
             if (String.IsNullOrEmpty(aspNetCoreVersion))
             {
-                aspNetCoreVersion = channel;
+                aspNetCoreVersion = nonRuntimeChannel;
             }
 
             if (String.IsNullOrEmpty(sdkVersion))
             {
-                sdkVersion = channel;
+                sdkVersion = nonRuntimeChannel;
             }
 
             runtimeVersion = await ResolveRuntimeVersion(buildToolsPath, targetFramework, runtimeVersion);
+
+            // Build Cache Service: if the runtime version is "BuildCache", prepare BCS artifacts
+            // and resolve a real "Latest" runtime version for the NuGet build.
+            var useBuildCache = String.Equals(runtimeVersion, "BuildCache", StringComparison.OrdinalIgnoreCase);
+            string buildCacheCommitSha = null;
+            string buildCacheExtractDir = null;
+
+            if (useBuildCache)
+            {
+                if (!_buildCacheEnabled)
+                {
+                    job.Error = "Build Cache channel was requested but Build Cache Service is disabled on this agent (--build-cache-disabled).";
+                    return null;
+                }
+
+                try
+                {
+                    var branch = !string.IsNullOrEmpty(job.BuildCacheBranch) ? job.BuildCacheBranch : "main";
+                    var commitSha = job.BuildCacheCommitSha;
+                    var buildCacheConfig = job.BuildCacheConfig;
+
+                    // Resolve which commit to use
+                    var resolved = await BuildCacheClient.ResolveCommitAsync(
+                        _buildCacheBaseUrl, _buildCacheRepoName, branch, commitSha, buildCacheConfig);
+
+                    buildCacheCommitSha = resolved.commitSha;
+
+                    // Download and extract the BCS artifacts to a temp directory
+                    buildCacheExtractDir = await BuildCacheClient.DownloadAndExtractAsync(
+                        _buildCacheBaseUrl, _buildCacheRepoName, buildCacheCommitSha, buildCacheConfig,
+                        targetFramework, cancellationToken);
+
+                    var shortSha = buildCacheCommitSha.Substring(0, Math.Min(8, buildCacheCommitSha.Length));
+                    Log.Info($"Build Cache: Artifacts for commit {shortSha} ready for post-build overlay");
+
+                    // Resolve a REAL runtime version from feeds for the NuGet build
+                    runtimeVersion = await ResolveRuntimeVersion(buildToolsPath, targetFramework, "Latest");
+                    Log.Info($"Runtime for build: {runtimeVersion} (Latest from feeds, will be overlaid with BCS commit {shortSha})");
+                }
+                catch (Exception ex)
+                {
+                    job.Error = $"Build Cache: {ex.Message}";
+                    return null;
+                }
+            }
 
             sdkVersion = await ResolveSdkVersion(sdkVersion, targetFramework);
 
@@ -3433,6 +3505,25 @@ namespace Microsoft.Crank.Agent
                 });
 
                 Log.Info($"Application published successfully in {job.BuildTime.TotalMilliseconds} ms");
+
+                // Build Cache: overlay BCS runtime binaries into the published output
+                // This replaces the NuGet-sourced runtime DLLs with BCS-built ones from the specific commit
+                if (useBuildCache && buildCacheExtractDir != null)
+                {
+                    try
+                    {
+                        var shortSha = buildCacheCommitSha.Substring(0, Math.Min(8, buildCacheCommitSha.Length));
+                        var overlayCount = BuildCacheClient.OverlayPublishedOutput(buildCacheExtractDir, outputFolder);
+                        Log.Info($"Build Cache: Overlaid {overlayCount} runtime files from commit {shortSha} into published output");
+
+                        // Update the reported runtime version to reflect the BCS commit (for metadata/reporting only)
+                        job.RuntimeVersion = $"{runtimeVersion}+buildcache.{shortSha}";
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Info($"Build Cache: Warning - overlay failed: {ex.Message}. Published app will use feed-sourced runtime.");
+                    }
+                }
 
                 PatchRuntimeConfig(job, outputFolder, aspNetCoreVersion, runtimeVersion);
             }
@@ -4581,6 +4672,13 @@ namespace Microsoft.Crank.Agent
                         Log.Info($"Runtime: {runtimeVersion} (Edge - Fallback on Current)");
                         break;
                 }
+            }
+            else if (String.Equals(runtimeVersion, "BuildCache", StringComparison.OrdinalIgnoreCase))
+            {
+                // BuildCache channel: version resolution is deferred to InstallRuntimeFromBuildCacheAsync
+                // because it needs to download artifacts. We return a placeholder here.
+                runtimeVersion = "BuildCache";
+                Log.Info($"Runtime: will be resolved from Build Cache Service");
             }
             else
             {
