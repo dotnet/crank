@@ -71,6 +71,11 @@ namespace Microsoft.Crank.Models
         public string UseMonoRuntime { get; set; } = "";
         public bool NoGlobalJson { get; set; }
 
+        // Build Cache Service properties for per-commit runtime resolution
+        public string BuildCacheCommitSha { get; set; } = "";
+        public string BuildCacheBranch { get; set; } = "";
+        public string BuildCacheConfig { get; set; } = "";
+
         // Delay from the process started to the console receiving "Application started"
         public TimeSpan StartupMainMethod { get; set; }
         public TimeSpan BuildTime { get; set; }
