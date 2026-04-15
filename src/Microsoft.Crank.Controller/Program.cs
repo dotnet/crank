@@ -98,7 +98,9 @@ namespace Microsoft.Crank.Controller
             _managedIdentityClientId,
             _provisionTimeoutOption,
             _noTeardownOption,
-            _provisionCleanupOption
+            _provisionCleanupOption,
+            _provisionPoolOption,
+            _provisionPoolTtlOption
             ;
 
         private static CommandOption<ValueTuple<string, JToken>>
@@ -219,6 +221,8 @@ namespace Microsoft.Crank.Controller
             _provisionTimeoutOption = app.Option("--provision-timeout", "Maximum time in minutes to wait for dynamically provisioned agents to become ready. Default is 10.", CommandOptionType.SingleValue);
             _noTeardownOption = app.Option("--no-teardown", "Skip tearing down dynamically provisioned infrastructure after the benchmark completes. Useful for debugging.", CommandOptionType.NoValue);
             _provisionCleanupOption = app.Option("--provision-cleanup", "Clean up orphaned provisioned resource groups older than the specified number of hours. e.g., '--provision-cleanup 2'", CommandOptionType.SingleValue);
+            _provisionPoolOption = app.Option("--provision-pool", "Name a provision pool to reuse VMs across consecutive runs. VMs are kept alive and reused if a matching pool is found.", CommandOptionType.SingleValue);
+            _provisionPoolTtlOption = app.Option("--provision-pool-ttl", "Time in minutes to keep a provision pool alive after the run completes. Default is 30.", CommandOptionType.SingleValue);
 
             _ignoredCommands = new HashSet<CommandOption>()
             {
@@ -605,6 +609,11 @@ namespace Microsoft.Crank.Controller
 
                 IInfrastructureProvisioner provisioner = null;
                 IReadOnlyList<ProvisionedAgent> provisionedAgents = null;
+                var poolName = _provisionPoolOption.HasValue() ? _provisionPoolOption.Value() : null;
+                var poolTtl = _provisionPoolTtlOption.HasValue()
+                    ? TimeSpan.FromMinutes(double.Parse(_provisionPoolTtlOption.Value()))
+                    : TimeSpan.FromMinutes(30);
+                var reusedPool = false;
 
                 try
                 {
@@ -635,20 +644,55 @@ namespace Microsoft.Crank.Controller
                     var credential = new global::Azure.Identity.DefaultAzureCredential();
                     provisioner = new AzureProvisioner(credential, subscriptionId);
 
-                    // Provision infrastructure
-                    provisionedAgents = await provisioner.ProvisionAsync(session, provisioningConfigs);
-
-                    // Wait for agents to become ready
-                    var provisionTimeout = _provisionTimeoutOption.HasValue()
-                        ? TimeSpan.FromMinutes(double.Parse(_provisionTimeoutOption.Value()))
-                        : TimeSpan.FromMinutes(10);
-
-                    var allReady = await provisioner.WaitForAgentsReadyAsync(provisionedAgents, provisionTimeout);
-
-                    if (!allReady)
+                    // Check for existing pool if --provision-pool is specified
+                    if (!string.IsNullOrEmpty(poolName))
                     {
-                        Log.WriteError("Not all provisioned agents became ready within the timeout. Aborting.");
-                        return -1;
+                        Log.Write($"Checking for existing provision pool '{poolName}'...");
+                        var existingAgents = await provisioner.FindExistingPoolAsync(poolName, provisioningConfigs);
+
+                        if (existingAgents != null)
+                        {
+                            // Verify agents are still healthy
+                            var healthTimeout = TimeSpan.FromMinutes(2);
+                            var healthy = await provisioner.WaitForAgentsReadyAsync(existingAgents, healthTimeout);
+
+                            if (healthy)
+                            {
+                                Log.Write($"Reusing existing pool '{poolName}' with {existingAgents.Count} healthy agent(s).");
+                                provisionedAgents = existingAgents;
+                                reusedPool = true;
+
+                                // Extend the TTL since we're reusing
+                                await provisioner.ExtendPoolTtlAsync(poolName, poolTtl);
+                            }
+                            else
+                            {
+                                Log.WriteWarning($"Existing pool '{poolName}' has unhealthy agents. Provisioning fresh.");
+                            }
+                        }
+                    }
+
+                    // Provision new infrastructure if we didn't reuse a pool
+                    if (provisionedAgents == null)
+                    {
+                        provisionedAgents = await ((AzureProvisioner)provisioner).ProvisionAsync(
+                            session, provisioningConfigs, poolName, poolTtl);
+                    }
+
+                    // Wait for agents to become ready (if newly provisioned)
+                    if (!reusedPool)
+                    {
+                        var provisionTimeout = _provisionTimeoutOption.HasValue()
+                            ? TimeSpan.FromMinutes(double.Parse(_provisionTimeoutOption.Value()))
+                            : TimeSpan.FromMinutes(10);
+
+                        var allReady = await provisioner.WaitForAgentsReadyAsync(provisionedAgents, provisionTimeout);
+
+                        if (!allReady)
+                        {
+                            Log.WriteError("Not all provisioned agents became ready within the timeout. Aborting.");
+                            return -1;
+                        }
                     }
 
                     // Inject provisioned endpoints into job configuration
@@ -680,10 +724,14 @@ namespace Microsoft.Crank.Controller
                     {
                         e.Cancel = true; // Prevent immediate exit
                         Log.WriteWarning("Ctrl+C detected. Tearing down provisioned infrastructure...");
-                        if (provisioner != null && !_noTeardownOption.HasValue())
+                        if (provisioner != null && !_noTeardownOption.HasValue() && string.IsNullOrEmpty(poolName))
                         {
                             await provisioner.TeardownAsync(session);
                             Log.Write("Emergency teardown complete.");
+                        }
+                        else if (!string.IsNullOrEmpty(poolName))
+                        {
+                            Log.Write($"Pool '{poolName}' will be kept alive (TTL: {poolTtl.TotalMinutes}m). Use --provision-cleanup to remove.");
                         }
                     };
                 }
@@ -857,20 +905,33 @@ namespace Microsoft.Crank.Controller
                 } // end try for provisioning
                 finally
                 {
-                    // Tear down provisioned infrastructure
-                    if (provisioner != null && provisionedAgents != null && !_noTeardownOption.HasValue())
+                    // Tear down provisioned infrastructure (unless using a pool or --no-teardown)
+                    if (provisioner != null && provisionedAgents != null)
                     {
-                        Log.Write("Tearing down provisioned infrastructure...");
-                        await provisioner.TeardownAsync(session);
-                        Log.Write("Infrastructure teardown complete.");
-                    }
-                    else if (_noTeardownOption.HasValue() && provisionedAgents != null)
-                    {
-                        Log.WriteWarning("Skipping infrastructure teardown (--no-teardown specified).");
-                        Log.WriteWarning("Remember to manually delete the provisioned resource groups when done.");
-                        foreach (var agent in provisionedAgents)
+                        if (!string.IsNullOrEmpty(poolName))
                         {
-                            Log.Write($"  Resource group: {agent.ResourceGroupName}, VM: {agent.VmName}, IP: {agent.IpAddress}", notime: true);
+                            // Pool mode: keep infrastructure alive, just extend TTL
+                            Log.Write($"Pool '{poolName}' will remain active for {poolTtl.TotalMinutes} minutes.");
+                            Log.Write("Reuse with: --provision-pool " + poolName);
+                            foreach (var agent in provisionedAgents)
+                            {
+                                Log.Write($"  {agent.ServiceName}: {agent.EndpointUri} (VM: {agent.VmName})", notime: true);
+                            }
+                        }
+                        else if (!_noTeardownOption.HasValue())
+                        {
+                            Log.Write("Tearing down provisioned infrastructure...");
+                            await provisioner.TeardownAsync(session);
+                            Log.Write("Infrastructure teardown complete.");
+                        }
+                        else
+                        {
+                            Log.WriteWarning("Skipping infrastructure teardown (--no-teardown specified).");
+                            Log.WriteWarning("Remember to manually delete the provisioned resource groups when done.");
+                            foreach (var agent in provisionedAgents)
+                            {
+                                Log.Write($"  Resource group: {agent.ResourceGroupName}, VM: {agent.VmName}, IP: {agent.IpAddress}", notime: true);
+                            }
                         }
                     }
 

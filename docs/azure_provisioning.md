@@ -82,6 +82,8 @@ The `provision` block supports the following properties:
 | `--provision-timeout <minutes>` | Maximum wait time for agents to become ready (default: 10) |
 | `--no-teardown` | Skip tearing down infrastructure after the run (for debugging) |
 | `--provision-cleanup <hours>` | Clean up orphaned resource groups older than N hours |
+| `--provision-pool <name>` | Name a pool to reuse VMs across consecutive runs |
+| `--provision-pool-ttl <minutes>` | Time to keep a pool alive after the run (default: 30) |
 
 ## Examples
 
@@ -182,6 +184,48 @@ crank --provision-cleanup 2
 ```
 
 This deletes all crank-managed resource groups older than 2 hours.
+
+## Reusing VMs with Provision Pools
+
+When running multiple benchmarks in succession with the same profile, you can avoid reprovisioning VMs each time by using **provision pools**. A named pool keeps VMs alive between runs and reuses them if healthy.
+
+### First run — provisions and names the pool
+
+```bash
+crank --config hello.benchmarks.yml --scenario hello --profile azure --provision-pool my-bench
+```
+
+### Subsequent runs — reuses existing VMs
+
+```bash
+crank --config hello.benchmarks.yml --scenario scenario2 --profile azure --provision-pool my-bench
+```
+
+If the pool's VMs are still running and healthy, they're reused instantly (no provisioning delay). The pool's TTL is extended after each run.
+
+### Controlling pool lifetime
+
+By default, pools are kept alive for 30 minutes after the last run. Customize with:
+
+```bash
+crank --config hello.benchmarks.yml --scenario hello --profile azure \
+  --provision-pool my-bench --provision-pool-ttl 60
+```
+
+### How it works
+
+1. On each run, the controller checks Azure for a resource group named `rg-crank-pool-{name}`
+2. If found and agents are healthy → reuse them, extend the TTL
+3. If not found or agents are unhealthy → provision fresh VMs with the pool name
+4. After the run, VMs are kept alive (not torn down) with an auto-delete tag
+5. Expired pools are cleaned up by `--provision-cleanup`
+
+### Cleaning up pools manually
+
+```bash
+# Clean up all pools/resources older than 1 hour
+crank --provision-cleanup 1
+```
 
 ## Mixing static and dynamic profiles
 

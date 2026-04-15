@@ -58,5 +58,29 @@ namespace Microsoft.Crank.Controller.Provisioning
         Task<int> CleanupOrphanedResourcesAsync(
             TimeSpan maxAge,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Searches for an existing provisioned pool by name that has healthy agents.
+        /// Returns the provisioned agents if found, or null if no matching pool exists.
+        /// </summary>
+        /// <param name="poolName">The pool name to search for.</param>
+        /// <param name="agentConfigs">The expected agent configurations to validate against.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>A list of provisioned agents from the existing pool, or null if not found.</returns>
+        Task<IReadOnlyList<ProvisionedAgent>> FindExistingPoolAsync(
+            string poolName,
+            IDictionary<string, ProvisioningConfig> agentConfigs,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Extends the time-to-live of a provisioned pool so it remains available for subsequent runs.
+        /// </summary>
+        /// <param name="poolName">The pool name to extend.</param>
+        /// <param name="ttl">How much additional time to keep the pool alive.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        Task ExtendPoolTtlAsync(
+            string poolName,
+            TimeSpan ttl,
+            CancellationToken cancellationToken = default);
     }
 }

@@ -34,6 +34,7 @@ namespace Microsoft.Crank.Controller.Provisioning
         private const string TagCreatedAt = "crank-created-at";
         private const string TagAutoDeleteAfter = "crank-auto-delete-after";
         private const string TagManagedBy = "crank-managed-by";
+        private const string TagPoolName = "crank-pool";
 
         private static readonly TimeSpan DefaultAutoDeleteAfter = TimeSpan.FromHours(2);
 
@@ -65,12 +66,27 @@ namespace Microsoft.Crank.Controller.Provisioning
             IDictionary<string, ProvisioningConfig> agentConfigs,
             CancellationToken cancellationToken = default)
         {
+            return await ProvisionAsync(sessionId, agentConfigs, poolName: null, poolTtl: null, cancellationToken);
+        }
+
+        /// <summary>
+        /// Provisions infrastructure with optional pool naming for reuse across runs.
+        /// </summary>
+        public async Task<IReadOnlyList<ProvisionedAgent>> ProvisionAsync(
+            string sessionId,
+            IDictionary<string, ProvisioningConfig> agentConfigs,
+            string poolName,
+            TimeSpan? poolTtl,
+            CancellationToken cancellationToken = default)
+        {
             var agents = new List<ProvisionedAgent>();
             var subscription = await GetSubscriptionAsync(cancellationToken);
 
-            // Group agents by resource group (use shared RG or per-session)
-            var resourceGroupName = agentConfigs.Values.FirstOrDefault()?.ResourceGroup
-                ?? $"{ResourceGroupPrefix}{sessionId}";
+            // When using a pool, name the resource group deterministically so it can be found later
+            var resourceGroupName = !string.IsNullOrEmpty(poolName)
+                ? $"{ResourceGroupPrefix}pool-{poolName}"
+                : agentConfigs.Values.FirstOrDefault()?.ResourceGroup
+                    ?? $"{ResourceGroupPrefix}{sessionId}";
 
             _sessionResourceGroups[sessionId] = resourceGroupName;
 
@@ -83,8 +99,16 @@ namespace Microsoft.Crank.Controller.Provisioning
             var rgData = new ResourceGroupData(new AzureLocation(region));
             rgData.Tags.Add(TagSessionId, sessionId);
             rgData.Tags.Add(TagCreatedAt, DateTime.UtcNow.ToString("o"));
-            rgData.Tags.Add(TagAutoDeleteAfter, DateTime.UtcNow.Add(DefaultAutoDeleteAfter).ToString("o"));
             rgData.Tags.Add(TagManagedBy, "crank-controller");
+
+            // Set auto-delete based on pool TTL or default
+            var autoDeleteAfter = poolTtl ?? DefaultAutoDeleteAfter;
+            rgData.Tags.Add(TagAutoDeleteAfter, DateTime.UtcNow.Add(autoDeleteAfter).ToString("o"));
+
+            if (!string.IsNullOrEmpty(poolName))
+            {
+                rgData.Tags.Add(TagPoolName, poolName);
+            }
 
             var rgCollection = subscription.GetResourceGroups();
             var rgOperation = await rgCollection.CreateOrUpdateAsync(
@@ -247,6 +271,177 @@ namespace Microsoft.Crank.Controller.Provisioning
             }
 
             return cleaned;
+        }
+
+        /// <inheritdoc/>
+        public async Task<IReadOnlyList<ProvisionedAgent>> FindExistingPoolAsync(
+            string poolName,
+            IDictionary<string, ProvisioningConfig> agentConfigs,
+            CancellationToken cancellationToken = default)
+        {
+            var subscription = await GetSubscriptionAsync(cancellationToken);
+            var expectedRgName = $"{ResourceGroupPrefix}pool-{poolName}";
+
+            Log.Write($"Searching for existing pool '{poolName}' (resource group '{expectedRgName}')...");
+
+            ResourceGroupResource resourceGroup;
+            try
+            {
+                var rgResponse = await subscription.GetResourceGroups()
+                    .GetAsync(expectedRgName, cancellationToken);
+                resourceGroup = rgResponse.Value;
+            }
+            catch (RequestFailedException ex) when (ex.Status == 404)
+            {
+                Log.Write($"No existing pool '{poolName}' found.");
+                return null;
+            }
+
+            // Verify it's a crank-managed pool
+            if (!resourceGroup.Data.Tags.TryGetValue(TagManagedBy, out var managedBy) || managedBy != "crank-controller")
+            {
+                Log.Write($"Resource group '{expectedRgName}' exists but is not crank-managed. Skipping.");
+                return null;
+            }
+
+            if (!resourceGroup.Data.Tags.TryGetValue(TagPoolName, out var taggedPool) || taggedPool != poolName)
+            {
+                Log.Write($"Resource group '{expectedRgName}' exists but has wrong pool tag. Skipping.");
+                return null;
+            }
+
+            // Check if it has expired
+            if (resourceGroup.Data.Tags.TryGetValue(TagAutoDeleteAfter, out var autoDeleteStr)
+                && DateTime.TryParse(autoDeleteStr, out var autoDeleteAt)
+                && DateTime.UtcNow > autoDeleteAt)
+            {
+                Log.Write($"Pool '{poolName}' has expired (auto-delete was {autoDeleteAt:u}). Will provision fresh.");
+                return null;
+            }
+
+            // Discover VMs and build ProvisionedAgent list from existing resources
+            var agents = new List<ProvisionedAgent>();
+
+            await foreach (var vm in resourceGroup.GetVirtualMachines().GetAllAsync(cancellationToken: cancellationToken))
+            {
+                // VM naming convention: vm-{serviceName}-{index}
+                var vmName = vm.Data.Name;
+                var parts = vmName.Split('-');
+                // Expect "vm-{serviceName}-{index}", serviceName may contain hyphens
+                string serviceName = null;
+                if (parts.Length >= 3 && parts[0] == "vm")
+                {
+                    // Rejoin everything between first and last dash segment
+                    serviceName = string.Join("-", parts.Skip(1).Take(parts.Length - 2));
+                }
+
+                if (serviceName == null || !agentConfigs.ContainsKey(serviceName))
+                {
+                    continue;
+                }
+
+                var config = agentConfigs[serviceName];
+
+                // Find the public IP of this VM through its NIC
+                string publicIp = null;
+                foreach (var nicRef in vm.Data.NetworkProfile.NetworkInterfaces)
+                {
+                    try
+                    {
+                        var nicResource = _armClient.GetNetworkInterfaceResource(nicRef.Id);
+                        var nic = await nicResource.GetAsync(cancellationToken: cancellationToken);
+                        foreach (var ipConfig in nic.Value.Data.IPConfigurations)
+                        {
+                            if (ipConfig.PublicIPAddress?.Id != null)
+                            {
+                                var pipResource = _armClient.GetPublicIPAddressResource(ipConfig.PublicIPAddress.Id);
+                                var pip = await pipResource.GetAsync(cancellationToken: cancellationToken);
+                                publicIp = pip.Value.Data.IPAddress;
+                                break;
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.WriteWarning($"Could not resolve IP for VM '{vmName}': {ex.Message}");
+                    }
+
+                    if (publicIp != null) break;
+                }
+
+                if (publicIp == null)
+                {
+                    Log.WriteWarning($"Could not find public IP for VM '{vmName}' in pool '{poolName}'. Skipping.");
+                    continue;
+                }
+
+                agents.Add(new ProvisionedAgent
+                {
+                    EndpointUri = new Uri($"http://{publicIp}:{config.AgentPort}"),
+                    IpAddress = publicIp,
+                    Hostname = vmName,
+                    ResourceGroupName = expectedRgName,
+                    VmName = vmName,
+                    ServiceName = serviceName
+                });
+            }
+
+            if (agents.Count == 0)
+            {
+                Log.Write($"Pool '{poolName}' resource group exists but has no matching VMs.");
+                return null;
+            }
+
+            // Verify we have the expected number of agents per service
+            foreach (var (serviceName, config) in agentConfigs)
+            {
+                var serviceAgents = agents.Count(a => a.ServiceName == serviceName);
+                if (serviceAgents < config.Count)
+                {
+                    Log.Write($"Pool '{poolName}' has {serviceAgents} agent(s) for service '{serviceName}', expected {config.Count}. Will provision fresh.");
+                    return null;
+                }
+            }
+
+            Log.Write($"Found existing pool '{poolName}' with {agents.Count} agent(s).");
+            return agents;
+        }
+
+        /// <inheritdoc/>
+        public async Task ExtendPoolTtlAsync(
+            string poolName,
+            TimeSpan ttl,
+            CancellationToken cancellationToken = default)
+        {
+            var subscription = await GetSubscriptionAsync(cancellationToken);
+            var expectedRgName = $"{ResourceGroupPrefix}pool-{poolName}";
+
+            try
+            {
+                var rgResponse = await subscription.GetResourceGroups()
+                    .GetAsync(expectedRgName, cancellationToken);
+                var resourceGroup = rgResponse.Value;
+
+                var newExpiry = DateTime.UtcNow.Add(ttl);
+
+                // Update tags by re-applying the resource group with updated tag values
+                var rgData = new ResourceGroupData(resourceGroup.Data.Location);
+                foreach (var tag in resourceGroup.Data.Tags)
+                {
+                    rgData.Tags.Add(tag.Key, tag.Value);
+                }
+                rgData.Tags[TagAutoDeleteAfter] = newExpiry.ToString("o");
+                rgData.Tags[TagSessionId] = $"pool-{poolName}-extended";
+
+                await subscription.GetResourceGroups()
+                    .CreateOrUpdateAsync(WaitUntil.Completed, expectedRgName, rgData, cancellationToken);
+
+                Log.Write($"Extended pool '{poolName}' TTL to {newExpiry:u}.");
+            }
+            catch (Exception ex)
+            {
+                Log.WriteWarning($"Failed to extend pool '{poolName}' TTL: {ex.Message}");
+            }
         }
 
         public async ValueTask DisposeAsync()
