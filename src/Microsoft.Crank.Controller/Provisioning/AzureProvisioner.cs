@@ -305,6 +305,18 @@ namespace Microsoft.Crank.Controller.Provisioning
             IDictionary<string, ProvisioningConfig> agentConfigs,
             CancellationToken cancellationToken = default)
         {
+            return await FindExistingPoolAsync(poolName, agentConfigs, maxPoolAge: null, cancellationToken);
+        }
+
+        /// <summary>
+        /// Searches for an existing pool, rejecting it if it exceeds the maximum age.
+        /// </summary>
+        public async Task<IReadOnlyList<ProvisionedAgent>> FindExistingPoolAsync(
+            string poolName,
+            IDictionary<string, ProvisioningConfig> agentConfigs,
+            TimeSpan? maxPoolAge,
+            CancellationToken cancellationToken = default)
+        {
             var subscription = await GetSubscriptionAsync(cancellationToken);
             var expectedRgName = $"{ResourceGroupPrefix}pool-{poolName}";
 
@@ -343,6 +355,32 @@ namespace Microsoft.Crank.Controller.Provisioning
             {
                 Log.Write($"Pool '{poolName}' has expired (auto-delete was {autoDeleteAt:u}). Will provision fresh.");
                 return null;
+            }
+
+            // Check if pool exceeds max age (default: 24 hours)
+            if (resourceGroup.Data.Tags.TryGetValue(TagCreatedAt, out var createdAtStr)
+                && DateTime.TryParse(createdAtStr, out var poolCreatedAt))
+            {
+                var poolAge = DateTime.UtcNow - poolCreatedAt;
+                var maxAge = maxPoolAge ?? TimeSpan.FromHours(24);
+
+                if (poolAge > maxAge)
+                {
+                    Log.Write($"Pool '{poolName}' is {poolAge.TotalHours:F1} hours old (max: {maxAge.TotalHours:F1}h). Will provision fresh.");
+                    // Initiate deletion of the stale pool
+                    try
+                    {
+                        await resourceGroup.DeleteAsync(WaitUntil.Started, cancellationToken: cancellationToken);
+                        Log.Write($"Initiated deletion of stale pool resource group '{expectedRgName}'.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.WriteWarning($"Failed to delete stale pool '{expectedRgName}': {ex.Message}");
+                    }
+                    return null;
+                }
+
+                Log.Write($"Pool '{poolName}' age: {poolAge.TotalHours:F1} hours (max: {maxAge.TotalHours:F1}h).");
             }
 
             // Discover VMs and build ProvisionedAgent list from existing resources

@@ -84,6 +84,7 @@ The `provision` block supports the following properties:
 | `--provision-cleanup <hours>` | Clean up orphaned resource groups older than N hours |
 | `--provision-pool <name>` | Name a pool to reuse VMs across consecutive runs |
 | `--provision-pool-ttl <minutes>` | Time to keep a pool alive after the run (default: 30) |
+| `--provision-pool-maxage <hours>` | Maximum pool age before replacing with fresh VMs (default: 24) |
 
 ## Examples
 
@@ -205,12 +206,19 @@ If the pool's VMs are still running and healthy, they're reused instantly (no pr
 
 ### Controlling pool lifetime
 
-By default, pools are kept alive for 30 minutes after the last run. Customize with:
+By default, pools are kept alive for 30 minutes after the last run and replaced with fresh VMs after 24 hours of total age. Customize with:
 
 ```bash
+# Keep pool alive for 60 minutes between runs
 crank --config hello.benchmarks.yml --scenario hello --profile azure \
   --provision-pool my-bench --provision-pool-ttl 60
+
+# Replace pool with fresh VMs after 12 hours instead of 24
+crank --config hello.benchmarks.yml --scenario hello --profile azure \
+  --provision-pool my-bench --provision-pool-maxage 12
 ```
+
+Pools older than `--provision-pool-maxage` are automatically deleted and reprovisioned to avoid issues from long-running VMs (e.g., memory leaks, disk filling up, stale OS state).
 
 ### How it works
 

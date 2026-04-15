@@ -100,7 +100,8 @@ namespace Microsoft.Crank.Controller
             _noTeardownOption,
             _provisionCleanupOption,
             _provisionPoolOption,
-            _provisionPoolTtlOption
+            _provisionPoolTtlOption,
+            _provisionPoolMaxAgeOption
             ;
 
         private static CommandOption<ValueTuple<string, JToken>>
@@ -223,6 +224,7 @@ namespace Microsoft.Crank.Controller
             _provisionCleanupOption = app.Option("--provision-cleanup", "Clean up orphaned provisioned resource groups older than the specified number of hours. e.g., '--provision-cleanup 2'", CommandOptionType.SingleValue);
             _provisionPoolOption = app.Option("--provision-pool", "Name a provision pool to reuse VMs across consecutive runs. VMs are kept alive and reused if a matching pool is found.", CommandOptionType.SingleValue);
             _provisionPoolTtlOption = app.Option("--provision-pool-ttl", "Time in minutes to keep a provision pool alive after the run completes. Default is 30.", CommandOptionType.SingleValue);
+            _provisionPoolMaxAgeOption = app.Option("--provision-pool-maxage", "Maximum age in hours for a provision pool before it is replaced with fresh VMs. Default is 24.", CommandOptionType.SingleValue);
 
             _ignoredCommands = new HashSet<CommandOption>()
             {
@@ -613,6 +615,9 @@ namespace Microsoft.Crank.Controller
                 var poolTtl = _provisionPoolTtlOption.HasValue()
                     ? TimeSpan.FromMinutes(double.Parse(_provisionPoolTtlOption.Value()))
                     : TimeSpan.FromMinutes(30);
+                var poolMaxAge = _provisionPoolMaxAgeOption.HasValue()
+                    ? TimeSpan.FromHours(double.Parse(_provisionPoolMaxAgeOption.Value()))
+                    : TimeSpan.FromHours(24);
                 var reusedPool = false;
 
                 try
@@ -664,7 +669,7 @@ namespace Microsoft.Crank.Controller
                     if (!string.IsNullOrEmpty(poolName))
                     {
                         Log.Write($"Checking for existing provision pool '{poolName}'...");
-                        var existingAgents = await provisioner.FindExistingPoolAsync(poolName, provisioningConfigs);
+                        var existingAgents = await ((AzureProvisioner)provisioner).FindExistingPoolAsync(poolName, provisioningConfigs, poolMaxAge);
 
                         if (existingAgents != null)
                         {
