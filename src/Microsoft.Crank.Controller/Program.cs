@@ -642,7 +642,23 @@ namespace Microsoft.Crank.Controller
 
                     var subscriptionId = provisioningConfigs.Values.FirstOrDefault(c => !string.IsNullOrEmpty(c.SubscriptionId))?.SubscriptionId;
                     var credential = new global::Azure.Identity.DefaultAzureCredential();
-                    provisioner = new AzureProvisioner(credential, subscriptionId);
+                    var azureProvisioner = new AzureProvisioner(credential, subscriptionId);
+                    provisioner = azureProvisioner;
+
+                    // Auto-clean expired pools/resources before provisioning.
+                    // This ensures orphaned VMs from previous runs don't accumulate costs.
+                    try
+                    {
+                        var cleaned = await azureProvisioner.CleanupExpiredResourcesAsync();
+                        if (cleaned > 0)
+                        {
+                            Log.Write($"Auto-cleaned {cleaned} expired resource group(s).");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.WriteWarning($"Auto-cleanup of expired resources failed (non-fatal): {ex.Message}");
+                    }
 
                     // Check for existing pool if --provision-pool is specified
                     if (!string.IsNullOrEmpty(poolName))

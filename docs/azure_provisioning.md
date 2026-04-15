@@ -218,7 +218,20 @@ crank --config hello.benchmarks.yml --scenario hello --profile azure \
 2. If found and agents are healthy → reuse them, extend the TTL
 3. If not found or agents are unhealthy → provision fresh VMs with the pool name
 4. After the run, VMs are kept alive (not torn down) with an auto-delete tag
-5. Expired pools are cleaned up by `--provision-cleanup`
+5. Expired pools are automatically cleaned up at the start of the next provisioned run
+
+### Automatic cleanup
+
+Every time crank runs with dynamic provisioning, it automatically scans for and deletes any crank-managed resource groups that have passed their `auto-delete-after` time. This means expired pools are cleaned up as a side effect of normal usage — no manual intervention needed as long as crank is run periodically.
+
+> **Important:** If crank is not run again after a pool expires, the VMs will continue running in Azure and incurring costs. If you stop using crank or won't run it again for a while, clean up leftover pools manually:
+>
+> ```bash
+> # Delete all crank-managed resources older than 1 hour
+> crank --provision-cleanup 1
+> ```
+>
+> Or delete the resource groups directly in the [Azure Portal](https://portal.azure.com) — they are named `rg-crank-pool-{name}` and tagged with `crank-managed-by: crank-controller`.
 
 ### Cleaning up pools manually
 
@@ -311,4 +324,6 @@ If you hit VM quota limits, request an increase in the Azure portal or try a dif
 
 ### Orphaned resources
 
-Use `--provision-cleanup 2` to find and delete resource groups left behind by failed runs. All crank-managed resource groups are tagged with `crank-managed-by: crank-controller`.
+Expired pools and crashed-run leftovers are automatically cleaned up at the start of each provisioned run. However, if you stop using crank entirely, leftover resource groups will remain in Azure until manually deleted.
+
+Use `--provision-cleanup 2` to find and delete resource groups left behind by failed runs, or delete `rg-crank-*` resource groups in the Azure portal. All crank-managed resource groups are tagged with `crank-managed-by: crank-controller`.

@@ -273,6 +273,32 @@ namespace Microsoft.Crank.Controller.Provisioning
             return cleaned;
         }
 
+        /// <summary>
+        /// Cleans up crank-managed resource groups that have passed their auto-delete-after time.
+        /// Called automatically at the start of each provisioned run to prevent cost accumulation.
+        /// </summary>
+        public async Task<int> CleanupExpiredResourcesAsync(CancellationToken cancellationToken = default)
+        {
+            var subscription = await GetSubscriptionAsync(cancellationToken);
+            var now = DateTime.UtcNow;
+            var cleaned = 0;
+
+            await foreach (var rg in subscription.GetResourceGroups().GetAllAsync(cancellationToken: cancellationToken))
+            {
+                if (rg.Data.Tags.TryGetValue(TagManagedBy, out var managedBy) && managedBy == "crank-controller"
+                    && rg.Data.Tags.TryGetValue(TagAutoDeleteAfter, out var autoDeleteStr)
+                    && DateTime.TryParse(autoDeleteStr, out var autoDeleteAt)
+                    && now > autoDeleteAt)
+                {
+                    Log.Write($"Auto-cleaning expired resource group '{rg.Data.Name}' (expired {autoDeleteAt:u})...");
+                    await rg.DeleteAsync(WaitUntil.Started, cancellationToken: cancellationToken);
+                    cleaned++;
+                }
+            }
+
+            return cleaned;
+        }
+
         /// <inheritdoc/>
         public async Task<IReadOnlyList<ProvisionedAgent>> FindExistingPoolAsync(
             string poolName,
