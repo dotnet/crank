@@ -61,6 +61,28 @@ namespace Microsoft.Crank.Controller.Provisioning
         public string AgentImage { get; set; }
 
         /// <summary>
+        /// Optional Git repository URL to clone and build the crank agent from source.
+        /// When set (and <see cref="AgentImage"/> is not set), the agent is built from source
+        /// instead of using dotnet tool install.
+        /// Example: "https://github.com/dotnet/crank.git"
+        /// </summary>
+        public string AgentSource { get; set; }
+
+        /// <summary>
+        /// The branch, tag, or commit SHA to checkout when building from source.
+        /// Only used when <see cref="AgentSource"/> is set.
+        /// Defaults to "main".
+        /// </summary>
+        public string AgentSourceBranch { get; set; } = "main";
+
+        /// <summary>
+        /// The relative path to the agent project file within the source repository.
+        /// Only used when <see cref="AgentSource"/> is set.
+        /// Defaults to "src/Microsoft.Crank.Agent/Microsoft.Crank.Agent.csproj".
+        /// </summary>
+        public string AgentSourceProject { get; set; } = "src/Microsoft.Crank.Agent/Microsoft.Crank.Agent.csproj";
+
+        /// <summary>
         /// The Azure subscription ID to use. If not set, uses the default subscription.
         /// </summary>
         public string SubscriptionId { get; set; }

@@ -606,45 +606,15 @@ namespace Microsoft.Crank.Controller.Provisioning
                     sb.AppendLine($"  -v /var/run/docker.sock:/var/run/docker.sock \\");
                     sb.AppendLine($"  {config.AgentImage} --url http://*:{config.AgentPort}");
                 }
+                else if (!string.IsNullOrEmpty(config.AgentSource))
+                {
+                    // Build agent from source
+                    GenerateLinuxBuildFromSourceScript(sb, config);
+                }
                 else
                 {
                     // Direct dotnet tool install
-                    sb.AppendLine("# Install prerequisites");
-                    sb.AppendLine("apt-get update && apt-get install -y --no-install-recommends \\");
-                    sb.AppendLine("    git procps curl wget libgdiplus gnupg2 software-properties-common");
-                    sb.AppendLine();
-                    sb.AppendLine("# Install .NET SDK");
-                    sb.AppendLine("wget -q https://dot.net/v1/dotnet-install.sh -O /tmp/dotnet-install.sh");
-                    sb.AppendLine("chmod +x /tmp/dotnet-install.sh");
-                    sb.AppendLine("/tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet");
-                    sb.AppendLine("ln -sf /usr/share/dotnet/dotnet /usr/bin/dotnet");
-                    sb.AppendLine("export DOTNET_ROOT=/usr/share/dotnet");
-                    sb.AppendLine("export PATH=\"$PATH:/usr/share/dotnet:/root/.dotnet/tools\"");
-                    sb.AppendLine();
-                    sb.AppendLine("# Install crank-agent");
-                    sb.AppendLine("dotnet tool install -g Microsoft.Crank.Agent --version \"0.2.0-*\"");
-                    sb.AppendLine();
-                    sb.AppendLine("# Create a systemd service for the agent");
-                    sb.AppendLine("cat > /etc/systemd/system/crank-agent.service << 'EOF'");
-                    sb.AppendLine("[Unit]");
-                    sb.AppendLine("Description=Crank Benchmarking Agent");
-                    sb.AppendLine("After=network.target");
-                    sb.AppendLine();
-                    sb.AppendLine("[Service]");
-                    sb.AppendLine("Type=simple");
-                    sb.AppendLine($"ExecStart=/root/.dotnet/tools/crank-agent --url http://*:{config.AgentPort}");
-                    sb.AppendLine("Restart=always");
-                    sb.AppendLine("RestartSec=5");
-                    sb.AppendLine("Environment=DOTNET_ROOT=/usr/share/dotnet");
-                    sb.AppendLine("Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/share/dotnet:/root/.dotnet/tools");
-                    sb.AppendLine();
-                    sb.AppendLine("[Install]");
-                    sb.AppendLine("WantedBy=multi-user.target");
-                    sb.AppendLine("EOF");
-                    sb.AppendLine();
-                    sb.AppendLine("systemctl daemon-reload");
-                    sb.AppendLine("systemctl enable crank-agent");
-                    sb.AppendLine("systemctl start crank-agent");
+                    GenerateLinuxDotnetToolInstallScript(sb, config);
                 }
             }
             else
@@ -658,14 +628,115 @@ namespace Microsoft.Crank.Controller.Provisioning
                 sb.AppendLine(".\\dotnet-install.ps1 -Channel 8.0");
                 sb.AppendLine("$env:PATH = \"$env:USERPROFILE\\.dotnet;$env:USERPROFILE\\.dotnet\\tools;$env:PATH\"");
                 sb.AppendLine();
-                sb.AppendLine("# Install crank-agent");
-                sb.AppendLine("dotnet tool install -g Microsoft.Crank.Agent --version \"0.2.0-*\"");
-                sb.AppendLine();
-                sb.AppendLine("# Start the agent");
-                sb.AppendLine($"Start-Process -NoNewWindow -FilePath crank-agent -ArgumentList '--url http://*:{config.AgentPort}'");
+
+                if (!string.IsNullOrEmpty(config.AgentSource))
+                {
+                    // Build agent from source on Windows
+                    sb.AppendLine("# Clone and build crank-agent from source");
+                    sb.AppendLine($"git clone {config.AgentSource} C:\\crank-source");
+                    sb.AppendLine("Set-Location C:\\crank-source");
+                    sb.AppendLine($"git checkout {config.AgentSourceBranch}");
+                    sb.AppendLine($"dotnet publish {config.AgentSourceProject} -c Release -o C:\\crank-agent");
+                    sb.AppendLine();
+                    sb.AppendLine("# Start the agent");
+                    sb.AppendLine($"Start-Process -NoNewWindow -FilePath dotnet -ArgumentList 'C:\\crank-agent\\Microsoft.Crank.Agent.dll --url http://*:{config.AgentPort}'");
+                }
+                else
+                {
+                    sb.AppendLine("# Install crank-agent");
+                    sb.AppendLine("dotnet tool install -g Microsoft.Crank.Agent --version \"0.2.0-*\"");
+                    sb.AppendLine();
+                    sb.AppendLine("# Start the agent");
+                    sb.AppendLine($"Start-Process -NoNewWindow -FilePath crank-agent -ArgumentList '--url http://*:{config.AgentPort}'");
+                }
             }
 
             return sb.ToString();
+        }
+
+        private static void GenerateLinuxBuildFromSourceScript(StringBuilder sb, ProvisioningConfig config)
+        {
+            sb.AppendLine("# Install prerequisites");
+            sb.AppendLine("apt-get update && apt-get install -y --no-install-recommends \\");
+            sb.AppendLine("    git procps curl wget libgdiplus gnupg2 software-properties-common");
+            sb.AppendLine();
+            sb.AppendLine("# Install .NET SDK");
+            sb.AppendLine("wget -q https://dot.net/v1/dotnet-install.sh -O /tmp/dotnet-install.sh");
+            sb.AppendLine("chmod +x /tmp/dotnet-install.sh");
+            sb.AppendLine("/tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet");
+            sb.AppendLine("ln -sf /usr/share/dotnet/dotnet /usr/bin/dotnet");
+            sb.AppendLine("export DOTNET_ROOT=/usr/share/dotnet");
+            sb.AppendLine("export PATH=\"$PATH:/usr/share/dotnet\"");
+            sb.AppendLine();
+            sb.AppendLine("# Clone and build crank-agent from source");
+            sb.AppendLine($"git clone {config.AgentSource} /opt/crank-source");
+            sb.AppendLine("cd /opt/crank-source");
+            sb.AppendLine($"git checkout {config.AgentSourceBranch}");
+            sb.AppendLine("echo \"Building crank-agent from source at commit $(git rev-parse HEAD)...\"");
+            sb.AppendLine($"dotnet publish {config.AgentSourceProject} -c Release -o /opt/crank-agent");
+            sb.AppendLine();
+            sb.AppendLine("# Create a systemd service for the agent");
+            sb.AppendLine("cat > /etc/systemd/system/crank-agent.service << 'EOF'");
+            sb.AppendLine("[Unit]");
+            sb.AppendLine("Description=Crank Benchmarking Agent (built from source)");
+            sb.AppendLine("After=network.target");
+            sb.AppendLine();
+            sb.AppendLine("[Service]");
+            sb.AppendLine("Type=simple");
+            sb.AppendLine($"ExecStart=/usr/share/dotnet/dotnet /opt/crank-agent/Microsoft.Crank.Agent.dll --url http://*:{config.AgentPort}");
+            sb.AppendLine("Restart=always");
+            sb.AppendLine("RestartSec=5");
+            sb.AppendLine("WorkingDirectory=/opt/crank-agent");
+            sb.AppendLine("Environment=DOTNET_ROOT=/usr/share/dotnet");
+            sb.AppendLine("Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/share/dotnet");
+            sb.AppendLine();
+            sb.AppendLine("[Install]");
+            sb.AppendLine("WantedBy=multi-user.target");
+            sb.AppendLine("EOF");
+            sb.AppendLine();
+            sb.AppendLine("systemctl daemon-reload");
+            sb.AppendLine("systemctl enable crank-agent");
+            sb.AppendLine("systemctl start crank-agent");
+        }
+
+        private static void GenerateLinuxDotnetToolInstallScript(StringBuilder sb, ProvisioningConfig config)
+        {
+            sb.AppendLine("# Install prerequisites");
+            sb.AppendLine("apt-get update && apt-get install -y --no-install-recommends \\");
+            sb.AppendLine("    git procps curl wget libgdiplus gnupg2 software-properties-common");
+            sb.AppendLine();
+            sb.AppendLine("# Install .NET SDK");
+            sb.AppendLine("wget -q https://dot.net/v1/dotnet-install.sh -O /tmp/dotnet-install.sh");
+            sb.AppendLine("chmod +x /tmp/dotnet-install.sh");
+            sb.AppendLine("/tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet");
+            sb.AppendLine("ln -sf /usr/share/dotnet/dotnet /usr/bin/dotnet");
+            sb.AppendLine("export DOTNET_ROOT=/usr/share/dotnet");
+            sb.AppendLine("export PATH=\"$PATH:/usr/share/dotnet:/root/.dotnet/tools\"");
+            sb.AppendLine();
+            sb.AppendLine("# Install crank-agent");
+            sb.AppendLine("dotnet tool install -g Microsoft.Crank.Agent --version \"0.2.0-*\"");
+            sb.AppendLine();
+            sb.AppendLine("# Create a systemd service for the agent");
+            sb.AppendLine("cat > /etc/systemd/system/crank-agent.service << 'EOF'");
+            sb.AppendLine("[Unit]");
+            sb.AppendLine("Description=Crank Benchmarking Agent");
+            sb.AppendLine("After=network.target");
+            sb.AppendLine();
+            sb.AppendLine("[Service]");
+            sb.AppendLine("Type=simple");
+            sb.AppendLine($"ExecStart=/root/.dotnet/tools/crank-agent --url http://*:{config.AgentPort}");
+            sb.AppendLine("Restart=always");
+            sb.AppendLine("RestartSec=5");
+            sb.AppendLine("Environment=DOTNET_ROOT=/usr/share/dotnet");
+            sb.AppendLine("Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/share/dotnet:/root/.dotnet/tools");
+            sb.AppendLine();
+            sb.AppendLine("[Install]");
+            sb.AppendLine("WantedBy=multi-user.target");
+            sb.AppendLine("EOF");
+            sb.AppendLine();
+            sb.AppendLine("systemctl daemon-reload");
+            sb.AppendLine("systemctl enable crank-agent");
+            sb.AppendLine("systemctl start crank-agent");
         }
 
         private static string GenerateTemporarySshKey()

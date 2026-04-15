@@ -61,6 +61,9 @@ namespace Microsoft.Crank.Controller.Provisioning
                     Count = provision["count"]?.Value<int>() ?? 1,
                     AgentPort = provision["agentPort"]?.Value<int>() ?? 5010,
                     AgentImage = provision["agentImage"]?.Value<string>(),
+                    AgentSource = provision["agentSource"]?.Value<string>(),
+                    AgentSourceBranch = provision["agentSourceBranch"]?.Value<string>() ?? "main",
+                    AgentSourceProject = provision["agentSourceProject"]?.Value<string>() ?? "src/Microsoft.Crank.Agent/Microsoft.Crank.Agent.csproj",
                     SubscriptionId = provision["subscriptionId"]?.Value<string>(),
                     ResourceGroup = provision["resourceGroup"]?.Value<string>(),
                     SpotInstance = provision["spotInstance"]?.Value<bool>() ?? false

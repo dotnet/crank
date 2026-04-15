@@ -67,6 +67,9 @@ The `provision` block supports the following properties:
 | `count` | integer | `1` | Number of VM instances |
 | `agentPort` | integer | `5010` | Port for the crank agent |
 | `agentImage` | string | | Docker image containing crank-agent (uses Docker deployment) |
+| `agentSource` | string | | Git repository URL to clone and build the agent from source |
+| `agentSourceBranch` | string | `main` | Branch, tag, or commit SHA to checkout when building from source |
+| `agentSourceProject` | string | `src/Microsoft.Crank.Agent/...csproj` | Relative path to agent project within the source repo |
 | `subscriptionId` | string | | Azure subscription ID (uses default if not set) |
 | `resourceGroup` | string | | Custom resource group name (auto-generated if not set) |
 | `spotInstance` | boolean | `false` | Use Azure Spot VMs for cost savings |
@@ -119,6 +122,36 @@ profiles:
           provider: azure
           vmSize: Standard_D4s_v5
           agentImage: mcr.microsoft.com/dotnet/crank-agent:latest
+```
+
+### Building the agent from source
+
+Useful for testing agent changes or running a specific commit/branch:
+
+```yaml
+profiles:
+  azure-source:
+    agents:
+      application:
+        provision:
+          provider: azure
+          vmSize: Standard_D4s_v5
+          agentSource: https://github.com/dotnet/crank.git
+          agentSourceBranch: my-feature-branch
+```
+
+You can also specify a commit SHA:
+
+```yaml
+          agentSourceBranch: abc123def456
+```
+
+Or point to a fork with a custom project path:
+
+```yaml
+          agentSource: https://github.com/my-org/custom-crank.git
+          agentSourceBranch: main
+          agentSourceProject: src/MyCustomAgent/MyCustomAgent.csproj
 ```
 
 ### With a custom VM image (fastest startup)

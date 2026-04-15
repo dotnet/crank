@@ -246,6 +246,22 @@
           "type": "string",
           "title": "Docker image containing the crank agent"
         },
+        "agentSource": {
+          "type": "string",
+          "title": "Git repository URL to clone and build the crank agent from source",
+          "examples": ["https://github.com/dotnet/crank.git"]
+        },
+        "agentSourceBranch": {
+          "type": "string",
+          "title": "Branch, tag, or commit SHA to checkout when building from source",
+          "default": "main",
+          "examples": ["main", "feature/my-branch", "abc123def"]
+        },
+        "agentSourceProject": {
+          "type": "string",
+          "title": "Relative path to the agent project file within the source repository",
+          "default": "src/Microsoft.Crank.Agent/Microsoft.Crank.Agent.csproj"
+        },
         "subscriptionId": {
           "type": "string",
           "title": "Azure subscription ID to use"

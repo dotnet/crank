@@ -109,3 +109,30 @@ profiles:
           count: 1
           agentPort: 5010
           agentImage: mcr.microsoft.com/dotnet/crank-agent:latest
+
+  # Dynamic provisioning with agent built from source
+  # Useful for testing agent changes or running a specific commit
+  azure-source:
+    variables:
+      serverAddress: "{{ serverAddress }}"
+    agents:
+      application:
+        provision:
+          provider: azure
+          vmSize: Standard_D4s_v5
+          os: linux
+          region: eastus2
+          count: 1
+          agentPort: 5010
+          agentSource: https://github.com/dotnet/crank.git
+          agentSourceBranch: main
+      load:
+        provision:
+          provider: azure
+          vmSize: Standard_D4s_v5
+          os: linux
+          region: eastus2
+          count: 1
+          agentPort: 5010
+          agentSource: https://github.com/dotnet/crank.git
+          agentSourceBranch: main
