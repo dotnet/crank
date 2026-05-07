@@ -341,6 +341,48 @@ namespace Microsoft.Crank.UnitTests
             Assert.True(File.Exists(Path.Combine(hostFxr, BuildCacheClient.GetNativeLibName("hostfxr"))));
         }
 
+        [Fact]
+        public void OverlayDotnetHome_WithCommitSha_RewritesVersionFile()
+        {
+            var rid = BuildCacheClient.GetPlatformMoniker();
+            var (extractDir, _, _, _) = BuildFakeBcsArchive(rid, includeHost: true);
+
+            const string runtimeVersion = "11.0.0-preview.5.26256.117";
+            const string commitSha = "603403d9cb49d3d1c35b56bcff024ce99a8c5c3a";
+            var dotnetHome = Path.Combine(_testDir, "dotnetHome-version");
+            var sharedFw = Path.Combine(dotnetHome, "shared", "Microsoft.NETCore.App", runtimeVersion);
+            Directory.CreateDirectory(sharedFw);
+
+            // Simulate dotnet-install having already written a .version file with the FEED commit.
+            File.WriteAllText(Path.Combine(sharedFw, ".version"), "feedfeedfeed\n" + runtimeVersion + "\n");
+
+            BuildCacheClient.OverlayDotnetHome(extractDir, dotnetHome, runtimeVersion, commitSha);
+
+            var versionFileContents = File.ReadAllText(Path.Combine(sharedFw, ".version"));
+            var lines = versionFileContents.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            Assert.Equal(commitSha, lines[0]);
+            Assert.Equal(runtimeVersion, lines[1]);
+        }
+
+        [Fact]
+        public void OverlayDotnetHome_WithoutCommitSha_LeavesVersionFileUntouched()
+        {
+            var rid = BuildCacheClient.GetPlatformMoniker();
+            var (extractDir, _, _, _) = BuildFakeBcsArchive(rid, includeHost: true);
+
+            const string runtimeVersion = "11.0.0-preview.5.26256.117";
+            var dotnetHome = Path.Combine(_testDir, "dotnetHome-noversion");
+            var sharedFw = Path.Combine(dotnetHome, "shared", "Microsoft.NETCore.App", runtimeVersion);
+            Directory.CreateDirectory(sharedFw);
+
+            const string original = "feedfeedfeed\n" + "11.0.0-preview.5.26256.117\n";
+            File.WriteAllText(Path.Combine(sharedFw, ".version"), original);
+
+            BuildCacheClient.OverlayDotnetHome(extractDir, dotnetHome, runtimeVersion);
+
+            Assert.Equal(original, File.ReadAllText(Path.Combine(sharedFw, ".version")));
+        }
+
         // -------------------------------------------------------------------
         // Fake BCS archive helpers
         // -------------------------------------------------------------------

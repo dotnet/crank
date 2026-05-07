@@ -196,10 +196,11 @@ namespace Microsoft.Crank.Agent
         /// <summary>
         /// Overlays BCS runtime binaries into the agent's installed dotnet home so framework-
         /// dependent apps that load the runtime from <c>shared/Microsoft.NETCore.App/{version}/</c>
-        /// get the BCS bits at runtime.
+        /// get the BCS bits at runtime. Also rewrites the <c>.version</c> file so reporting code
+        /// that reads it (e.g., GetDependencies) picks up the BCS commit instead of the feed commit.
         /// </summary>
         /// <returns>Number of files overlaid.</returns>
-        public static int OverlayDotnetHome(string extractDir, string dotnetHome, string runtimeVersion)
+        public static int OverlayDotnetHome(string extractDir, string dotnetHome, string runtimeVersion, string commitSha = null)
         {
             if (string.IsNullOrEmpty(runtimeVersion))
             {
@@ -243,6 +244,15 @@ namespace Microsoft.Crank.Agent
 
                 // The dotnet host lives at the dotnetHome root.
                 filesCopied += CopyHostBinaryIfPresent(corehostDir, dotnetHome, GetDotnetExecutableName());
+            }
+
+            // Rewrite the .version file so anything that reads it (notably the agent's own
+            // GetDependencies / BenchmarksNetCoreAppVersion measurement) reports the BCS commit
+            // instead of the feed-installed commit. Format: "<commit-sha>\n<version>\n".
+            if (!string.IsNullOrEmpty(commitSha))
+            {
+                var versionFile = Path.Combine(sharedFrameworkDir, ".version");
+                File.WriteAllText(versionFile, $"{commitSha}\n{runtimeVersion}\n");
             }
 
             return filesCopied;

@@ -3290,6 +3290,32 @@ namespace Microsoft.Crank.Agent
 
             var dotnetDir = dotnetHome;
 
+            // Build Cache: overlay BCS bits into the freshly-installed shared framework BEFORE any
+            // metadata capture below reads the .version file. Doing it here means the Microsoft.NETCore.App
+            // metadata measurement records the BCS commit and the agent's GetDependencies pass picks up
+            // the BCS-built assemblies' AssemblyInformationalVersion. The published-output overlay still
+            // happens after publish (only that folder exists by then).
+            if (useBuildCache && buildCacheExtractDir != null)
+            {
+                try
+                {
+                    var dotnetHomeOverlay = BuildCacheClient.OverlayDotnetHome(
+                        buildCacheExtractDir, dotnetDir, runtimeVersion, buildCacheCommitSha);
+                    Log.Info($"Build Cache: Overlaid {dotnetHomeOverlay} files into dotnet home (commit {BuildCacheClient.ShortSha(buildCacheCommitSha)})");
+
+                    if (dotnetHomeOverlay == 0)
+                    {
+                        job.Error = $"Build Cache: dotnet-home overlay copied 0 files for commit {buildCacheCommitSha}.";
+                        return null;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    job.Error = $"Build Cache: dotnet-home overlay failed: {ex.Message}";
+                    return null;
+                }
+            }
+
             // Updating Job to reflect actual versions used
             job.AspNetCoreVersion = aspNetCoreVersion;
             job.RuntimeVersion = runtimeVersion;
@@ -3518,38 +3544,34 @@ namespace Microsoft.Crank.Agent
 
                 Log.Info($"Application published successfully in {job.BuildTime.TotalMilliseconds} ms");
 
-                // Build Cache: overlay BCS runtime binaries onto the just-published app and the
-                // agent's installed shared framework. We overlay BOTH targets so that:
-                //   - self-contained jobs (which load the runtime from outputFolder) see BCS bits, and
-                //   - framework-dependent jobs (which load the runtime from dotnetHome/shared/...) see BCS bits.
-                // PatchRuntimeConfig still runs with the feed-resolved runtimeVersion so runtimeconfig.json
-                // points to a real installed directory; the BCS overlay replaces the binaries inside it.
+                // Build Cache: overlay BCS runtime binaries onto the just-published app. The agent's
+                // installed shared framework was already overlaid earlier (right after install) so the
+                // .NET runtime metadata and FDD execution see BCS bits; here we cover the SCD case where
+                // the runtime ships in the publish output. PatchRuntimeConfig still runs with the
+                // feed-resolved runtimeVersion so runtimeconfig.json points to a real installed dir.
                 if (useBuildCache && buildCacheExtractDir != null)
                 {
                     var shortSha = BuildCacheClient.ShortSha(buildCacheCommitSha);
-                    int totalOverlaid;
 
+                    int publishedOverlay;
                     try
                     {
-                        var publishedOverlay = BuildCacheClient.OverlayPublishedOutput(buildCacheExtractDir, outputFolder);
-                        var dotnetHomeOverlay = BuildCacheClient.OverlayDotnetHome(buildCacheExtractDir, dotnetHome, runtimeVersion);
-                        totalOverlaid = publishedOverlay + dotnetHomeOverlay;
-
-                        Log.Info($"Build Cache: Overlaid {publishedOverlay} files into published output and " +
-                                 $"{dotnetHomeOverlay} files into dotnet home (commit {shortSha})");
+                        publishedOverlay = BuildCacheClient.OverlayPublishedOutput(buildCacheExtractDir, outputFolder);
+                        Log.Info($"Build Cache: Overlaid {publishedOverlay} files into published output (commit {shortSha})");
                     }
                     catch (Exception ex)
                     {
-                        job.Error = $"Build Cache: overlay failed: {ex.Message}";
+                        job.Error = $"Build Cache: published-output overlay failed: {ex.Message}";
                         return null;
                     }
 
-                    if (totalOverlaid == 0)
+                    // For self-contained publishes the published output must contain runtime binaries.
+                    // For framework-dependent publishes 0 is acceptable here because the dotnet-home
+                    // overlay above already placed the BCS bits in the shared framework directory.
+                    if (job.SelfContained && publishedOverlay == 0)
                     {
-                        // Silently skipping the overlay would mean the benchmark runs against the FEED runtime
-                        // instead of the BCS commit, which is the worst possible outcome for bisection. Fail.
-                        job.Error = $"Build Cache: overlay copied 0 files for commit {shortSha}. " +
-                                    "The archive layout may have changed or the platform is not supported.";
+                        job.Error = $"Build Cache: published-output overlay copied 0 files for self-contained " +
+                                    $"commit {shortSha}. The archive layout may have changed or the platform is not supported.";
                         return null;
                     }
 
