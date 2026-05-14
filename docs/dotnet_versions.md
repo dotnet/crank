@@ -55,8 +55,11 @@ When a TFM is configured, the agent will download the corresponding .NET SDK ver
 - `current`: only latest public versions, this is the default
 - `latest`: latest versions used by ASP.NET 
 - `edge`: latest nightly builds available
+- `buildcache`: runtime from the Build Cache Service (per-commit builds)
 
 The difference between `latest` and `edge` is that `latest` will pick runtimes and SDKs that are deemed compatible together. For instance a very recent .NET core runtime might be compatible with a less recent ASP.NET runtime. The `edge` is used to pick the absolute latest build for the select TFM.
+
+The `buildcache` channel uses the Build Cache Service (BCS) from `dotnet-performance-infra` to resolve runtime versions by individual commit SHA rather than from VMR feeds. This provides much finer-grained control — every cached runtime commit is available, whereas VMR feeds may have multi-day gaps between ingested commits. SDK and ASP.NET Core versions are resolved from `latest` when using `buildcache`.
 
 In order to benchmark and ASP.NET application using very recent runtimes of .NET 5, the `latest` channel is recommended:
 
@@ -116,3 +119,51 @@ The following command uses the `edge` channel but ASP.NET is fixed so it doesn't
 ```
 > crank --config /crank/samples/hello/hello.benchmarks.yml --scenario hello --profile local --application.framework netcoreapp5.0 --application.channel edge --application.aspnetCoreVersion 5.0.0-preview.6.20279.12
 ```
+
+## Using the Build Cache channel
+
+The `buildcache` channel resolves the .NET runtime from the Build Cache Service (BCS), which caches pre-built runtime binaries for individual commits. This is useful for performance regression bisection where VMR feed gaps make it hard to pinpoint which commit caused a regression.
+
+### Basic usage (latest cached build on main)
+
+```
+> crank --config benchmarks.yml --scenario json --profile aspnet-perf-lin --application.channel buildcache
+```
+
+### Specific commit SHA
+
+```
+> crank --config benchmarks.yml --scenario json --profile aspnet-perf-lin --application.channel buildcache --application.buildCacheCommitSha a1b2c3d4e5f6...
+```
+
+If the commit is not found in the cache, crank will fail with an error rather than falling back.
+
+### Different branch
+
+```
+> crank --config benchmarks.yml --scenario json --profile aspnet-perf-lin --application.channel buildcache --application.buildCacheBranch release/10.0
+```
+
+### Mixed channels (BCS runtime + pinned ASP.NET)
+
+```
+> crank --config benchmarks.yml --scenario json --profile aspnet-perf-lin --application.channel buildcache --application.aspNetCoreVersion 10.0.0-preview.3.26115.7
+```
+
+### Build Cache properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `buildCacheCommitSha` | (empty) | Specific runtime commit SHA. If empty, uses the latest cached build for the branch. |
+| `buildCacheBranch` | `main` | Branch to query for the latest build. |
+| `buildCacheConfig` | (auto-detected) | BCS configuration key (e.g., `coreclr_x64_linux`). Auto-detected from agent platform. |
+
+### Agent configuration
+
+The agent supports these command-line options for BCS:
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--build-cache-base-url` | `https://pvscmdupload.z22.web.core.windows.net` | Base URL for BCS blob storage. |
+| `--build-cache-repo-name` | `runtime` | Repository name in BCS. |
+| `--build-cache-disabled` | (not set) | Disables BCS integration on this agent. |
