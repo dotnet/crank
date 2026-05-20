@@ -68,7 +68,7 @@ RUN cd /tmp \
     && make install || true
 
 # Install docker client
-ENV DOCKER_VERSION=17.09.0-ce
+ENV DOCKER_VERSION=29.4.3
 RUN cd /tmp \
     && curl "https://download.docker.com/linux/static/stable/${CPUNAME}/docker-${DOCKER_VERSION}.tgz" -o docker.tgz \
     && tar xvzf docker.tgz \
