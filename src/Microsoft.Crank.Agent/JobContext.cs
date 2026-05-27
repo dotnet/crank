@@ -32,6 +32,21 @@ namespace Microsoft.Crank.Agent
         public string DockerImage { get; set; }
         public string DockerContainerId { get; set; }
 
+        /// <summary>
+        /// Per-job isolated dotnet home used for buildcache runs. When non-null, the agent should
+        /// run the application using this root (so the BCS-overlaid runtime is loaded), and the
+        /// global dotnet home is left untouched for concurrent jobs. The directory is owned by
+        /// the job and deleted when the job completes.
+        /// </summary>
+        public string BuildCacheDotnetHome { get; set; }
+
+        /// <summary>
+        /// Temporary directory holding the extracted BCS archive for this job. Deleted at the
+        /// end of the job; the underlying archive in the parent commit directory is kept so
+        /// subsequent jobs for the same commit can reuse it without re-downloading.
+        /// </summary>
+        public string BuildCacheExtractDir { get; set; }
+
         public ulong EventPipeSessionId { get; set; }
         public Task EventPipeTask { get; set; }
         public bool EventPipeTerminated { get; set; }

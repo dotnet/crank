@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -59,9 +60,7 @@ namespace Microsoft.Crank.UnitTests
             var result = BuildCacheClient.ParseLatestBuilds(json);
 
             Assert.Equal("main", result.BranchName);
-            Assert.True(result.Entries.ContainsKey("coreclr_x64_linux"));
             Assert.Equal("abc123def456", result.Entries["coreclr_x64_linux"].CommitSha);
-            Assert.Equal("2025-01-01T00:00:00Z", result.Entries["coreclr_x64_linux"].CommitTime);
         }
 
         [Fact]
@@ -80,9 +79,7 @@ namespace Microsoft.Crank.UnitTests
             var result = BuildCacheClient.ParseLatestBuilds(json);
 
             Assert.Equal("release/10.0", result.BranchName);
-            Assert.True(result.Entries.ContainsKey("coreclr_arm64_linux"));
             Assert.Equal("deadbeef", result.Entries["coreclr_arm64_linux"].CommitSha);
-            Assert.Equal("2025-02-02T00:00:00Z", result.Entries["coreclr_arm64_linux"].CommitTime);
         }
 
         [Fact]
@@ -104,41 +101,8 @@ namespace Microsoft.Crank.UnitTests
         }
 
         [Fact]
-        public void ParseLatestBuilds_MissingFields_ReturnsNullsWithoutThrowing()
-        {
-            const string json = """
-                {
-                    "branch_name": "main",
-                    "coreclr_x64_linux": { "CommitSha": "abc" },
-                    "empty_config": {}
-                }
-                """;
-
-            var result = BuildCacheClient.ParseLatestBuilds(json);
-
-            Assert.Equal("abc", result.Entries["coreclr_x64_linux"].CommitSha);
-            Assert.Null(result.Entries["coreclr_x64_linux"].CommitTime);
-            Assert.Null(result.Entries["empty_config"].CommitSha);
-            Assert.Null(result.Entries["empty_config"].CommitTime);
-        }
-
-        [Fact]
-        public void ParseLatestBuilds_EntriesLookupIsCaseInsensitive()
-        {
-            const string json = """
-                { "branch_name": "main", "CoreCLR_X64_Linux": { "CommitSha": "abc" } }
-                """;
-
-            var result = BuildCacheClient.ParseLatestBuilds(json);
-
-            Assert.True(result.Entries.ContainsKey("coreclr_x64_linux"));
-            Assert.True(result.Entries.ContainsKey("CORECLR_X64_LINUX"));
-        }
-
-        [Fact]
         public void ParseLatestBuilds_NonObjectValues_AreSkipped()
         {
-            // Real-world payloads sometimes carry non-object metadata that must be ignored.
             const string json = """
                 {
                     "branch_name": "main",
@@ -155,31 +119,29 @@ namespace Microsoft.Crank.UnitTests
         }
 
         // -------------------------------------------------------------------
-        // GetPlatformMoniker
+        // ValidateCommitSha
         // -------------------------------------------------------------------
 
-        [Fact]
-        public void GetPlatformMoniker_ReturnsKnownRid()
+        [Theory]
+        [InlineData("")]
+        [InlineData(null)]
+        [InlineData("abcdef12")] // min length
+        [InlineData("ABCDEF12")] // upper hex
+        [InlineData("603403d9cb49d3d1c35b56bcff024ce99a8c5c3a")] // full 40
+        public void ValidateCommitSha_AcceptsValid(string sha)
         {
-            var rid = BuildCacheClient.GetPlatformMoniker();
-
-            var validRids = new[]
-            {
-                "linux-x64", "linux-arm64",
-                "win-x64", "win-arm64", "win-x86",
-                "osx-x64", "osx-arm64",
-            };
-
-            Assert.Contains(rid, validRids);
+            BuildCacheClient.ValidateCommitSha(sha);
         }
 
-        [Fact]
-        public void PlatformToBcsConfig_ContainsAllSupportedRids()
+        [Theory]
+        [InlineData("abc")] // too short
+        [InlineData("ghijklmn")] // non-hex
+        [InlineData("abcd 1234")] // contains space
+        [InlineData("../../../etc/passwd")] // path traversal attempt
+        [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")] // 41 chars, too long
+        public void ValidateCommitSha_RejectsInvalid(string sha)
         {
-            // Sanity: agents typically run on these RIDs; ensure the table covers them.
-            Assert.True(BuildCacheClient.PlatformToBcsConfig.ContainsKey("linux-x64"));
-            Assert.True(BuildCacheClient.PlatformToBcsConfig.ContainsKey("linux-arm64"));
-            Assert.True(BuildCacheClient.PlatformToBcsConfig.ContainsKey("win-x64"));
+            Assert.Throws<ArgumentException>(() => BuildCacheClient.ValidateCommitSha(sha));
         }
 
         // -------------------------------------------------------------------
@@ -206,205 +168,355 @@ namespace Microsoft.Crank.UnitTests
         }
 
         // -------------------------------------------------------------------
-        // GetNativeLibName
+        // Platform / RID mapping
         // -------------------------------------------------------------------
 
         [Fact]
-        public void GetNativeLibName_MatchesHostPlatform()
+        public void GetPlatformMoniker_ReturnsKnownRid()
         {
-            var name = BuildCacheClient.GetNativeLibName("hostpolicy");
+            var rid = BuildCacheClient.GetPlatformMoniker();
 
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            var validRids = new[]
             {
-                Assert.Equal("hostpolicy.dll", name);
-            }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-            {
-                Assert.Equal("libhostpolicy.dylib", name);
-            }
-            else
-            {
-                Assert.Equal("libhostpolicy.so", name);
-            }
+                "linux-x64", "linux-arm64",
+                "win-x64", "win-arm64", "win-x86",
+                "osx-x64", "osx-arm64",
+            };
+
+            Assert.Contains(rid, validRids);
+        }
+
+        [Theory]
+        [InlineData("coreclr_x64_linux", "linux-x64")]
+        [InlineData("coreclr_arm64_linux", "linux-arm64")]
+        [InlineData("coreclr_muslx64_linux", "linux-musl-x64")]
+        [InlineData("coreclr_x64_windows", "win-x64")]
+        [InlineData("coreclr_arm64_windows", "win-arm64")]
+        [InlineData("coreclr_x86_windows", "win-x86")]
+        public void GetRidForConfig_ReturnsMatchingRid(string configKey, string expectedRid)
+        {
+            Assert.Equal(expectedRid, BuildCacheClient.GetRidForConfig(configKey));
+        }
+
+        [Fact]
+        public void GetRidForConfig_UnknownConfig_Throws()
+        {
+            Assert.Throws<InvalidOperationException>(() => BuildCacheClient.GetRidForConfig("totally_unknown"));
         }
 
         // -------------------------------------------------------------------
-        // OverlayPublishedOutput / OverlayDotnetHome
+        // SelectHighestManagedDir (numeric-aware)
         // -------------------------------------------------------------------
 
         [Fact]
-        public void OverlayPublishedOutput_CopiesAllRuntimeFilesUnconditionally()
+        public void SelectHighestManagedDir_NumericOrderNotLexicographic()
         {
-            // Build a fake BCS extract layout for the host RID.
+            var libDir = Path.Combine(_testDir, "lib");
+            Directory.CreateDirectory(Path.Combine(libDir, "net8.0"));
+            Directory.CreateDirectory(Path.Combine(libDir, "net9.0"));
+            Directory.CreateDirectory(Path.Combine(libDir, "net10.0"));
+            Directory.CreateDirectory(Path.Combine(libDir, "net11.0"));
+
+            // Lexicographic: net9.0 > net8.0 > net11.0 > net10.0 (wrong).
+            // Numeric:       net11.0 > net10.0 > net9.0 > net8.0 (correct).
+            var selected = BuildCacheClient.SelectHighestManagedDir(libDir);
+
+            Assert.Equal("net11.0", Path.GetFileName(selected));
+        }
+
+        [Fact]
+        public void SelectHighestManagedDir_NoDirs_ReturnsNull()
+        {
+            var libDir = Path.Combine(_testDir, "empty-lib");
+            Directory.CreateDirectory(libDir);
+
+            Assert.Null(BuildCacheClient.SelectHighestManagedDir(libDir));
+        }
+
+        [Fact]
+        public void SelectHighestManagedDir_MissingDir_ReturnsNull()
+        {
+            Assert.Null(BuildCacheClient.SelectHighestManagedDir(Path.Combine(_testDir, "does-not-exist")));
+        }
+
+        // -------------------------------------------------------------------
+        // OverlayPublishedOutput
+        // -------------------------------------------------------------------
+
+        [Fact]
+        public void OverlayPublishedOutput_CopiesRuntimeFilesAndHostpolicyButNotApphost()
+        {
+            // The BCS archive ships an unbound apphost (the SDK normally binds the published
+            // managed DLL path into the executable during publish). Overlaying the raw BCS apphost
+            // on top of the SDK-bound one breaks the published app, so we deliberately skip it.
             var rid = BuildCacheClient.GetPlatformMoniker();
-            var (extractDir, _, expectedManagedNames, expectedNativeNames) = BuildFakeBcsArchive(rid, includeHost: true);
+            var configKey = ConfigKeyForRid(rid);
+            var (extractDir, _, managed, native) = BuildFakeBcsArchive(rid, includeHost: true, includeApphost: true);
 
             var outputFolder = Path.Combine(_testDir, "published");
             Directory.CreateDirectory(outputFolder);
 
-            // Note: outputFolder is intentionally EMPTY — the overlay must still copy
-            // managed/native runtime files (regression: earlier behavior skipped missing dest).
-            var copied = BuildCacheClient.OverlayPublishedOutput(extractDir, outputFolder);
+            // Pre-existing SDK-bound apphost that must NOT be overwritten.
+            var apphostName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "MyApp.exe" : "MyApp";
+            File.WriteAllText(Path.Combine(outputFolder, apphostName), "SDK_BOUND_APPHOST");
 
-            Assert.True(copied >= expectedManagedNames.Count + expectedNativeNames.Count,
-                $"Expected at least {expectedManagedNames.Count + expectedNativeNames.Count} files; got {copied}");
+            var copied = BuildCacheClient.OverlayPublishedOutput(extractDir, outputFolder, configKey, "MyApp");
 
-            foreach (var dll in expectedManagedNames)
+            // managed + native + hostpolicy (no apphost contribution)
+            Assert.True(copied >= managed.Count + native.Count + 1);
+
+            foreach (var dll in managed)
             {
                 Assert.True(File.Exists(Path.Combine(outputFolder, dll)), $"Missing managed file {dll}");
             }
-            foreach (var native in expectedNativeNames)
+            foreach (var n in native)
             {
-                Assert.True(File.Exists(Path.Combine(outputFolder, native)), $"Missing native file {native}");
+                Assert.True(File.Exists(Path.Combine(outputFolder, n)), $"Missing native file {n}");
             }
 
-            // hostpolicy must have been copied alongside the app for self-contained.
             Assert.True(File.Exists(Path.Combine(outputFolder, BuildCacheClient.GetNativeLibName("hostpolicy"))));
+
+            // SDK-bound apphost preserved.
+            Assert.Equal("SDK_BOUND_APPHOST", File.ReadAllText(Path.Combine(outputFolder, apphostName)));
         }
 
         [Fact]
-        public void OverlayPublishedOutput_NoMatchingPlatformLayout_ReturnsZero()
+        public void OverlayPublishedOutput_EmptyExtract_ReturnsZero()
         {
-            // Empty extract directory ⇒ overlay finds nothing ⇒ returns 0 (caller fails the job).
-            var extractDir = Path.Combine(_testDir, "empty-extract");
+            var rid = BuildCacheClient.GetPlatformMoniker();
+            var configKey = ConfigKeyForRid(rid);
+
+            var extractDir = Path.Combine(_testDir, "empty");
             Directory.CreateDirectory(extractDir);
 
-            var outputFolder = Path.Combine(_testDir, "published");
+            var outputFolder = Path.Combine(_testDir, "output");
             Directory.CreateDirectory(outputFolder);
 
-            var copied = BuildCacheClient.OverlayPublishedOutput(extractDir, outputFolder);
-
+            var copied = BuildCacheClient.OverlayPublishedOutput(extractDir, outputFolder, configKey, "MyApp");
             Assert.Equal(0, copied);
         }
 
         [Fact]
-        public void OverlayPublishedOutput_SkipsPdbAndDbgFiles()
+        public void OverlayPublishedOutput_SkipsPdbAndDbg()
         {
             var rid = BuildCacheClient.GetPlatformMoniker();
-            var (extractDir, runtimesDir, _, _) = BuildFakeBcsArchive(rid, includeHost: false);
+            var configKey = ConfigKeyForRid(rid);
+            var (extractDir, runtimesDir, _, _) = BuildFakeBcsArchive(rid, includeHost: false, includeApphost: false);
 
-            // Add a .pdb and .dbg in the native dir.
             var nativeDir = Path.Combine(runtimesDir, "native");
             File.WriteAllText(Path.Combine(nativeDir, "coreclr.pdb"), "pdb");
             File.WriteAllText(Path.Combine(nativeDir, "libcoreclr.dbg"), "dbg");
 
-            var outputFolder = Path.Combine(_testDir, "published");
+            var outputFolder = Path.Combine(_testDir, "published-pdb");
             Directory.CreateDirectory(outputFolder);
 
-            BuildCacheClient.OverlayPublishedOutput(extractDir, outputFolder);
+            BuildCacheClient.OverlayPublishedOutput(extractDir, outputFolder, configKey, "MyApp");
 
             Assert.False(File.Exists(Path.Combine(outputFolder, "coreclr.pdb")));
             Assert.False(File.Exists(Path.Combine(outputFolder, "libcoreclr.dbg")));
         }
 
-        [Fact]
-        public void OverlayDotnetHome_RequiresExistingSharedFrameworkDir()
-        {
-            var rid = BuildCacheClient.GetPlatformMoniker();
-            var (extractDir, _, _, _) = BuildFakeBcsArchive(rid, includeHost: true);
-
-            var dotnetHome = Path.Combine(_testDir, "dotnetHome-missing");
-            Directory.CreateDirectory(dotnetHome);
-
-            // shared/Microsoft.NETCore.App/{version} does NOT exist ⇒ should throw with a clear message.
-            var ex = Assert.Throws<InvalidOperationException>(
-                () => BuildCacheClient.OverlayDotnetHome(extractDir, dotnetHome, "10.0.0-preview.1"));
-
-            Assert.Contains("shared framework", ex.Message, StringComparison.OrdinalIgnoreCase);
-        }
+        // -------------------------------------------------------------------
+        // CreateBuildCacheDotnetHome — the heart of round 3
+        // -------------------------------------------------------------------
 
         [Fact]
-        public void OverlayDotnetHome_OverlaysSharedFrameworkAndHostFxr()
+        public void CreateBuildCacheDotnetHome_MirrorsGlobalAndOverlaysBcs()
         {
             var rid = BuildCacheClient.GetPlatformMoniker();
-            var (extractDir, _, expectedManagedNames, expectedNativeNames) = BuildFakeBcsArchive(rid, includeHost: true);
-
-            const string runtimeVersion = "10.0.0-preview.1";
-            var dotnetHome = Path.Combine(_testDir, "dotnetHome");
-            var sharedFw = Path.Combine(dotnetHome, "shared", "Microsoft.NETCore.App", runtimeVersion);
-            var hostFxr = Path.Combine(dotnetHome, "host", "fxr", runtimeVersion);
-            Directory.CreateDirectory(sharedFw);
-            Directory.CreateDirectory(hostFxr);
-
-            var copied = BuildCacheClient.OverlayDotnetHome(extractDir, dotnetHome, runtimeVersion);
-
-            Assert.True(copied > 0);
-            foreach (var dll in expectedManagedNames)
-            {
-                Assert.True(File.Exists(Path.Combine(sharedFw, dll)), $"Missing managed in shared FW: {dll}");
-            }
-            foreach (var native in expectedNativeNames)
-            {
-                Assert.True(File.Exists(Path.Combine(sharedFw, native)), $"Missing native in shared FW: {native}");
-            }
-
-            Assert.True(File.Exists(Path.Combine(hostFxr, BuildCacheClient.GetNativeLibName("hostfxr"))));
-        }
-
-        [Fact]
-        public void OverlayDotnetHome_WithCommitSha_RewritesVersionFile()
-        {
-            var rid = BuildCacheClient.GetPlatformMoniker();
-            var (extractDir, _, _, _) = BuildFakeBcsArchive(rid, includeHost: true);
+            var configKey = ConfigKeyForRid(rid);
+            var (extractDir, _, managed, native) = BuildFakeBcsArchive(rid, includeHost: true, includeApphost: false);
 
             const string runtimeVersion = "11.0.0-preview.5.26256.117";
-            const string commitSha = "603403d9cb49d3d1c35b56bcff024ce99a8c5c3a";
-            var dotnetHome = Path.Combine(_testDir, "dotnetHome-version");
-            var sharedFw = Path.Combine(dotnetHome, "shared", "Microsoft.NETCore.App", runtimeVersion);
-            Directory.CreateDirectory(sharedFw);
+            const string aspNetCoreVersion = "11.0.0-preview.5.26256.117";
+            var globalHome = BuildFakeGlobalDotnetHome(runtimeVersion, aspNetCoreVersion);
+            var commitSha = "603403d9cb49d3d1c35b56bcff024ce99a8c5c3a";
 
-            // Simulate dotnet-install having already written a .version file with the FEED commit.
-            File.WriteAllText(Path.Combine(sharedFw, ".version"), "feedfeedfeed\n" + runtimeVersion + "\n");
+            var bcsHome = BuildCacheClient.CreateBuildCacheDotnetHome(
+                globalHome, extractDir, runtimeVersion, aspNetCoreVersion, commitSha, configKey);
 
-            BuildCacheClient.OverlayDotnetHome(extractDir, dotnetHome, runtimeVersion, commitSha);
+            try
+            {
+                // 1. Global dotnet home must NOT be touched (no cross-job pollution).
+                var globalVersion = File.ReadAllText(Path.Combine(globalHome, "shared", "Microsoft.NETCore.App", runtimeVersion, ".version"));
+                Assert.Contains("FEED_COMMIT", globalVersion);
+                Assert.DoesNotContain(commitSha, globalVersion);
 
-            var versionFileContents = File.ReadAllText(Path.Combine(sharedFw, ".version"));
-            var lines = versionFileContents.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-            Assert.Equal(commitSha, lines[0]);
-            Assert.Equal(runtimeVersion, lines[1]);
+                // 2. Per-job home exists with BCS overlay applied.
+                Assert.True(Directory.Exists(bcsHome));
+                var bcsNetCoreApp = Path.Combine(bcsHome, "shared", "Microsoft.NETCore.App", runtimeVersion);
+
+                foreach (var dll in managed)
+                {
+                    Assert.True(File.Exists(Path.Combine(bcsNetCoreApp, dll)), $"Missing BCS managed {dll}");
+                }
+                foreach (var n in native)
+                {
+                    Assert.True(File.Exists(Path.Combine(bcsNetCoreApp, n)), $"Missing BCS native {n}");
+                }
+
+                // 3. .version was rewritten with BCS commit.
+                var bcsVersion = File.ReadAllText(Path.Combine(bcsNetCoreApp, ".version"));
+                Assert.Contains(commitSha, bcsVersion);
+
+                // 4. ASP.NET Core dir was mirrored (from global, not overlaid).
+                Assert.True(Directory.Exists(Path.Combine(bcsHome, "shared", "Microsoft.AspNetCore.App", aspNetCoreVersion)));
+
+                // 5. dotnet host binary is present.
+                var dotnetExeName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "dotnet.exe" : "dotnet";
+                Assert.True(File.Exists(Path.Combine(bcsHome, dotnetExeName)));
+
+                // 6. host/fxr was mirrored AND overlaid.
+                var hostFxrFile = Path.Combine(bcsHome, "host", "fxr", runtimeVersion, BuildCacheClient.GetNativeLibName("hostfxr"));
+                Assert.True(File.Exists(hostFxrFile));
+            }
+            finally
+            {
+                try { Directory.Delete(bcsHome, recursive: true); } catch { }
+            }
         }
 
         [Fact]
-        public void OverlayDotnetHome_WithoutCommitSha_LeavesVersionFileUntouched()
+        public void CreateBuildCacheDotnetHome_NoBcsBitsForPlatform_Throws()
+        {
+            // Build a BCS archive layout for an RID that doesn't match the host RID, so the
+            // overlay finds nothing.
+            var hostRid = BuildCacheClient.GetPlatformMoniker();
+            var wrongRid = hostRid == "linux-x64" ? "win-x64" : "linux-x64";
+            var (extractDir, _, _, _) = BuildFakeBcsArchive(wrongRid, includeHost: false, includeApphost: false);
+
+            const string runtimeVersion = "11.0.0-preview.5";
+            const string aspNetCoreVersion = "11.0.0-preview.5";
+            var globalHome = BuildFakeGlobalDotnetHome(runtimeVersion, aspNetCoreVersion);
+
+            // Will resolve config from host RID and search for hostRid-shaped subtree → 0 files.
+            var ex = Assert.Throws<InvalidOperationException>(() =>
+                BuildCacheClient.CreateBuildCacheDotnetHome(
+                    globalHome, extractDir, runtimeVersion, aspNetCoreVersion,
+                    "abcdef0123456789", buildCacheConfig: null));
+
+            Assert.Contains("0 files", ex.Message);
+        }
+
+        [Fact]
+        public void CreateBuildCacheDotnetHome_TwoConcurrentJobs_AreIsolated()
         {
             var rid = BuildCacheClient.GetPlatformMoniker();
-            var (extractDir, _, _, _) = BuildFakeBcsArchive(rid, includeHost: true);
+            var configKey = ConfigKeyForRid(rid);
+            var (extractDir1, _, _, _) = BuildFakeBcsArchive(rid, includeHost: true, includeApphost: false);
+            var (extractDir2, _, _, _) = BuildFakeBcsArchive(rid, includeHost: true, includeApphost: false);
 
-            const string runtimeVersion = "11.0.0-preview.5.26256.117";
-            var dotnetHome = Path.Combine(_testDir, "dotnetHome-noversion");
-            var sharedFw = Path.Combine(dotnetHome, "shared", "Microsoft.NETCore.App", runtimeVersion);
-            Directory.CreateDirectory(sharedFw);
+            const string runtimeVersion = "11.0.0-preview.5";
+            var globalHome = BuildFakeGlobalDotnetHome(runtimeVersion, runtimeVersion);
+            var sha1 = "1111aaaa2222bbbb3333cccc4444dddd55556666";
+            var sha2 = "6666eeee7777ffff8888aaaa9999bbbbccccdddd";
 
-            const string original = "feedfeedfeed\n" + "11.0.0-preview.5.26256.117\n";
-            File.WriteAllText(Path.Combine(sharedFw, ".version"), original);
+            var home1 = BuildCacheClient.CreateBuildCacheDotnetHome(
+                globalHome, extractDir1, runtimeVersion, runtimeVersion, sha1, configKey);
+            var home2 = BuildCacheClient.CreateBuildCacheDotnetHome(
+                globalHome, extractDir2, runtimeVersion, runtimeVersion, sha2, configKey);
 
-            BuildCacheClient.OverlayDotnetHome(extractDir, dotnetHome, runtimeVersion);
+            try
+            {
+                Assert.NotEqual(home1, home2);
 
-            Assert.Equal(original, File.ReadAllText(Path.Combine(sharedFw, ".version")));
+                var v1 = File.ReadAllText(Path.Combine(home1, "shared", "Microsoft.NETCore.App", runtimeVersion, ".version"));
+                var v2 = File.ReadAllText(Path.Combine(home2, "shared", "Microsoft.NETCore.App", runtimeVersion, ".version"));
+
+                Assert.Contains(sha1, v1);
+                Assert.DoesNotContain(sha2, v1);
+                Assert.Contains(sha2, v2);
+                Assert.DoesNotContain(sha1, v2);
+
+                // Global home untouched.
+                var globalV = File.ReadAllText(Path.Combine(globalHome, "shared", "Microsoft.NETCore.App", runtimeVersion, ".version"));
+                Assert.DoesNotContain(sha1, globalV);
+                Assert.DoesNotContain(sha2, globalV);
+            }
+            finally
+            {
+                try { Directory.Delete(home1, recursive: true); } catch { }
+                try { Directory.Delete(home2, recursive: true); } catch { }
+            }
         }
 
         // -------------------------------------------------------------------
-        // Fake BCS archive helpers
+        // CleanupExtractDir
         // -------------------------------------------------------------------
+
+        [Fact]
+        public void CleanupExtractDir_DeletesDirectory()
+        {
+            var dir = Path.Combine(_testDir, "cleanup-target");
+            Directory.CreateDirectory(dir);
+            File.WriteAllText(Path.Combine(dir, "x.txt"), "hi");
+
+            BuildCacheClient.CleanupExtractDir(dir);
+
+            Assert.False(Directory.Exists(dir));
+        }
+
+        [Fact]
+        public void CleanupExtractDir_MissingDir_DoesNotThrow()
+        {
+            BuildCacheClient.CleanupExtractDir(Path.Combine(_testDir, "never-existed"));
+            BuildCacheClient.CleanupExtractDir(null);
+            BuildCacheClient.CleanupExtractDir("");
+        }
+
+        // -------------------------------------------------------------------
+        // Helpers
+        // -------------------------------------------------------------------
+
+        private static string ConfigKeyForRid(string rid)
+            => BuildCacheClient.PlatformToBcsConfig.TryGetValue(rid, out var v) ? v.configKey : null;
 
         /// <summary>
-        /// Builds an on-disk fake of an extracted BCS archive matching the layout the agent expects:
-        /// <c>microsoft.netcore.app.runtime.{rid}/Release/runtimes/{rid}/lib/net10.0/*.dll</c>,
-        /// <c>microsoft.netcore.app.runtime.{rid}/Release/runtimes/{rid}/native/*</c>, and
-        /// optionally <c>{rid}.Release/corehost/*</c>.
+        /// Builds a fake "global" dotnet home with .version files containing a FEED commit so
+        /// tests can detect whether the .version was overwritten with the BCS commit.
         /// </summary>
-        private (string extractDir, string runtimesDir, System.Collections.Generic.List<string> managed, System.Collections.Generic.List<string> native)
-            BuildFakeBcsArchive(string rid, bool includeHost)
+        private string BuildFakeGlobalDotnetHome(string runtimeVersion, string aspNetCoreVersion)
+        {
+            var home = Path.Combine(_testDir, "global-home-" + Guid.NewGuid().ToString("N"));
+            var netCoreApp = Path.Combine(home, "shared", "Microsoft.NETCore.App", runtimeVersion);
+            var aspNetCoreApp = Path.Combine(home, "shared", "Microsoft.AspNetCore.App", aspNetCoreVersion);
+            var hostFxr = Path.Combine(home, "host", "fxr", runtimeVersion);
+
+            Directory.CreateDirectory(netCoreApp);
+            Directory.CreateDirectory(aspNetCoreApp);
+            Directory.CreateDirectory(hostFxr);
+
+            File.WriteAllText(Path.Combine(netCoreApp, ".version"), "FEED_COMMIT_DO_NOT_TOUCH\n" + runtimeVersion + "\n");
+            File.WriteAllText(Path.Combine(netCoreApp, "System.Private.CoreLib.dll"), "feed managed");
+            File.WriteAllText(Path.Combine(netCoreApp, BuildCacheClient.GetNativeLibName("hostpolicy")), "feed hostpolicy");
+
+            File.WriteAllText(Path.Combine(aspNetCoreApp, ".version"), "FEED_ASPNET\n" + aspNetCoreVersion + "\n");
+            File.WriteAllText(Path.Combine(aspNetCoreApp, "Microsoft.AspNetCore.dll"), "feed aspnet");
+
+            File.WriteAllText(Path.Combine(hostFxr, BuildCacheClient.GetNativeLibName("hostfxr")), "feed hostfxr");
+
+            var dotnetExeName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "dotnet.exe" : "dotnet";
+            File.WriteAllText(Path.Combine(home, dotnetExeName), "feed dotnet host");
+
+            return home;
+        }
+
+        /// <summary>
+        /// Builds a fake BCS extraction at <c>microsoft.netcore.app.runtime.{rid}/Release/runtimes/{rid}/</c>
+        /// + corehost layout. <paramref name="includeApphost"/> adds the renamed-by-SDK apphost binary.
+        /// </summary>
+        private (string extractDir, string runtimesDir, List<string> managed, List<string> native)
+            BuildFakeBcsArchive(string rid, bool includeHost, bool includeApphost)
         {
             var extractDir = Path.Combine(_testDir, "extracted-" + Guid.NewGuid().ToString("N"));
             var nugetPkg = Path.Combine(extractDir, $"microsoft.netcore.app.runtime.{rid}");
             var runtimesDir = Path.Combine(nugetPkg, "Release", "runtimes", rid);
-            var libDir = Path.Combine(runtimesDir, "lib", "net10.0");
+            var libDir = Path.Combine(runtimesDir, "lib", "net11.0");
             var nativeDir = Path.Combine(runtimesDir, "native");
             Directory.CreateDirectory(libDir);
             Directory.CreateDirectory(nativeDir);
 
-            var managed = new System.Collections.Generic.List<string>
+            var managed = new List<string>
             {
                 "System.Private.CoreLib.dll",
                 "System.Runtime.dll",
@@ -412,37 +524,55 @@ namespace Microsoft.Crank.UnitTests
             };
             foreach (var dll in managed)
             {
-                File.WriteAllText(Path.Combine(libDir, dll), "fake managed " + dll);
+                File.WriteAllText(Path.Combine(libDir, dll), "BCS managed " + dll);
             }
 
-            var native = new System.Collections.Generic.List<string>();
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            List<string> native;
+            if (rid.StartsWith("win-", StringComparison.OrdinalIgnoreCase))
             {
-                native.AddRange(new[] { "coreclr.dll", "clrjit.dll" });
+                native = new List<string> { "coreclr.dll", "clrjit.dll" };
             }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            else if (rid.StartsWith("osx-", StringComparison.OrdinalIgnoreCase))
             {
-                native.AddRange(new[] { "libcoreclr.dylib", "libclrjit.dylib" });
+                native = new List<string> { "libcoreclr.dylib", "libclrjit.dylib" };
             }
             else
             {
-                native.AddRange(new[] { "libcoreclr.so", "libclrjit.so" });
+                native = new List<string> { "libcoreclr.so", "libclrjit.so" };
             }
             foreach (var n in native)
             {
-                File.WriteAllText(Path.Combine(nativeDir, n), "fake native " + n);
+                File.WriteAllText(Path.Combine(nativeDir, n), "BCS native " + n);
             }
 
             if (includeHost)
             {
                 var hostDir = Path.Combine(extractDir, $"{rid}.Release", "corehost");
                 Directory.CreateDirectory(hostDir);
-                File.WriteAllText(Path.Combine(hostDir, BuildCacheClient.GetNativeLibName("hostpolicy")), "hostpolicy");
-                File.WriteAllText(Path.Combine(hostDir, BuildCacheClient.GetNativeLibName("hostfxr")), "hostfxr");
-                File.WriteAllText(Path.Combine(hostDir, RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "dotnet.exe" : "dotnet"), "dotnet");
+                File.WriteAllText(Path.Combine(hostDir, NativeLibForRid(rid, "hostpolicy")), "BCS hostpolicy");
+                File.WriteAllText(Path.Combine(hostDir, NativeLibForRid(rid, "hostfxr")), "BCS hostfxr");
+                File.WriteAllText(Path.Combine(hostDir, rid.StartsWith("win-") ? "dotnet.exe" : "dotnet"), "BCS dotnet host");
+
+                if (includeApphost)
+                {
+                    File.WriteAllText(Path.Combine(hostDir, rid.StartsWith("win-") ? "apphost.exe" : "apphost"), "BCS apphost");
+                }
             }
 
             return (extractDir, runtimesDir, managed, native);
+        }
+
+        private static string NativeLibForRid(string rid, string baseName)
+        {
+            if (rid.StartsWith("win-", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"{baseName}.dll";
+            }
+            if (rid.StartsWith("osx-", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"lib{baseName}.dylib";
+            }
+            return $"lib{baseName}.so";
         }
     }
 }

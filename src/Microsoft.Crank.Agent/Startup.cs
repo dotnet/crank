@@ -1039,7 +1039,7 @@ namespace Microsoft.Crank.Agent
                                     {
                                         buildAndRunTask = Task.Run(async () =>
                                         {
-                                            benchmarksDir = await CloneRestoreAndBuild(tempDir, job, _dotnethome, cts.Token);
+                                            benchmarksDir = await CloneRestoreAndBuild(tempDir, job, _dotnethome, context, cts.Token);
 
                                             if (benchmarksDir == null)
                                             {
@@ -1051,7 +1051,10 @@ namespace Microsoft.Crank.Agent
                                             {
                                                 try
                                                 {
-                                                    process = await StartProcess(hostname, Path.Combine(tempDir, benchmarksDir), job, _dotnethome, context);
+                                                    // For buildcache jobs the per-job isolated dotnet home holds the
+                                                    // BCS-overlaid runtime; run against it instead of the global home.
+                                                    var runtimeDotnetHome = context.BuildCacheDotnetHome ?? _dotnethome;
+                                                    process = await StartProcess(hostname, Path.Combine(tempDir, benchmarksDir), job, runtimeDotnetHome, context);
 
                                                     Log.Info($"Process started: {job.ProcessId}");
 
@@ -1932,6 +1935,22 @@ namespace Microsoft.Crank.Agent
 
                                         // Delete application folder
                                         await TryDeleteDirAsync(tempDir);
+                                    }
+
+                                    // Build Cache: clean up per-job extracted artifacts and the isolated
+                                    // dotnet home so concurrent / future jobs do not see stale state and
+                                    // /tmp does not accumulate multi-GB extracts.
+                                    if (_cleanup && !job.NoClean)
+                                    {
+                                        BuildCacheClient.CleanupExtractDir(context.BuildCacheExtractDir);
+
+                                        if (!string.IsNullOrEmpty(context.BuildCacheDotnetHome))
+                                        {
+                                            await TryDeleteDirAsync(context.BuildCacheDotnetHome);
+                                        }
+
+                                        context.BuildCacheExtractDir = null;
+                                        context.BuildCacheDotnetHome = null;
                                     }
 
                                     // Delete temporary attachment files
@@ -2856,7 +2875,7 @@ namespace Microsoft.Crank.Agent
             }
         }
 
-        private static async Task<string> CloneRestoreAndBuild(string path, Job job, string dotnetHome, CancellationToken cancellationToken = default)
+        private static async Task<string> CloneRestoreAndBuild(string path, Job job, string dotnetHome, JobContext jobContext = null, CancellationToken cancellationToken = default)
         {
             var reuseFolder = await RetrieveSourcesAsync(job, path);
 
@@ -3290,28 +3309,40 @@ namespace Microsoft.Crank.Agent
 
             var dotnetDir = dotnetHome;
 
-            // Build Cache: overlay BCS bits into the freshly-installed shared framework BEFORE any
-            // metadata capture below reads the .version file. Doing it here means the Microsoft.NETCore.App
-            // metadata measurement records the BCS commit and the agent's GetDependencies pass picks up
-            // the BCS-built assemblies' AssemblyInformationalVersion. The published-output overlay still
-            // happens after publish (only that folder exists by then).
+            // Build Cache: build a per-job dotnet home that contains BCS-overlaid runtime + asp.net
+            // + host. We DO NOT mutate the global dotnet home — concurrent jobs and subsequent
+            // non-buildcache jobs must remain unaffected. The publish step continues to use the
+            // global dotnetDir (it has the SDK); only the runtime-resolution paths (metadata
+            // reading, crossgen/symbols emit, StartProcess) point at the per-job home.
+            var runtimeHomeDir = dotnetDir;
+
             if (useBuildCache && buildCacheExtractDir != null)
             {
                 try
                 {
-                    var dotnetHomeOverlay = BuildCacheClient.OverlayDotnetHome(
-                        buildCacheExtractDir, dotnetDir, runtimeVersion, buildCacheCommitSha);
-                    Log.Info($"Build Cache: Overlaid {dotnetHomeOverlay} files into dotnet home (commit {BuildCacheClient.ShortSha(buildCacheCommitSha)})");
+                    var bcsHome = BuildCacheClient.CreateBuildCacheDotnetHome(
+                        dotnetDir,
+                        buildCacheExtractDir,
+                        runtimeVersion,
+                        aspNetCoreVersion,
+                        buildCacheCommitSha,
+                        job.BuildCacheConfig);
 
-                    if (dotnetHomeOverlay == 0)
+                    runtimeHomeDir = bcsHome;
+
+                    // Stash on the JobContext so StartProcess uses this isolated home (FDD) and
+                    // so the cleanup pass at job end can delete it.
+                    if (jobContext != null)
                     {
-                        job.Error = $"Build Cache: dotnet-home overlay copied 0 files for commit {buildCacheCommitSha}.";
-                        return null;
+                        jobContext.BuildCacheDotnetHome = bcsHome;
+                        jobContext.BuildCacheExtractDir = buildCacheExtractDir;
                     }
+
+                    Log.Info($"Build Cache: Isolated dotnet home: {bcsHome}");
                 }
                 catch (Exception ex)
                 {
-                    job.Error = $"Build Cache: dotnet-home overlay failed: {ex.Message}";
+                    job.Error = $"Build Cache: failed to build isolated dotnet home: {ex.Message}";
                     return null;
                 }
             }
@@ -3349,7 +3380,7 @@ namespace Microsoft.Crank.Agent
             {
                 try
                 {
-                    var aspNetCoreVersionFileName = Path.Combine(dotnetDir, "shared", "Microsoft.AspNetCore.App", aspNetCoreVersion, ".version");
+                    var aspNetCoreVersionFileName = Path.Combine(runtimeHomeDir, "shared", "Microsoft.AspNetCore.App", aspNetCoreVersion, ".version");
                     (_, var aspnetCoreCommitHash) = await ParseLatestVersionFile(aspNetCoreVersionFileName);
 
                     job.Metadata.Enqueue(new MeasurementMetadata
@@ -3382,7 +3413,7 @@ namespace Microsoft.Crank.Agent
             {
                 try
                 {
-                    var netCoreAppVersionFileName = Path.Combine(dotnetDir, "shared", "Microsoft.NETCore.App", runtimeVersion, ".version");
+                    var netCoreAppVersionFileName = Path.Combine(runtimeHomeDir, "shared", "Microsoft.NETCore.App", runtimeVersion, ".version");
                     (_, var netCoreAppCommitHash) = await ParseLatestVersionFile(netCoreAppVersionFileName);
 
                     job.Metadata.Enqueue(new MeasurementMetadata
@@ -3544,11 +3575,11 @@ namespace Microsoft.Crank.Agent
 
                 Log.Info($"Application published successfully in {job.BuildTime.TotalMilliseconds} ms");
 
-                // Build Cache: overlay BCS runtime binaries onto the just-published app. The agent's
-                // installed shared framework was already overlaid earlier (right after install) so the
-                // .NET runtime metadata and FDD execution see BCS bits; here we cover the SCD case where
-                // the runtime ships in the publish output. PatchRuntimeConfig still runs with the
-                // feed-resolved runtimeVersion so runtimeconfig.json points to a real installed dir.
+                // Build Cache: overlay BCS runtime binaries onto the just-published app. The
+                // per-job dotnet home was built earlier (used for FDD execution + metadata);
+                // here we cover the SCD case where the runtime ships in the publish output.
+                // PatchRuntimeConfig still runs with the feed-resolved runtimeVersion so
+                // runtimeconfig.json points to a real installed shared-framework dir.
                 if (useBuildCache && buildCacheExtractDir != null)
                 {
                     var shortSha = BuildCacheClient.ShortSha(buildCacheCommitSha);
@@ -3556,7 +3587,15 @@ namespace Microsoft.Crank.Agent
                     int publishedOverlay;
                     try
                     {
-                        publishedOverlay = BuildCacheClient.OverlayPublishedOutput(buildCacheExtractDir, outputFolder);
+                        var publishProjectFileName = Path.Combine(benchmarkedApp, FormatPathSeparators(job.Project));
+                        var assemblyName = GetAssemblyName(job, publishProjectFileName);
+
+                        publishedOverlay = BuildCacheClient.OverlayPublishedOutput(
+                            buildCacheExtractDir,
+                            outputFolder,
+                            job.BuildCacheConfig,
+                            assemblyName);
+
                         Log.Info($"Build Cache: Overlaid {publishedOverlay} files into published output (commit {shortSha})");
                     }
                     catch (Exception ex)
@@ -3565,9 +3604,9 @@ namespace Microsoft.Crank.Agent
                         return null;
                     }
 
-                    // For self-contained publishes the published output must contain runtime binaries.
-                    // For framework-dependent publishes 0 is acceptable here because the dotnet-home
-                    // overlay above already placed the BCS bits in the shared framework directory.
+                    // For self-contained publishes the published output must contain runtime binaries
+                    // (managed + native + apphost). For framework-dependent publishes 0 is acceptable
+                    // here because the per-job dotnet home already provides BCS bits at runtime.
                     if (job.SelfContained && publishedOverlay == 0)
                     {
                         job.Error = $"Build Cache: published-output overlay copied 0 files for self-contained " +
@@ -3678,7 +3717,7 @@ namespace Microsoft.Crank.Agent
                             {
                                 var crossgenFolder = job.SelfContained
                                     ? outputFolder
-                                    : Path.Combine(dotnetDir, "shared", "Microsoft.NETCore.App", runtimeVersion)
+                                    : Path.Combine(runtimeHomeDir, "shared", "Microsoft.NETCore.App", runtimeVersion)
                                     ;
 
                                 var crossgenFilename = Path.Combine(crossgenFolder, "crossgen");
@@ -3706,7 +3745,7 @@ namespace Microsoft.Crank.Agent
 
                 var symbolsFolder = job.SelfContained
                     ? outputFolder
-                    : Path.Combine(dotnetDir, "shared", "Microsoft.NETCore.App", runtimeVersion)
+                    : Path.Combine(runtimeHomeDir, "shared", "Microsoft.NETCore.App", runtimeVersion)
                     ;
 
                 // dotnet symbol --symbols --output mySymbols  /usr/share/dotnet/shared/Microsoft.NETCore.App/2.1.0/lib*.so

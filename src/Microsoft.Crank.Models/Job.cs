@@ -404,7 +404,10 @@ namespace Microsoft.Crank.Models
                 DockerPull = DockerPull,
                 DockerFile = DockerFile,
                 DockerImageName = DockerImageName,
-                DockerContextDirectory = DockerContextDirectory
+                DockerContextDirectory = DockerContextDirectory,
+                BuildCacheCommitSha = BuildCacheCommitSha,
+                BuildCacheBranch = BuildCacheBranch,
+                BuildCacheConfig = BuildCacheConfig
             };
         }
 
@@ -513,5 +516,8 @@ namespace Microsoft.Crank.Models
         public string DockerFile { get; set; }
         public string DockerImageName { get; set; }
         public string DockerContextDirectory { get; set; }
+        public string BuildCacheCommitSha { get; set; }
+        public string BuildCacheBranch { get; set; }
+        public string BuildCacheConfig { get; set; }
     }
 }
