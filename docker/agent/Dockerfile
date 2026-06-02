@@ -40,7 +40,13 @@ RUN apt-get update \
         zlib1g-dev \
         libkrb5-dev \
         # .NET 9.0 requirement
-        libc6 
+        libc6 \
+        # perfcollect LTTng user-space tracepoints for .NET runtime events.
+        # Installed before the sid repos are added below so apt resolves these
+        # against the stable bookworm suite. perfcollect's own installer is a
+        # no-op on Ubuntu 22+ hosts.
+        lttng-tools \
+        liblttng-ust-dev 
 
 # Install HTTP/3 support
 RUN curl -LO https://packages.microsoft.com/keys/microsoft.asc && \

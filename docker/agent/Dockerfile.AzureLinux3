@@ -37,7 +37,10 @@ RUN tdnf update -y \
         zlib-devel \
         krb5-devel \
         # .NET 9.0 requirement
-        glibc
+        glibc \
+        # perfcollect LTTng user-space tracepoints for .NET runtime events.
+        lttng-tools \
+        lttng-ust-devel
 
 # Install HTTP/3 support
 RUN tdnf install -y libmsquic
