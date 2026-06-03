@@ -6486,7 +6486,16 @@ namespace Microsoft.Crank.Agent
                 Log.Info($"dotnet-trace installed: {reported}");
                 if (!reported.Contains(DotnetTraceVersion, StringComparison.Ordinal))
                 {
-                    Log.Warning($"dotnet-trace reported version '{reported}' does not contain pinned '{DotnetTraceVersion}'. Proceeding anyway.");
+                    // Hard fail: a pinned-version install with a mismatched runtime
+                    // version is a "we don't know what we have" situation. Usually
+                    // means the tool-path was pre-populated with a different
+                    // dotnet-trace by an earlier agent run on a different pin.
+                    // Reset the cached path so a manual cleanup of `toolPath` lets
+                    // the next attempt re-run the installer.
+                    _dotnetTracePath = null;
+                    throw new InvalidOperationException(
+                        $"dotnet-trace reported version '{reported}' does not contain the pinned '{DotnetTraceVersion}'. " +
+                        $"Delete '{toolPath}' and retry, or update DotnetTraceVersion to match.");
                 }
 
                 _dotnetTracePath = binPath;
@@ -6666,7 +6675,7 @@ namespace Microsoft.Crank.Agent
             }
 
             var tokens = (job.DotNetTraceProviders ?? string.Empty)
-                .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                .Split(new[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(t => t.Trim())
                 .Where(t => !string.IsNullOrEmpty(t))
                 .ToList();
@@ -6688,11 +6697,21 @@ namespace Microsoft.Crank.Agent
                     profiles.Add(token);
                     return;
                 }
-                // Treat as a CLR keyword expression (single or `+`-joined).
-                foreach (var p in token.Split('+', StringSplitOptions.RemoveEmptyEntries))
+                // CLR keyword expression -- single keyword or `+`-joined list.
+                // Only classify as --clrevents if EVERY part is a known CLR
+                // keyword; the dotnet-trace CLI rejects unknown keywords on
+                // --clrevents (TreatUnmatchedTokensAsErrors=true). Otherwise
+                // fall through to --providers, which accepts bare provider
+                // names such as `Microsoft-DotNETCore-SampleProfiler`.
+                if (TraceExtensions.IsRecognizedClrKeywordExpression(token))
                 {
-                    clrEventParts.Add(p);
+                    foreach (var p in token.Split('+', StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        clrEventParts.Add(p);
+                    }
+                    return;
                 }
+                providerSpecs.Add(token);
             }
 
             if (tokens.Count == 0)

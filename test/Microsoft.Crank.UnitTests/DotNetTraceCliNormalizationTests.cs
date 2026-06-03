@@ -98,6 +98,50 @@ namespace Microsoft.Crank.UnitTests
             AssertClrEventsFlag(argv, "gc+jit");
         }
 
+        [Fact]
+        public void BuildArgs_BareProviderName_GoesToProvidersFlag()
+        {
+            // A name-only provider token (no ':' and not a profile / CLR keyword)
+            // must be routed to --providers. The dotnet-trace CLI accepts a bare
+            // provider name there; passing it through --clrevents would be rejected.
+            // Regression test for PR #3 review comment routing
+            // `Microsoft-DotNETCore-SampleProfiler` to --clrevents.
+            var (argv, _) = Startup.BuildDotnetTraceCliArgs(
+                MakeJob("Microsoft-DotNETCore-SampleProfiler"),
+                "collect-linux", FakeOutput());
+
+            AssertProvidersFlag(argv, "Microsoft-DotNETCore-SampleProfiler");
+            AssertNotPresent(argv, "--profile");
+            AssertNotPresent(argv, "--clrevents");
+        }
+
+        [Fact]
+        public void BuildArgs_PlusJoinedWithUnknownPart_RoutesToProviders()
+        {
+            // When at least one '+'-part isn't a known CLR keyword, the whole
+            // token can't be a CLR keyword expression -- the CLI's --clrevents
+            // would reject it. Route to --providers as a bare provider name.
+            var (argv, _) = Startup.BuildDotnetTraceCliArgs(
+                MakeJob("gc+Microsoft-DotNETCore-SampleProfiler"),
+                "collect-linux", FakeOutput());
+
+            AssertProvidersFlag(argv, "gc+Microsoft-DotNETCore-SampleProfiler");
+            AssertNotPresent(argv, "--clrevents");
+        }
+
+        [Fact]
+        public void BuildArgs_SpaceSeparatedTokens_AreTokenizedSeparately()
+        {
+            // Backcompat with legacy Collect() which splits DotNetTraceProviders
+            // on both ',' and ' '. Regression test for PR #3 review comment.
+            var (argv, _) = Startup.BuildDotnetTraceCliArgs(
+                MakeJob("gc-collect gc+jit"),
+                "collect-linux", FakeOutput());
+
+            AssertProfileFlag(argv, "gc-collect");
+            AssertClrEventsFlag(argv, "gc+jit");
+        }
+
         // ----- BuildDotnetTraceCliArgs: alias rewrites and grouping -----
 
         [Fact]
