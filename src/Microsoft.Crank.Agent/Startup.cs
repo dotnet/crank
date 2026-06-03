@@ -61,6 +61,16 @@ namespace Microsoft.Crank.Agent
         private const string PerfViewVersion = "v3.1.17"; // https://github.com/microsoft/perfview/releases
         private const string UltraVersion = "1.3.0"; // https://github.com/xoofx/ultra/releases
 
+        // dotnet-trace CLI version pinned for the `DotNetTraceCollectMode=collect`
+        // and `DotNetTraceCollectMode=collect-linux` paths. Must:
+        //  - Exist on nuget.org (the agent's `dotnet tool install -g` reaches the
+        //    public feed, not crank's internal dnceng feeds).
+        //  - Ship a `linux-arm64` runtime (cobalt-hosted aarch64).
+        //  - Contain the `collect-linux` verb. (First added Oct 2025; this version
+        //    is the first stable nuget.org release that carries it.)
+        // When bumping, re-verify all three.
+        private const string DotnetTraceVersion = "9.0.661903";
+
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
 
@@ -121,6 +131,8 @@ namespace Microsoft.Crank.Agent
         private static readonly string _defaultHostname = Dns.GetHostName();
         private static string _perfviewPath;
         private static string _ultraPath;
+        private static string _dotnetTracePath;
+        private static readonly SemaphoreSlim _dotnetTraceInstallLock = new(1, 1);
         private static string _dotnetInstallPath;
         private static string _localUrl;
 
@@ -5538,7 +5550,55 @@ namespace Microsoft.Crank.Agent
             job.PerfViewTraceFile = Path.Combine(job.BasePath, "trace.nettrace");
 
             dotnetTraceManualReset = new ManualResetEvent(false);
-            dotnetTraceTask = Collect(dotnetTraceManualReset, job.ActiveProcessId, new FileInfo(job.PerfViewTraceFile), job.DotNetTraceBufferSizeMB, job.DotNetTraceRequestRundown, job.DotNetTraceProviders, TimeSpan.MaxValue);
+
+            var mode = (job.DotNetTraceCollectMode ?? "default").Trim().ToLowerInvariant();
+            switch (mode)
+            {
+                case "":
+                case "default":
+                    // In-process EventPipe via DiagnosticsClient (today's behavior).
+                    dotnetTraceTask = Collect(
+                        dotnetTraceManualReset,
+                        job.ActiveProcessId,
+                        new FileInfo(job.PerfViewTraceFile),
+                        job.DotNetTraceBufferSizeMB,
+                        job.DotNetTraceRequestRundown,
+                        job.DotNetTraceProviders,
+                        TimeSpan.MaxValue);
+                    break;
+
+                case "collect":
+                    dotnetTraceTask = CollectViaDotNetTraceCliAsync(
+                        job, dotnetTraceManualReset, "collect", new FileInfo(job.PerfViewTraceFile));
+                    break;
+
+                case "collect-linux":
+                {
+                    var (ok, err) = ValidateCollectLinuxPrerequisites();
+                    if (!ok)
+                    {
+                        Log.Error(err);
+                        job.Error = string.IsNullOrEmpty(job.Error) ? err : (job.Error + Environment.NewLine + err);
+                        // Hard fail per design: no silent fallback to `collect`.
+                        dotnetTraceTask = Task.FromResult(-1);
+                        dotnetTraceManualReset.Set();
+                        break;
+                    }
+                    dotnetTraceTask = CollectViaDotNetTraceCliAsync(
+                        job, dotnetTraceManualReset, "collect-linux", new FileInfo(job.PerfViewTraceFile));
+                    break;
+                }
+
+                default:
+                {
+                    var err = $"Unknown DotNetTraceCollectMode '{job.DotNetTraceCollectMode}'. Valid values: default, collect, collect-linux.";
+                    Log.Error(err);
+                    job.Error = string.IsNullOrEmpty(job.Error) ? err : (job.Error + Environment.NewLine + err);
+                    dotnetTraceTask = Task.FromResult(-1);
+                    dotnetTraceManualReset.Set();
+                    break;
+                }
+            }
         }
 
         private static void StartUltra(Job job)
@@ -6364,6 +6424,487 @@ namespace Microsoft.Crank.Agent
             Log.Info($"Tracing finalized");
 
             return failed ? -1 : 0;
+        }
+
+        // ---- dotnet-trace CLI integration (collect / collect-linux modes) ----
+
+        // Lazy installs the pinned dotnet-trace CLI under {_rootTempDir}/dotnet-trace-tools.
+        // Idempotent and safe to call concurrently across jobs (guarded by a semaphore).
+        // Post-install runs `dotnet-trace --version` and warns if the reported version
+        // does not contain the pinned constant.
+        private static async Task EnsureDotnetTraceCliInstalledAsync()
+        {
+            await _dotnetTraceInstallLock.WaitAsync();
+            try
+            {
+                if (!string.IsNullOrEmpty(_dotnetTracePath) && File.Exists(_dotnetTracePath))
+                {
+                    return;
+                }
+
+                var toolPath = Path.Combine(_rootTempDir ?? Path.GetTempPath(), "dotnet-trace-tools");
+                Directory.CreateDirectory(toolPath);
+
+                var exeName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "dotnet-trace.exe" : "dotnet-trace";
+                var binPath = Path.Combine(toolPath, exeName);
+
+                if (!File.Exists(binPath))
+                {
+                    var dotnetExe = GetDotNetExecutable(_dotnethome);
+                    Log.Info($"Installing dotnet-trace {DotnetTraceVersion} to {toolPath}");
+
+                    var installArgs = $"tool install dotnet-trace --version {DotnetTraceVersion} --tool-path \"{toolPath}\"";
+                    var result = await ProcessUtil.RunAsync(
+                        dotnetExe,
+                        installArgs,
+                        log: true,
+                        throwOnError: false,
+                        captureOutput: true,
+                        captureError: true);
+
+                    if (result.ExitCode != 0 || !File.Exists(binPath))
+                    {
+                        throw new InvalidOperationException(
+                            $"`dotnet tool install dotnet-trace --version {DotnetTraceVersion}` failed (exit={result.ExitCode}). stderr: {result.StandardError?.Trim()}");
+                    }
+                }
+
+                var versionResult = await ProcessUtil.RunAsync(
+                    binPath, "--version",
+                    log: false,
+                    throwOnError: false,
+                    captureOutput: true,
+                    captureError: true);
+
+                if (versionResult.ExitCode != 0)
+                {
+                    throw new InvalidOperationException(
+                        $"`dotnet-trace --version` failed (exit={versionResult.ExitCode}). stderr: {versionResult.StandardError?.Trim()}");
+                }
+
+                var reported = (versionResult.StandardOutput ?? string.Empty).Trim();
+                Log.Info($"dotnet-trace installed: {reported}");
+                if (!reported.Contains(DotnetTraceVersion, StringComparison.Ordinal))
+                {
+                    Log.Warning($"dotnet-trace reported version '{reported}' does not contain pinned '{DotnetTraceVersion}'. Proceeding anyway.");
+                }
+
+                _dotnetTracePath = binPath;
+            }
+            finally
+            {
+                _dotnetTraceInstallLock.Release();
+            }
+        }
+
+        // Static prereq check for `DotNetTraceCollectMode=collect-linux`.
+        // Returns (true, null) on success, or (false, <verbatim error text>) on failure.
+        // The error text is contractual — see plan §"Container caveat for collect-linux
+        // prerequisites" for the verbatim form. **Callers must hard-fail the job on
+        // failure rather than silently substituting `collect` mode.**
+        internal static (bool ok, string error) ValidateCollectLinuxPrerequisites()
+        {
+            var osDesc = RuntimeInformation.OSDescription;
+            string kernelRaw = "unknown";
+            string euidText = "unknown";
+
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                return (false, BuildCollectLinuxPrereqError(osDesc, euidText, kernelRaw));
+            }
+
+            uint euid;
+            try
+            {
+                euid = Mono.Unix.Native.Syscall.geteuid();
+                euidText = euid.ToString(CultureInfo.InvariantCulture);
+            }
+            catch (Exception ex)
+            {
+                return (false, $"DotNetTraceCollectMode=collect-linux failed to read effective UID: {ex.Message}");
+            }
+
+            Version kernelVersion = null;
+            try
+            {
+                kernelRaw = File.ReadAllText("/proc/sys/kernel/osrelease").Trim();
+                kernelVersion = ParseKernelVersion(kernelRaw);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"Could not read /proc/sys/kernel/osrelease: {ex.Message}");
+            }
+
+            if (euid != 0)
+            {
+                return (false, BuildCollectLinuxPrereqError(osDesc, euidText, kernelRaw));
+            }
+
+            if (kernelVersion == null || kernelVersion < new Version(6, 4))
+            {
+                return (false, BuildCollectLinuxPrereqError(osDesc, euidText, kernelRaw));
+            }
+
+            return (true, null);
+        }
+
+        private static string BuildCollectLinuxPrereqError(string os, string euid, string kernel)
+        {
+            return $"DotNetTraceCollectMode=collect-linux requires Linux, root (effective UID 0), and kernel >= 6.4. Detected: OS={os}, EUID={euid}, kernel={kernel}. Set DotNetTraceCollectMode=collect to use EventPipe collection instead.";
+        }
+
+        // Parses a Linux kernel release string like "6.8.0-1018-azure" → 6.8.0
+        // Returns null on unparseable input.
+        internal static Version ParseKernelVersion(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return null;
+            }
+
+            var trimmed = raw.Trim();
+            var stopIdx = trimmed.IndexOfAny(new[] { '-', '+', ' ', '~' });
+            var leading = stopIdx >= 0 ? trimmed.Substring(0, stopIdx) : trimmed;
+            var parts = leading.Split('.');
+            if (parts.Length < 2)
+            {
+                return null;
+            }
+            if (!int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var major) ||
+                !int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var minor))
+            {
+                return null;
+            }
+
+            int patch = 0;
+            if (parts.Length >= 3)
+            {
+                int.TryParse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out patch);
+            }
+
+            return new Version(major, minor, patch);
+        }
+
+        // Legacy CLR-keyword aliases that crank rewrites on the way to the CLI.
+        // The modern dotnet-trace's ProviderUtils actually still accepts the typos and
+        // the pre-2024 names, so these rewrites are mostly cosmetic — they normalize
+        // user configs to the modern vocabulary for log readability and to give users
+        // a one-time nudge that their config is using legacy names.
+        private static readonly Dictionary<string, string> _legacyKeywordAliases =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                { "gcsampledobjectallcationhigh", "gcsampledobjectallocationhigh" },
+                { "gcsampledobjectallcationlow",  "gcsampledobjectallocationlow"  },
+                { "fusion",                       "assemblyloader"                },
+                { "gcheapcollect",                "managedheapcollect"            },
+            };
+
+        // Rewrites legacy CLR keyword aliases inside a (possibly-`+`-joined)
+        // keyword expression. Returns the rewritten expression and a list of
+        // "before→after" notes when something changed (null when nothing did).
+        // Returns the input unchanged if it looks like a provider spec (`Name:Keywords:Level`).
+        internal static string NormalizeClrEventExpression(string expression, out List<string> notes)
+        {
+            notes = null;
+            if (string.IsNullOrEmpty(expression) || expression.Contains(':'))
+            {
+                return expression;
+            }
+
+            if (!expression.Contains('+'))
+            {
+                if (_legacyKeywordAliases.TryGetValue(expression, out var modernSingle))
+                {
+                    notes = new List<string> { $"{expression}\u2192{modernSingle}" };
+                    return modernSingle;
+                }
+                return expression;
+            }
+
+            var parts = expression.Split('+', StringSplitOptions.RemoveEmptyEntries);
+            var rewritten = new string[parts.Length];
+            for (int i = 0; i < parts.Length; i++)
+            {
+                var p = parts[i].Trim();
+                if (_legacyKeywordAliases.TryGetValue(p, out var modern))
+                {
+                    rewritten[i] = modern;
+                    (notes ??= new List<string>()).Add($"{p}\u2192{modern}");
+                }
+                else
+                {
+                    rewritten[i] = p;
+                }
+            }
+            return string.Join("+", rewritten);
+        }
+
+        // Builds the argv to spawn `dotnet-trace <verb> ...` and the list of
+        // rewrite notes describing any legacy aliases that were normalized.
+        // `internal` so the unit tests can validate the classifier without
+        // touching the wire.
+        internal static (List<string> argv, List<string> rewriteNotes) BuildDotnetTraceCliArgs(
+            Job job, string verb, FileInfo output)
+        {
+            var argv = new List<string> { verb };
+            var rewrites = new List<string>();
+
+            argv.Add("-p");
+            argv.Add(job.ActiveProcessId.ToString(CultureInfo.InvariantCulture));
+
+            argv.Add("-o");
+            argv.Add(output.FullName);
+
+            // --buffersize is a `collect`-only flag. collect-linux uses perf_event
+            // ring buffers and rejects unknown tokens (TreatUnmatchedTokensAsErrors=true).
+            if (string.Equals(verb, "collect", StringComparison.OrdinalIgnoreCase) &&
+                job.DotNetTraceBufferSizeMB > 0 &&
+                job.DotNetTraceBufferSizeMB != 256)
+            {
+                argv.Add("--buffersize");
+                argv.Add(job.DotNetTraceBufferSizeMB.ToString(CultureInfo.InvariantCulture));
+            }
+
+            var tokens = (job.DotNetTraceProviders ?? string.Empty)
+                .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(t => t.Trim())
+                .Where(t => !string.IsNullOrEmpty(t))
+                .ToList();
+
+            var profiles = new List<string>();
+            var clrEventParts = new List<string>();
+            var providerSpecs = new List<string>();
+
+            void AddClassified(string token)
+            {
+                if (string.IsNullOrEmpty(token)) return;
+                if (token.Contains(':'))
+                {
+                    providerSpecs.Add(token);
+                    return;
+                }
+                if (TraceExtensions.DotNETRuntimeProfiles.ContainsKey(token))
+                {
+                    profiles.Add(token);
+                    return;
+                }
+                // Treat as a CLR keyword expression (single or `+`-joined).
+                foreach (var p in token.Split('+', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    clrEventParts.Add(p);
+                }
+            }
+
+            if (tokens.Count == 0)
+            {
+                // CLI-mode defaults differ from the in-process default of
+                // "cpu-sampling" because in modern dotnet-trace `cpu-sampling`
+                // is a collect-linux-exclusive profile (kernel CPU sampling).
+                // For `collect`, fall back to the upstream-recommended pair.
+                if (string.Equals(verb, "collect-linux", StringComparison.OrdinalIgnoreCase))
+                {
+                    profiles.Add("cpu-sampling");
+                }
+                else
+                {
+                    profiles.Add("dotnet-sampled-thread-time");
+                    profiles.Add("dotnet-common");
+                }
+            }
+            else
+            {
+                foreach (var raw in tokens)
+                {
+                    // Rewrite #1 (REQUIRED): cpu-sampling in `collect` mode → dotnet-sampled-thread-time.
+                    // cpu-sampling is collect-linux-exclusive in modern dotnet-trace; passing
+                    // it to `collect` would be rejected by the CLI.
+                    if (string.Equals(verb, "collect", StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(raw, "cpu-sampling", StringComparison.OrdinalIgnoreCase))
+                    {
+                        rewrites.Add("cpu-sampling\u2192dotnet-sampled-thread-time");
+                        AddClassified("dotnet-sampled-thread-time");
+                        continue;
+                    }
+
+                    // Rewrite #2 (COSMETIC): typo'd / pre-2024 CLR keyword aliases.
+                    var rewritten = NormalizeClrEventExpression(raw, out var noted);
+                    if (noted != null)
+                    {
+                        rewrites.AddRange(noted);
+                    }
+                    AddClassified(rewritten);
+                }
+            }
+
+            if (profiles.Count > 0)
+            {
+                argv.Add("--profile");
+                argv.Add(string.Join(",", profiles.Distinct(StringComparer.OrdinalIgnoreCase)));
+            }
+            if (providerSpecs.Count > 0)
+            {
+                argv.Add("--providers");
+                argv.Add(string.Join(",", providerSpecs));
+            }
+            if (clrEventParts.Count > 0)
+            {
+                argv.Add("--clrevents");
+                argv.Add(string.Join("+", clrEventParts.Distinct(StringComparer.OrdinalIgnoreCase)));
+            }
+
+            return (argv, rewrites);
+        }
+
+        // Runs `dotnet-trace <verb> ...` as a child process. Waits for the
+        // benchmark to signal `shouldExit`, then sends SIGINT and waits up
+        // to a per-mode grace period for the CLI to finalize the trace.
+        // Captures stderr verbatim into `job.Error` on failure paths so that
+        // collect-linux kernel/capability failures surface to the user.
+        private static async Task<int> CollectViaDotNetTraceCliAsync(
+            Job job, ManualResetEvent shouldExit, string verb, FileInfo output)
+        {
+            try
+            {
+                await EnsureDotnetTraceCliInstalledAsync();
+            }
+            catch (Exception ex)
+            {
+                var msg = $"Failed to install dotnet-trace CLI: {ex.Message}";
+                Log.Error(ex, msg);
+                job.Error = string.IsNullOrEmpty(job.Error) ? msg : (job.Error + Environment.NewLine + msg);
+                shouldExit.Set();
+                return -1;
+            }
+
+            var (argv, rewrites) = BuildDotnetTraceCliArgs(job, verb, output);
+
+            if (rewrites.Count > 0)
+            {
+                Log.Info($"dotnet-trace providers normalized: {string.Join(", ", rewrites)}");
+            }
+
+            Log.Info($"Starting dotnet-trace: {_dotnetTracePath} {string.Join(" ", argv)}");
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = _dotnetTracePath,
+                WorkingDirectory = job.BasePath,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            foreach (var a in argv)
+            {
+                psi.ArgumentList.Add(a);
+            }
+
+            var stderrBuilder = new StringBuilder();
+            using var proc = new Process { StartInfo = psi, EnableRaisingEvents = true };
+
+            proc.OutputDataReceived += (s, e) =>
+            {
+                if (!string.IsNullOrEmpty(e?.Data)) Log.Info($"[dotnet-trace] {e.Data}");
+            };
+            proc.ErrorDataReceived += (s, e) =>
+            {
+                if (!string.IsNullOrEmpty(e?.Data))
+                {
+                    Log.Info($"[dotnet-trace stderr] {e.Data}");
+                    lock (stderrBuilder)
+                    {
+                        stderrBuilder.AppendLine(e.Data);
+                    }
+                }
+            };
+
+            try
+            {
+                proc.Start();
+            }
+            catch (Exception ex)
+            {
+                var msg = $"Failed to start dotnet-trace process: {ex.Message}";
+                Log.Error(ex, msg);
+                job.Error = string.IsNullOrEmpty(job.Error) ? msg : (job.Error + Environment.NewLine + msg);
+                shouldExit.Set();
+                return -1;
+            }
+
+            proc.BeginOutputReadLine();
+            proc.BeginErrorReadLine();
+
+            // Wait for either the benchmark to signal stop, or for the CLI to die early.
+            while (!shouldExit.WaitOne(0))
+            {
+                if (proc.HasExited)
+                {
+                    string capturedErr;
+                    lock (stderrBuilder) { capturedErr = stderrBuilder.ToString().Trim(); }
+                    var msg = $"dotnet-trace exited unexpectedly with code {proc.ExitCode} before the benchmark completed.";
+                    if (!string.IsNullOrEmpty(capturedErr)) msg += $" stderr: {capturedErr}";
+                    Log.Warning(msg);
+                    job.Error = string.IsNullOrEmpty(job.Error) ? msg : (job.Error + Environment.NewLine + msg);
+                    shouldExit.Set();
+                    return proc.ExitCode == 0 ? -1 : proc.ExitCode;
+                }
+                await Task.Delay(200);
+            }
+
+            // Benchmark signaled stop. Send SIGINT for a graceful flush+rundown.
+            Log.Info("Stopping dotnet-trace CLI (sending SIGINT)");
+            try
+            {
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) || RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                {
+                    Mono.Unix.Native.Syscall.kill(proc.Id, Mono.Unix.Native.Signum.SIGINT);
+                }
+                else
+                {
+                    // On Windows, dotnet-trace's stop handshake over a console
+                    // signal is unreliable for non-console child processes. The
+                    // grace-period loop below will fall through to Kill().
+                    try { proc.CloseMainWindow(); } catch { }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"Failed to signal dotnet-trace to stop: {ex.Message}");
+            }
+
+            var graceSec = job.DotNetTraceStopTimeoutSec > 0
+                ? job.DotNetTraceStopTimeoutSec
+                : (string.Equals(verb, "collect-linux", StringComparison.OrdinalIgnoreCase) ? 180 : 60);
+
+            var deadline = DateTime.UtcNow.AddSeconds(graceSec);
+            while (!proc.HasExited && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(500);
+            }
+
+            if (!proc.HasExited)
+            {
+                Log.Warning($"dotnet-trace did not finalize within {graceSec}s; trace may be incomplete");
+                try { proc.Kill(entireProcessTree: true); } catch { }
+                try { await proc.WaitForExitAsync(); } catch { }
+            }
+
+            Log.Info($"dotnet-trace exited with code {proc.ExitCode}");
+
+            output.Refresh();
+            if (output.Exists && output.Length > 0)
+            {
+                Log.Info($"dotnet-trace produced trace at {output.FullName} ({output.Length} bytes)");
+                return 0;
+            }
+
+            string finalErr;
+            lock (stderrBuilder) { finalErr = stderrBuilder.ToString().Trim(); }
+            var failMsg = $"dotnet-trace produced no usable trace. exit code={proc.ExitCode}.";
+            if (!string.IsNullOrEmpty(finalErr)) failMsg += $" stderr: {finalErr}";
+            Log.Warning(failMsg);
+            job.Error = string.IsNullOrEmpty(job.Error) ? failMsg : (job.Error + Environment.NewLine + failMsg);
+            return -1;
         }
 
         public static void CreateTemporaryFolders()
