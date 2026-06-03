@@ -2,7 +2,7 @@ counters:
   # creates measurements from dotnet counters
 - provider: System.Runtime
 
-  # https://github.com/dotnet/diagnostics/blob/master/src/Tools/dotnet-counters/KnownData.cs
+  # https://github.com/dotnet/diagnostics/blob/main/src/Tools/dotnet-counters/KnownData.cs
   
   values: 
   - name: cpu-usage

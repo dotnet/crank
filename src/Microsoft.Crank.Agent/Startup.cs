@@ -5531,7 +5531,7 @@ namespace Microsoft.Crank.Agent
             job.PerfViewTraceFile = Path.Combine(job.BasePath, "trace.nettrace");
 
             dotnetTraceManualReset = new ManualResetEvent(false);
-            dotnetTraceTask = Collect(dotnetTraceManualReset, job.ActiveProcessId, new FileInfo(job.PerfViewTraceFile), 256, job.DotNetTraceProviders, TimeSpan.MaxValue);
+            dotnetTraceTask = Collect(dotnetTraceManualReset, job.ActiveProcessId, new FileInfo(job.PerfViewTraceFile), job.DotNetTraceBufferSizeMB, job.DotNetTraceRequestRundown, job.DotNetTraceProviders, TimeSpan.MaxValue);
         }
 
         private static void StartUltra(Job job)
@@ -6257,7 +6257,7 @@ namespace Microsoft.Crank.Agent
         /// A profile name, or a list of comma separated EventPipe providers to be enabled.
         /// c.f. https://github.com/dotnet/diagnostics/blob/main/documentation/dotnet-trace-instructions.md
         /// </param>
-        private static async Task<int> Collect(ManualResetEvent shouldExit, int processId, FileInfo output, int buffersize, string providers, TimeSpan duration)
+        private static async Task<int> Collect(ManualResetEvent shouldExit, int processId, FileInfo output, int buffersize, bool requestRundown, string providers, TimeSpan duration)
         {
             if (String.IsNullOrWhiteSpace(providers))
             {
@@ -6318,7 +6318,7 @@ namespace Microsoft.Crank.Agent
             var failed = false;
 
             var client = new DiagnosticsClient(processId);
-            EventPipeSession traceSession = client.StartEventPipeSession(providerCollection, circularBufferMB: buffersize);
+            EventPipeSession traceSession = client.StartEventPipeSession(providerCollection, requestRundown: requestRundown, circularBufferMB: buffersize);
 
             var collectingTask = new Task(async () =>
             {

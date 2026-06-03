@@ -53,8 +53,17 @@ internal class Documentation
   --[JOB].profileType <true|false>                              The name of the profiler to use. Values: ""ultra"", ""dotnet-trace"" (default), ""perfview""
   --[JOB].dotnetTrace <true|false>                              Whether to collect a diagnostics trace using dotnet-trace.
   --[JOB].dotnetTraceProviders <profile|provider|clrevent>      A comma-separated list of trace providers. By default the profile 'cpu-sampling' is used. See 
-                                                                https://github.com/dotnet/diagnostics/blob/master/documentation/dotnet-trace-instructions.md for details. 
+                                                                https://github.com/dotnet/diagnostics/blob/main/documentation/dotnet-trace-instructions.md for details. 
                                                                 e.g., ""Microsoft-DotNETCore-SampleProfiler, gc-verbose, JIT+Contention"".
+  --[JOB].dotnetTraceBufferSizeMB <megabytes>                   Size (in MB) of the EventPipe circular buffer used by dotnet-trace collection. Default is 256. Raise when 
+                                                                events are being dropped (e.g., high-rate allocation sampling).
+  --[JOB].dotnetTraceRequestRundown <true|false>                Whether to request a rundown phase at the end of the EventPipe session. Default is true. Set to false to 
+                                                                shorten stop latency on long benchmarks where rundown dominates.
+  ## Which trace collection mode should I use?
+  ## | Want…                                                                     | Use                                       |
+  ## |--------------------------------------------------------------------------|-------------------------------------------|
+  ## | Broad managed events, any OS, no root needed                              | --[JOB].dotnetTrace true                  |
+  ## | Cross-platform pipeline that needs .trace.zip for legacy PerfView tooling | --[JOB].collect true                      |
   --[JOB].additionalProcesses <process-name>                    Name of the processes for which the CPU usage should be recorded. Can be used multiple times to define multiple values.
   --[JOB].options.traceOutput <filename>                        The name of the trace file. Can be a file prefix (app will add *.DATE*.zip) , or a specific name and no DATE* 
                                                                 will be added e.g., c:\traces\mytrace

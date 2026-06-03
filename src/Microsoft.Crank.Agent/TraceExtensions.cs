@@ -18,12 +18,17 @@ namespace Microsoft.Diagnostics.Tools.Trace
         public static string CLREventProviderName = "Microsoft-Windows-DotNETRuntime";
 
         private static EventLevel defaultEventLevel = EventLevel.Verbose;
-        // Keep this in sync with runtime repo's clretwall.man
+        // Keep this in sync with runtime repo's clretwall.man and
+        // dotnet/diagnostics src/Tools/dotnet-trace/ProviderUtils.cs.
+        // Legacy/typo'd names are preserved alongside their modern
+        // equivalents so existing crank configurations continue to work
+        // byte-for-byte (PR A is strictly additive — see plan.md).
         private static Dictionary<string, long> CLREventKeywords = new Dictionary<string, long>(StringComparer.InvariantCultureIgnoreCase)
         {
             { "gc", 0x1 },
             { "gchandle", 0x2 },
-            { "fusion", 0x4 },
+            { "fusion", 0x4 },                                  // legacy name
+            { "assemblyloader", 0x4 },                          // modern alias for "fusion"
             { "loader", 0x8 },
             { "jit", 0x10 },
             { "ngen", 0x20 },
@@ -40,15 +45,30 @@ namespace Microsoft.Diagnostics.Tools.Trace
             { "overrideandsuppressngenevents", 0x40000 },
             { "type", 0x80000 },
             { "gcheapdump", 0x100000 },
-            { "gcsampledobjectallcationhigh", 0x200000 },
+            { "gcsampledobjectallcationhigh", 0x200000 },       // legacy typo'd name
+            { "gcsampledobjectallocationhigh", 0x200000 },      // corrected modern name
             { "gcheapsurvivalandmovement", 0x400000 },
-            { "gcheapcollect", 0x800000 },
+            { "gcheapcollect", 0x800000 },                      // legacy name
+            { "managedheapcollect", 0x800000 },                 // modern alias
+            { "managedheadcollect", 0x800000 },                 // upstream-ProviderUtils alias
             { "gcheapandtypenames", 0x1000000 },
-            { "gcsampledobjectallcationlow", 0x2000000 },
+            { "gcsampledobjectallcationlow", 0x2000000 },       // legacy typo'd name
+            { "gcsampledobjectallocationlow", 0x2000000 },      // corrected modern name
             { "perftrack", 0x20000000 },
             { "stack", 0x40000000 },
             { "threadtransfer", 0x80000000 },
-            { "debugger", 0x100000000 }
+            { "debugger", 0x100000000 },
+            { "monitoring", 0x200000000 },
+            { "codesymbols", 0x400000000 },
+            { "eventsource", 0x800000000 },
+            { "compilation", 0x1000000000 },
+            { "compilationdiagnostic", 0x2000000000 },
+            { "methoddiagnostic", 0x4000000000 },
+            { "typediagnostic", 0x8000000000 },
+            { "jitinstrumentationdata", 0x10000000000 },
+            { "profiler", 0x20000000000 },
+            { "waithandle", 0x40000000000 },
+            { "allocationsampling", 0x80000000000 },
         };
 
         public static IEnumerable<EventPipeProvider> ToCLREventPipeProviders(string clreventslist)
@@ -214,6 +234,14 @@ namespace Microsoft.Diagnostics.Tools.Trace
         } 
 
         internal static Dictionary<string, EventPipeProvider[]> DotNETRuntimeProfiles { get; } = new Dictionary<string, EventPipeProvider[]>(StringComparer.OrdinalIgnoreCase) {
+            // ---- Legacy crank profiles preserved for back-compat ----
+            // The original `cpu-sampling` profile here predates upstream's
+            // 2024 reorganization of dotnet-trace profiles. Upstream now
+            // splits the work into `dotnet-sampled-thread-time`
+            // (SampleProfiler only) and `dotnet-common` (DotNETRuntime
+            // with broader keywords). Keep this definition unchanged so
+            // existing crank pipelines passing `--dotNetTraceProviders
+            // cpu-sampling` get the same trace contents as before.
             {
                 "cpu-sampling",
                 new EventPipeProvider[] {
@@ -222,8 +250,8 @@ namespace Microsoft.Diagnostics.Tools.Trace
                         eventLevel: EventLevel.Informational
                     ),
                     new EventPipeProvider(
-                        name: "Microsoft-Windows-DotNETRuntime", 
-                        keywords: (long) ClrTraceEventParser.Keywords.Default, 
+                        name: "Microsoft-Windows-DotNETRuntime",
+                        keywords: (long) ClrTraceEventParser.Keywords.Default,
                         eventLevel: EventLevel.Informational
                     ),
                 }
@@ -248,6 +276,70 @@ namespace Microsoft.Diagnostics.Tools.Trace
                         keywords:   (long)ClrTraceEventParser.Keywords.GC |
                                     (long)ClrTraceEventParser.Keywords.Exception,
                         eventLevel: EventLevel.Informational
+                    ),
+                }
+            },
+
+            // ---- Modern profiles imported from dotnet/diagnostics ----
+            // Mirrors ListProfilesCommandHandler.TraceProfiles. Lets
+            // users opt into the upstream-recommended defaults without
+            // changing the legacy `cpu-sampling` behavior.
+            {
+                "dotnet-common",
+                new EventPipeProvider[] {
+                    new EventPipeProvider(
+                        name: "Microsoft-Windows-DotNETRuntime",
+                        // 0x1 GC | 0x4 AssemblyLoader | 0x8 Loader | 0x10 JIT |
+                        // 0x8000 Exceptions | 0x10000 Threading | 0x20000 JittedMethodILToNativeMap |
+                        // 0x1000000000 Compilation
+                        keywords: 0x100003801DL,
+                        eventLevel: EventLevel.Informational
+                    ),
+                }
+            },
+            {
+                "dotnet-sampled-thread-time",
+                new EventPipeProvider[] {
+                    new EventPipeProvider(
+                        name: "Microsoft-DotNETCore-SampleProfiler",
+                        eventLevel: EventLevel.Informational
+                    ),
+                }
+            },
+            {
+                // Friendly alias matching the provider name; identical to
+                // dotnet-sampled-thread-time.
+                "sample-profiler",
+                new EventPipeProvider[] {
+                    new EventPipeProvider(
+                        name: "Microsoft-DotNETCore-SampleProfiler",
+                        eventLevel: EventLevel.Informational
+                    ),
+                }
+            },
+            {
+                "database",
+                new EventPipeProvider[] {
+                    new EventPipeProvider(
+                        name: "System.Threading.Tasks.TplEventSource",
+                        eventLevel: EventLevel.Informational,
+                        // TplEtwProviderTraceEventParser.Keywords.TasksFlowActivityIds
+                        keywords: 0x80
+                    ),
+                    new EventPipeProvider(
+                        name: "Microsoft-Diagnostics-DiagnosticSource",
+                        eventLevel: EventLevel.Verbose,
+                        // DiagnosticSourceEventSource Messages | Events
+                        keywords: 0x3,
+                        arguments: new Dictionary<string, string> {
+                            {
+                                "FilterAndPayloadSpecs",
+                                "SqlClientDiagnosticListener/System.Data.SqlClient.WriteCommandBefore@Activity1Start:-Command;Command.CommandText;ConnectionId;Operation;Command.Connection.ServerVersion;Command.CommandTimeout;Command.CommandType;Command.Connection.ConnectionString;Command.Connection.Database;Command.Connection.DataSource;Command.Connection.PacketSize\r\n" +
+                                "SqlClientDiagnosticListener/System.Data.SqlClient.WriteCommandAfter@Activity1Stop:\r\n" +
+                                "Microsoft.EntityFrameworkCore/Microsoft.EntityFrameworkCore.Database.Command.CommandExecuting@Activity2Start:-Command.CommandText;Command;ConnectionId;IsAsync;Command.Connection.ClientConnectionId;Command.Connection.ServerVersion;Command.CommandTimeout;Command.CommandType;Command.Connection.ConnectionString;Command.Connection.Database;Command.Connection.DataSource;Command.Connection.PacketSize\r\n" +
+                                "Microsoft.EntityFrameworkCore/Microsoft.EntityFrameworkCore.Database.Command.CommandExecuted@Activity2Stop:"
+                            }
+                        }
                     ),
                 }
             }
