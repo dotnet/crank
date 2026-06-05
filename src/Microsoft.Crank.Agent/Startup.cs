@@ -2330,8 +2330,11 @@ namespace Microsoft.Crank.Agent
             // Stop container in case it failed to stop earlier
             await ProcessUtil.RunAsync("docker", $"stop {containerName}", throwOnError: false);
 
-            // Delete container if the same name already exists
-            await ProcessUtil.RunAsync("docker", $"rm {imageName}", throwOnError: false);
+            // Delete container if the same name already exists.
+            // Use -v so any anonymous volumes attached to the leftover container
+            // (e.g. the data directory of mysql/postgres images that declare VOLUME)
+            // are removed too. Named volumes and bind mounts are preserved.
+            await ProcessUtil.RunAsync("docker", $"rm -v {containerName}", throwOnError: false);
 
             if (!String.IsNullOrWhiteSpace(job.CpuSet))
             {
@@ -2801,7 +2804,11 @@ namespace Microsoft.Crank.Agent
                 {
                     Log.Info($"Removing container {containerId}");
 
-                    await ProcessUtil.RunAsync("docker", $"rm --force {containerId}", throwOnError: false);
+                    // Use -v so any anonymous volumes attached to this container
+                    // (e.g. the data directory of mysql/postgres images that declare VOLUME)
+                    // are removed too. Named volumes and bind mounts are preserved, so
+                    // scenarios that opt into persistent storage via job.Arguments are unaffected.
+                    await ProcessUtil.RunAsync("docker", $"rm --force -v {containerId}", throwOnError: false);
 
                     if (!String.IsNullOrEmpty(job.BuildKey) && job.NoBuild)
                     {
