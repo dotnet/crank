@@ -122,7 +122,7 @@ namespace Microsoft.Crank.Controller.Serializers
                            ,@Document)
                 """;
 
-            using (var connection = GetSqlConnection(connectionString, certificateOptions))
+            using (var connection = GetSqlConnection(connectionString, certificateOptions, managedIdentityOptions))
             {
                 await connection.OpenAsync();
                 var transaction = connection.BeginTransaction();
