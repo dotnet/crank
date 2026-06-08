@@ -63,13 +63,31 @@ namespace Microsoft.Crank.Agent
 
         // dotnet-trace CLI version pinned for the `DotNetTraceCollectMode=collect`
         // and `DotNetTraceCollectMode=collect-linux` paths. Must:
-        //  - Exist on nuget.org (the agent's `dotnet tool install -g` reaches the
-        //    public feed, not crank's internal dnceng feeds).
-        //  - Ship a `linux-arm64` runtime (cobalt-hosted aarch64).
-        //  - Contain the `collect-linux` verb. (First added Oct 2025; this version
-        //    is the first stable nuget.org release that carries it.)
-        // When bumping, re-verify all three.
-        private const string DotnetTraceVersion = "9.0.661903";
+        //  - Exist on the dnceng public dotnet-tools feed (the agent passes
+        //    `--configfile` below; nuget.org tops out at 9.0.661903 today
+        //    and does NOT carry the 10.x line that ships `collect-linux`).
+        //  - Be a single-file managed tool packaged under `tools/net8.0/any/`
+        //    so it works on the cobalt-hosted aarch64 host (no native bits
+        //    needed; the verified package layout is RID-agnostic).
+        //  - Contain the `collect-linux` verb. (First added Oct 2025.)
+        //  - Contain dotnet/diagnostics#5771 ("Fix no-tty crash with console
+        //    capability aware ProgressWriter") AND #5745 ("Handle redirected
+        //    input/output in collect-linux"). Earlier builds crash with
+        //    `SetCursorPosition(0, -1)` when stdout is redirected (which is
+        //    always the case when crank spawns the tool).
+        // 10.0.721401 (tag v10.0.721401 on dotnet/diagnostics release/stable,
+        // commit 3f576a7) is the latest stable release that satisfies all four.
+        // When bumping, re-verify all four.
+        private const string DotnetTraceVersion = "10.0.721401";
+
+        // dnceng public dotnet-tools feed. We pull dotnet-trace from here
+        // because nuget.org currently tops out at 9.0.661903 and doesn't
+        // carry the 10.x line that ships `collect-linux`. The agent writes
+        // a hermetic NuGet.config pointing here and passes `--configfile`
+        // to `dotnet tool install` so the install works even when the host
+        // has package-source-mapping configured (which makes a bare
+        // `--add-source` fail with "cannot be combined").
+        private const string DotnetToolsFeedUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-tools/nuget/v3/index.json";
 
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
@@ -6453,7 +6471,24 @@ namespace Microsoft.Crank.Agent
                     var dotnetExe = GetDotNetExecutable(_dotnethome);
                     Log.Info($"Installing dotnet-trace {DotnetTraceVersion} to {toolPath}");
 
-                    var installArgs = $"tool install dotnet-trace --version {DotnetTraceVersion} --tool-path \"{toolPath}\"";
+                    // Write a hermetic NuGet.config alongside the tool so the
+                    // install resolves the dnceng dotnet-tools feed (which is
+                    // where 10.x previews live) regardless of any global
+                    // NuGet config the host might have. A bare `--add-source`
+                    // conflicts with package source mapping when the host has
+                    // it configured, so we pass a `--configfile` instead.
+                    var nugetConfigPath = Path.Combine(toolPath, "NuGet.config");
+                    File.WriteAllText(nugetConfigPath,
+                        "<?xml version=\"1.0\" encoding=\"utf-8\"?>" + Environment.NewLine +
+                        "<configuration>" + Environment.NewLine +
+                        "  <packageSources>" + Environment.NewLine +
+                        "    <clear />" + Environment.NewLine +
+                        "    <add key=\"nuget.org\" value=\"https://api.nuget.org/v3/index.json\" />" + Environment.NewLine +
+                        "    <add key=\"dotnet-tools\" value=\"" + DotnetToolsFeedUrl + "\" />" + Environment.NewLine +
+                        "  </packageSources>" + Environment.NewLine +
+                        "</configuration>" + Environment.NewLine);
+
+                    var installArgs = $"tool install dotnet-trace --version {DotnetTraceVersion} --tool-path \"{toolPath}\" --configfile \"{nugetConfigPath}\"";
                     var result = await ProcessUtil.RunAsync(
                         dotnetExe,
                         installArgs,
@@ -6810,6 +6845,16 @@ namespace Microsoft.Crank.Agent
                 WorkingDirectory = job.BasePath,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
+                // Redirect stdin so dotnet-trace's `Console.IsInputRedirected`
+                // returns true. The CLI's progress LineRewriter probes the
+                // console capabilities (ANSI cursor positioning) when stdin
+                // looks interactive, which fails noisily in a non-TTY child
+                // (Console.CursorTop is -1, SetCursorPosition throws). The
+                // 10.x+ tool also guards LineToClear >= 0 explicitly; this
+                // belt-and-suspenders keeps us safe if the pin moves forward
+                // to a tool build without that guard. We never write to stdin
+                // -- stop is signaled with SIGINT on Linux.
+                RedirectStandardInput = true,
                 UseShellExecute = false,
                 CreateNoWindow = true,
             };
