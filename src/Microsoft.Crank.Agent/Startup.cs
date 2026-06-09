@@ -6483,7 +6483,6 @@ namespace Microsoft.Crank.Agent
                         "<configuration>" + Environment.NewLine +
                         "  <packageSources>" + Environment.NewLine +
                         "    <clear />" + Environment.NewLine +
-                        "    <add key=\"nuget.org\" value=\"https://api.nuget.org/v3/index.json\" />" + Environment.NewLine +
                         "    <add key=\"dotnet-tools\" value=\"" + DotnetToolsFeedUrl + "\" />" + Environment.NewLine +
                         "  </packageSources>" + Environment.NewLine +
                         "</configuration>" + Environment.NewLine);
