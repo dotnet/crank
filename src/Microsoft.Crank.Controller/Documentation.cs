@@ -67,12 +67,6 @@ internal class Documentation
   --[JOB].dotnetTraceStopTimeoutSec <seconds>                   Grace period (seconds) to wait for the dotnet-trace CLI to finalize a trace after SIGINT, only used by the 
                                                                 ""collect"" and ""collect-linux"" modes. A value of 0 selects the per-mode default (60s for collect, 180s for 
                                                                 collect-linux). A timeout logs [WRN] and keeps the partial trace but does not fail the job.
-  ## Which trace collection mode should I use?
-  ## | Want…                                                                                          | Use                                                                       |
-  ## |------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
-  ## | Broad managed events, any OS, no root needed                                                   | --[JOB].dotnetTrace true                                                  |
-  ## | Broad managed events + on-CPU samples, modern Linux, root available, kernel >= 6.4             | --[JOB].dotnetTrace true --[JOB].dotnetTraceCollectMode collect-linux     |
-  ## | Cross-platform pipeline that needs .trace.zip for legacy PerfView tooling                      | --[JOB].collect true                                                      |
   --[JOB].additionalProcesses <process-name>                    Name of the processes for which the CPU usage should be recorded. Can be used multiple times to define multiple values.
   --[JOB].options.traceOutput <filename>                        The name of the trace file. Can be a file prefix (app will add *.DATE*.zip) , or a specific name and no DATE* 
                                                                 will be added e.g., c:\traces\mytrace
