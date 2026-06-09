@@ -113,11 +113,6 @@ Run 'crank [command] -?|-h|--help' for more information about a command.
                                                                 events are being dropped (e.g., high-rate allocation sampling).
   --[JOB].dotnetTraceRequestRundown <true|false>                Whether to request a rundown phase at the end of the EventPipe session. Default is true. Set to false to
                                                                 shorten stop latency on long benchmarks where rundown dominates.
-  ## Which trace collection mode should I use?
-  ## | Want…                                                                     | Use                                       |
-  ## |--------------------------------------------------------------------------|-------------------------------------------|
-  ## | Broad managed events, any OS, no root needed                              | --[JOB].dotnetTrace true                  |
-  ## | Cross-platform pipeline that needs .trace.zip for legacy PerfView tooling | --[JOB].collect true                      |
   --[JOB].additionalProcesses <process-name>                    Name of the processes for which the CPU usage should be recorded. Can be used multiple times to define multiple values.
   --[JOB].options.traceOutput <filename>                        The name of the trace file. Can be a file prefix (app will add *.DATE*.zip) , or a specific name and no DATE*
                                                                 will be added e.g., c:\traces\mytrace
