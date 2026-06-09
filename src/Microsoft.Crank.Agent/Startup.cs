@@ -6448,7 +6448,7 @@ namespace Microsoft.Crank.Agent
 
         // Lazy installs the pinned dotnet-trace CLI under {_rootTempDir}/dotnet-trace-tools.
         // Idempotent and safe to call concurrently across jobs (guarded by a semaphore).
-        // Post-install runs `dotnet-trace --version` and warns if the reported version
+        // Post-install runs `dotnet-trace --version` and throws if the reported version
         // does not contain the pinned constant.
         private static async Task EnsureDotnetTraceCliInstalledAsync()
         {

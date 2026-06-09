@@ -236,8 +236,10 @@ namespace Microsoft.Crank.UnitTests
         }
 
         [Fact]
-        public void Normalize_LeavesUnknownKeywordsAlone()
+        public void Normalize_LeavesNonAliasedKeywordExpressionAlone()
         {
+            // "gc+jit" is a valid CLR keyword expression but uses no aliases
+            // we rewrite, so the normalizer should pass it through verbatim.
             var actual = Startup.NormalizeClrEventExpression("gc+jit", out var notes);
 
             Assert.Equal("gc+jit", actual);

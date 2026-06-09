@@ -26,9 +26,9 @@ namespace Microsoft.Crank.UnitTests
             Assert.NotNull(actual);
             Assert.Equal(major, actual.Major);
             Assert.Equal(minor, actual.Minor);
-            // System.Version.Build is -1 when only Major.Minor was supplied;
-            // ParseKernelVersion treats missing build as 0 for ordering.
-            Assert.True(actual.Build == build || (build == 0 && actual.Build <= 0));
+            // ParseKernelVersion always constructs new Version(major, minor, patch)
+            // with missing patch normalized to 0, so Build is always >= 0 here.
+            Assert.Equal(build, actual.Build);
         }
 
         [Theory]
