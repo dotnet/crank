@@ -186,6 +186,14 @@ namespace Microsoft.Crank.Models
         public bool DotNetTrace { get; set; }
         public string DotNetTraceProviders { get; set; }
 
+        // Size (in MB) of the EventPipe circular buffer used by dotnet-trace collection.
+        // Default of 256 preserves the legacy hardcoded value.
+        public int DotNetTraceBufferSizeMB { get; set; } = 256;
+
+        // Whether to request a rundown phase at the end of the EventPipe session.
+        // Default of true preserves the legacy implicit overload behavior.
+        public bool DotNetTraceRequestRundown { get; set; } = true;
+
         // Dump
         public bool DumpProcess { get; set; }
         public DumpTypeOption DumpType { get; set; } = DumpTypeOption.Mini;
