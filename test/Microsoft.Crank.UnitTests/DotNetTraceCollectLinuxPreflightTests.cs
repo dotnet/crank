@@ -19,6 +19,9 @@ namespace Microsoft.Crank.UnitTests
         [InlineData("6.4.0", 6, 4, 0)]
         [InlineData("6.10.5", 6, 10, 5)]
         [InlineData("6.8.0+", 6, 8, 0)]
+        [InlineData("6.8.0~rc1", 6, 8, 0)]
+        [InlineData("6.8.0 generic", 6, 8, 0)]
+        [InlineData("6.8", 6, 8, 0)]
         public void ParseKernelVersion_AcceptsCommonReleaseStrings(
             string raw, int major, int minor, int build)
         {

@@ -6629,6 +6629,13 @@ namespace Microsoft.Crank.Agent
             return $"DotNetTraceCollectMode=collect-linux requires Linux, root (effective UID 0), and kernel >= 6.4. Detected: OS={os}, EUID={euid}, kernel={kernel}. Set DotNetTraceCollectMode=collect to use EventPipe collection instead.";
         }
 
+        // Anchored at the start so it captures the leading major.minor[.patch]
+        // numeric version and naturally ignores any build/suffix text and
+        // whatever delimiter introduces it (e.g. "6.8.0-1018-azure", "6.4.0-rc1",
+        // "5.15.0+"). This makes enumerating individual delimiters unnecessary.
+        private static readonly Regex _kernelVersionRegex =
+            new(@"^(\d+)\.(\d+)(?:\.(\d+))?", RegexOptions.Compiled);
+
         // Parses a Linux kernel release string like "6.8.0-1018-azure" → 6.8.0
         // Returns null on unparseable input.
         internal static Version ParseKernelVersion(string raw)
@@ -6638,25 +6645,17 @@ namespace Microsoft.Crank.Agent
                 return null;
             }
 
-            var trimmed = raw.Trim();
-            var stopIdx = trimmed.IndexOfAny(new[] { '-', '+', ' ', '~' });
-            var leading = stopIdx >= 0 ? trimmed.Substring(0, stopIdx) : trimmed;
-            var parts = leading.Split('.');
-            if (parts.Length < 2)
-            {
-                return null;
-            }
-            if (!int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var major) ||
-                !int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var minor))
+            var match = _kernelVersionRegex.Match(raw.Trim());
+            if (!match.Success)
             {
                 return null;
             }
 
-            int patch = 0;
-            if (parts.Length >= 3)
-            {
-                int.TryParse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out patch);
-            }
+            var major = int.Parse(match.Groups[1].Value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+            var minor = int.Parse(match.Groups[2].Value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+            var patch = match.Groups[3].Success
+                ? int.Parse(match.Groups[3].Value, NumberStyles.Integer, CultureInfo.InvariantCulture)
+                : 0;
 
             return new Version(major, minor, patch);
         }
