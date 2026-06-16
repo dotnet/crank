@@ -59,6 +59,14 @@ internal class Documentation
                                                                 events are being dropped (e.g., high-rate allocation sampling).
   --[JOB].dotnetTraceRequestRundown <true|false>                Whether to request a rundown phase at the end of the EventPipe session. Default is true. Set to false to 
                                                                 shorten stop latency on long benchmarks where rundown dominates.
+  --[JOB].dotnetTraceCollectMode <mode>                         Selects how dotnet-trace captures the trace. ""default"" (in-process EventPipe via DiagnosticsClient, today's 
+                                                                behavior), ""collect"" (shells out to the dotnet-trace CLI's collect verb), or ""collect-linux"" (shells out 
+                                                                to collect-linux for perf_event-based whole-machine sampling with kernel + native frames). collect-linux is 
+                                                                Linux-only and requires root (effective UID 0) and kernel >= 6.4; the job hard-fails (no silent fallback) if 
+                                                                any prerequisite is not met. Default is ""default"".
+  --[JOB].dotnetTraceStopTimeoutSec <seconds>                   Grace period (seconds) to wait for the dotnet-trace CLI to finalize a trace after SIGINT, only used by the 
+                                                                ""collect"" and ""collect-linux"" modes. A value of 0 selects the per-mode default (60s for collect, 180s for 
+                                                                collect-linux). A timeout logs [WRN] and keeps the partial trace but does not fail the job.
   --[JOB].additionalProcesses <process-name>                    Name of the processes for which the CPU usage should be recorded. Can be used multiple times to define multiple values.
   --[JOB].options.traceOutput <filename>                        The name of the trace file. Can be a file prefix (app will add *.DATE*.zip) , or a specific name and no DATE* 
                                                                 will be added e.g., c:\traces\mytrace

@@ -96,6 +96,35 @@ namespace Microsoft.Diagnostics.Tools.Trace
             return new [] { new EventPipeProvider(CLREventProviderName, defaultEventLevel, clrEventsKeywordsMask, null) };
         }
 
+        // Returns true when `expression` is a non-empty '+'-joined list of recognized
+        // CLR keyword names (case-insensitive). Used to classify provider tokens for
+        // the `dotnet-trace` CLI, where unknown keywords passed via `--clrevents`
+        // are rejected. Differs from `ToCLREventPipeProviders`, which silently drops
+        // unknown parts and only requires *one* recognized keyword.
+        internal static bool IsRecognizedClrKeywordExpression(string expression)
+        {
+            if (String.IsNullOrEmpty(expression))
+            {
+                return false;
+            }
+
+            var parts = expression.Split('+', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0)
+            {
+                return false;
+            }
+
+            foreach (var part in parts)
+            {
+                if (!CLREventKeywords.ContainsKey(part))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         private static EventLevel GetEventLevel(string token)
         {
             if (Int32.TryParse(token, out int level) && level >= 0)
