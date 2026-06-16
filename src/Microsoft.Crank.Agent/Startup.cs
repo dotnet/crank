@@ -150,7 +150,6 @@ namespace Microsoft.Crank.Agent
         private static string _perfviewPath;
         private static string _ultraPath;
         private static string _dotnetTracePath;
-        private static readonly SemaphoreSlim _dotnetTraceInstallLock = new(1, 1);
         private static string _dotnetInstallPath;
         private static string _localUrl;
 
@@ -6488,97 +6487,90 @@ namespace Microsoft.Crank.Agent
         // ---- dotnet-trace CLI integration (collect / collect-linux modes) ----
 
         // Lazy installs the pinned dotnet-trace CLI under {_rootTempDir}/dotnet-trace-tools.
-        // Idempotent and safe to call concurrently across jobs (guarded by a semaphore).
+        // Idempotent: the `File.Exists` short-circuit makes repeat calls cheap, matching
+        // the lock-free pattern used by the SDK install path (EnsureDotnetInstallExistsAsync).
         // Post-install runs `dotnet-trace --version` and throws if the reported version
         // does not contain the pinned constant.
         private static async Task EnsureDotnetTraceCliInstalledAsync()
         {
-            await _dotnetTraceInstallLock.WaitAsync();
-            try
+            if (!string.IsNullOrEmpty(_dotnetTracePath) && File.Exists(_dotnetTracePath))
             {
-                if (!string.IsNullOrEmpty(_dotnetTracePath) && File.Exists(_dotnetTracePath))
-                {
-                    return;
-                }
+                return;
+            }
 
-                var toolPath = Path.Combine(_rootTempDir ?? Path.GetTempPath(), "dotnet-trace-tools");
-                Directory.CreateDirectory(toolPath);
+            var toolPath = Path.Combine(_rootTempDir ?? Path.GetTempPath(), "dotnet-trace-tools");
+            Directory.CreateDirectory(toolPath);
 
-                var exeName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "dotnet-trace.exe" : "dotnet-trace";
-                var binPath = Path.Combine(toolPath, exeName);
+            var exeName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "dotnet-trace.exe" : "dotnet-trace";
+            var binPath = Path.Combine(toolPath, exeName);
 
-                if (!File.Exists(binPath))
-                {
-                    var dotnetExe = GetDotNetExecutable(_dotnethome);
-                    Log.Info($"Installing dotnet-trace {DotnetTraceVersion} to {toolPath}");
+            if (!File.Exists(binPath))
+            {
+                var dotnetExe = GetDotNetExecutable(_dotnethome);
+                Log.Info($"Installing dotnet-trace {DotnetTraceVersion} to {toolPath}");
 
-                    // Write a hermetic NuGet.config alongside the tool so the
-                    // install resolves the dnceng dotnet-tools feed (which is
-                    // where 10.x previews live) regardless of any global
-                    // NuGet config the host might have. A bare `--add-source`
-                    // conflicts with package source mapping when the host has
-                    // it configured, so we pass a `--configfile` instead.
-                    var nugetConfigPath = Path.Combine(toolPath, "NuGet.config");
-                    File.WriteAllText(nugetConfigPath,
-                        "<?xml version=\"1.0\" encoding=\"utf-8\"?>" + Environment.NewLine +
-                        "<configuration>" + Environment.NewLine +
-                        "  <packageSources>" + Environment.NewLine +
-                        "    <clear />" + Environment.NewLine +
-                        "    <add key=\"dotnet-tools\" value=\"" + DotnetToolsFeedUrl + "\" />" + Environment.NewLine +
-                        "  </packageSources>" + Environment.NewLine +
-                        "</configuration>" + Environment.NewLine);
+                // Write a hermetic NuGet.config alongside the tool so the
+                // install resolves the dnceng dotnet-tools feed (which is
+                // where 10.x previews live) regardless of any global
+                // NuGet config the host might have. A bare `--add-source`
+                // conflicts with package source mapping when the host has
+                // it configured, so we pass a `--configfile` instead.
+                var nugetConfigPath = Path.Combine(toolPath, "NuGet.config");
+                File.WriteAllText(nugetConfigPath,
+                    "<?xml version=\"1.0\" encoding=\"utf-8\"?>" + Environment.NewLine +
+                    "<configuration>" + Environment.NewLine +
+                    "  <packageSources>" + Environment.NewLine +
+                    "    <clear />" + Environment.NewLine +
+                    "    <add key=\"dotnet-tools\" value=\"" + DotnetToolsFeedUrl + "\" />" + Environment.NewLine +
+                    "  </packageSources>" + Environment.NewLine +
+                    "</configuration>" + Environment.NewLine);
 
-                    var installArgs = $"tool install dotnet-trace --version {DotnetTraceVersion} --tool-path \"{toolPath}\" --configfile \"{nugetConfigPath}\"";
-                    var result = await ProcessUtil.RunAsync(
-                        dotnetExe,
-                        installArgs,
-                        log: true,
-                        throwOnError: false,
-                        captureOutput: true,
-                        captureError: true);
-
-                    if (result.ExitCode != 0 || !File.Exists(binPath))
-                    {
-                        throw new InvalidOperationException(
-                            $"`dotnet tool install dotnet-trace --version {DotnetTraceVersion}` failed (exit={result.ExitCode}). stderr: {result.StandardError?.Trim()}");
-                    }
-                }
-
-                var versionResult = await ProcessUtil.RunAsync(
-                    binPath, "--version",
-                    log: false,
+                var installArgs = $"tool install dotnet-trace --version {DotnetTraceVersion} --tool-path \"{toolPath}\" --configfile \"{nugetConfigPath}\"";
+                var result = await ProcessUtil.RunAsync(
+                    dotnetExe,
+                    installArgs,
+                    log: true,
                     throwOnError: false,
                     captureOutput: true,
                     captureError: true);
 
-                if (versionResult.ExitCode != 0)
+                if (result.ExitCode != 0 || !File.Exists(binPath))
                 {
                     throw new InvalidOperationException(
-                        $"`dotnet-trace --version` failed (exit={versionResult.ExitCode}). stderr: {versionResult.StandardError?.Trim()}");
+                        $"`dotnet tool install dotnet-trace --version {DotnetTraceVersion}` failed (exit={result.ExitCode}). stderr: {result.StandardError?.Trim()}");
                 }
-
-                var reported = (versionResult.StandardOutput ?? string.Empty).Trim();
-                Log.Info($"dotnet-trace installed: {reported}");
-                if (!reported.Contains(DotnetTraceVersion, StringComparison.Ordinal))
-                {
-                    // Hard fail: a pinned-version install with a mismatched runtime
-                    // version is a "we don't know what we have" situation. Usually
-                    // means the tool-path was pre-populated with a different
-                    // dotnet-trace by an earlier agent run on a different pin.
-                    // Reset the cached path so a manual cleanup of `toolPath` lets
-                    // the next attempt re-run the installer.
-                    _dotnetTracePath = null;
-                    throw new InvalidOperationException(
-                        $"dotnet-trace reported version '{reported}' does not contain the pinned '{DotnetTraceVersion}'. " +
-                        $"Delete '{toolPath}' and retry, or update DotnetTraceVersion to match.");
-                }
-
-                _dotnetTracePath = binPath;
             }
-            finally
+
+            var versionResult = await ProcessUtil.RunAsync(
+                binPath, "--version",
+                log: false,
+                throwOnError: false,
+                captureOutput: true,
+                captureError: true);
+
+            if (versionResult.ExitCode != 0)
             {
-                _dotnetTraceInstallLock.Release();
+                throw new InvalidOperationException(
+                    $"`dotnet-trace --version` failed (exit={versionResult.ExitCode}). stderr: {versionResult.StandardError?.Trim()}");
             }
+
+            var reported = (versionResult.StandardOutput ?? string.Empty).Trim();
+            Log.Info($"dotnet-trace installed: {reported}");
+            if (!reported.Contains(DotnetTraceVersion, StringComparison.Ordinal))
+            {
+                // Hard fail: a pinned-version install with a mismatched runtime
+                // version is a "we don't know what we have" situation. Usually
+                // means the tool-path was pre-populated with a different
+                // dotnet-trace by an earlier agent run on a different pin.
+                // Reset the cached path so a manual cleanup of `toolPath` lets
+                // the next attempt re-run the installer.
+                _dotnetTracePath = null;
+                throw new InvalidOperationException(
+                    $"dotnet-trace reported version '{reported}' does not contain the pinned '{DotnetTraceVersion}'. " +
+                    $"Delete '{toolPath}' and retry, or update DotnetTraceVersion to match.");
+            }
+
+            _dotnetTracePath = binPath;
         }
 
         // Static prereq check for `DotNetTraceCollectMode=collect-linux`.
