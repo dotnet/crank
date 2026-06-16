@@ -1,5 +1,6 @@
 using System;
 using Microsoft.Crank.Agent;
+using Microsoft.Crank.Models;
 using Xunit;
 
 namespace Microsoft.Crank.UnitTests
@@ -78,6 +79,93 @@ namespace Microsoft.Crank.UnitTests
             Assert.Contains("effective UID 0", err);
             Assert.Contains("kernel >= 6.4", err);
             Assert.Contains("Set DotNetTraceCollectMode=collect", err);
+        }
+
+        [Fact]
+        public void ValidateDotNetTraceOptions_WhenTracingNotRequested_IsOk()
+        {
+            // No dotnet-trace collection requested -> nothing to validate, even
+            // if a bogus mode is set, because the mode is never consulted.
+            var job = new Job { DotNetTrace = false, DotNetTraceCollectMode = "nonsense" };
+
+            var (ok, err) = Startup.ValidateDotNetTraceOptions(job);
+
+            Assert.True(ok);
+            Assert.Null(err);
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("default")]
+        [InlineData("Default")]
+        [InlineData(" collect ")]
+        [InlineData("COLLECT")]
+        public void ValidateDotNetTraceOptions_AcceptsKnownNonLinuxModes(string mode)
+        {
+            // default/collect are host-agnostic, so they validate on any OS.
+            var job = new Job { DotNetTrace = true, DotNetTraceCollectMode = mode };
+
+            var (ok, err) = Startup.ValidateDotNetTraceOptions(job);
+
+            Assert.True(ok);
+            Assert.Null(err);
+        }
+
+        [Theory]
+        [InlineData("nonsense")]
+        [InlineData("collectlinux")]
+        [InlineData("perf")]
+        public void ValidateDotNetTraceOptions_RejectsUnknownMode(string mode)
+        {
+            var job = new Job { DotNetTrace = true, DotNetTraceCollectMode = mode };
+
+            var (ok, err) = Startup.ValidateDotNetTraceOptions(job);
+
+            Assert.False(ok);
+            Assert.NotNull(err);
+            Assert.Contains("Unknown DotNetTraceCollectMode", err);
+            Assert.Contains("default, collect, collect-linux", err);
+        }
+
+        [Fact]
+        public void ValidateDotNetTraceOptions_CollectLinux_DelegatesToPrereqCheck()
+        {
+            // collect-linux routes through the host prerequisite check. We can
+            // only assert the failure contract portably (on non-Linux); on Linux
+            // the result depends on the host's root/kernel state.
+            if (System.Runtime.InteropServices.RuntimeInformation
+                    .IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux))
+            {
+                return;
+            }
+
+            var job = new Job { DotNetTrace = true, DotNetTraceCollectMode = "collect-linux" };
+
+            var (ok, err) = Startup.ValidateDotNetTraceOptions(job);
+
+            Assert.False(ok);
+            Assert.NotNull(err);
+            Assert.Contains("DotNetTraceCollectMode=collect-linux requires Linux", err);
+        }
+
+        [Fact]
+        public void ValidateDotNetTraceOptions_HonorsProfileTypeGate()
+        {
+            // Tracing can also be requested via Profile + ProfileType=dotnet-trace
+            // (not just DotNetTrace=true); an unknown mode must still be rejected.
+            var job = new Job
+            {
+                DotNetTrace = false,
+                Profile = true,
+                ProfileType = Job.DotnetTraceProfileType,
+                DotNetTraceCollectMode = "nonsense",
+            };
+
+            var (ok, err) = Startup.ValidateDotNetTraceOptions(job);
+
+            Assert.False(ok);
+            Assert.Contains("Unknown DotNetTraceCollectMode", err);
         }
     }
 }

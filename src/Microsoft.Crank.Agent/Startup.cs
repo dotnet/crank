@@ -762,6 +762,21 @@ namespace Microsoft.Crank.Agent
 
                                 Log.Info($"Acquiring Job '{job.Service}' ({job.Id})");
 
+                                // Fail fast on invalid dotnet-trace options before doing any
+                                // expensive setup (asset restore, clone/build, app launch).
+                                // For collect-linux this also verifies the host prerequisites
+                                // (Linux, root, kernel >= 6.4) so an unsupported host fails
+                                // immediately rather than after the application has started.
+                                var (traceOptionsOk, traceOptionsError) = ValidateDotNetTraceOptions(job);
+                                if (!traceOptionsOk)
+                                {
+                                    Log.Error(traceOptionsError);
+                                    job.Error = string.IsNullOrEmpty(job.Error) ? traceOptionsError : (job.Error + Environment.NewLine + traceOptionsError);
+                                    Log.Info($"{job.State} -> Failed ({job.Service}:{job.Id})");
+                                    job.State = JobState.Failed;
+                                    continue;
+                                }
+
                                 // Ensure all local assets are available
                                 await EnsureDotnetInstallExistsAsync();
 
@@ -5591,31 +5606,57 @@ namespace Microsoft.Crank.Agent
                     break;
 
                 case "collect-linux":
-                {
-                    var (ok, err) = ValidateCollectLinuxPrerequisites();
-                    if (!ok)
-                    {
-                        Log.Error(err);
-                        job.Error = string.IsNullOrEmpty(job.Error) ? err : (job.Error + Environment.NewLine + err);
-                        // Hard fail per design: no silent fallback to `collect`.
-                        dotnetTraceTask = Task.FromResult(-1);
-                        dotnetTraceManualReset.Set();
-                        break;
-                    }
+                    // The mode string and the collect-linux host prerequisites
+                    // (Linux, root, kernel >= 6.4) are validated up front when the
+                    // job is accepted (see ValidateDotNetTraceOptions), so by the
+                    // time we get here the prerequisites are known to be met.
                     dotnetTraceTask = CollectViaDotNetTraceCliAsync(
                         job, dotnetTraceManualReset, "collect-linux", new FileInfo(job.PerfViewTraceFile));
                     break;
-                }
 
                 default:
-                {
+                    // Defensive only: ValidateDotNetTraceOptions rejects unknown
+                    // modes at job acceptance, so this is unreachable in practice.
                     var err = $"Unknown DotNetTraceCollectMode '{job.DotNetTraceCollectMode}'. Valid values: default, collect, collect-linux.";
                     Log.Error(err);
                     job.Error = string.IsNullOrEmpty(job.Error) ? err : (job.Error + Environment.NewLine + err);
                     dotnetTraceTask = Task.FromResult(-1);
                     dotnetTraceManualReset.Set();
                     break;
-                }
+            }
+        }
+
+        // Validates dotnet-trace options that can be checked at job-acceptance
+        // time -- before any asset restore, clone/build, or app launch -- so a
+        // misconfigured job fails fast instead of after a full startup. Returns
+        // (true, null) when there is nothing to collect or the options are valid,
+        // or (false, <error text>) when the job should be failed. For
+        // collect-linux this also runs the host prerequisite check (Linux, root,
+        // kernel >= 6.4); those are properties of the agent host, so checking
+        // them here is strictly earlier than -- and equivalent to -- the old
+        // check inside StartDotNetTrace.
+        internal static (bool ok, string error) ValidateDotNetTraceOptions(Job job)
+        {
+            // Nothing to validate unless dotnet-trace collection is requested.
+            if (!(job.DotNetTrace || (job.Profile && job.ProfileType == Job.DotnetTraceProfileType)))
+            {
+                return (true, null);
+            }
+
+            var mode = (job.DotNetTraceCollectMode ?? "default").Trim().ToLowerInvariant();
+            switch (mode)
+            {
+                case "":
+                case "default":
+                case "collect":
+                    return (true, null);
+
+                case "collect-linux":
+                    // Hard fail per design: no silent fallback to `collect`.
+                    return ValidateCollectLinuxPrerequisites();
+
+                default:
+                    return (false, $"Unknown DotNetTraceCollectMode '{job.DotNetTraceCollectMode}'. Valid values: default, collect, collect-linux.");
             }
         }
 
