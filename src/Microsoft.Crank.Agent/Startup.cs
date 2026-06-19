@@ -2971,13 +2971,24 @@ namespace Microsoft.Crank.Agent
                 }
             }
 
+            // Build Cache Service flavour selection. The per-job buildCacheRepo selector (falling
+            // back to the agent-level --build-cache-repo-name default) decides which BCS repository
+            // the buildcache channel resolves from: "runtime" overrides Microsoft.NETCore.App,
+            // "aspnetcore" overrides Microsoft.AspNetCore.App.
+            var buildCacheRepo = !String.IsNullOrEmpty(job.BuildCacheRepo) ? job.BuildCacheRepo : _buildCacheRepoName;
+            var buildCacheFlavor = BuildCacheClient.ParseFlavor(buildCacheRepo);
+            var isBuildCacheChannel = String.Equals(channel, "buildcache", StringComparison.OrdinalIgnoreCase);
+            var isAspNetCoreBuildCache = isBuildCacheChannel && buildCacheFlavor == BuildCacheClient.BuildCacheFlavor.AspNetCore;
+
             if (String.IsNullOrEmpty(runtimeVersion))
             {
-                runtimeVersion = channel;
+                // For the aspnetcore flavour the base runtime resolves to a real feed version; the
+                // BCS sentinel rides on aspNetCoreVersion instead of runtimeVersion.
+                runtimeVersion = isAspNetCoreBuildCache ? "latest" : channel;
             }
 
-            // For buildcache channel, SDK/ASP.NET/Desktop use "latest" since BCS only has runtime
-            var nonRuntimeChannel = String.Equals(channel, "buildcache", StringComparison.OrdinalIgnoreCase) ? "latest" : channel;
+            // For buildcache channel, the components NOT overridden by BCS use "latest" from feeds.
+            var nonRuntimeChannel = isBuildCacheChannel ? "latest" : channel;
 
             if (String.IsNullOrEmpty(desktopVersion))
             {
@@ -2986,7 +2997,9 @@ namespace Microsoft.Crank.Agent
 
             if (String.IsNullOrEmpty(aspNetCoreVersion))
             {
-                aspNetCoreVersion = nonRuntimeChannel;
+                // aspnetcore flavour: the buildcache sentinel rides on aspNetCoreVersion (mirrors how
+                // the runtime flavour puts the sentinel on runtimeVersion via the channel).
+                aspNetCoreVersion = isAspNetCoreBuildCache ? "buildcache" : nonRuntimeChannel;
             }
 
             if (String.IsNullOrEmpty(sdkVersion))
@@ -2996,9 +3009,24 @@ namespace Microsoft.Crank.Agent
 
             runtimeVersion = await ResolveRuntimeVersion(buildToolsPath, targetFramework, runtimeVersion);
 
-            // Build Cache Service: if the runtime version is "BuildCache", prepare BCS artifacts
-            // and resolve a real "Latest" runtime version for the NuGet build.
-            var useBuildCache = String.Equals(runtimeVersion, "BuildCache", StringComparison.OrdinalIgnoreCase);
+            // Build Cache Service: if either the runtime version is "BuildCache" (runtime flavour) or
+            // the asp.net version is "buildcache" (aspnetcore flavour), prepare BCS artifacts and
+            // resolve a real "Latest" version for the overridden component's NuGet build.
+            var useBuildCacheRuntime = String.Equals(runtimeVersion, "BuildCache", StringComparison.OrdinalIgnoreCase);
+            var useBuildCacheAspNet = String.Equals(aspNetCoreVersion, "buildcache", StringComparison.OrdinalIgnoreCase);
+            var useBuildCache = useBuildCacheRuntime || useBuildCacheAspNet;
+
+            // The selector is authoritative for which component BCS overrides. In the rare case both
+            // sentinels are explicitly requested (Q2: v1 overrides only one component per job), honour
+            // the selector's flavour and skip the other below.
+            if (useBuildCacheAspNet && !useBuildCacheRuntime)
+            {
+                buildCacheFlavor = BuildCacheClient.BuildCacheFlavor.AspNetCore;
+            }
+            else if (useBuildCacheRuntime && !useBuildCacheAspNet)
+            {
+                buildCacheFlavor = BuildCacheClient.BuildCacheFlavor.Runtime;
+            }
             string buildCacheCommitSha = null;
             string buildCacheExtractDir = null;
 
@@ -3025,26 +3053,57 @@ namespace Microsoft.Crank.Agent
                     var commitSha = job.BuildCacheCommitSha;
                     var buildCacheConfig = job.BuildCacheConfig;
 
-                    // Resolve which commit and config to use
+                    // Resolve which commit and config to use. ResolveCommitAsync/DownloadAndExtractAsync
+                    // derive the flavour (and therefore the config map + RepoName path segment) from the
+                    // repoName we pass, so "runtime" and "aspnetcore" route to their own BCS blobs.
                     var resolved = await BuildCacheClient.ResolveCommitAsync(
-                        _buildCacheBaseUrl, _buildCacheRepoName, branch, commitSha, buildCacheConfig, cancellationToken);
+                        _buildCacheBaseUrl, buildCacheRepo, branch, commitSha, buildCacheConfig, cancellationToken);
 
                     buildCacheCommitSha = resolved.commitSha;
                     buildCacheConfigResolved = resolved.buildCacheConfig;
 
                     // Download and extract the BCS artifacts to a per-job temp directory
                     buildCacheExtractDir = await BuildCacheClient.DownloadAndExtractAsync(
-                        _buildCacheBaseUrl, _buildCacheRepoName, buildCacheCommitSha, buildCacheConfigResolved,
+                        _buildCacheBaseUrl, buildCacheRepo, buildCacheCommitSha, buildCacheConfigResolved,
                         cancellationToken);
 
                     var shortSha = BuildCacheClient.ShortSha(buildCacheCommitSha);
-                    Log.Info($"Build Cache: Artifacts for commit {shortSha} ready for post-build overlay");
+                    Log.Info($"Build Cache: Artifacts for commit {shortSha} (repo '{buildCacheRepo}') ready for post-build overlay");
 
-                    // Resolve a REAL runtime version from feeds for the NuGet build. We deliberately keep
-                    // runtimeVersion pointing at this feed-resolved version so PatchRuntimeConfig and the
-                    // dotnet-install steps agree; the BCS bits are overlaid on top of that exact version.
-                    runtimeVersion = await ResolveRuntimeVersion(buildToolsPath, targetFramework, "Latest");
-                    Log.Info($"Runtime for build: {runtimeVersion} (Latest from feeds, will be overlaid with BCS commit {shortSha})");
+                    if (buildCacheFlavor == BuildCacheClient.BuildCacheFlavor.AspNetCore)
+                    {
+                        // The ASP.NET Core shared-framework version folder is feed-resolved (Latest) and
+                        // the BCS bits overlay onto it — mirroring how the runtime flavour overlays onto a
+                        // feed-resolved runtimeVersion. Set "Latest" here so ResolveAspNetCoreVersion below
+                        // turns it into a real version that names the shared/Microsoft.AspNetCore.App/{ver}
+                        // overlay target. runtimeVersion already holds a real feed runtime version.
+                        aspNetCoreVersion = "Latest";
+                        Log.Info($"ASP.NET Core for build: Latest from feeds, will be overlaid with BCS commit {shortSha}");
+
+                        // Q2: v1 overrides only one BCS component per job. If a runtime sentinel was also
+                        // requested, honour the selector (aspnetcore) and let the base runtime resolve normally.
+                        if (useBuildCacheRuntime)
+                        {
+                            Log.Info("Build Cache: both runtime and aspnetcore overrides were requested; honouring buildCacheRepo='aspnetcore' and resolving the base runtime from feeds.");
+                            runtimeVersion = await ResolveRuntimeVersion(buildToolsPath, targetFramework, "Latest");
+                        }
+                    }
+                    else
+                    {
+                        // Resolve a REAL runtime version from feeds for the NuGet build. We deliberately keep
+                        // runtimeVersion pointing at this feed-resolved version so PatchRuntimeConfig and the
+                        // dotnet-install steps agree; the BCS bits are overlaid on top of that exact version.
+                        runtimeVersion = await ResolveRuntimeVersion(buildToolsPath, targetFramework, "Latest");
+                        Log.Info($"Runtime for build: {runtimeVersion} (Latest from feeds, will be overlaid with BCS commit {shortSha})");
+
+                        // Q2: if an aspnetcore sentinel was also requested, honour the selector (runtime)
+                        // and let asp.net resolve normally from feeds.
+                        if (useBuildCacheAspNet)
+                        {
+                            Log.Info("Build Cache: both runtime and aspnetcore overrides were requested; honouring buildCacheRepo='runtime' and resolving asp.net from feeds.");
+                            aspNetCoreVersion = nonRuntimeChannel;
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -3326,7 +3385,8 @@ namespace Microsoft.Crank.Agent
                         runtimeVersion,
                         aspNetCoreVersion,
                         buildCacheCommitSha,
-                        job.BuildCacheConfig);
+                        job.BuildCacheConfig,
+                        buildCacheFlavor);
 
                     runtimeHomeDir = bcsHome;
 
@@ -3594,7 +3654,8 @@ namespace Microsoft.Crank.Agent
                             buildCacheExtractDir,
                             outputFolder,
                             job.BuildCacheConfig,
-                            assemblyName);
+                            assemblyName,
+                            buildCacheFlavor);
 
                         Log.Info($"Build Cache: Overlaid {publishedOverlay} files into published output (commit {shortSha})");
                     }
@@ -3614,9 +3675,18 @@ namespace Microsoft.Crank.Agent
                         return null;
                     }
 
-                    // Record the BCS commit alongside the runtime version for reporting. We append rather than
-                    // replace so PatchRuntimeConfig still sees a valid feed-resolved version below.
-                    job.RuntimeVersion = $"{runtimeVersion}+buildcache.{shortSha}";
+                    // Record the BCS commit alongside the overridden component's version for reporting.
+                    // We append rather than replace so PatchRuntimeConfig still sees a valid feed-resolved
+                    // version below. For the aspnetcore flavour annotate the asp.net version field (and
+                    // leave the runtime version as the feed runtime); for runtime annotate the runtime field.
+                    if (buildCacheFlavor == BuildCacheClient.BuildCacheFlavor.AspNetCore)
+                    {
+                        job.AspNetCoreVersion = $"{aspNetCoreVersion}+buildcache.{shortSha}";
+                    }
+                    else
+                    {
+                        job.RuntimeVersion = $"{runtimeVersion}+buildcache.{shortSha}";
+                    }
                 }
 
                 PatchRuntimeConfig(job, outputFolder, aspNetCoreVersion, runtimeVersion);
@@ -4143,6 +4213,14 @@ namespace Microsoft.Crank.Agent
 
             switch (aspNetCoreVersion.ToLowerInvariant())
             {
+                case "buildcache":
+                    // Defensive: the aspnetcore buildcache flavour rewrites aspNetCoreVersion to "Latest"
+                    // in the BCS prep block before this point, so this normally isn't hit. Treat the raw
+                    // sentinel as Latest so the shared-framework version still resolves to a real feed
+                    // version (the folder the BCS bits overlay onto).
+                    aspNetCoreVersion = await ResolveAspNetCoreVersion("Latest", targetFramework);
+                    Log.Info($"ASP.NET: {aspNetCoreVersion} (BuildCache → Latest)");
+                    break;
                 case "current":
                     aspNetCoreVersion = string.IsNullOrEmpty(currentAspNetCoreVersion)
                         ? await ResolveAspNetCoreVersion("Latest", targetFramework)

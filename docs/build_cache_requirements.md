@@ -22,10 +22,12 @@ GET https://pvscmdupload.z22.web.core.windows.net/builds/{repoName}/buildArtifac
 ```
 
 Where:
-- `repoName` = `runtime` (initially; `aspnetcore` in the future)
+- `repoName` = `runtime` or `aspnetcore` (selected per-job via the `buildCacheRepo` property; defaults to the agent's `--build-cache-repo-name`)
 - `branch` = e.g., `main`, `release/10.0`
-- `configKey` = e.g., `coreclr_x64_linux`, `coreclr_arm64_windows`
-- `artifactFile` = e.g., `BuildArtifacts_linux_x64_Release_coreclr.tar.gz`
+- `configKey` = e.g., `coreclr_x64_linux`, `coreclr_arm64_windows` (runtime); `aspnetcore_x64_linux`, `aspnetcore_arm64_windows` (aspnetcore)
+- `artifactFile` = e.g., `BuildArtifacts_linux_x64_Release_coreclr.tar.gz` (runtime); `BuildArtifacts_linux_x64_Release_aspnetcore.tar.gz` (aspnetcore)
+
+The aspnetcore `latestBuilds.json` lives at `builds/aspnetcore/latest/{branch}/latestBuilds.json` and contains only the 5 `aspnetcore_*` config keys plus an `all` entry and `branch_name`; it does **not** carry the runtime `coreclr_*` keys. Crank's parser enumerates keys dynamically, so it tolerates either repo's file.
 
 ---
 
@@ -47,7 +49,7 @@ If automated bisection tooling is built in the future, it can query GitHub direc
 
 ## Requirement 4: Artifact Layout Stability
 
-Crank extracts runtime artifacts using this path convention inside the archive:
+Crank extracts **runtime** artifacts using this path convention inside the archive:
 
 ```
 microsoft.netcore.app.runtime.{rid}/Release/runtimes/{rid}/lib/net{X}.0/  → managed DLLs
@@ -55,9 +57,21 @@ microsoft.netcore.app.runtime.{rid}/Release/runtimes/{rid}/native/        → na
 {rid}.Release/corehost/                                                    → host binaries (dotnet, libhostfxr, libhostpolicy)
 ```
 
-Where `{rid}` = `linux-x64`, `linux-arm64`, `win-x64`, etc.
+For **aspnetcore** artifacts crank uses the parallel convention (managed-only — the ASP.NET Core
+runtime pack ships no host binaries, and native is optional):
 
-This layout was confirmed by inspecting `BuildArtifacts_linux_arm64_Release_coreclr.tar.gz`. **If this layout changes in future builds, the crank extraction will break.** Consider treating it as a stable contract or documenting it.
+```
+microsoft.aspnetcore.app.runtime.{rid}/Release/runtimes/{rid}/lib/net{X}.0/  → managed Microsoft.AspNetCore.*.dll
+microsoft.aspnetcore.app.runtime.{rid}/Release/runtimes/{rid}/native/        → native libs (optional)
+```
+
+Where `{rid}` = `linux-x64`, `linux-arm64`, `win-x64`, `win-arm64`, `win-x86`. (aspnetcore v1 has no
+musl/osx/arm32 configs.)
+
+The runtime layout was confirmed by inspecting `BuildArtifacts_linux_arm64_Release_coreclr.tar.gz`;
+the aspnetcore layout is asserted by dotnet/performance's `pack-bcs-archives.ps1`.
+**If either layout changes in future builds, the crank extraction will break.** Consider treating it
+as a stable contract or documenting it.
 
 ---
 

@@ -205,6 +205,39 @@ namespace Microsoft.Crank.UnitTests
         }
 
         // -------------------------------------------------------------------
+        // ASP.NET Core config map (locked external contract — see
+        // dotnet/performance pack-bcs-archives.ps1). Pins configKey / RID /
+        // artifact filename so an accidental token change is caught.
+        // -------------------------------------------------------------------
+
+        [Theory]
+        [InlineData("linux-x64", "aspnetcore_x64_linux", "BuildArtifacts_linux_x64_Release_aspnetcore.tar.gz")]
+        [InlineData("linux-arm64", "aspnetcore_arm64_linux", "BuildArtifacts_linux_arm64_Release_aspnetcore.tar.gz")]
+        [InlineData("win-x64", "aspnetcore_x64_windows", "BuildArtifacts_windows_x64_Release_aspnetcore.zip")]
+        [InlineData("win-arm64", "aspnetcore_arm64_windows", "BuildArtifacts_windows_arm64_Release_aspnetcore.zip")]
+        [InlineData("win-x86", "aspnetcore_x86_windows", "BuildArtifacts_windows_x86_Release_aspnetcore.zip")]
+        public void PlatformToBcsConfigAspNetCore_MatchesLockedContract(string rid, string expectedConfigKey, string expectedArtifact)
+        {
+            Assert.True(BuildCacheClient.PlatformToBcsConfigAspNetCore.TryGetValue(rid, out var entry), $"Missing aspnetcore entry for '{rid}'.");
+            Assert.Equal(expectedConfigKey, entry.configKey);
+            Assert.Equal(expectedArtifact, entry.artifactFile);
+            Assert.Equal(rid, entry.rid);
+        }
+
+        [Fact]
+        public void PlatformToBcsConfigAspNetCore_HasExactlyTheFiveV1Platforms()
+        {
+            var rids = BuildCacheClient.PlatformToBcsConfigAspNetCore.Keys.OrderBy(k => k, StringComparer.Ordinal).ToArray();
+            Assert.Equal(
+                new[] { "linux-arm64", "linux-x64", "win-arm64", "win-x64", "win-x86" },
+                rids);
+
+            // v1 explicitly excludes musl / osx / arm32.
+            Assert.DoesNotContain(BuildCacheClient.PlatformToBcsConfigAspNetCore.Keys, k => k.Contains("musl", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(BuildCacheClient.PlatformToBcsConfigAspNetCore.Keys, k => k.StartsWith("osx", StringComparison.OrdinalIgnoreCase));
+        }
+
+        // -------------------------------------------------------------------
         // SelectHighestManagedDir (numeric-aware)
         // -------------------------------------------------------------------
 
@@ -441,6 +474,122 @@ namespace Microsoft.Crank.UnitTests
         }
 
         // -------------------------------------------------------------------
+        // ASP.NET Core flavour: ParseFlavor + config→RID + overlay targeting
+        // -------------------------------------------------------------------
+
+        [Theory]
+        [InlineData("aspnetcore", true)]
+        [InlineData("ASPNETCORE", true)]
+        [InlineData("runtime", false)]
+        [InlineData("RUNTIME", false)]
+        [InlineData("", false)]
+        [InlineData(null, false)]
+        [InlineData("something-else", false)]
+        public void ParseFlavor_MapsRepoNameToFlavor(string repoName, bool expectedAspNetCore)
+        {
+            var expected = expectedAspNetCore
+                ? BuildCacheClient.BuildCacheFlavor.AspNetCore
+                : BuildCacheClient.BuildCacheFlavor.Runtime;
+            Assert.Equal(expected, BuildCacheClient.ParseFlavor(repoName));
+        }
+
+        [Theory]
+        [InlineData("aspnetcore_x64_linux", "linux-x64")]
+        [InlineData("aspnetcore_arm64_linux", "linux-arm64")]
+        [InlineData("aspnetcore_x64_windows", "win-x64")]
+        [InlineData("aspnetcore_arm64_windows", "win-arm64")]
+        [InlineData("aspnetcore_x86_windows", "win-x86")]
+        public void GetRidForConfig_AspNetCoreConfig_ReturnsMatchingRid(string configKey, string expectedRid)
+        {
+            // GetRidForConfig searches the union of both flavour maps; aspnetcore keys must resolve.
+            Assert.Equal(expectedRid, BuildCacheClient.GetRidForConfig(configKey));
+        }
+
+        [Fact]
+        public void OverlayPublishedOutput_AspNetCore_CopiesManagedAspNetDllsAndNoHost()
+        {
+            var rid = BuildCacheClient.GetPlatformMoniker();
+            var configKey = AspNetConfigKeyForRid(rid);
+            var (extractDir, managed) = BuildFakeAspNetCoreBcsArchive(rid);
+
+            var outputFolder = Path.Combine(_testDir, "published-aspnet");
+            Directory.CreateDirectory(outputFolder);
+
+            var copied = BuildCacheClient.OverlayPublishedOutput(
+                extractDir, outputFolder, configKey, "MyApp", BuildCacheClient.BuildCacheFlavor.AspNetCore);
+
+            // Managed-only pack: every Microsoft.AspNetCore.*.dll is overlaid; no host binaries.
+            Assert.Equal(managed.Count, copied);
+            foreach (var dll in managed)
+            {
+                Assert.True(File.Exists(Path.Combine(outputFolder, dll)), $"Missing aspnetcore managed file {dll}");
+            }
+            Assert.False(File.Exists(Path.Combine(outputFolder, BuildCacheClient.GetNativeLibName("hostpolicy"))));
+        }
+
+        [Fact]
+        public void CreateBuildCacheDotnetHome_AspNetCore_OverlaysAspNetCoreAppNotRuntime()
+        {
+            var rid = BuildCacheClient.GetPlatformMoniker();
+            var configKey = AspNetConfigKeyForRid(rid);
+            var (extractDir, managed) = BuildFakeAspNetCoreBcsArchive(rid);
+
+            const string runtimeVersion = "11.0.0-preview.5.26256.117";
+            const string aspNetCoreVersion = "11.0.0-preview.5.26256.117";
+            var globalHome = BuildFakeGlobalDotnetHome(runtimeVersion, aspNetCoreVersion);
+            var commitSha = "aaaabbbbccccddddeeeeffff0000111122223333";
+
+            var bcsHome = BuildCacheClient.CreateBuildCacheDotnetHome(
+                globalHome, extractDir, runtimeVersion, aspNetCoreVersion, commitSha, configKey,
+                BuildCacheClient.BuildCacheFlavor.AspNetCore);
+
+            try
+            {
+                // 1. BCS managed Microsoft.AspNetCore.*.dll overlaid into the per-job AspNetCore.App.
+                var bcsAspNet = Path.Combine(bcsHome, "shared", "Microsoft.AspNetCore.App", aspNetCoreVersion);
+                foreach (var dll in managed)
+                {
+                    Assert.True(File.Exists(Path.Combine(bcsAspNet, dll)), $"Missing BCS aspnetcore managed {dll}");
+                }
+
+                // 2. AspNetCore.App/.version rewritten with the BCS (aspnetcore) commit.
+                var aspNetVersion = File.ReadAllText(Path.Combine(bcsAspNet, ".version"));
+                Assert.Contains(commitSha, aspNetVersion);
+                Assert.Contains(aspNetCoreVersion, aspNetVersion);
+
+                // 3. The base runtime (NETCore.App) is mirrored from the feed and its .version is
+                //    NOT rewritten — the aspnetcore flavour overrides only the asp.net framework.
+                var netCoreVersion = File.ReadAllText(Path.Combine(bcsHome, "shared", "Microsoft.NETCore.App", runtimeVersion, ".version"));
+                Assert.Contains("FEED_COMMIT", netCoreVersion);
+                Assert.DoesNotContain(commitSha, netCoreVersion);
+
+                // 4. Global home untouched.
+                var globalAspNet = File.ReadAllText(Path.Combine(globalHome, "shared", "Microsoft.AspNetCore.App", aspNetCoreVersion, ".version"));
+                Assert.DoesNotContain(commitSha, globalAspNet);
+            }
+            finally
+            {
+                try { Directory.Delete(bcsHome, recursive: true); } catch { }
+            }
+        }
+
+        [Fact]
+        public void CreateBuildCacheDotnetHome_AspNetCore_MissingAspNetVersion_Throws()
+        {
+            var rid = BuildCacheClient.GetPlatformMoniker();
+            var configKey = AspNetConfigKeyForRid(rid);
+            var (extractDir, _) = BuildFakeAspNetCoreBcsArchive(rid);
+
+            const string runtimeVersion = "11.0.0-preview.5";
+            var globalHome = BuildFakeGlobalDotnetHome(runtimeVersion, runtimeVersion);
+
+            Assert.Throws<ArgumentException>(() =>
+                BuildCacheClient.CreateBuildCacheDotnetHome(
+                    globalHome, extractDir, runtimeVersion, aspNetCoreVersion: "",
+                    "abcdef0123456789", configKey, BuildCacheClient.BuildCacheFlavor.AspNetCore));
+        }
+
+        // -------------------------------------------------------------------
         // CleanupExtractDir
         // -------------------------------------------------------------------
 
@@ -573,6 +722,36 @@ namespace Microsoft.Crank.UnitTests
                 return $"lib{baseName}.dylib";
             }
             return $"lib{baseName}.so";
+        }
+
+        private static string AspNetConfigKeyForRid(string rid)
+            => BuildCacheClient.PlatformToBcsConfigAspNetCore.TryGetValue(rid, out var v) ? v.configKey : null;
+
+        /// <summary>
+        /// Builds a fake aspnetcore BCS extraction at
+        /// <c>microsoft.aspnetcore.app.runtime.{rid}/Release/runtimes/{rid}/lib/net11.0/</c> with
+        /// managed Microsoft.AspNetCore.*.dll files. The aspnetcore runtime pack is managed-only:
+        /// no native dir, no corehost (mirrors dotnet/performance#5243's pack-bcs-archives.ps1).
+        /// </summary>
+        private (string extractDir, List<string> managed) BuildFakeAspNetCoreBcsArchive(string rid)
+        {
+            var extractDir = Path.Combine(_testDir, "extracted-aspnet-" + Guid.NewGuid().ToString("N"));
+            var nugetPkg = Path.Combine(extractDir, $"microsoft.aspnetcore.app.runtime.{rid}");
+            var libDir = Path.Combine(nugetPkg, "Release", "runtimes", rid, "lib", "net11.0");
+            Directory.CreateDirectory(libDir);
+
+            var managed = new List<string>
+            {
+                "Microsoft.AspNetCore.dll",
+                "Microsoft.AspNetCore.Mvc.Core.dll",
+                "Microsoft.AspNetCore.Routing.dll",
+            };
+            foreach (var dll in managed)
+            {
+                File.WriteAllText(Path.Combine(libDir, dll), "BCS aspnetcore managed " + dll);
+            }
+
+            return (extractDir, managed);
         }
     }
 }

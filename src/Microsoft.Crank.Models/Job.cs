@@ -76,6 +76,11 @@ namespace Microsoft.Crank.Models
         public string BuildCacheBranch { get; set; } = "";
         public string BuildCacheConfig { get; set; } = "";
 
+        // Selects which BCS repository the buildcache channel resolves from: "runtime" (default,
+        // overrides Microsoft.NETCore.App) or "aspnetcore" (overrides Microsoft.AspNetCore.App).
+        // Empty falls back to the agent-level --build-cache-repo-name default.
+        public string BuildCacheRepo { get; set; } = "";
+
         // Delay from the process started to the console receiving "Application started"
         public TimeSpan StartupMainMethod { get; set; }
         public TimeSpan BuildTime { get; set; }
@@ -407,7 +412,8 @@ namespace Microsoft.Crank.Models
                 DockerContextDirectory = DockerContextDirectory,
                 BuildCacheCommitSha = BuildCacheCommitSha,
                 BuildCacheBranch = BuildCacheBranch,
-                BuildCacheConfig = BuildCacheConfig
+                BuildCacheConfig = BuildCacheConfig,
+                BuildCacheRepo = BuildCacheRepo
             };
         }
 
@@ -519,5 +525,6 @@ namespace Microsoft.Crank.Models
         public string BuildCacheCommitSha { get; set; }
         public string BuildCacheBranch { get; set; }
         public string BuildCacheConfig { get; set; }
+        public string BuildCacheRepo { get; set; }
     }
 }

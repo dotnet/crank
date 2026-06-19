@@ -58,6 +58,67 @@ namespace Microsoft.Crank.Agent
             };
 
         /// <summary>
+        /// ASP.NET Core (dotnet/aspnetcore) variant of <see cref="PlatformToBcsConfig"/>. Maps the
+        /// agent's platform (RID) to the aspnetcore BCS configuration key and artifact filename.
+        /// The configKey / artifact tokens and the archive's internal layout
+        /// (<c>microsoft.aspnetcore.app.runtime.{rid}/Release/runtimes/{rid}/...</c>) are a
+        /// load-bearing contract asserted by dotnet/performance's pack-bcs-archives.ps1.
+        /// v1 has no musl/osx/arm32 entries.
+        /// </summary>
+        internal static readonly IReadOnlyDictionary<string, (string configKey, string artifactFile, string rid)> PlatformToBcsConfigAspNetCore =
+            new Dictionary<string, (string configKey, string artifactFile, string rid)>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["linux-x64"] = ("aspnetcore_x64_linux", "BuildArtifacts_linux_x64_Release_aspnetcore.tar.gz", "linux-x64"),
+                ["linux-arm64"] = ("aspnetcore_arm64_linux", "BuildArtifacts_linux_arm64_Release_aspnetcore.tar.gz", "linux-arm64"),
+                ["win-x64"] = ("aspnetcore_x64_windows", "BuildArtifacts_windows_x64_Release_aspnetcore.zip", "win-x64"),
+                ["win-arm64"] = ("aspnetcore_arm64_windows", "BuildArtifacts_windows_arm64_Release_aspnetcore.zip", "win-arm64"),
+                ["win-x86"] = ("aspnetcore_x86_windows", "BuildArtifacts_windows_x86_Release_aspnetcore.zip", "win-x86"),
+            };
+
+        /// <summary>
+        /// Which BCS repository the buildcache channel resolves from. Selects the platform→config
+        /// map, the latestBuilds.json / artifact path RepoName, and the overlay target inside the
+        /// dotnet home (Runtime → Microsoft.NETCore.App; AspNetCore → Microsoft.AspNetCore.App).
+        /// </summary>
+        internal enum BuildCacheFlavor
+        {
+            Runtime,
+            AspNetCore,
+        }
+
+        /// <summary>BCS RepoName for each flavour (segment in BCS blob paths).</summary>
+        internal const string RepoNameRuntime = "runtime";
+        internal const string RepoNameAspNetCore = "aspnetcore";
+
+        /// <summary>
+        /// Maps a BCS RepoName (the per-job <c>buildCacheRepo</c> selector) to a flavour. Anything
+        /// other than "aspnetcore" (including empty / "runtime") resolves to <see cref="BuildCacheFlavor.Runtime"/>,
+        /// preserving the proven runtime default.
+        /// </summary>
+        internal static BuildCacheFlavor ParseFlavor(string repoName)
+        {
+            return string.Equals(repoName, RepoNameAspNetCore, StringComparison.OrdinalIgnoreCase)
+                ? BuildCacheFlavor.AspNetCore
+                : BuildCacheFlavor.Runtime;
+        }
+
+        /// <summary>Selects the platform→config map for a flavour.</summary>
+        private static IReadOnlyDictionary<string, (string configKey, string artifactFile, string rid)> GetConfigMap(BuildCacheFlavor flavor)
+        {
+            return flavor == BuildCacheFlavor.AspNetCore ? PlatformToBcsConfigAspNetCore : PlatformToBcsConfig;
+        }
+
+        /// <summary>
+        /// All config entries across every flavour. configKeys are globally unique (coreclr_* vs
+        /// aspnetcore_*), so config→artifact and config→RID lookups can search this union without
+        /// the caller needing to know the flavour.
+        /// </summary>
+        private static IEnumerable<(string configKey, string artifactFile, string rid)> AllConfigs()
+        {
+            return PlatformToBcsConfig.Values.Concat(PlatformToBcsConfigAspNetCore.Values);
+        }
+
+        /// <summary>
         /// Sentinel thrown for HTTP responses that are definitively not retryable (e.g. 404).
         /// Distinguishes "the build doesn't exist" from "transient network blip".
         /// </summary>
@@ -98,7 +159,7 @@ namespace Microsoft.Crank.Agent
             CancellationToken cancellationToken = default)
         {
             ValidateCommitSha(commitSha);
-            buildCacheConfig = ResolveBuildCacheConfig(buildCacheConfig);
+            buildCacheConfig = ResolveBuildCacheConfig(buildCacheConfig, ParseFlavor(repoName));
 
             if (string.IsNullOrEmpty(commitSha))
             {
@@ -145,7 +206,7 @@ namespace Microsoft.Crank.Agent
                 throw new ArgumentException("commitSha must be provided.", nameof(commitSha));
             }
 
-            buildCacheConfig = ResolveBuildCacheConfig(buildCacheConfig);
+            buildCacheConfig = ResolveBuildCacheConfig(buildCacheConfig, ParseFlavor(repoName));
             var artifactFile = GetArtifactFile(buildCacheConfig);
             var normalizedBaseUrl = (baseUrl ?? string.Empty).TrimEnd('/');
 
@@ -225,6 +286,13 @@ namespace Microsoft.Crank.Agent
         /// Builds a per-job dotnet home that mirrors the relevant subtrees of the global dotnet
         /// home (runtime, asp.net, host) and overlays BCS bits on top. The global dotnet home is
         /// NOT modified, so concurrent jobs and subsequent non-buildcache jobs are unaffected.
+        ///
+        /// For <see cref="BuildCacheFlavor.Runtime"/> the BCS bits overlay the base runtime
+        /// (Microsoft.NETCore.App) plus host binaries. For <see cref="BuildCacheFlavor.AspNetCore"/>
+        /// the BCS bits overlay the ASP.NET Core shared framework (Microsoft.AspNetCore.App) only;
+        /// the aspnetcore runtime pack is managed-only and ships no host binaries, so the feed
+        /// runtime/host are left in place and only the managed Microsoft.AspNetCore.*.dll set is
+        /// replaced.
         /// </summary>
         /// <returns>Absolute path to the per-job dotnet home root. Caller owns it.</returns>
         public static string CreateBuildCacheDotnetHome(
@@ -233,14 +301,22 @@ namespace Microsoft.Crank.Agent
             string runtimeVersion,
             string aspNetCoreVersion,
             string commitSha,
-            string buildCacheConfig)
+            string buildCacheConfig,
+            BuildCacheFlavor flavor = BuildCacheFlavor.Runtime)
         {
             if (string.IsNullOrEmpty(runtimeVersion))
             {
                 throw new ArgumentException("runtimeVersion must be provided.", nameof(runtimeVersion));
             }
 
-            buildCacheConfig = ResolveBuildCacheConfig(buildCacheConfig);
+            if (flavor == BuildCacheFlavor.AspNetCore && string.IsNullOrEmpty(aspNetCoreVersion))
+            {
+                throw new ArgumentException(
+                    "aspNetCoreVersion must be provided for the aspnetcore build cache flavour (it is the overlay target).",
+                    nameof(aspNetCoreVersion));
+            }
+
+            buildCacheConfig = ResolveBuildCacheConfig(buildCacheConfig, flavor);
             var rid = GetRidForConfig(buildCacheConfig);
 
             // Per-job, never reused across jobs to avoid pollution.
@@ -277,47 +353,70 @@ namespace Microsoft.Crank.Agent
             }
 
             // 4. Mirror shared/Microsoft.AspNetCore.App/{aspNetCoreVersion}.
+            var dstAspNet = string.IsNullOrEmpty(aspNetCoreVersion)
+                ? null
+                : Path.Combine(bcsHomeRoot, "shared", "Microsoft.AspNetCore.App", aspNetCoreVersion);
             if (!string.IsNullOrEmpty(aspNetCoreVersion))
             {
                 var srcAspNet = Path.Combine(globalDotnetHome, "shared", "Microsoft.AspNetCore.App", aspNetCoreVersion);
-                var dstAspNet = Path.Combine(bcsHomeRoot, "shared", "Microsoft.AspNetCore.App", aspNetCoreVersion);
                 if (Directory.Exists(srcAspNet))
                 {
                     CopyDirectory(srcAspNet, dstAspNet);
                 }
             }
 
-            // 5. Overlay BCS managed + native into the per-job NETCore.App.
             int filesOverlaid = 0;
-            var nugetPackageDir = FindDirectory(extractDir, $"microsoft.netcore.app.runtime.{rid}");
-            if (nugetPackageDir != null)
+
+            if (flavor == BuildCacheFlavor.AspNetCore)
             {
-                var runtimesDir = Path.Combine(nugetPackageDir, "Release", "runtimes", rid);
-                if (Directory.Exists(runtimesDir))
+                // 5a. Overlay BCS managed (+ optional native) Microsoft.AspNetCore.*.dll into the
+                //     per-job ASP.NET Core shared framework. The aspnetcore runtime pack is
+                //     essentially managed-only; native is optional (CopyNative returns 0 if absent)
+                //     and there are no host binaries to overlay (the feed runtime/host stay in place).
+                var aspNetPackageDir = FindDirectory(extractDir, $"microsoft.aspnetcore.app.runtime.{rid}");
+                if (aspNetPackageDir != null)
                 {
-                    filesOverlaid += CopyManaged(runtimesDir, dstNetCoreApp);
-                    filesOverlaid += CopyNative(runtimesDir, dstNetCoreApp);
+                    var runtimesDir = Path.Combine(aspNetPackageDir, "Release", "runtimes", rid);
+                    if (Directory.Exists(runtimesDir))
+                    {
+                        filesOverlaid += CopyManaged(runtimesDir, dstAspNet);
+                        filesOverlaid += CopyNative(runtimesDir, dstAspNet);
+                    }
                 }
             }
-
-            // 6. Overlay BCS host binaries.
-            var corehostDir = FindCorehostDirectory(extractDir, rid);
-            if (corehostDir != null)
+            else
             {
-                filesOverlaid += CopyHostBinaryIfPresent(corehostDir, dstNetCoreApp, GetNativeLibName("hostpolicy"));
-
-                if (Directory.Exists(dstHostFxr))
+                // 5. Overlay BCS managed + native into the per-job NETCore.App.
+                var nugetPackageDir = FindDirectory(extractDir, $"microsoft.netcore.app.runtime.{rid}");
+                if (nugetPackageDir != null)
                 {
-                    filesOverlaid += CopyHostBinaryIfPresent(corehostDir, dstHostFxr, GetNativeLibName("hostfxr"));
+                    var runtimesDir = Path.Combine(nugetPackageDir, "Release", "runtimes", rid);
+                    if (Directory.Exists(runtimesDir))
+                    {
+                        filesOverlaid += CopyManaged(runtimesDir, dstNetCoreApp);
+                        filesOverlaid += CopyNative(runtimesDir, dstNetCoreApp);
+                    }
                 }
 
-                var dstDotnetHost = Path.Combine(bcsHomeRoot, dotnetExeName);
-                var copied = CopyHostBinaryIfPresent(corehostDir, bcsHomeRoot, dotnetExeName);
-                if (copied > 0)
+                // 6. Overlay BCS host binaries.
+                var corehostDir = FindCorehostDirectory(extractDir, rid);
+                if (corehostDir != null)
                 {
-                    EnsureExecutable(dstDotnetHost);
+                    filesOverlaid += CopyHostBinaryIfPresent(corehostDir, dstNetCoreApp, GetNativeLibName("hostpolicy"));
+
+                    if (Directory.Exists(dstHostFxr))
+                    {
+                        filesOverlaid += CopyHostBinaryIfPresent(corehostDir, dstHostFxr, GetNativeLibName("hostfxr"));
+                    }
+
+                    var dstDotnetHost = Path.Combine(bcsHomeRoot, dotnetExeName);
+                    var copied = CopyHostBinaryIfPresent(corehostDir, bcsHomeRoot, dotnetExeName);
+                    if (copied > 0)
+                    {
+                        EnsureExecutable(dstDotnetHost);
+                    }
+                    filesOverlaid += copied;
                 }
-                filesOverlaid += copied;
             }
 
             if (filesOverlaid == 0)
@@ -326,38 +425,58 @@ namespace Microsoft.Crank.Agent
                 // Tear it down and let the caller fail the job loudly.
                 try { Directory.Delete(bcsHomeRoot, recursive: true); } catch { }
                 throw new InvalidOperationException(
-                    $"Build Cache: overlay copied 0 files for commit {ShortSha(commitSha)} (config '{buildCacheConfig}', rid '{rid}'). " +
+                    $"Build Cache: overlay copied 0 files for commit {ShortSha(commitSha)} (config '{buildCacheConfig}', rid '{rid}', repo '{flavor}'). " +
                     "The archive layout may have changed or the platform is not supported.");
             }
 
-            // 7. Rewrite .version so any consumer (the agent's own BenchmarksNetCoreAppVersion
-            //    measurement, GetDependencies, etc.) reports the BCS commit.
-            File.WriteAllText(
-                Path.Combine(dstNetCoreApp, ".version"),
-                $"{commitSha}\n{runtimeVersion}\n");
+            // 7. Rewrite the overlaid framework's .version so any consumer (the agent's own
+            //    version measurement, GetDependencies, etc.) reports the BCS commit. For aspnetcore
+            //    that is the Microsoft.AspNetCore.App folder; for runtime it is Microsoft.NETCore.App.
+            if (flavor == BuildCacheFlavor.AspNetCore)
+            {
+                File.WriteAllText(
+                    Path.Combine(dstAspNet, ".version"),
+                    $"{commitSha}\n{aspNetCoreVersion}\n");
+            }
+            else
+            {
+                File.WriteAllText(
+                    Path.Combine(dstNetCoreApp, ".version"),
+                    $"{commitSha}\n{runtimeVersion}\n");
+            }
 
             Log.Info($"Build Cache: Per-job dotnet home built at {bcsHomeRoot} ({filesOverlaid} BCS files overlaid)");
             return bcsHomeRoot;
         }
 
         /// <summary>
-        /// Overlays BCS runtime binaries (managed + native + apphost) into a self-contained
-        /// published output directory. For SCD the runtime ships next to the app, so this is the
-        /// only way to make the benchmark actually run BCS bits. The BCS apphost is renamed to
-        /// match the published app's executable name (the SDK renames apphost → AssemblyName).
+        /// Overlays BCS runtime binaries into a self-contained published output directory. For SCD
+        /// the runtime ships next to the app, so this is the only way to make the benchmark
+        /// actually run BCS bits.
+        ///
+        /// For <see cref="BuildCacheFlavor.Runtime"/> the base runtime managed + native binaries
+        /// and host (hostpolicy) are overlaid. For <see cref="BuildCacheFlavor.AspNetCore"/> only
+        /// the managed (+ optional native) Microsoft.AspNetCore.*.dll set is overlaid — the
+        /// aspnetcore pack ships no host binaries and the base runtime stays the published one.
+        /// The SDK-bound apphost is never replaced (see note below).
         /// </summary>
         /// <returns>Number of files overlaid.</returns>
         public static int OverlayPublishedOutput(
             string extractDir,
             string outputFolder,
             string buildCacheConfig,
-            string assemblyName)
+            string assemblyName,
+            BuildCacheFlavor flavor = BuildCacheFlavor.Runtime)
         {
-            buildCacheConfig = ResolveBuildCacheConfig(buildCacheConfig);
+            buildCacheConfig = ResolveBuildCacheConfig(buildCacheConfig, flavor);
             var rid = GetRidForConfig(buildCacheConfig);
             int filesCopied = 0;
 
-            var nugetPackageDir = FindDirectory(extractDir, $"microsoft.netcore.app.runtime.{rid}");
+            var packageName = flavor == BuildCacheFlavor.AspNetCore
+                ? $"microsoft.aspnetcore.app.runtime.{rid}"
+                : $"microsoft.netcore.app.runtime.{rid}";
+
+            var nugetPackageDir = FindDirectory(extractDir, packageName);
             if (nugetPackageDir != null)
             {
                 var runtimesDir = Path.Combine(nugetPackageDir, "Release", "runtimes", rid);
@@ -368,7 +487,8 @@ namespace Microsoft.Crank.Agent
                 }
             }
 
-            var corehostDir = FindCorehostDirectory(extractDir, rid);
+            // The aspnetcore pack ships no host binaries, so host overlay only applies to runtime.
+            var corehostDir = flavor == BuildCacheFlavor.AspNetCore ? null : FindCorehostDirectory(extractDir, rid);
             if (corehostDir != null)
             {
                 filesCopied += CopyHostBinaryIfPresent(corehostDir, outputFolder, GetNativeLibName("hostpolicy"));
@@ -788,7 +908,7 @@ namespace Microsoft.Crank.Agent
 
         // --- Platform / RID mapping ---------------------------------------------------
 
-        private static string ResolveBuildCacheConfig(string buildCacheConfig)
+        private static string ResolveBuildCacheConfig(string buildCacheConfig, BuildCacheFlavor flavor = BuildCacheFlavor.Runtime)
         {
             if (!string.IsNullOrEmpty(buildCacheConfig))
             {
@@ -796,18 +916,18 @@ namespace Microsoft.Crank.Agent
             }
 
             var rid = GetPlatformMoniker();
-            if (PlatformToBcsConfig.TryGetValue(rid, out var mapped))
+            if (GetConfigMap(flavor).TryGetValue(rid, out var mapped))
             {
                 return mapped.configKey;
             }
 
             throw new InvalidOperationException(
-                $"No Build Cache configuration mapping for platform '{rid}'. Specify buildCacheConfig explicitly.");
+                $"No Build Cache configuration mapping for platform '{rid}' (repo '{flavor}'). Specify buildCacheConfig explicitly.");
         }
 
         private static string GetArtifactFile(string buildCacheConfig)
         {
-            var match = PlatformToBcsConfig.Values.FirstOrDefault(v =>
+            var match = AllConfigs().FirstOrDefault(v =>
                 string.Equals(v.configKey, buildCacheConfig, StringComparison.OrdinalIgnoreCase));
 
             if (match.artifactFile == null)
@@ -822,11 +942,12 @@ namespace Microsoft.Crank.Agent
         /// <summary>
         /// Maps a BCS config key back to its RID. Use this for overlay path discovery so an
         /// explicit musl/cross-arch override actually finds the right runtime pack inside the
-        /// archive instead of falling back to the host's detected RID.
+        /// archive instead of falling back to the host's detected RID. Searches every flavour's
+        /// map since config keys are globally unique.
         /// </summary>
         internal static string GetRidForConfig(string buildCacheConfig)
         {
-            var match = PlatformToBcsConfig.Values.FirstOrDefault(v =>
+            var match = AllConfigs().FirstOrDefault(v =>
                 string.Equals(v.configKey, buildCacheConfig, StringComparison.OrdinalIgnoreCase));
 
             if (match.rid == null)
