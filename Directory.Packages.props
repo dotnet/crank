@@ -10,7 +10,7 @@
     <PackageVersion Include="Jint" Version="3.0.0" />
     <PackageVersion Include="JsonSchema.Net" Version="7.3.4" />
     <PackageVersion Include="McMaster.Extensions.CommandLineUtils" Version="3.0.0" />
-    <PackageVersion Include="MessagePack" Version="2.5.198" />
+    <PackageVersion Include="MessagePack" Version="2.5.302" />
     <PackageVersion Include="Microsoft.AspNetCore.Hosting.WindowsServices" Version="8.0.19" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="3.1.8" />
     <PackageVersion Include="Microsoft.Azure.Relay" Version="3.0.1" />
