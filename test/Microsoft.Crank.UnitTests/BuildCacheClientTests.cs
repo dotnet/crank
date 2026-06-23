@@ -206,16 +206,16 @@ namespace Microsoft.Crank.UnitTests
 
         // -------------------------------------------------------------------
         // ASP.NET Core config map (locked external contract — see
-        // dotnet/performance pack-bcs-archives.ps1). Pins configKey / RID /
+        // dotnet/performance stage-bcs-nupkg-aspnetcore.ps1). Pins configKey / RID /
         // artifact filename so an accidental token change is caught.
         // -------------------------------------------------------------------
 
         [Theory]
-        [InlineData("linux-x64", "aspnetcore_x64_linux", "BuildArtifacts_linux_x64_Release_aspnetcore.tar.gz")]
-        [InlineData("linux-arm64", "aspnetcore_arm64_linux", "BuildArtifacts_linux_arm64_Release_aspnetcore.tar.gz")]
-        [InlineData("win-x64", "aspnetcore_x64_windows", "BuildArtifacts_windows_x64_Release_aspnetcore.zip")]
-        [InlineData("win-arm64", "aspnetcore_arm64_windows", "BuildArtifacts_windows_arm64_Release_aspnetcore.zip")]
-        [InlineData("win-x86", "aspnetcore_x86_windows", "BuildArtifacts_windows_x86_Release_aspnetcore.zip")]
+        [InlineData("linux-x64", "aspnetcore_x64_linux", "BuildArtifacts_linux_x64_Release_aspnetcore.nupkg")]
+        [InlineData("linux-arm64", "aspnetcore_arm64_linux", "BuildArtifacts_linux_arm64_Release_aspnetcore.nupkg")]
+        [InlineData("win-x64", "aspnetcore_x64_windows", "BuildArtifacts_windows_x64_Release_aspnetcore.nupkg")]
+        [InlineData("win-arm64", "aspnetcore_arm64_windows", "BuildArtifacts_windows_arm64_Release_aspnetcore.nupkg")]
+        [InlineData("win-x86", "aspnetcore_x86_windows", "BuildArtifacts_windows_x86_Release_aspnetcore.nupkg")]
         public void PlatformToBcsConfigAspNetCore_MatchesLockedContract(string rid, string expectedConfigKey, string expectedArtifact)
         {
             Assert.True(BuildCacheClient.PlatformToBcsConfigAspNetCore.TryGetValue(rid, out var entry), $"Missing aspnetcore entry for '{rid}'.");
@@ -728,16 +728,15 @@ namespace Microsoft.Crank.UnitTests
             => BuildCacheClient.PlatformToBcsConfigAspNetCore.TryGetValue(rid, out var v) ? v.configKey : null;
 
         /// <summary>
-        /// Builds a fake aspnetcore BCS extraction at
-        /// <c>microsoft.aspnetcore.app.runtime.{rid}/Release/runtimes/{rid}/lib/net11.0/</c> with
-        /// managed Microsoft.AspNetCore.*.dll files. The aspnetcore runtime pack is managed-only:
-        /// no native dir, no corehost (mirrors dotnet/performance#5243's pack-bcs-archives.ps1).
+        /// Builds a fake aspnetcore BCS extraction at <c>runtimes/{rid}/lib/net11.0/</c> (the raw
+        /// runtime-pack nupkg layout) with managed Microsoft.AspNetCore.*.dll files. The aspnetcore
+        /// runtime pack is managed-only: no native dir, no corehost (mirrors dotnet/performance#5243's
+        /// stage-bcs-nupkg-aspnetcore.ps1).
         /// </summary>
         private (string extractDir, List<string> managed) BuildFakeAspNetCoreBcsArchive(string rid)
         {
             var extractDir = Path.Combine(_testDir, "extracted-aspnet-" + Guid.NewGuid().ToString("N"));
-            var nugetPkg = Path.Combine(extractDir, $"microsoft.aspnetcore.app.runtime.{rid}");
-            var libDir = Path.Combine(nugetPkg, "Release", "runtimes", rid, "lib", "net11.0");
+            var libDir = Path.Combine(extractDir, "runtimes", rid, "lib", "net11.0");
             Directory.CreateDirectory(libDir);
 
             var managed = new List<string>

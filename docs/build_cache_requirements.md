@@ -57,19 +57,21 @@ microsoft.netcore.app.runtime.{rid}/Release/runtimes/{rid}/native/        → na
 {rid}.Release/corehost/                                                    → host binaries (dotnet, libhostfxr, libhostpolicy)
 ```
 
-For **aspnetcore** artifacts crank uses the parallel convention (managed-only — the ASP.NET Core
-runtime pack ships no host binaries, and native is optional):
+For **aspnetcore** artifacts the stored blob is the **verbatim runtime-pack nupkg** (a zip), so the
+layout is the nupkg's own — `runtimes/{rid}` sits at the archive root, with no
+`microsoft.aspnetcore.app.runtime.{rid}/Release` wrapper (managed-only — the ASP.NET Core runtime
+pack ships no host binaries, and native is optional):
 
 ```
-microsoft.aspnetcore.app.runtime.{rid}/Release/runtimes/{rid}/lib/net{X}.0/  → managed Microsoft.AspNetCore.*.dll
-microsoft.aspnetcore.app.runtime.{rid}/Release/runtimes/{rid}/native/        → native libs (optional)
+runtimes/{rid}/lib/net{X}.0/  → managed Microsoft.AspNetCore.*.dll
+runtimes/{rid}/native/        → native libs (optional)
 ```
 
 Where `{rid}` = `linux-x64`, `linux-arm64`, `win-x64`, `win-arm64`, `win-x86`. (aspnetcore v1 has no
 musl/osx/arm32 configs.)
 
 The runtime layout was confirmed by inspecting `BuildArtifacts_linux_arm64_Release_coreclr.tar.gz`;
-the aspnetcore layout is asserted by dotnet/performance's `pack-bcs-archives.ps1`.
+the aspnetcore artifact is the raw nupkg produced by dotnet/performance's `stage-bcs-nupkg-aspnetcore.ps1`.
 **If either layout changes in future builds, the crank extraction will break.** Consider treating it
 as a stable contract or documenting it.
 

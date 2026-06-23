@@ -60,19 +60,20 @@ namespace Microsoft.Crank.Agent
         /// <summary>
         /// ASP.NET Core (dotnet/aspnetcore) variant of <see cref="PlatformToBcsConfig"/>. Maps the
         /// agent's platform (RID) to the aspnetcore BCS configuration key and artifact filename.
-        /// The configKey / artifact tokens and the archive's internal layout
-        /// (<c>microsoft.aspnetcore.app.runtime.{rid}/Release/runtimes/{rid}/...</c>) are a
-        /// load-bearing contract asserted by dotnet/performance's pack-bcs-archives.ps1.
+        /// The stored artifact is the verbatim runtime-pack nupkg, so the archive's internal layout
+        /// is the nupkg's own (<c>runtimes/{rid}/lib/net{X}.0/...</c> at the root). This and the
+        /// configKey / artifact tokens are a load-bearing contract produced by dotnet/performance's
+        /// stage-bcs-nupkg-aspnetcore.ps1.
         /// v1 has no musl/osx/arm32 entries.
         /// </summary>
         internal static readonly IReadOnlyDictionary<string, (string configKey, string artifactFile, string rid)> PlatformToBcsConfigAspNetCore =
             new Dictionary<string, (string configKey, string artifactFile, string rid)>(StringComparer.OrdinalIgnoreCase)
             {
-                ["linux-x64"] = ("aspnetcore_x64_linux", "BuildArtifacts_linux_x64_Release_aspnetcore.tar.gz", "linux-x64"),
-                ["linux-arm64"] = ("aspnetcore_arm64_linux", "BuildArtifacts_linux_arm64_Release_aspnetcore.tar.gz", "linux-arm64"),
-                ["win-x64"] = ("aspnetcore_x64_windows", "BuildArtifacts_windows_x64_Release_aspnetcore.zip", "win-x64"),
-                ["win-arm64"] = ("aspnetcore_arm64_windows", "BuildArtifacts_windows_arm64_Release_aspnetcore.zip", "win-arm64"),
-                ["win-x86"] = ("aspnetcore_x86_windows", "BuildArtifacts_windows_x86_Release_aspnetcore.zip", "win-x86"),
+                ["linux-x64"] = ("aspnetcore_x64_linux", "BuildArtifacts_linux_x64_Release_aspnetcore.nupkg", "linux-x64"),
+                ["linux-arm64"] = ("aspnetcore_arm64_linux", "BuildArtifacts_linux_arm64_Release_aspnetcore.nupkg", "linux-arm64"),
+                ["win-x64"] = ("aspnetcore_x64_windows", "BuildArtifacts_windows_x64_Release_aspnetcore.nupkg", "win-x64"),
+                ["win-arm64"] = ("aspnetcore_arm64_windows", "BuildArtifacts_windows_arm64_Release_aspnetcore.nupkg", "win-arm64"),
+                ["win-x86"] = ("aspnetcore_x86_windows", "BuildArtifacts_windows_x86_Release_aspnetcore.nupkg", "win-x86"),
             };
 
         /// <summary>
@@ -373,15 +374,13 @@ namespace Microsoft.Crank.Agent
                 //     per-job ASP.NET Core shared framework. The aspnetcore runtime pack is
                 //     essentially managed-only; native is optional (CopyNative returns 0 if absent)
                 //     and there are no host binaries to overlay (the feed runtime/host stay in place).
-                var aspNetPackageDir = FindDirectory(extractDir, $"microsoft.aspnetcore.app.runtime.{rid}");
-                if (aspNetPackageDir != null)
+                // The stored artifact is the raw runtime-pack nupkg, so runtimes/{rid} sits at the
+                // archive root (no microsoft.aspnetcore.app.runtime.{rid}/Release wrapper).
+                var runtimesDir = Path.Combine(extractDir, "runtimes", rid);
+                if (Directory.Exists(runtimesDir))
                 {
-                    var runtimesDir = Path.Combine(aspNetPackageDir, "Release", "runtimes", rid);
-                    if (Directory.Exists(runtimesDir))
-                    {
-                        filesOverlaid += CopyManaged(runtimesDir, dstAspNet);
-                        filesOverlaid += CopyNative(runtimesDir, dstAspNet);
-                    }
+                    filesOverlaid += CopyManaged(runtimesDir, dstAspNet);
+                    filesOverlaid += CopyNative(runtimesDir, dstAspNet);
                 }
             }
             else
@@ -472,19 +471,23 @@ namespace Microsoft.Crank.Agent
             var rid = GetRidForConfig(buildCacheConfig);
             int filesCopied = 0;
 
-            var packageName = flavor == BuildCacheFlavor.AspNetCore
-                ? $"microsoft.aspnetcore.app.runtime.{rid}"
-                : $"microsoft.netcore.app.runtime.{rid}";
-
-            var nugetPackageDir = FindDirectory(extractDir, packageName);
-            if (nugetPackageDir != null)
+            // The aspnetcore artifact is the raw runtime-pack nupkg (runtimes/{rid} at the archive
+            // root); the runtime artifact wraps it in microsoft.netcore.app.runtime.{rid}/Release.
+            string runtimesDir;
+            if (flavor == BuildCacheFlavor.AspNetCore)
             {
-                var runtimesDir = Path.Combine(nugetPackageDir, "Release", "runtimes", rid);
-                if (Directory.Exists(runtimesDir))
-                {
-                    filesCopied += CopyManaged(runtimesDir, outputFolder);
-                    filesCopied += CopyNative(runtimesDir, outputFolder);
-                }
+                runtimesDir = Path.Combine(extractDir, "runtimes", rid);
+            }
+            else
+            {
+                var nugetPackageDir = FindDirectory(extractDir, $"microsoft.netcore.app.runtime.{rid}");
+                runtimesDir = nugetPackageDir != null ? Path.Combine(nugetPackageDir, "Release", "runtimes", rid) : null;
+            }
+
+            if (runtimesDir != null && Directory.Exists(runtimesDir))
+            {
+                filesCopied += CopyManaged(runtimesDir, outputFolder);
+                filesCopied += CopyNative(runtimesDir, outputFolder);
             }
 
             // The aspnetcore pack ships no host binaries, so host overlay only applies to runtime.
@@ -697,7 +700,8 @@ namespace Microsoft.Crank.Agent
                 return ExtractTarGzAsync(archivePath, outputDir, cancellationToken);
             }
 
-            if (archivePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+            if (archivePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ||
+                archivePath.EndsWith(".nupkg", StringComparison.OrdinalIgnoreCase))
             {
                 return Task.Run(() => ZipFile.ExtractToDirectory(archivePath, outputDir, overwriteFiles: true), cancellationToken);
             }
