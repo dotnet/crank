@@ -55,8 +55,11 @@ When a TFM is configured, the agent will download the corresponding .NET SDK ver
 - `current`: only latest public versions, this is the default
 - `latest`: latest versions used by ASP.NET 
 - `edge`: latest nightly builds available
+- `buildcache`: runtime from the Build Cache Service (per-commit builds)
 
 The difference between `latest` and `edge` is that `latest` will pick runtimes and SDKs that are deemed compatible together. For instance a very recent .NET core runtime might be compatible with a less recent ASP.NET runtime. The `edge` is used to pick the absolute latest build for the select TFM.
+
+The `buildcache` channel uses the Build Cache Service (BCS) from `dotnet-performance-infra` to resolve runtime versions by individual commit SHA rather than from VMR feeds. This provides much finer-grained control — every cached runtime commit is available, whereas VMR feeds may have multi-day gaps between ingested commits. SDK and ASP.NET Core versions are resolved from `latest` when using `buildcache`.
 
 In order to benchmark and ASP.NET application using very recent runtimes of .NET 5, the `latest` channel is recommended:
 
@@ -116,3 +119,74 @@ The following command uses the `edge` channel but ASP.NET is fixed so it doesn't
 ```
 > crank --config /crank/samples/hello/hello.benchmarks.yml --scenario hello --profile local --application.framework netcoreapp5.0 --application.channel edge --application.aspnetCoreVersion 5.0.0-preview.6.20279.12
 ```
+
+## Using the Build Cache channel
+
+The `buildcache` channel resolves pre-built binaries for individual commits from the Build Cache Service (BCS). This is useful for performance regression bisection where VMR feed gaps make it hard to pinpoint which commit caused a regression.
+
+The channel can resolve from one of two repositories, selected per-job with the `buildCacheRepo` property:
+
+- `runtime` (default) — **overlays** the base .NET runtime (`Microsoft.NETCore.App`) with BCS bits built from a [dotnet/runtime](https://github.com/dotnet/runtime) commit. The runtime archive is raw build output (no shared-framework metadata), so BCS binaries are overlaid onto a feed-installed runtime.
+- `aspnetcore` — **places** the ASP.NET Core shared framework (`Microsoft.AspNetCore.App`) directly from a [dotnet/aspnetcore](https://github.com/dotnet/aspnetcore) commit's BCS build. The aspnetcore archive is the runtime-pack nupkg stored verbatim (carrying `deps.json` + `runtimeconfig.json`), so the framework folder is built entirely from BCS and the job **fails** if the pack is incomplete. The base runtime stays at the feed-resolved version.
+
+When no `buildCacheRepo` is supplied the job falls back to the agent-level `--build-cache-repo-name` (which itself defaults to `runtime`), so existing runtime usage is unchanged.
+
+### Basic usage (latest cached build on main)
+
+```
+# runtime (default)
+> crank --config benchmarks.yml --scenario json --profile aspnet-perf-lin --application.channel buildcache
+```
+
+### Bisecting ASP.NET Core
+
+Add `--application.buildCacheRepo aspnetcore` to resolve an ASP.NET Core commit instead. The `buildCacheCommitSha` / `buildCacheBranch` values are then interpreted as **dotnet/aspnetcore** commit/branch:
+
+```
+# latest cached aspnetcore build on main
+> crank --config benchmarks.yml --scenario json --profile aspnet-perf-lin --application.channel buildcache --application.buildCacheRepo aspnetcore
+
+# specific aspnetcore commit
+> crank --config benchmarks.yml --scenario json --profile aspnet-perf-lin --application.channel buildcache --application.buildCacheRepo aspnetcore --application.buildCacheCommitSha a1b2c3d4e5f6...
+```
+
+> **One BCS component per job (v1).** A single job overrides EITHER the base runtime OR the ASP.NET Core shared framework from BCS, not both at once. The `buildCacheRepo` selector decides which one; the other framework comes from the normal feed. If a job somehow requests both, the selected flavour wins and the other is skipped with a log warning.
+
+### Specific commit SHA
+
+```
+> crank --config benchmarks.yml --scenario json --profile aspnet-perf-lin --application.channel buildcache --application.buildCacheCommitSha a1b2c3d4e5f6...
+```
+
+If the commit is not found in the cache, crank will fail with an error rather than falling back.
+
+### Different branch
+
+```
+> crank --config benchmarks.yml --scenario json --profile aspnet-perf-lin --application.channel buildcache --application.buildCacheBranch release/10.0
+```
+
+### Mixed channels (BCS runtime + pinned ASP.NET)
+
+```
+> crank --config benchmarks.yml --scenario json --profile aspnet-perf-lin --application.channel buildcache --application.aspNetCoreVersion 10.0.0-preview.3.26115.7
+```
+
+### Build Cache properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `buildCacheRepo` | (agent `--build-cache-repo-name`, i.e. `runtime`) | Which BCS repository to resolve from: `runtime` (overlays `Microsoft.NETCore.App` from a feed install) or `aspnetcore` (places `Microsoft.AspNetCore.App` directly from the verbatim runtime-pack nupkg; fails loud if incomplete). |
+| `buildCacheCommitSha` | (empty) | Specific commit SHA in the selected repo (runtime or aspnetcore). If empty, uses the latest cached build for the branch. |
+| `buildCacheBranch` | `main` | Branch to query for the latest build. |
+| `buildCacheConfig` | (auto-detected) | BCS configuration key (e.g., `coreclr_x64_linux` for runtime, `aspnetcore_x64_linux` for aspnetcore). Auto-detected from agent platform and the selected repo. |
+
+### Agent configuration
+
+The agent supports these command-line options for BCS:
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--build-cache-base-url` | `https://pvscmdupload.z22.web.core.windows.net` | Base URL for BCS blob storage. |
+| `--build-cache-repo-name` | `runtime` | Repository name in BCS. |
+| `--build-cache-disabled` | (not set) | Disables BCS integration on this agent. |

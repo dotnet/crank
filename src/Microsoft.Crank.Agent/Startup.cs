@@ -137,6 +137,11 @@ namespace Microsoft.Crank.Agent
             "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-public/nuget/v3/flat2"
             ];
 
+        // Build Cache Service configuration
+        private static string _buildCacheBaseUrl = "https://pvscmdupload.z22.web.core.windows.net";
+        private static string _buildCacheRepoName = "runtime";
+        private static bool _buildCacheEnabled = true;
+
         // Cached lists of SDKs and runtimes already installed
         private static readonly HashSet<string> _installedAspNetRuntimes = new(StringComparer.OrdinalIgnoreCase);
         private static readonly HashSet<string> _installedDotnetRuntimes = new(StringComparer.OrdinalIgnoreCase);
@@ -299,6 +304,10 @@ namespace Microsoft.Crank.Agent
             _certSniAuth = app.Option("--cert-sni", "Enable subject name / issuer based authentication (SNI).", CommandOptionType.NoValue);
             _managedIdentityClientId = app.Option("--mi-client-id", "Client ID of the user-assigned managed identity to use for authentication.", CommandOptionType.SingleValue);
 
+            var buildCacheBaseUrlOption = app.Option("--build-cache-base-url", $"Base URL for Build Cache Service blob storage. Default is '{_buildCacheBaseUrl}'.", CommandOptionType.SingleValue);
+            var buildCacheRepoNameOption = app.Option("--build-cache-repo-name", $"Repository name for Build Cache Service. Default is '{_buildCacheRepoName}'.", CommandOptionType.SingleValue);
+            var buildCacheDisabledOption = app.Option("--build-cache-disabled", "Disable Build Cache Service integration.", CommandOptionType.NoValue);
+
             app.OnExecute(() =>
             {
                 var logConf = new LoggerConfiguration()
@@ -306,6 +315,21 @@ namespace Microsoft.Crank.Agent
                  .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
                  .Enrich.FromLogContext()
                  .WriteTo.Console(theme: AnsiConsoleTheme.Code);
+
+                if (buildCacheBaseUrlOption.HasValue())
+                {
+                    _buildCacheBaseUrl = buildCacheBaseUrlOption.Value();
+                }
+
+                if (buildCacheRepoNameOption.HasValue())
+                {
+                    _buildCacheRepoName = buildCacheRepoNameOption.Value();
+                }
+
+                if (buildCacheDisabledOption.HasValue())
+                {
+                    _buildCacheEnabled = false;
+                }
 
                 if (_runAsService.HasValue() && OperatingSystem != OperatingSystem.Windows)
                 {
@@ -1059,7 +1083,7 @@ namespace Microsoft.Crank.Agent
                                     {
                                         buildAndRunTask = Task.Run(async () =>
                                         {
-                                            benchmarksDir = await CloneRestoreAndBuild(tempDir, job, _dotnethome, cts.Token);
+                                            benchmarksDir = await CloneRestoreAndBuild(tempDir, job, _dotnethome, context, cts.Token);
 
                                             if (benchmarksDir == null)
                                             {
@@ -1071,7 +1095,10 @@ namespace Microsoft.Crank.Agent
                                             {
                                                 try
                                                 {
-                                                    process = await StartProcess(hostname, Path.Combine(tempDir, benchmarksDir), job, _dotnethome, context);
+                                                    // For buildcache jobs the per-job isolated dotnet home holds the
+                                                    // BCS-overlaid runtime; run against it instead of the global home.
+                                                    var runtimeDotnetHome = context.BuildCacheDotnetHome ?? _dotnethome;
+                                                    process = await StartProcess(hostname, Path.Combine(tempDir, benchmarksDir), job, runtimeDotnetHome, context);
 
                                                     Log.Info($"Process started: {job.ProcessId}");
 
@@ -1952,6 +1979,22 @@ namespace Microsoft.Crank.Agent
 
                                         // Delete application folder
                                         await TryDeleteDirAsync(tempDir);
+                                    }
+
+                                    // Build Cache: clean up per-job extracted artifacts and the isolated
+                                    // dotnet home so concurrent / future jobs do not see stale state and
+                                    // /tmp does not accumulate multi-GB extracts.
+                                    if (_cleanup && !job.NoClean)
+                                    {
+                                        BuildCacheClient.CleanupExtractDir(context.BuildCacheExtractDir);
+
+                                        if (!string.IsNullOrEmpty(context.BuildCacheDotnetHome))
+                                        {
+                                            await TryDeleteDirAsync(context.BuildCacheDotnetHome);
+                                        }
+
+                                        context.BuildCacheExtractDir = null;
+                                        context.BuildCacheDotnetHome = null;
                                     }
 
                                     // Delete temporary attachment files
@@ -2883,7 +2926,7 @@ namespace Microsoft.Crank.Agent
             }
         }
 
-        private static async Task<string> CloneRestoreAndBuild(string path, Job job, string dotnetHome, CancellationToken cancellationToken = default)
+        private static async Task<string> CloneRestoreAndBuild(string path, Job job, string dotnetHome, JobContext jobContext = null, CancellationToken cancellationToken = default)
         {
             var reuseFolder = await RetrieveSourcesAsync(job, path);
 
@@ -2979,27 +3022,147 @@ namespace Microsoft.Crank.Agent
                 }
             }
 
+            // Build Cache Service flavour selection. The per-job buildCacheRepo selector (falling
+            // back to the agent-level --build-cache-repo-name default) decides which BCS repository
+            // the buildcache channel resolves from: "runtime" overrides Microsoft.NETCore.App,
+            // "aspnetcore" overrides Microsoft.AspNetCore.App.
+            var buildCacheRepo = !String.IsNullOrEmpty(job.BuildCacheRepo) ? job.BuildCacheRepo : _buildCacheRepoName;
+            var buildCacheFlavor = BuildCacheClient.ParseFlavor(buildCacheRepo);
+            var isBuildCacheChannel = String.Equals(channel, "buildcache", StringComparison.OrdinalIgnoreCase);
+            var isAspNetCoreBuildCache = isBuildCacheChannel && buildCacheFlavor == BuildCacheClient.BuildCacheFlavor.AspNetCore;
+
             if (String.IsNullOrEmpty(runtimeVersion))
             {
-                runtimeVersion = channel;
+                // For the aspnetcore flavour the base runtime resolves to a real feed version; the
+                // BCS sentinel rides on aspNetCoreVersion instead of runtimeVersion.
+                runtimeVersion = isAspNetCoreBuildCache ? "latest" : channel;
             }
+
+            // For buildcache channel, the components NOT overridden by BCS use "latest" from feeds.
+            var nonRuntimeChannel = isBuildCacheChannel ? "latest" : channel;
 
             if (String.IsNullOrEmpty(desktopVersion))
             {
-                desktopVersion = channel;
+                desktopVersion = nonRuntimeChannel;
             }
 
             if (String.IsNullOrEmpty(aspNetCoreVersion))
             {
-                aspNetCoreVersion = channel;
+                // aspnetcore flavour: the buildcache sentinel rides on aspNetCoreVersion (mirrors how
+                // the runtime flavour puts the sentinel on runtimeVersion via the channel).
+                aspNetCoreVersion = isAspNetCoreBuildCache ? "buildcache" : nonRuntimeChannel;
             }
 
             if (String.IsNullOrEmpty(sdkVersion))
             {
-                sdkVersion = channel;
+                sdkVersion = nonRuntimeChannel;
             }
 
             runtimeVersion = await ResolveRuntimeVersion(buildToolsPath, targetFramework, runtimeVersion);
+
+            // Build Cache Service: if either the runtime version is "BuildCache" (runtime flavour) or
+            // the asp.net version is "buildcache" (aspnetcore flavour), prepare BCS artifacts and
+            // resolve a real "Latest" version for the overridden component's NuGet build.
+            var useBuildCacheRuntime = String.Equals(runtimeVersion, "BuildCache", StringComparison.OrdinalIgnoreCase);
+            var useBuildCacheAspNet = String.Equals(aspNetCoreVersion, "buildcache", StringComparison.OrdinalIgnoreCase);
+            var useBuildCache = useBuildCacheRuntime || useBuildCacheAspNet;
+
+            // The selector is authoritative for which component BCS overrides. In the rare case both
+            // sentinels are explicitly requested (Q2: v1 overrides only one component per job), honour
+            // the selector's flavour and skip the other below.
+            if (useBuildCacheAspNet && !useBuildCacheRuntime)
+            {
+                buildCacheFlavor = BuildCacheClient.BuildCacheFlavor.AspNetCore;
+            }
+            else if (useBuildCacheRuntime && !useBuildCacheAspNet)
+            {
+                buildCacheFlavor = BuildCacheClient.BuildCacheFlavor.Runtime;
+            }
+            string buildCacheCommitSha = null;
+            string buildCacheExtractDir = null;
+
+            string buildCacheConfigResolved = null;
+            if (useBuildCache)
+            {
+                if (!_buildCacheEnabled)
+                {
+                    job.Error = "Build Cache channel was requested but Build Cache Service is disabled on this agent (--build-cache-disabled).";
+                    return null;
+                }
+
+                // Validate user-supplied commit SHA early so we can fail with a clear message instead
+                // of throwing later from a Substring call.
+                if (!string.IsNullOrEmpty(job.BuildCacheCommitSha) && job.BuildCacheCommitSha.Length < 8)
+                {
+                    job.Error = $"Build Cache: 'buildCacheCommitSha' must be at least 8 characters long (got '{job.BuildCacheCommitSha}').";
+                    return null;
+                }
+
+                try
+                {
+                    var branch = !string.IsNullOrEmpty(job.BuildCacheBranch) ? job.BuildCacheBranch : "main";
+                    var commitSha = job.BuildCacheCommitSha;
+                    var buildCacheConfig = job.BuildCacheConfig;
+
+                    // Resolve which commit and config to use. ResolveCommitAsync/DownloadAndExtractAsync
+                    // derive the flavour (and therefore the config map + RepoName path segment) from the
+                    // repoName we pass, so "runtime" and "aspnetcore" route to their own BCS blobs.
+                    var resolved = await BuildCacheClient.ResolveCommitAsync(
+                        _buildCacheBaseUrl, buildCacheRepo, branch, commitSha, buildCacheConfig, cancellationToken);
+
+                    buildCacheCommitSha = resolved.commitSha;
+                    buildCacheConfigResolved = resolved.buildCacheConfig;
+
+                    // Download and extract the BCS artifacts to a per-job temp directory
+                    buildCacheExtractDir = await BuildCacheClient.DownloadAndExtractAsync(
+                        _buildCacheBaseUrl, buildCacheRepo, buildCacheCommitSha, buildCacheConfigResolved,
+                        cancellationToken);
+
+                    var shortSha = BuildCacheClient.ShortSha(buildCacheCommitSha);
+                    Log.Info($"Build Cache: Artifacts for commit {shortSha} (repo '{buildCacheRepo}') ready for post-build overlay");
+
+                    if (buildCacheFlavor == BuildCacheClient.BuildCacheFlavor.AspNetCore)
+                    {
+                        // The ASP.NET Core shared-framework VERSION (folder name) is feed-resolved
+                        // (Latest) so PatchRuntimeConfig + the app's framework reference resolve to a real
+                        // shared/Microsoft.AspNetCore.App/{ver} dir; the framework CONTENTS are then placed
+                        // DIRECTLY from the BCS pack into that folder (the feed copy is not used). Set
+                        // "Latest" here so ResolveAspNetCoreVersion below turns it into a real version.
+                        // runtimeVersion already holds a real feed runtime version.
+                        aspNetCoreVersion = "Latest";
+                        Log.Info($"ASP.NET Core for build: version resolved from feeds, framework placed directly from BCS commit {shortSha}");
+
+                        // Q2: v1 overrides only one BCS component per job. If a runtime sentinel was also
+                        // requested, honour the selector (aspnetcore) and let the base runtime resolve normally.
+                        if (useBuildCacheRuntime)
+                        {
+                            Log.Info("Build Cache: both runtime and aspnetcore overrides were requested; honouring buildCacheRepo='aspnetcore' and resolving the base runtime from feeds.");
+                            runtimeVersion = await ResolveRuntimeVersion(buildToolsPath, targetFramework, "Latest");
+                        }
+                    }
+                    else
+                    {
+                        // Resolve a REAL runtime version from feeds for the NuGet build. We deliberately keep
+                        // runtimeVersion pointing at this feed-resolved version so PatchRuntimeConfig and the
+                        // dotnet-install steps agree; the BCS bits are overlaid on top of that exact version.
+                        runtimeVersion = await ResolveRuntimeVersion(buildToolsPath, targetFramework, "Latest");
+                        Log.Info($"Runtime for build: {runtimeVersion} (Latest from feeds, will be overlaid with BCS commit {shortSha})");
+
+                        // Q2: if an aspnetcore sentinel was also requested, honour the selector (runtime)
+                        // and let asp.net resolve normally from feeds.
+                        if (useBuildCacheAspNet)
+                        {
+                            Log.Info("Build Cache: both runtime and aspnetcore overrides were requested; honouring buildCacheRepo='runtime' and resolving asp.net from feeds.");
+                            aspNetCoreVersion = nonRuntimeChannel;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    job.Error = $"Build Cache: {ex.Message}";
+                    return null;
+                }
+            }
 
             sdkVersion = await ResolveSdkVersion(sdkVersion, targetFramework);
 
@@ -3257,6 +3420,45 @@ namespace Microsoft.Crank.Agent
 
             var dotnetDir = dotnetHome;
 
+            // Build Cache: build a per-job dotnet home that contains BCS-overlaid runtime + asp.net
+            // + host. We DO NOT mutate the global dotnet home — concurrent jobs and subsequent
+            // non-buildcache jobs must remain unaffected. The publish step continues to use the
+            // global dotnetDir (it has the SDK); only the runtime-resolution paths (metadata
+            // reading, crossgen/symbols emit, StartProcess) point at the per-job home.
+            var runtimeHomeDir = dotnetDir;
+
+            if (useBuildCache && buildCacheExtractDir != null)
+            {
+                try
+                {
+                    var bcsHome = BuildCacheClient.CreateBuildCacheDotnetHome(
+                        dotnetDir,
+                        buildCacheExtractDir,
+                        runtimeVersion,
+                        aspNetCoreVersion,
+                        buildCacheCommitSha,
+                        job.BuildCacheConfig,
+                        buildCacheFlavor);
+
+                    runtimeHomeDir = bcsHome;
+
+                    // Stash on the JobContext so StartProcess uses this isolated home (FDD) and
+                    // so the cleanup pass at job end can delete it.
+                    if (jobContext != null)
+                    {
+                        jobContext.BuildCacheDotnetHome = bcsHome;
+                        jobContext.BuildCacheExtractDir = buildCacheExtractDir;
+                    }
+
+                    Log.Info($"Build Cache: Isolated dotnet home: {bcsHome}");
+                }
+                catch (Exception ex)
+                {
+                    job.Error = $"Build Cache: failed to build isolated dotnet home: {ex.Message}";
+                    return null;
+                }
+            }
+
             // Updating Job to reflect actual versions used
             job.AspNetCoreVersion = aspNetCoreVersion;
             job.RuntimeVersion = runtimeVersion;
@@ -3290,7 +3492,7 @@ namespace Microsoft.Crank.Agent
             {
                 try
                 {
-                    var aspNetCoreVersionFileName = Path.Combine(dotnetDir, "shared", "Microsoft.AspNetCore.App", aspNetCoreVersion, ".version");
+                    var aspNetCoreVersionFileName = Path.Combine(runtimeHomeDir, "shared", "Microsoft.AspNetCore.App", aspNetCoreVersion, ".version");
                     (_, var aspnetCoreCommitHash) = await ParseLatestVersionFile(aspNetCoreVersionFileName);
 
                     job.Metadata.Enqueue(new MeasurementMetadata
@@ -3323,7 +3525,7 @@ namespace Microsoft.Crank.Agent
             {
                 try
                 {
-                    var netCoreAppVersionFileName = Path.Combine(dotnetDir, "shared", "Microsoft.NETCore.App", runtimeVersion, ".version");
+                    var netCoreAppVersionFileName = Path.Combine(runtimeHomeDir, "shared", "Microsoft.NETCore.App", runtimeVersion, ".version");
                     (_, var netCoreAppCommitHash) = await ParseLatestVersionFile(netCoreAppVersionFileName);
 
                     job.Metadata.Enqueue(new MeasurementMetadata
@@ -3485,6 +3687,60 @@ namespace Microsoft.Crank.Agent
 
                 Log.Info($"Application published successfully in {job.BuildTime.TotalMilliseconds} ms");
 
+                // Build Cache: overlay BCS runtime binaries onto the just-published app. The
+                // per-job dotnet home was built earlier (used for FDD execution + metadata);
+                // here we cover the SCD case where the runtime ships in the publish output.
+                // PatchRuntimeConfig still runs with the feed-resolved runtimeVersion so
+                // runtimeconfig.json points to a real installed shared-framework dir.
+                if (useBuildCache && buildCacheExtractDir != null)
+                {
+                    var shortSha = BuildCacheClient.ShortSha(buildCacheCommitSha);
+
+                    int publishedOverlay;
+                    try
+                    {
+                        var publishProjectFileName = Path.Combine(benchmarkedApp, FormatPathSeparators(job.Project));
+                        var assemblyName = GetAssemblyName(job, publishProjectFileName);
+
+                        publishedOverlay = BuildCacheClient.OverlayPublishedOutput(
+                            buildCacheExtractDir,
+                            outputFolder,
+                            job.BuildCacheConfig,
+                            assemblyName,
+                            buildCacheFlavor);
+
+                        Log.Info($"Build Cache: Overlaid {publishedOverlay} files into published output (commit {shortSha})");
+                    }
+                    catch (Exception ex)
+                    {
+                        job.Error = $"Build Cache: published-output overlay failed: {ex.Message}";
+                        return null;
+                    }
+
+                    // For self-contained publishes the published output must contain runtime binaries
+                    // (managed + native + apphost). For framework-dependent publishes 0 is acceptable
+                    // here because the per-job dotnet home already provides BCS bits at runtime.
+                    if (job.SelfContained && publishedOverlay == 0)
+                    {
+                        job.Error = $"Build Cache: published-output overlay copied 0 files for self-contained " +
+                                    $"commit {shortSha}. The archive layout may have changed or the platform is not supported.";
+                        return null;
+                    }
+
+                    // Record the BCS commit alongside the overridden component's version for reporting.
+                    // We append rather than replace so PatchRuntimeConfig still sees a valid feed-resolved
+                    // version below. For the aspnetcore flavour annotate the asp.net version field (and
+                    // leave the runtime version as the feed runtime); for runtime annotate the runtime field.
+                    if (buildCacheFlavor == BuildCacheClient.BuildCacheFlavor.AspNetCore)
+                    {
+                        job.AspNetCoreVersion = $"{aspNetCoreVersion}+buildcache.{shortSha}";
+                    }
+                    else
+                    {
+                        job.RuntimeVersion = $"{runtimeVersion}+buildcache.{shortSha}";
+                    }
+                }
+
                 PatchRuntimeConfig(job, outputFolder, aspNetCoreVersion, runtimeVersion);
             }
 
@@ -3583,7 +3839,7 @@ namespace Microsoft.Crank.Agent
                             {
                                 var crossgenFolder = job.SelfContained
                                     ? outputFolder
-                                    : Path.Combine(dotnetDir, "shared", "Microsoft.NETCore.App", runtimeVersion)
+                                    : Path.Combine(runtimeHomeDir, "shared", "Microsoft.NETCore.App", runtimeVersion)
                                     ;
 
                                 var crossgenFilename = Path.Combine(crossgenFolder, "crossgen");
@@ -3611,7 +3867,7 @@ namespace Microsoft.Crank.Agent
 
                 var symbolsFolder = job.SelfContained
                     ? outputFolder
-                    : Path.Combine(dotnetDir, "shared", "Microsoft.NETCore.App", runtimeVersion)
+                    : Path.Combine(runtimeHomeDir, "shared", "Microsoft.NETCore.App", runtimeVersion)
                     ;
 
                 // dotnet symbol --symbols --output mySymbols  /usr/share/dotnet/shared/Microsoft.NETCore.App/2.1.0/lib*.so
@@ -4009,6 +4265,14 @@ namespace Microsoft.Crank.Agent
 
             switch (aspNetCoreVersion.ToLowerInvariant())
             {
+                case "buildcache":
+                    // Defensive: the aspnetcore buildcache flavour rewrites aspNetCoreVersion to "Latest"
+                    // in the BCS prep block before this point, so this normally isn't hit. Treat the raw
+                    // sentinel as Latest so the shared-framework version still resolves to a real feed
+                    // version (the folder the BCS bits overlay onto).
+                    aspNetCoreVersion = await ResolveAspNetCoreVersion("Latest", targetFramework);
+                    Log.Info($"ASP.NET: {aspNetCoreVersion} (BuildCache → Latest)");
+                    break;
                 case "current":
                     aspNetCoreVersion = string.IsNullOrEmpty(currentAspNetCoreVersion)
                         ? await ResolveAspNetCoreVersion("Latest", targetFramework)
@@ -4645,6 +4909,13 @@ namespace Microsoft.Crank.Agent
                         Log.Info($"Runtime: {runtimeVersion} (Edge - Fallback on Current)");
                         break;
                 }
+            }
+            else if (String.Equals(runtimeVersion, "BuildCache", StringComparison.OrdinalIgnoreCase))
+            {
+                // BuildCache channel: version resolution is deferred to InstallRuntimeFromBuildCacheAsync
+                // because it needs to download artifacts. We return a placeholder here.
+                runtimeVersion = "BuildCache";
+                Log.Info($"Runtime: will be resolved from Build Cache Service");
             }
             else
             {
