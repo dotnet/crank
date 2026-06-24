@@ -129,6 +129,17 @@ namespace Microsoft.Crank.Agent
         }
 
         /// <summary>
+        /// Thrown when a BCS archive is present but does not contain a complete framework
+        /// (missing managed assemblies, deps.json/runtimeconfig.json). Used by the aspnetcore
+        /// direct-placement path, which deliberately fails loudly rather than producing a partial
+        /// framework — for perf runs, silently running an incomplete framework is worse than erroring.
+        /// </summary>
+        public class BuildCacheIncompleteException : InvalidOperationException
+        {
+            public BuildCacheIncompleteException(string message) : base(message) { }
+        }
+
+        /// <summary>
         /// Validates a user-supplied commit SHA. Accepts 8-40 lowercase/uppercase hex chars.
         /// </summary>
         internal static void ValidateCommitSha(string commitSha)
@@ -284,16 +295,20 @@ namespace Microsoft.Crank.Agent
         }
 
         /// <summary>
-        /// Builds a per-job dotnet home that mirrors the relevant subtrees of the global dotnet
-        /// home (runtime, asp.net, host) and overlays BCS bits on top. The global dotnet home is
-        /// NOT modified, so concurrent jobs and subsequent non-buildcache jobs are unaffected.
+        /// Builds a per-job dotnet home. The global dotnet home is NOT modified, so concurrent jobs
+        /// and subsequent non-buildcache jobs are unaffected.
         ///
-        /// For <see cref="BuildCacheFlavor.Runtime"/> the BCS bits overlay the base runtime
-        /// (Microsoft.NETCore.App) plus host binaries. For <see cref="BuildCacheFlavor.AspNetCore"/>
-        /// the BCS bits overlay the ASP.NET Core shared framework (Microsoft.AspNetCore.App) only;
-        /// the aspnetcore runtime pack is managed-only and ships no host binaries, so the feed
-        /// runtime/host are left in place and only the managed Microsoft.AspNetCore.*.dll set is
-        /// replaced.
+        /// For <see cref="BuildCacheFlavor.Runtime"/> the home mirrors the feed runtime/asp.net/host
+        /// subtrees and OVERLAYS BCS bits onto the base runtime (Microsoft.NETCore.App) + host. The
+        /// runtime archive is raw build output and does not carry the framework's deps.json/
+        /// runtimeconfig.json, so overlay-onto-feed is required (it reuses the feed metadata).
+        ///
+        /// For <see cref="BuildCacheFlavor.AspNetCore"/> the ASP.NET Core shared framework
+        /// (Microsoft.AspNetCore.App) is PLACED DIRECTLY from the BCS pack — the aspnetcore archive is
+        /// the runtime-pack nupkg stored verbatim, which carries the managed assemblies AND the
+        /// host-resolvable deps.json/runtimeconfig.json, so the framework folder is built entirely from
+        /// BCS (no feed contribution) and fails loud if incomplete. The base runtime + host stay
+        /// feed-cloned (the aspnetcore pack ships neither).
         /// </summary>
         /// <returns>Absolute path to the per-job dotnet home root. Caller owns it.</returns>
         public static string CreateBuildCacheDotnetHome(
@@ -354,10 +369,14 @@ namespace Microsoft.Crank.Agent
             }
 
             // 4. Mirror shared/Microsoft.AspNetCore.App/{aspNetCoreVersion}.
+            //    For the RUNTIME flavour this is the non-overridden framework, cloned from the feed.
+            //    For the ASPNETCORE flavour we do NOT clone the feed copy — the framework is placed
+            //    directly from the BCS pack below, so no feed assembly can leak into the framework
+            //    that actually runs.
             var dstAspNet = string.IsNullOrEmpty(aspNetCoreVersion)
                 ? null
                 : Path.Combine(bcsHomeRoot, "shared", "Microsoft.AspNetCore.App", aspNetCoreVersion);
-            if (!string.IsNullOrEmpty(aspNetCoreVersion))
+            if (flavor == BuildCacheFlavor.Runtime && !string.IsNullOrEmpty(aspNetCoreVersion))
             {
                 var srcAspNet = Path.Combine(globalDotnetHome, "shared", "Microsoft.AspNetCore.App", aspNetCoreVersion);
                 if (Directory.Exists(srcAspNet))
@@ -366,24 +385,32 @@ namespace Microsoft.Crank.Agent
                 }
             }
 
-            int filesOverlaid = 0;
-
             if (flavor == BuildCacheFlavor.AspNetCore)
             {
-                // 5a. Overlay BCS managed (+ optional native) Microsoft.AspNetCore.*.dll into the
-                //     per-job ASP.NET Core shared framework. The aspnetcore runtime pack is
-                //     essentially managed-only; native is optional (CopyNative returns 0 if absent)
-                //     and there are no host binaries to overlay (the feed runtime/host stay in place).
-                // The stored artifact is the raw runtime-pack nupkg, so runtimes/{rid} sits at the
-                // archive root (no microsoft.aspnetcore.app.runtime.{rid}/Release wrapper).
-                var runtimesDir = Path.Combine(extractDir, "runtimes", rid);
-                if (Directory.Exists(runtimesDir))
+                // 5a. Place the ASP.NET Core shared framework DIRECTLY from the BCS pack. The aspnetcore
+                //     artifact is the runtime-pack nupkg stored verbatim, so its bare runtimes/{rid}/lib/
+                //     net{X}.0/ already carries the managed assemblies AND the host-resolvable
+                //     Microsoft.AspNetCore.App.deps.json + runtimeconfig.json. We build the framework
+                //     folder entirely from that (no feed clone) and synthesize .version; the base runtime
+                //     + host stay feed-cloned (steps 1-3) since the aspnetcore pack ships neither. Fails
+                //     loud if the placed framework is incomplete.
+                try
                 {
-                    filesOverlaid += CopyManaged(runtimesDir, dstAspNet);
-                    filesOverlaid += CopyNative(runtimesDir, dstAspNet);
+                    PlaceAspNetFrameworkFromPack(extractDir, dstAspNet, rid, aspNetCoreVersion, commitSha);
                 }
+                catch
+                {
+                    try { Directory.Delete(bcsHomeRoot, recursive: true); } catch { }
+                    throw;
+                }
+
+                Log.Info($"Build Cache: Per-job dotnet home built at {bcsHomeRoot} (Microsoft.AspNetCore.App placed directly from BCS commit {ShortSha(commitSha)})");
+                return bcsHomeRoot;
             }
-            else
+
+            // ===== Runtime flavour: overlay BCS bits onto the feed-cloned base runtime. =====
+            int filesOverlaid = 0;
+
             {
                 // 5. Overlay BCS managed + native into the per-job NETCore.App.
                 var nugetPackageDir = FindDirectory(extractDir, $"microsoft.netcore.app.runtime.{rid}");
@@ -428,24 +455,109 @@ namespace Microsoft.Crank.Agent
                     "The archive layout may have changed or the platform is not supported.");
             }
 
-            // 7. Rewrite the overlaid framework's .version so any consumer (the agent's own
-            //    version measurement, GetDependencies, etc.) reports the BCS commit. For aspnetcore
-            //    that is the Microsoft.AspNetCore.App folder; for runtime it is Microsoft.NETCore.App.
-            if (flavor == BuildCacheFlavor.AspNetCore)
-            {
-                File.WriteAllText(
-                    Path.Combine(dstAspNet, ".version"),
-                    $"{commitSha}\n{aspNetCoreVersion}\n");
-            }
-            else
-            {
-                File.WriteAllText(
-                    Path.Combine(dstNetCoreApp, ".version"),
-                    $"{commitSha}\n{runtimeVersion}\n");
-            }
+            // 7. Rewrite the overlaid runtime's .version so any consumer (the agent's own version
+            //    measurement, GetDependencies, etc.) reports the BCS commit.
+            File.WriteAllText(
+                Path.Combine(dstNetCoreApp, ".version"),
+                $"{commitSha}\n{runtimeVersion}\n");
 
             Log.Info($"Build Cache: Per-job dotnet home built at {bcsHomeRoot} ({filesOverlaid} BCS files overlaid)");
             return bcsHomeRoot;
+        }
+
+        /// <summary>
+        /// Resolves the <c>runtimes/{rid}</c> directory inside an extracted aspnetcore archive. The
+        /// aspnetcore archive is the runtime-pack nupkg stored verbatim, so the directory lives at the
+        /// archive root (<c>runtimes/{rid}</c>). Falls back to the wrapped build-output layout
+        /// (<c>microsoft.aspnetcore.app.runtime.{rid}/Release/runtimes/{rid}</c>) for resilience.
+        /// </summary>
+        private static string ResolveAspNetRuntimesDir(string extractDir, string rid)
+        {
+            var bare = Path.Combine(extractDir, "runtimes", rid);
+            if (Directory.Exists(bare))
+            {
+                return bare;
+            }
+
+            var pkg = FindDirectory(extractDir, $"microsoft.aspnetcore.app.runtime.{rid}");
+            if (pkg != null)
+            {
+                var wrapped = Path.Combine(pkg, "Release", "runtimes", rid);
+                if (Directory.Exists(wrapped))
+                {
+                    return wrapped;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Builds the ASP.NET Core shared-framework folder directly from the verbatim runtime-pack
+        /// nupkg's <c>runtimes/{rid}/lib/net{X}.0/</c> + <c>runtimes/{rid}/native/</c>. Copies the
+        /// WHOLE managed set (assemblies + Microsoft.AspNetCore.App.deps.json + runtimeconfig.json,
+        /// skipping only debug symbols), then synthesizes <c>.version</c> carrying the BCS commit.
+        /// Throws <see cref="BuildCacheIncompleteException"/> if the result is not a complete,
+        /// host-resolvable framework — no feed fallback.
+        /// </summary>
+        private static void PlaceAspNetFrameworkFromPack(
+            string extractDir, string destFrameworkDir, string rid, string version, string commitSha)
+        {
+            var runtimesDir = ResolveAspNetRuntimesDir(extractDir, rid);
+            if (runtimesDir == null)
+            {
+                throw new BuildCacheIncompleteException(
+                    $"Build Cache: aspnetcore runtime pack (runtimes/{rid}) not found in archive for commit {ShortSha(commitSha)}. " +
+                    "The archive may not be the expected verbatim Microsoft.AspNetCore.App.Runtime.{rid} nupkg.");
+            }
+
+            var managedDir = SelectHighestManagedDir(Path.Combine(runtimesDir, "lib"));
+            if (managedDir == null)
+            {
+                throw new BuildCacheIncompleteException(
+                    $"Build Cache: no managed lib/net*.0 directory in aspnetcore pack for commit {ShortSha(commitSha)} (rid '{rid}').");
+            }
+
+            Directory.CreateDirectory(destFrameworkDir);
+
+            // Copy the ENTIRE managed set (assemblies + deps.json + runtimeconfig.json). This is the
+            // load-bearing difference from an overlay: the verbatim nupkg carries the host-resolvable
+            // metadata, so the placed folder is a complete shared framework with no feed contribution.
+            foreach (var file in Directory.GetFiles(managedDir))
+            {
+                var name = Path.GetFileName(file);
+                if (name.EndsWith(".pdb", StringComparison.OrdinalIgnoreCase) ||
+                    name.EndsWith(".dbg", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var dest = Path.Combine(destFrameworkDir, name);
+                File.Copy(file, dest, overwrite: true);
+                EnsureExecutable(dest);
+            }
+
+            // Native (e.g. aspnetcorev2_inprocess on Windows) — optional; 0 if absent.
+            CopyNative(runtimesDir, destFrameworkDir);
+
+            // Synthesize the host-resolvable .version carrying the BCS aspnetcore commit.
+            File.WriteAllText(Path.Combine(destFrameworkDir, ".version"), $"{commitSha}\n{version}\n");
+
+            // Fail-loud: a complete framework needs managed assemblies AND the host-resolvable metadata.
+            void Require(bool condition, string what)
+            {
+                if (!condition)
+                {
+                    throw new BuildCacheIncompleteException(
+                        $"Build Cache: directly-placed Microsoft.AspNetCore.App for commit {ShortSha(commitSha)} is incomplete — missing {what}. " +
+                        "The BCS archive must be the complete runtime-pack nupkg (managed assemblies + deps.json + runtimeconfig.json). " +
+                        "Failing the job rather than running an incomplete framework.");
+                }
+            }
+
+            Require(Directory.GetFiles(destFrameworkDir, "*.dll").Length > 0, "managed assemblies (*.dll)");
+            Require(File.Exists(Path.Combine(destFrameworkDir, "Microsoft.AspNetCore.App.deps.json")), "Microsoft.AspNetCore.App.deps.json");
+            Require(File.Exists(Path.Combine(destFrameworkDir, "Microsoft.AspNetCore.App.runtimeconfig.json")), "Microsoft.AspNetCore.App.runtimeconfig.json");
         }
 
         /// <summary>
@@ -476,7 +588,7 @@ namespace Microsoft.Crank.Agent
             string runtimesDir;
             if (flavor == BuildCacheFlavor.AspNetCore)
             {
-                runtimesDir = Path.Combine(extractDir, "runtimes", rid);
+                runtimesDir = ResolveAspNetRuntimesDir(extractDir, rid);
             }
             else
             {
@@ -486,6 +598,9 @@ namespace Microsoft.Crank.Agent
 
             if (runtimesDir != null && Directory.Exists(runtimesDir))
             {
+                // SCD co-mingles the framework with the app in one folder governed by the app's own
+                // .deps.json, so overlay only the managed *.dll (+ native) — CopyManaged copies *.dll
+                // only, so the framework's deps.json/runtimeconfig.json are intentionally NOT copied.
                 filesCopied += CopyManaged(runtimesDir, outputFolder);
                 filesCopied += CopyNative(runtimesDir, outputFolder);
             }

@@ -126,8 +126,8 @@ The `buildcache` channel resolves pre-built binaries for individual commits from
 
 The channel can resolve from one of two repositories, selected per-job with the `buildCacheRepo` property:
 
-- `runtime` (default) — overlays the base .NET runtime (`Microsoft.NETCore.App`) with BCS bits built from a [dotnet/runtime](https://github.com/dotnet/runtime) commit.
-- `aspnetcore` — overlays the ASP.NET Core shared framework (`Microsoft.AspNetCore.App`) with BCS bits built from a [dotnet/aspnetcore](https://github.com/dotnet/aspnetcore) commit. The base runtime stays at the feed-resolved version.
+- `runtime` (default) — **overlays** the base .NET runtime (`Microsoft.NETCore.App`) with BCS bits built from a [dotnet/runtime](https://github.com/dotnet/runtime) commit. The runtime archive is raw build output (no shared-framework metadata), so BCS binaries are overlaid onto a feed-installed runtime.
+- `aspnetcore` — **places** the ASP.NET Core shared framework (`Microsoft.AspNetCore.App`) directly from a [dotnet/aspnetcore](https://github.com/dotnet/aspnetcore) commit's BCS build. The aspnetcore archive is the runtime-pack nupkg stored verbatim (carrying `deps.json` + `runtimeconfig.json`), so the framework folder is built entirely from BCS and the job **fails** if the pack is incomplete. The base runtime stays at the feed-resolved version.
 
 When no `buildCacheRepo` is supplied the job falls back to the agent-level `--build-cache-repo-name` (which itself defaults to `runtime`), so existing runtime usage is unchanged.
 
@@ -176,7 +176,7 @@ If the commit is not found in the cache, crank will fail with an error rather th
 
 | Property | Default | Description |
 |----------|---------|-------------|
-| `buildCacheRepo` | (agent `--build-cache-repo-name`, i.e. `runtime`) | Which BCS repository to resolve from: `runtime` (overlays `Microsoft.NETCore.App`) or `aspnetcore` (overlays `Microsoft.AspNetCore.App`). |
+| `buildCacheRepo` | (agent `--build-cache-repo-name`, i.e. `runtime`) | Which BCS repository to resolve from: `runtime` (overlays `Microsoft.NETCore.App` from a feed install) or `aspnetcore` (places `Microsoft.AspNetCore.App` directly from the verbatim runtime-pack nupkg; fails loud if incomplete). |
 | `buildCacheCommitSha` | (empty) | Specific commit SHA in the selected repo (runtime or aspnetcore). If empty, uses the latest cached build for the branch. |
 | `buildCacheBranch` | `main` | Branch to query for the latest build. |
 | `buildCacheConfig` | (auto-detected) | BCS configuration key (e.g., `coreclr_x64_linux` for runtime, `aspnetcore_x64_linux` for aspnetcore). Auto-detected from agent platform and the selected repo. |

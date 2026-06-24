@@ -25,7 +25,7 @@ Where:
 - `repoName` = `runtime` or `aspnetcore` (selected per-job via the `buildCacheRepo` property; defaults to the agent's `--build-cache-repo-name`)
 - `branch` = e.g., `main`, `release/10.0`
 - `configKey` = e.g., `coreclr_x64_linux`, `coreclr_arm64_windows` (runtime); `aspnetcore_x64_linux`, `aspnetcore_arm64_windows` (aspnetcore)
-- `artifactFile` = e.g., `BuildArtifacts_linux_x64_Release_coreclr.tar.gz` (runtime); `BuildArtifacts_linux_x64_Release_aspnetcore.tar.gz` (aspnetcore)
+- `artifactFile` = e.g., `BuildArtifacts_linux_x64_Release_coreclr.tar.gz` (runtime); `BuildArtifacts_linux_x64_Release_aspnetcore.nupkg` (aspnetcore — the verbatim runtime-pack nupkg)
 
 The aspnetcore `latestBuilds.json` lives at `builds/aspnetcore/latest/{branch}/latestBuilds.json` and contains only the 5 `aspnetcore_*` config keys plus an `all` entry and `branch_name`; it does **not** carry the runtime `coreclr_*` keys. Crank's parser enumerates keys dynamically, so it tolerates either repo's file.
 
@@ -57,21 +57,39 @@ microsoft.netcore.app.runtime.{rid}/Release/runtimes/{rid}/native/        → na
 {rid}.Release/corehost/                                                    → host binaries (dotnet, libhostfxr, libhostpolicy)
 ```
 
-For **aspnetcore** artifacts the stored blob is the **verbatim runtime-pack nupkg** (a zip), so the
-layout is the nupkg's own — `runtimes/{rid}` sits at the archive root, with no
-`microsoft.aspnetcore.app.runtime.{rid}/Release` wrapper (managed-only — the ASP.NET Core runtime
-pack ships no host binaries, and native is optional):
+For **aspnetcore** artifacts the stored blob is the **verbatim runtime-pack nupkg** (a zip,
+extension `.nupkg`), so the layout is the nupkg's own — `runtimes/{rid}` sits at the archive root,
+with no `microsoft.aspnetcore.app.runtime.{rid}/Release` wrapper. Crucially, the verbatim nupkg
+carries the host-resolvable framework metadata next to the managed assemblies:
 
 ```
-runtimes/{rid}/lib/net{X}.0/  → managed Microsoft.AspNetCore.*.dll
-runtimes/{rid}/native/        → native libs (optional)
+runtimes/{rid}/lib/net{X}.0/Microsoft.AspNetCore.*.dll                  → managed assemblies
+runtimes/{rid}/lib/net{X}.0/Microsoft.AspNetCore.App.deps.json          → host-resolvable metadata (REQUIRED)
+runtimes/{rid}/lib/net{X}.0/Microsoft.AspNetCore.App.runtimeconfig.json → host-resolvable metadata (REQUIRED)
+runtimes/{rid}/native/                                                  → native libs (optional)
 ```
+
+Because the nupkg is a complete framework, crank **places `Microsoft.AspNetCore.App` directly** from
+the pack into the per-job dotnet home (the whole managed set incl `deps.json`/`runtimeconfig.json`,
+no feed contribution) and **fails the job** (`BuildCacheIncompleteException`) if the pack is missing
+managed assemblies, `deps.json`, or `runtimeconfig.json` — for perf runs, erroring is preferable to
+silently running mixed/feed bits. The base runtime + host stay feed-resolved (the aspnetcore pack
+ships neither). Self-contained (SCD) publishes are the exception: the framework is co-mingled with
+the app under the app's own `.deps.json`, so for SCD crank overlays only the managed `*.dll`
+(+ native), not the framework metadata.
+
+This differs from **runtime**, whose archive is raw build output (no shared-framework
+`deps.json`/`runtimeconfig.json`), so the runtime flavour overlays BCS binaries onto a feed-installed
+runtime (reusing the feed's metadata) rather than placing directly.
 
 Where `{rid}` = `linux-x64`, `linux-arm64`, `win-x64`, `win-arm64`, `win-x86`. (aspnetcore v1 has no
 musl/osx/arm32 configs.)
 
-The runtime layout was confirmed by inspecting `BuildArtifacts_linux_arm64_Release_coreclr.tar.gz`;
-the aspnetcore artifact is the raw nupkg produced by dotnet/performance's `stage-bcs-nupkg-aspnetcore.ps1`.
+The runtime layout was confirmed by inspecting `BuildArtifacts_linux_x64_Release_coreclr.tar.gz` (no
+framework metadata in the pack lib). The aspnetcore contract — a verbatim runtime-pack nupkg carrying
+managed + `deps.json` + `runtimeconfig.json`, uploaded as `BuildArtifacts_{os}_{arch}_Release_aspnetcore.nupkg`
+— was confirmed against a locally-built `Microsoft.AspNetCore.App.Runtime.win-x64.nupkg` and
+dotnet/performance#5243's `stage-bcs-nupkg-aspnetcore.ps1`.
 **If either layout changes in future builds, the crank extraction will break.** Consider treating it
 as a stable contract or documenting it.
 

@@ -518,17 +518,20 @@ namespace Microsoft.Crank.UnitTests
             var copied = BuildCacheClient.OverlayPublishedOutput(
                 extractDir, outputFolder, configKey, "MyApp", BuildCacheClient.BuildCacheFlavor.AspNetCore);
 
-            // Managed-only pack: every Microsoft.AspNetCore.*.dll is overlaid; no host binaries.
+            // SCD overlay copies managed *.dll only (the app's own .deps.json governs, so the
+            // framework's deps.json/runtimeconfig.json are NOT copied); no host binaries.
             Assert.Equal(managed.Count, copied);
             foreach (var dll in managed)
             {
                 Assert.True(File.Exists(Path.Combine(outputFolder, dll)), $"Missing aspnetcore managed file {dll}");
             }
+            Assert.False(File.Exists(Path.Combine(outputFolder, "Microsoft.AspNetCore.App.deps.json")));
+            Assert.False(File.Exists(Path.Combine(outputFolder, "Microsoft.AspNetCore.App.runtimeconfig.json")));
             Assert.False(File.Exists(Path.Combine(outputFolder, BuildCacheClient.GetNativeLibName("hostpolicy"))));
         }
 
         [Fact]
-        public void CreateBuildCacheDotnetHome_AspNetCore_OverlaysAspNetCoreAppNotRuntime()
+        public void CreateBuildCacheDotnetHome_AspNetCore_PlacesAspNetCoreAppFromPackNotRuntime()
         {
             var rid = BuildCacheClient.GetPlatformMoniker();
             var configKey = AspNetConfigKeyForRid(rid);
@@ -545,20 +548,27 @@ namespace Microsoft.Crank.UnitTests
 
             try
             {
-                // 1. BCS managed Microsoft.AspNetCore.*.dll overlaid into the per-job AspNetCore.App.
                 var bcsAspNet = Path.Combine(bcsHome, "shared", "Microsoft.AspNetCore.App", aspNetCoreVersion);
+
+                // 1. BCS managed Microsoft.AspNetCore.*.dll placed into the per-job AspNetCore.App.
                 foreach (var dll in managed)
                 {
                     Assert.True(File.Exists(Path.Combine(bcsAspNet, dll)), $"Missing BCS aspnetcore managed {dll}");
                 }
 
-                // 2. AspNetCore.App/.version rewritten with the BCS (aspnetcore) commit.
+                // 1b. Pristine direct-placement: the pack's host-resolvable metadata is present and the
+                //     feed-only marker did NOT leak (the folder is built purely from BCS).
+                Assert.True(File.Exists(Path.Combine(bcsAspNet, "Microsoft.AspNetCore.App.deps.json")));
+                Assert.True(File.Exists(Path.Combine(bcsAspNet, "Microsoft.AspNetCore.App.runtimeconfig.json")));
+                Assert.False(File.Exists(Path.Combine(bcsAspNet, "FeedOnlyAspNet.dll")));
+
+                // 2. AspNetCore.App/.version carries the BCS (aspnetcore) commit.
                 var aspNetVersion = File.ReadAllText(Path.Combine(bcsAspNet, ".version"));
                 Assert.Contains(commitSha, aspNetVersion);
                 Assert.Contains(aspNetCoreVersion, aspNetVersion);
 
-                // 3. The base runtime (NETCore.App) is mirrored from the feed and its .version is
-                //    NOT rewritten — the aspnetcore flavour overrides only the asp.net framework.
+                // 3. The base runtime (NETCore.App) is cloned from the feed and its .version is NOT
+                //    rewritten — the aspnetcore flavour overrides only the asp.net framework.
                 var netCoreVersion = File.ReadAllText(Path.Combine(bcsHome, "shared", "Microsoft.NETCore.App", runtimeVersion, ".version"));
                 Assert.Contains("FEED_COMMIT", netCoreVersion);
                 Assert.DoesNotContain(commitSha, netCoreVersion);
@@ -571,6 +581,40 @@ namespace Microsoft.Crank.UnitTests
             {
                 try { Directory.Delete(bcsHome, recursive: true); } catch { }
             }
+        }
+
+        [Fact]
+        public void CreateBuildCacheDotnetHome_AspNetCore_MissingDepsJson_Throws()
+        {
+            var rid = BuildCacheClient.GetPlatformMoniker();
+            var configKey = AspNetConfigKeyForRid(rid);
+            var (extractDir, _) = BuildFakeAspNetCoreBcsArchive(rid, includeDeps: false);
+
+            const string version = "11.0.0-preview.5";
+            var globalHome = BuildFakeGlobalDotnetHome(version, version);
+
+            var ex = Assert.Throws<BuildCacheClient.BuildCacheIncompleteException>(() =>
+                BuildCacheClient.CreateBuildCacheDotnetHome(
+                    globalHome, extractDir, version, version, "abcdef0123456789", configKey,
+                    BuildCacheClient.BuildCacheFlavor.AspNetCore));
+            Assert.Contains("deps.json", ex.Message);
+        }
+
+        [Fact]
+        public void CreateBuildCacheDotnetHome_AspNetCore_MissingRuntimeConfig_Throws()
+        {
+            var rid = BuildCacheClient.GetPlatformMoniker();
+            var configKey = AspNetConfigKeyForRid(rid);
+            var (extractDir, _) = BuildFakeAspNetCoreBcsArchive(rid, includeRuntimeConfig: false);
+
+            const string version = "11.0.0-preview.5";
+            var globalHome = BuildFakeGlobalDotnetHome(version, version);
+
+            var ex = Assert.Throws<BuildCacheClient.BuildCacheIncompleteException>(() =>
+                BuildCacheClient.CreateBuildCacheDotnetHome(
+                    globalHome, extractDir, version, version, "abcdef0123456789", configKey,
+                    BuildCacheClient.BuildCacheFlavor.AspNetCore));
+            Assert.Contains("runtimeconfig.json", ex.Message);
         }
 
         [Fact]
@@ -641,6 +685,9 @@ namespace Microsoft.Crank.UnitTests
 
             File.WriteAllText(Path.Combine(aspNetCoreApp, ".version"), "FEED_ASPNET\n" + aspNetCoreVersion + "\n");
             File.WriteAllText(Path.Combine(aspNetCoreApp, "Microsoft.AspNetCore.dll"), "feed aspnet");
+            // A feed-only asp.net assembly the BCS pack does NOT ship; when the aspnetcore framework is
+            // placed directly from BCS this must NOT appear in the per-job home.
+            File.WriteAllText(Path.Combine(aspNetCoreApp, "FeedOnlyAspNet.dll"), "feed only aspnet");
 
             File.WriteAllText(Path.Combine(hostFxr, BuildCacheClient.GetNativeLibName("hostfxr")), "feed hostfxr");
 
@@ -728,12 +775,14 @@ namespace Microsoft.Crank.UnitTests
             => BuildCacheClient.PlatformToBcsConfigAspNetCore.TryGetValue(rid, out var v) ? v.configKey : null;
 
         /// <summary>
-        /// Builds a fake aspnetcore BCS extraction at <c>runtimes/{rid}/lib/net11.0/</c> (the raw
-        /// runtime-pack nupkg layout) with managed Microsoft.AspNetCore.*.dll files. The aspnetcore
-        /// runtime pack is managed-only: no native dir, no corehost (mirrors dotnet/performance#5243's
-        /// stage-bcs-nupkg-aspnetcore.ps1).
+        /// Builds a fake aspnetcore BCS extraction at <c>runtimes/{rid}/lib/net11.0/</c> (the verbatim
+        /// runtime-pack nupkg layout) with managed Microsoft.AspNetCore.*.dll files PLUS the
+        /// host-resolvable Microsoft.AspNetCore.App.deps.json + runtimeconfig.json (which the real
+        /// nupkg carries next to the assemblies). Negative-case flags omit the metadata to exercise the
+        /// direct-placement fail-loud path.
         /// </summary>
-        private (string extractDir, List<string> managed) BuildFakeAspNetCoreBcsArchive(string rid)
+        private (string extractDir, List<string> managed) BuildFakeAspNetCoreBcsArchive(
+            string rid, bool includeDeps = true, bool includeRuntimeConfig = true)
         {
             var extractDir = Path.Combine(_testDir, "extracted-aspnet-" + Guid.NewGuid().ToString("N"));
             var libDir = Path.Combine(extractDir, "runtimes", rid, "lib", "net11.0");
@@ -748,6 +797,15 @@ namespace Microsoft.Crank.UnitTests
             foreach (var dll in managed)
             {
                 File.WriteAllText(Path.Combine(libDir, dll), "BCS aspnetcore managed " + dll);
+            }
+
+            if (includeDeps)
+            {
+                File.WriteAllText(Path.Combine(libDir, "Microsoft.AspNetCore.App.deps.json"), "{}");
+            }
+            if (includeRuntimeConfig)
+            {
+                File.WriteAllText(Path.Combine(libDir, "Microsoft.AspNetCore.App.runtimeconfig.json"), "{}");
             }
 
             return (extractDir, managed);

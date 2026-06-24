@@ -3072,13 +3072,14 @@ namespace Microsoft.Crank.Agent
 
                     if (buildCacheFlavor == BuildCacheClient.BuildCacheFlavor.AspNetCore)
                     {
-                        // The ASP.NET Core shared-framework version folder is feed-resolved (Latest) and
-                        // the BCS bits overlay onto it — mirroring how the runtime flavour overlays onto a
-                        // feed-resolved runtimeVersion. Set "Latest" here so ResolveAspNetCoreVersion below
-                        // turns it into a real version that names the shared/Microsoft.AspNetCore.App/{ver}
-                        // overlay target. runtimeVersion already holds a real feed runtime version.
+                        // The ASP.NET Core shared-framework VERSION (folder name) is feed-resolved
+                        // (Latest) so PatchRuntimeConfig + the app's framework reference resolve to a real
+                        // shared/Microsoft.AspNetCore.App/{ver} dir; the framework CONTENTS are then placed
+                        // DIRECTLY from the BCS pack into that folder (the feed copy is not used). Set
+                        // "Latest" here so ResolveAspNetCoreVersion below turns it into a real version.
+                        // runtimeVersion already holds a real feed runtime version.
                         aspNetCoreVersion = "Latest";
-                        Log.Info($"ASP.NET Core for build: Latest from feeds, will be overlaid with BCS commit {shortSha}");
+                        Log.Info($"ASP.NET Core for build: version resolved from feeds, framework placed directly from BCS commit {shortSha}");
 
                         // Q2: v1 overrides only one BCS component per job. If a runtime sentinel was also
                         // requested, honour the selector (aspnetcore) and let the base runtime resolve normally.
