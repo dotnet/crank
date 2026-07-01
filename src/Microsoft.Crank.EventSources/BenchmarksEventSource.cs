@@ -60,9 +60,10 @@ namespace Microsoft.Crank.EventSources
         /// <summary>
         /// Instructs the host agent to track CPU and memory usage for the specified process id.
         /// </summary>
-        public static void SetChildProcessId(int pid)
+        public static void SetChildProcessId(int pid, bool? keepAlive = null)
         {
-            Console.Error.WriteLine($"##ChildProcessId:{pid}");
+            keepAlive ??= false;
+            Console.Error.WriteLine($"##ChildProcessId:{pid};KeepAlive:{keepAlive}");
         }
 
         /// <summary>

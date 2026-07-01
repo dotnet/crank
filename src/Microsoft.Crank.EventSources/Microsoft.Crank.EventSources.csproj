@@ -6,7 +6,8 @@
     <Description>Helper classes to register metrics with the Microsoft.Crank tools.</Description>
     <IsPackable>true</IsPackable>
     <Authors>Microsoft</Authors>
-    <PackageId>Microsoft.Crank.EventSources</PackageId>    
+    <PackageId>Microsoft.Crank.EventSources</PackageId>
+    <LangVersion>Latest</LangVersion>
   </PropertyGroup>
 
 </Project>
