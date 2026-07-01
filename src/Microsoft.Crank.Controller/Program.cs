@@ -2092,6 +2092,20 @@ namespace Microsoft.Crank.Controller
                     }
                 }
 
+                // Validate that each source has at least one code location defined
+                foreach (var (sourceName, source) in job.Sources)
+                {
+                    var hasRepo = !String.IsNullOrEmpty(source.Repository);
+                    var hasLocal = !String.IsNullOrEmpty(source.LocalFolder);
+                    var hasArchive = !String.IsNullOrEmpty(source.Archive);
+                    var hasSourceCode = source.SourceCode != null;
+
+                    if (!hasRepo && !hasLocal && !hasArchive && !hasSourceCode)
+                    {
+                        throw new ControllerException($"Invalid job '{jobName}': source '{sourceName}' must define at least one of 'repository', 'localFolder', 'archive' or an uploaded 'sourceCode'.");
+                    }
+                }
+
                 if (job.CollectCounters)
                 {
                     Log.WriteWarning($"WARNING: '{jobName}.collectCounters' has been deprecated, in the future please use '{jobName}.options.collectCounters'.");
@@ -2424,6 +2438,7 @@ namespace Microsoft.Crank.Controller
                         if (jobObject.ContainsKey("source"))
                         {
                             PatchLocalFolderInSource(configurationFilenameOrUrl, (JObject)jobObject["source"]);
+                            PatchArchiveInSource(configurationFilenameOrUrl, (JObject)jobObject["source"]);
                         }
 
                         if (jobObject.ContainsKey("sources"))
@@ -2431,6 +2446,7 @@ namespace Microsoft.Crank.Controller
                             foreach (JProperty source in jobObject["sources"])
                             {
                                 PatchLocalFolderInSource(configurationFilenameOrUrl, (JObject)source.Value);
+                                PatchArchiveInSource(configurationFilenameOrUrl, (JObject)source.Value);
                             }
                         }
                     }
@@ -2484,6 +2500,22 @@ namespace Microsoft.Crank.Controller
                     var resolvedFilename = new FileInfo(Path.Combine(Path.GetDirectoryName(configurationFilename), localFolder)).FullName;
 
                     source["localFolder"] = resolvedFilename;
+                }
+            }
+        }
+
+        private static void PatchArchiveInSource(string configurationFilenameOrUrl, JObject source)
+        {
+            if (source.ContainsKey("archive"))
+            {
+                var archive = source["archive"].ToString();
+
+                if (!archive.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    var configurationFilename = new FileInfo(configurationFilenameOrUrl).FullName;
+                    var resolvedFilename = new FileInfo(Path.Combine(Path.GetDirectoryName(configurationFilename), archive)).FullName;
+
+                    source["archive"] = resolvedFilename;
                 }
             }
         }

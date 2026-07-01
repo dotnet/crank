@@ -82,6 +82,52 @@ namespace Microsoft.Crank.IntegrationTests
         }
 
         [Fact]
+        public async Task BenchmarkHelloArchive()
+        {
+            _output.WriteLine($"[TEST] Starting controller (archive)");
+
+            // Create a zip next to the hello folder called hello.zip and use the permanent config
+            var assetsDir = Path.Combine(_crankTestsDirectory, "assets");
+
+            // The original config references ../hello relative to the assets file
+            var helloFolder = Path.GetFullPath(Path.Combine(assetsDir, "..", "hello"));
+
+            Assert.True(Directory.Exists(helloFolder), $"Expected hello folder at {helloFolder}");
+
+            var helloZip = Path.GetFullPath(Path.Combine(assetsDir, "..", "hello.zip"));
+
+            if (File.Exists(helloZip)) File.Delete(helloZip);
+
+            System.IO.Compression.ZipFile.CreateFromDirectory(helloFolder, helloZip, System.IO.Compression.CompressionLevel.Fastest, includeBaseDirectory: false);
+
+            var configPath = Path.Combine(_crankTestsDirectory, "assets", "hello-archive.benchmarks.yml");
+
+            try
+            {
+                var result = await ProcessUtil.RunAsync(
+                    "dotnet",
+                    $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config {configPath} --scenario hello --profile local",
+                    workingDirectory: _crankTestsDirectory,
+                    captureOutput: true,
+                    timeout: DefaultTimeOut,
+                    throwOnError: false,
+                    outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); }
+                );
+
+                Assert.Equal(0, result.ExitCode);
+
+                Assert.Contains("Requests/sec", result.StandardOutput);
+                Assert.Contains(".NET Core SDK Version", result.StandardOutput);
+                Assert.Contains(".NET Runtime Version", result.StandardOutput);
+                Assert.Contains("ASP.NET Core Version", result.StandardOutput);
+            }
+            finally
+            {
+                try { File.Delete(helloZip); } catch { }
+            }
+        }
+
+        [Fact]
         public async Task ExecutesScripts()
         {
             _output.WriteLine($"[TEST] Starting controller");
