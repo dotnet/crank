@@ -3067,6 +3067,11 @@ namespace Microsoft.Crank.Agent
                         _buildCacheBaseUrl, buildCacheRepo, buildCacheCommitSha, buildCacheConfigResolved,
                         cancellationToken);
 
+                    if (jobContext != null)
+                    {
+                        jobContext.BuildCacheExtractDir = buildCacheExtractDir;
+                    }
+
                     var shortSha = BuildCacheClient.ShortSha(buildCacheCommitSha);
                     Log.Info($"Build Cache: Artifacts for commit {shortSha} (repo '{buildCacheRepo}') ready for post-build overlay");
 
@@ -3386,7 +3391,7 @@ namespace Microsoft.Crank.Agent
                         runtimeVersion,
                         aspNetCoreVersion,
                         buildCacheCommitSha,
-                        job.BuildCacheConfig,
+                        buildCacheConfigResolved,
                         buildCacheFlavor);
 
                     runtimeHomeDir = bcsHome;
@@ -3396,7 +3401,6 @@ namespace Microsoft.Crank.Agent
                     if (jobContext != null)
                     {
                         jobContext.BuildCacheDotnetHome = bcsHome;
-                        jobContext.BuildCacheExtractDir = buildCacheExtractDir;
                     }
 
                     Log.Info($"Build Cache: Isolated dotnet home: {bcsHome}");
@@ -3654,7 +3658,7 @@ namespace Microsoft.Crank.Agent
                         publishedOverlay = BuildCacheClient.OverlayPublishedOutput(
                             buildCacheExtractDir,
                             outputFolder,
-                            job.BuildCacheConfig,
+                            buildCacheConfigResolved,
                             assemblyName,
                             buildCacheFlavor);
 

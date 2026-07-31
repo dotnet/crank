@@ -258,10 +258,17 @@ namespace Microsoft.Crank.Agent
                 var extractDir = Path.Combine(commitDir, $"extracted-{safeConfig}-{Guid.NewGuid():N}");
                 Directory.CreateDirectory(extractDir);
 
-                Log.Info($"Build Cache: Extracting archive to {extractDir} ...");
-                await ExtractArchiveAsync(archivePath, extractDir, cancellationToken);
-
-                return extractDir;
+                try
+                {
+                    Log.Info($"Build Cache: Extracting archive to {extractDir} ...");
+                    await ExtractArchiveAsync(archivePath, extractDir, cancellationToken);
+                    return extractDir;
+                }
+                catch
+                {
+                    CleanupExtractDir(extractDir);
+                    throw;
+                }
             }
             finally
             {
@@ -428,11 +435,11 @@ namespace Microsoft.Crank.Agent
                 var corehostDir = FindCorehostDirectory(extractDir, rid);
                 if (corehostDir != null)
                 {
-                    filesOverlaid += CopyHostBinaryIfPresent(corehostDir, dstNetCoreApp, GetNativeLibName("hostpolicy"));
+                    filesOverlaid += CopyHostBinaryIfPresent(corehostDir, dstNetCoreApp, GetNativeLibName("hostpolicy", rid));
 
                     if (Directory.Exists(dstHostFxr))
                     {
-                        filesOverlaid += CopyHostBinaryIfPresent(corehostDir, dstHostFxr, GetNativeLibName("hostfxr"));
+                        filesOverlaid += CopyHostBinaryIfPresent(corehostDir, dstHostFxr, GetNativeLibName("hostfxr", rid));
                     }
 
                     var dstDotnetHost = Path.Combine(bcsHomeRoot, dotnetExeName);
@@ -609,7 +616,7 @@ namespace Microsoft.Crank.Agent
             var corehostDir = flavor == BuildCacheFlavor.AspNetCore ? null : FindCorehostDirectory(extractDir, rid);
             if (corehostDir != null)
             {
-                filesCopied += CopyHostBinaryIfPresent(corehostDir, outputFolder, GetNativeLibName("hostpolicy"));
+                filesCopied += CopyHostBinaryIfPresent(corehostDir, outputFolder, GetNativeLibName("hostpolicy", rid));
 
                 // Intentionally NOT replacing the SDK-bound apphost. The BCS archive ships the raw,
                 // unbound apphost (the binary has a placeholder SHA-256 hash where the managed DLL
@@ -666,7 +673,7 @@ namespace Microsoft.Crank.Agent
 
                 response.EnsureSuccessStatusCode();
                 json = await response.Content.ReadAsStringAsync(cancellationToken);
-            });
+            }, cancellationToken);
 
             var latestBuilds = ParseLatestBuilds(json);
             _latestBuildsCache[cacheKey] = (DateTimeOffset.UtcNow, latestBuilds);
@@ -719,14 +726,17 @@ namespace Microsoft.Crank.Agent
                 }
 
                 File.Move(partial, destination);
-            });
+            }, cancellationToken);
         }
 
         /// <summary>
         /// Like <see cref="ProcessUtil.RetryOnExceptionAsync(int, Func{Task}, CancellationToken)"/>
         /// but rethrows <see cref="BuildCacheNotFoundException"/> immediately without retrying.
         /// </summary>
-        private static async Task RetryTransientAsync(int retries, Func<Task> operation)
+        private static async Task RetryTransientAsync(
+            int retries,
+            Func<Task> operation,
+            CancellationToken cancellationToken)
         {
             var attempts = 0;
             while (true)
@@ -740,6 +750,10 @@ namespace Microsoft.Crank.Agent
                 catch (BuildCacheNotFoundException)
                 {
                     // Non-retryable: fail fast.
+                    throw;
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
                     throw;
                 }
                 catch (Exception ex)
@@ -1078,14 +1092,16 @@ namespace Microsoft.Crank.Agent
             return match.rid;
         }
 
-        internal static string GetNativeLibName(string baseName)
+        internal static string GetNativeLibName(string baseName, string rid = null)
         {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            if (rid?.StartsWith("win-", StringComparison.OrdinalIgnoreCase) == true ||
+                rid == null && RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 return $"{baseName}.dll";
             }
 
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            if (rid?.StartsWith("osx-", StringComparison.OrdinalIgnoreCase) == true ||
+                rid == null && RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
                 return $"lib{baseName}.dylib";
             }

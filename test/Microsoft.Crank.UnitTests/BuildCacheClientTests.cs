@@ -204,6 +204,15 @@ namespace Microsoft.Crank.UnitTests
             Assert.Throws<InvalidOperationException>(() => BuildCacheClient.GetRidForConfig("totally_unknown"));
         }
 
+        [Theory]
+        [InlineData("win-x64", "hostfxr.dll")]
+        [InlineData("osx-arm64", "libhostfxr.dylib")]
+        [InlineData("linux-arm64", "libhostfxr.so")]
+        public void GetNativeLibName_UsesConfiguredRid(string rid, string expected)
+        {
+            Assert.Equal(expected, BuildCacheClient.GetNativeLibName("hostfxr", rid));
+        }
+
         // -------------------------------------------------------------------
         // ASP.NET Core config map (locked external contract — see
         // dotnet/performance stage-bcs-nupkg-aspnetcore.ps1). Pins configKey / RID /
@@ -282,7 +291,7 @@ namespace Microsoft.Crank.UnitTests
             // The BCS archive ships an unbound apphost (the SDK normally binds the published
             // managed DLL path into the executable during publish). Overlaying the raw BCS apphost
             // on top of the SDK-bound one breaks the published app, so we deliberately skip it.
-            var rid = BuildCacheClient.GetPlatformMoniker();
+            var rid = GetSupportedRuntimeRid();
             var configKey = ConfigKeyForRid(rid);
             var (extractDir, _, managed, native) = BuildFakeBcsArchive(rid, includeHost: true, includeApphost: true);
 
@@ -307,7 +316,7 @@ namespace Microsoft.Crank.UnitTests
                 Assert.True(File.Exists(Path.Combine(outputFolder, n)), $"Missing native file {n}");
             }
 
-            Assert.True(File.Exists(Path.Combine(outputFolder, BuildCacheClient.GetNativeLibName("hostpolicy"))));
+            Assert.True(File.Exists(Path.Combine(outputFolder, BuildCacheClient.GetNativeLibName("hostpolicy", rid))));
 
             // SDK-bound apphost preserved.
             Assert.Equal("SDK_BOUND_APPHOST", File.ReadAllText(Path.Combine(outputFolder, apphostName)));
@@ -316,7 +325,7 @@ namespace Microsoft.Crank.UnitTests
         [Fact]
         public void OverlayPublishedOutput_EmptyExtract_ReturnsZero()
         {
-            var rid = BuildCacheClient.GetPlatformMoniker();
+            var rid = GetSupportedRuntimeRid();
             var configKey = ConfigKeyForRid(rid);
 
             var extractDir = Path.Combine(_testDir, "empty");
@@ -332,7 +341,7 @@ namespace Microsoft.Crank.UnitTests
         [Fact]
         public void OverlayPublishedOutput_SkipsPdbAndDbg()
         {
-            var rid = BuildCacheClient.GetPlatformMoniker();
+            var rid = GetSupportedRuntimeRid();
             var configKey = ConfigKeyForRid(rid);
             var (extractDir, runtimesDir, _, _) = BuildFakeBcsArchive(rid, includeHost: false, includeApphost: false);
 
@@ -356,7 +365,7 @@ namespace Microsoft.Crank.UnitTests
         [Fact]
         public void CreateBuildCacheDotnetHome_MirrorsGlobalAndOverlaysBcs()
         {
-            var rid = BuildCacheClient.GetPlatformMoniker();
+            var rid = GetSupportedRuntimeRid();
             var configKey = ConfigKeyForRid(rid);
             var (extractDir, _, managed, native) = BuildFakeBcsArchive(rid, includeHost: true, includeApphost: false);
 
@@ -400,7 +409,7 @@ namespace Microsoft.Crank.UnitTests
                 Assert.True(File.Exists(Path.Combine(bcsHome, dotnetExeName)));
 
                 // 6. host/fxr was mirrored AND overlaid.
-                var hostFxrFile = Path.Combine(bcsHome, "host", "fxr", runtimeVersion, BuildCacheClient.GetNativeLibName("hostfxr"));
+                var hostFxrFile = Path.Combine(bcsHome, "host", "fxr", runtimeVersion, BuildCacheClient.GetNativeLibName("hostfxr", rid));
                 Assert.True(File.Exists(hostFxrFile));
             }
             finally
@@ -414,7 +423,7 @@ namespace Microsoft.Crank.UnitTests
         {
             // Build a BCS archive layout for an RID that doesn't match the host RID, so the
             // overlay finds nothing.
-            var hostRid = BuildCacheClient.GetPlatformMoniker();
+            var hostRid = GetSupportedRuntimeRid();
             var wrongRid = hostRid == "linux-x64" ? "win-x64" : "linux-x64";
             var (extractDir, _, _, _) = BuildFakeBcsArchive(wrongRid, includeHost: false, includeApphost: false);
 
@@ -426,7 +435,7 @@ namespace Microsoft.Crank.UnitTests
             var ex = Assert.Throws<InvalidOperationException>(() =>
                 BuildCacheClient.CreateBuildCacheDotnetHome(
                     globalHome, extractDir, runtimeVersion, aspNetCoreVersion,
-                    "abcdef0123456789", buildCacheConfig: null));
+                    "abcdef0123456789", ConfigKeyForRid(hostRid)));
 
             Assert.Contains("0 files", ex.Message);
         }
@@ -434,7 +443,7 @@ namespace Microsoft.Crank.UnitTests
         [Fact]
         public void CreateBuildCacheDotnetHome_TwoConcurrentJobs_AreIsolated()
         {
-            var rid = BuildCacheClient.GetPlatformMoniker();
+            var rid = GetSupportedRuntimeRid();
             var configKey = ConfigKeyForRid(rid);
             var (extractDir1, _, _, _) = BuildFakeBcsArchive(rid, includeHost: true, includeApphost: false);
             var (extractDir2, _, _, _) = BuildFakeBcsArchive(rid, includeHost: true, includeApphost: false);
@@ -508,7 +517,7 @@ namespace Microsoft.Crank.UnitTests
         [Fact]
         public void OverlayPublishedOutput_AspNetCore_CopiesManagedAspNetDllsAndNoHost()
         {
-            var rid = BuildCacheClient.GetPlatformMoniker();
+            var rid = GetSupportedAspNetCoreRid();
             var configKey = AspNetConfigKeyForRid(rid);
             var (extractDir, managed) = BuildFakeAspNetCoreBcsArchive(rid);
 
@@ -527,13 +536,13 @@ namespace Microsoft.Crank.UnitTests
             }
             Assert.False(File.Exists(Path.Combine(outputFolder, "Microsoft.AspNetCore.App.deps.json")));
             Assert.False(File.Exists(Path.Combine(outputFolder, "Microsoft.AspNetCore.App.runtimeconfig.json")));
-            Assert.False(File.Exists(Path.Combine(outputFolder, BuildCacheClient.GetNativeLibName("hostpolicy"))));
+            Assert.False(File.Exists(Path.Combine(outputFolder, BuildCacheClient.GetNativeLibName("hostpolicy", rid))));
         }
 
         [Fact]
         public void CreateBuildCacheDotnetHome_AspNetCore_PlacesAspNetCoreAppFromPackNotRuntime()
         {
-            var rid = BuildCacheClient.GetPlatformMoniker();
+            var rid = GetSupportedAspNetCoreRid();
             var configKey = AspNetConfigKeyForRid(rid);
             var (extractDir, managed) = BuildFakeAspNetCoreBcsArchive(rid);
 
@@ -586,7 +595,7 @@ namespace Microsoft.Crank.UnitTests
         [Fact]
         public void CreateBuildCacheDotnetHome_AspNetCore_MissingDepsJson_Throws()
         {
-            var rid = BuildCacheClient.GetPlatformMoniker();
+            var rid = GetSupportedAspNetCoreRid();
             var configKey = AspNetConfigKeyForRid(rid);
             var (extractDir, _) = BuildFakeAspNetCoreBcsArchive(rid, includeDeps: false);
 
@@ -603,7 +612,7 @@ namespace Microsoft.Crank.UnitTests
         [Fact]
         public void CreateBuildCacheDotnetHome_AspNetCore_MissingRuntimeConfig_Throws()
         {
-            var rid = BuildCacheClient.GetPlatformMoniker();
+            var rid = GetSupportedAspNetCoreRid();
             var configKey = AspNetConfigKeyForRid(rid);
             var (extractDir, _) = BuildFakeAspNetCoreBcsArchive(rid, includeRuntimeConfig: false);
 
@@ -620,7 +629,7 @@ namespace Microsoft.Crank.UnitTests
         [Fact]
         public void CreateBuildCacheDotnetHome_AspNetCore_MissingAspNetVersion_Throws()
         {
-            var rid = BuildCacheClient.GetPlatformMoniker();
+            var rid = GetSupportedAspNetCoreRid();
             var configKey = AspNetConfigKeyForRid(rid);
             var (extractDir, _) = BuildFakeAspNetCoreBcsArchive(rid);
 
@@ -662,7 +671,13 @@ namespace Microsoft.Crank.UnitTests
         // -------------------------------------------------------------------
 
         private static string ConfigKeyForRid(string rid)
-            => BuildCacheClient.PlatformToBcsConfig.TryGetValue(rid, out var v) ? v.configKey : null;
+            => BuildCacheClient.PlatformToBcsConfig[rid].configKey;
+
+        private static string GetSupportedRuntimeRid()
+        {
+            var hostRid = BuildCacheClient.GetPlatformMoniker();
+            return BuildCacheClient.PlatformToBcsConfig.ContainsKey(hostRid) ? hostRid : "linux-x64";
+        }
 
         /// <summary>
         /// Builds a fake "global" dotnet home with .version files containing a FEED commit so
@@ -772,7 +787,13 @@ namespace Microsoft.Crank.UnitTests
         }
 
         private static string AspNetConfigKeyForRid(string rid)
-            => BuildCacheClient.PlatformToBcsConfigAspNetCore.TryGetValue(rid, out var v) ? v.configKey : null;
+            => BuildCacheClient.PlatformToBcsConfigAspNetCore[rid].configKey;
+
+        private static string GetSupportedAspNetCoreRid()
+        {
+            var hostRid = BuildCacheClient.GetPlatformMoniker();
+            return BuildCacheClient.PlatformToBcsConfigAspNetCore.ContainsKey(hostRid) ? hostRid : "linux-x64";
+        }
 
         /// <summary>
         /// Builds a fake aspnetcore BCS extraction at <c>runtimes/{rid}/lib/net11.0/</c> (the verbatim
