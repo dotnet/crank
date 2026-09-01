@@ -896,7 +896,13 @@ namespace Microsoft.Crank.Controller
 
                                                                 if (!service.WaitForExit)
                                                                 {
+                                                                    await Task.WhenAll(jobs.Select(job => job.FinalizeTraceBeforeDumpAsync()));
+
                                                                     await Task.WhenAll(jobs.Select(job => job.StopAsync()));
+
+                                                                    await Task.WhenAll(jobs.Select(job => job.DownloadDumpAsync()));
+
+                                                                    await Task.WhenAll(jobs.Select(job => job.DownloadTraceAsync()));
 
                                                                     await Task.WhenAll(jobs.Select(job => job.DeleteAsync()));
                                                                 }
@@ -955,6 +961,8 @@ namespace Microsoft.Crank.Controller
 
                                         await Task.Delay(1000);
                                     }
+
+                                    await Task.WhenAll(jobs.Select(job => job.FinalizeTraceBeforeDumpAsync()));
 
                                     // Stop a blocking job
                                     await Task.WhenAll(jobs.Select(job => job.StopAsync()));
@@ -1040,6 +1048,8 @@ namespace Microsoft.Crank.Controller
                         // Unless the jobs can't be stopped
                         if (!SpanShouldKeepJobRunning(jobName) || IsLastIteration())
                         {
+                            await Task.WhenAll(jobs.Select(job => job.FinalizeTraceBeforeDumpAsync()));
+
                             await Task.WhenAll(jobs.Select(job => job.StopAsync()));
                         }
 
@@ -1434,6 +1444,8 @@ namespace Microsoft.Crank.Controller
                 await Task.Delay(1000);
             }
 
+            await job.FinalizeTraceBeforeDumpAsync();
+
             await job.StopAsync();
 
             await job.TryUpdateJobAsync();
@@ -1694,6 +1706,8 @@ namespace Microsoft.Crank.Controller
                     break;
                 }
             }
+
+            await job.FinalizeTraceBeforeDumpAsync();
 
             await job.StopAsync();
 

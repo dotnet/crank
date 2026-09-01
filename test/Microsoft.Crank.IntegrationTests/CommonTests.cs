@@ -269,6 +269,46 @@ namespace Microsoft.Crank.IntegrationTests
             Assert.Contains("(100%)", result.StandardOutput);
         }
 
+        [CollectLinuxFact]
+        public async Task CollectLinuxTraceAndDump()
+        {
+            var outputDirectory = Path.Combine(_crankTestsDirectory, "trace-and-dump");
+            Directory.CreateDirectory(outputDirectory);
+
+            var tracePath = Path.Combine(outputDirectory, "application.nettrace");
+            var dumpPath = Path.Combine(outputDirectory, "application.dmp");
+
+            File.Delete(tracePath);
+            File.Delete(dumpPath);
+
+            var result = await ProcessUtil.RunAsync(
+                "dotnet",
+                $"exec {Path.Combine(_crankDirectory, "crank.dll")} --config ./assets/hello.benchmarks.yml --scenario hello --profile local " +
+                "--application.framework net10.0 --application.sdkVersion 10.0.400 --application.runtimeVersion 10.0.11 --application.aspNetCoreVersion 10.0.11 " +
+                "--application.dotnetTrace true --application.dotnetTraceCollectMode collect-linux " +
+                $"--application.options.traceOutput {tracePath} --application.options.dumpType mini --application.options.dumpOutput {dumpPath}",
+                workingDirectory: _crankTestsDirectory,
+                captureOutput: true,
+                timeout: DefaultTimeOut,
+                throwOnError: false,
+                outputDataReceived: t => { _output.WriteLine($"[CTL] {t}"); }
+            );
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.True(new FileInfo(tracePath).Length > 0);
+            Assert.True(new FileInfo(dumpPath).Length > 0);
+
+            var traceIndex = result.StandardOutput.IndexOf("Server is collecting trace file", StringComparison.Ordinal);
+            var stopIndex = result.StandardOutput.IndexOf("Stopping job 'application'", StringComparison.Ordinal);
+            var dumpIndex = result.StandardOutput.IndexOf("Downloading dump file", StringComparison.Ordinal);
+            var traceDownloadIndex = result.StandardOutput.IndexOf("Downloading trace file", StringComparison.Ordinal);
+
+            Assert.True(traceIndex >= 0);
+            Assert.True(stopIndex > traceIndex);
+            Assert.True(dumpIndex > stopIndex);
+            Assert.True(traceDownloadIndex > dumpIndex);
+        }
+
         [Fact]
         public async Task Iterations()
         {

@@ -39,7 +39,10 @@ namespace Microsoft.Crank.Controller
         private int _uploadBufferSize = 1024 * 1024; // default is 80K which is too small on slow network connections
         private DateTime? _runningUtc;
         private string _jobName;
-        private bool _traceCollected;
+        private bool _traceDownloaded;
+        private bool _traceFinalized;
+        private readonly object _traceFinalizationLock = new object();
+        private Task _traceFinalizationTask;
 
         private int _outputCursor;
         private int _buildCursor;
@@ -651,6 +654,7 @@ namespace Microsoft.Crank.Controller
                         if (Job.Timeout > 0 && _runningUtc != null && DateTime.UtcNow - _runningUtc > TimeSpan.FromSeconds(Job.Timeout))
                         {
                             Log.Write($"'{_jobName}' has timed out, stopping...");
+                            await FinalizeTraceBeforeDumpAsync(collectDump: true);
                             await StopAsync(collectDump: true);
                         }
 
@@ -714,14 +718,40 @@ namespace Microsoft.Crank.Controller
             _keepAlive = false;
         }
 
-        public async Task DownloadTraceAsync()
+        public async Task FinalizeTraceBeforeDumpAsync(bool collectDump = false)
         {
-            if (!Job.DotNetTrace && !Job.Collect && !Job.Profile)
+            if (!Job.DumpProcess && !collectDump)
             {
                 return;
             }
 
-            // We can only download the trace for a job that has been stopped
+            if (!Job.DotNetTrace && !Job.Collect && !Job.Profile ||
+                await GetStateAsync() != JobState.Running)
+            {
+                return;
+            }
+
+            // Finalize the trace while the target process is still alive. The
+            // trace is downloaded after shutdown so the dump is captured as
+            // soon as possible against the same address space.
+            try
+            {
+                await GetTraceFinalizationTask();
+            }
+            catch (Exception e)
+            {
+                Log.WriteWarning($"Error while finalizing trace for '{Job.Service}'");
+                Log.Verbose(e.Message);
+            }
+        }
+
+        public async Task DownloadTraceAsync()
+        {
+            if (_traceDownloaded || !Job.DotNetTrace && !Job.Collect && !Job.Profile)
+            {
+                return;
+            }
+
             if (await GetStateAsync() != JobState.Stopped)
             {
                 return;
@@ -764,7 +794,7 @@ namespace Microsoft.Crank.Controller
                     traceDestination = traceDestination + "." + DateTime.Now.ToString("MM-dd-HH-mm-ss") + traceExtension;
                 }
 
-                await CollectTracesAsync();
+                await GetTraceFinalizationTask();
 
                 Log.Write($"Downloading trace file {traceDestination} ...");
 
@@ -777,7 +807,6 @@ namespace Microsoft.Crank.Controller
                     if (Job.ProfileType == Job.UltraProfileType)
                     {
                         Log.Write($"The file can be visualized with in https://profiler.firefox.com/");
-
                     }
                 }
                 catch (Exception e)
@@ -789,8 +818,7 @@ namespace Microsoft.Crank.Controller
                     StopKeepAlive();
                 }
 
-
-                _traceCollected = true;
+                _traceDownloaded = true;
             }
             catch (Exception e)
             {
@@ -799,9 +827,37 @@ namespace Microsoft.Crank.Controller
             }
         }
 
+        private Task GetTraceFinalizationTask()
+        {
+            lock (_traceFinalizationLock)
+            {
+                if (_traceFinalized)
+                {
+                    return Task.CompletedTask;
+                }
+
+                return _traceFinalizationTask ??= FinalizeTraceAsync();
+            }
+        }
+
+        private async Task FinalizeTraceAsync()
+        {
+            try
+            {
+                await CollectTracesAsync();
+            }
+            finally
+            {
+                lock (_traceFinalizationLock)
+                {
+                    _traceFinalizationTask = null;
+                }
+            }
+        }
+
         private async Task CollectTracesAsync()
         {
-            if (_traceCollected)
+            if (_traceFinalized)
             {
                 return;
             }
@@ -830,7 +886,7 @@ namespace Microsoft.Crank.Controller
 
             Console.WriteLine();
 
-            _traceCollected = true;
+            _traceFinalized = true;
         }
 
         public async Task DownloadDumpAsync()
