@@ -109,7 +109,7 @@ namespace Microsoft.Crank.Agent
         // to `dotnet tool install` so the install works even when the host
         // has package-source-mapping configured (which makes a bare
         // `--add-source` fail with "cannot be combined").
-        private const string DotnetToolsFeedUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-tools/nuget/v3/index.json";
+        private static readonly string DotnetToolsFeedUrl = GetNuGetFeedUrl("dotnet-tools");
 
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;

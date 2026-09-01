@@ -483,6 +483,8 @@ namespace Microsoft.Crank.UnitTests
             // Verify all expected sources
             var expectedSources = new[]
             {
+                "dotnet8",
+                "dotnet8-transport",
                 "dotnet9",
                 "dotnet9-transport",
                 "dotnet10",
@@ -492,9 +494,14 @@ namespace Microsoft.Crank.UnitTests
                 "dotnet-public"
             };
 
+            Assert.Equal(expectedSources.Length, sources.Count);
+
             foreach (var expected in expectedSources)
             {
-                Assert.Contains(sources, s => s.Attribute("key")?.Value == expected);
+                var source = Assert.Single(sources, s => s.Attribute("key")?.Value == expected);
+                Assert.Equal(
+                    $"https://pkgs.dev.azure.com/dnceng/public/_packaging/{expected}/nuget/v3/index.json",
+                    source.Attribute("value")?.Value);
             }
 
             _output.WriteLine($"Config with all sources:\n{doc}");
