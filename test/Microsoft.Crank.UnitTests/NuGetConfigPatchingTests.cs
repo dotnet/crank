@@ -498,7 +498,7 @@ namespace Microsoft.Crank.UnitTests
 
             foreach (var expected in expectedSources)
             {
-                var source = Assert.Single(sources, s => s.Attribute("key")?.Value == expected);
+                var source = Assert.Single(sources.Where(s => s.Attribute("key")?.Value == expected));
                 Assert.Equal(
                     $"https://pkgs.dev.azure.com/dnceng/public/_packaging/{expected}/nuget/v3/index.json",
                     source.Attribute("value")?.Value);
