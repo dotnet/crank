@@ -491,6 +491,8 @@ namespace Microsoft.Crank.UnitTests
                 "dotnet10-transport",
                 "dotnet11",
                 "dotnet11-transport",
+                "dotnet12",
+                "dotnet12-transport",
                 "dotnet-public"
             };
 

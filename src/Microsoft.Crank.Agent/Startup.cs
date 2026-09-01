@@ -80,11 +80,12 @@ namespace Microsoft.Crank.Agent
         // LatestVersionSource controls "Latest" resolution for the runtime and ASP.NET Core only.
         // SDK "Latest" and "Edge" always use productCommit, while runtime and ASP.NET Core "Edge"
         // always use the flat-container feed. The per-version values preserve the existing behavior:
-        // - 11.0 and 10.0 use productCommit so "Latest" selects the coherent versions from the daily SDK.
+        // - 12.0, 11.0, and 10.0 use productCommit so "Latest" selects the coherent versions from the daily SDK.
         // - 9.0 uses the flat container so "Latest" selects the highest published package version.
         // - 8.0 uses the current version from release metadata; it previously fell back to "Current".
         private static readonly SupportedDotNetVersion[] _supportedDotNetVersions =
         [
+            new("12.0", LatestVersionSource.ProductCommit),
             new("11.0", LatestVersionSource.ProductCommit),
             new("10.0", LatestVersionSource.ProductCommit),
             new("9.0", LatestVersionSource.FlatContainer),
