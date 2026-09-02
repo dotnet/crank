@@ -56,6 +56,7 @@ namespace Microsoft.Crank.Agent
     {
         private static readonly string DefaultTargetFramework = "net8.0";
         private static readonly string DefaultChannel = "current";
+        private const string DefaultFeedTargetFramework = "11.0";
         private const int CommitHashLength = 12;
         private const string DncengPublicPackagingUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging";
         private const string DotnetPublicFeedName = "dotnet-public";
@@ -6187,7 +6188,7 @@ namespace Microsoft.Crank.Agent
             const string internalFeed = "https://ci.dot.net/public";
             const string publicFeed = "https://builds.dotnet.microsoft.com/dotnet";
 
-            string[] dotnetFeeds = version.StartsWith(_supportedDotNetVersions[0].Version)
+            string[] dotnetFeeds = version.StartsWith(DefaultFeedTargetFramework)
                 ? [internalFeed, publicFeed] // for vnext and preview versions we check on the internal feed first
                 : [publicFeed, internalFeed] // for older versions odds are that we are looking for a public package
                 ;
