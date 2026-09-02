@@ -56,10 +56,45 @@ namespace Microsoft.Crank.Agent
     {
         private static readonly string DefaultTargetFramework = "net8.0";
         private static readonly string DefaultChannel = "current";
+        private const string DefaultFeedTargetFramework = "11.0";
         private const int CommitHashLength = 12;
+        private const string DncengPublicPackagingUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging";
+        private const string DotnetPublicFeedName = "dotnet-public";
 
         private const string PerfViewVersion = "v3.1.17"; // https://github.com/microsoft/perfview/releases
         private const string UltraVersion = "1.3.0"; // https://github.com/xoofx/ultra/releases
+
+        private enum LatestVersionSource
+        {
+            // Use the current version from the official release metadata.
+            Current,
+
+            // Find the highest matching package version in the version-specific NuGet flat-container feed.
+            FlatContainer,
+
+            // Use the coherent runtime and ASP.NET Core versions recorded in the SDK's daily productCommit file.
+            ProductCommit
+        }
+
+        private sealed record SupportedDotNetVersion(string Version, LatestVersionSource LatestVersionSource);
+
+        // LatestVersionSource controls "Latest" resolution for the runtime and ASP.NET Core only.
+        // SDK "Latest" and "Edge" always use productCommit, while runtime and ASP.NET Core "Edge"
+        // always use the flat-container feed. The per-version values preserve the existing behavior:
+        // - 12.0, 11.0, and 10.0 use productCommit so "Latest" selects the coherent versions from the daily SDK.
+        // - 9.0 uses the flat container so "Latest" selects the highest published package version.
+        // - 8.0 uses the current version from release metadata; it previously fell back to "Current".
+        private static readonly SupportedDotNetVersion[] _supportedDotNetVersions =
+        [
+            new("12.0", LatestVersionSource.ProductCommit),
+            new("11.0", LatestVersionSource.ProductCommit),
+            new("10.0", LatestVersionSource.ProductCommit),
+            new("9.0", LatestVersionSource.FlatContainer),
+            new("8.0", LatestVersionSource.Current)
+        ];
+
+        private static readonly Dictionary<string, SupportedDotNetVersion> _supportedDotNetVersionsByVersion =
+            _supportedDotNetVersions.ToDictionary(version => version.Version);
 
         // dotnet-trace CLI version pinned for the `DotNetTraceCollectMode=collect`
         // and `DotNetTraceCollectMode=collect-linux` paths. Must:
@@ -87,7 +122,7 @@ namespace Microsoft.Crank.Agent
         // to `dotnet tool install` so the install works even when the host
         // has package-source-mapping configured (which makes a bare
         // `--add-source` fail with "cannot be combined").
-        private const string DotnetToolsFeedUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-tools/nuget/v3/index.json";
+        private static readonly string DotnetToolsFeedUrl = GetNuGetFeedUrl("dotnet-tools");
 
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
@@ -96,17 +131,7 @@ namespace Microsoft.Crank.Agent
         private static readonly string _dotnetInstallShUrl = "https://dot.net/v1/dotnet-install.sh";
         private static readonly string _dotnetInstallPs1Url = "https://dot.net/v1/dotnet-install.ps1";
         private static readonly string _perfviewUrl = $"https://github.com/Microsoft/perfview/releases/download/{PerfViewVersion}/PerfView.exe";
-        private static readonly string _ultraUrl = $"https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-public/nuget/v3/flat2/ultra/{UltraVersion}/ultra.{UltraVersion}.nupkg";
-
-        private static readonly string _aspnet8FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
-        private static readonly string _aspnet9FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
-        private static readonly string _aspnet10FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet10/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
-        private static readonly string _aspnet11FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet11/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
-
-        private static readonly string _netcore8FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.linux-x64/index.json";
-        private static readonly string _netcore9FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.linux-x64/index.json";
-        private static readonly string _netcore10FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet10/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.linux-x64/index.json";
-        private static readonly string _netcore11FlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet11/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.linux-x64/index.json";
+        private static readonly string _ultraUrl = $"{DncengPublicPackagingUrl}/{DotnetPublicFeedName}/nuget/v3/flat2/ultra/{UltraVersion}/ultra.{UltraVersion}.nupkg";
 
         private static TimeSpan _latestProductVersionsCacheDuration = TimeSpan.FromDays(1);
 
@@ -121,21 +146,13 @@ namespace Microsoft.Crank.Agent
         // Patch versions branding of the SDK doesn't matter (1xx, 2xx, 3xx), as they all contain the same runtimes and tools, it's only
         // a matter for Visual Studio installations.
 
-        private static string _latestProductVersions110Url = $"https://aka.ms/dotnet/11.0.1xx/daily/productCommit-{GetPlatformMoniker()}.json";
-        private static string _latestProductVersions100Url = $"https://aka.ms/dotnet/10.0.1xx/daily/productCommit-{GetPlatformMoniker()}.json";
-        private static string _latestProductVersions90Url = $"https://aka.ms/dotnet/9.0.1xx/daily/productCommit-{GetPlatformMoniker()}.json";
-        private static string _latestProductVersions80Url = $"https://aka.ms/dotnet/8.0.1xx/daily/productCommit-{GetPlatformMoniker()}.json";
-        
         private static TimeSpan _aspnetSdkVersionCacheDuration = TimeSpan.FromDays(1);
         private const string _aspnetSdkVersionUrl = "https://raw.githubusercontent.com/dotnet/aspnetcore/main/global.json";
 
-        private static readonly string[] _runtimeFeedUrls = [
-            "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet11/nuget/v3/flat2",
-            "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet10/nuget/v3/flat2",
-            "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9/nuget/v3/flat2",
-            "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8/nuget/v3/flat2",
-            "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-public/nuget/v3/flat2"
-            ];
+        private static readonly string[] _runtimeFeedUrls = _supportedDotNetVersions
+            .Select(version => GetNuGetFlatContainerUrl(GetFeedName(version)))
+            .Append(GetNuGetFlatContainerUrl(DotnetPublicFeedName))
+            .ToArray();
 
         // Cached lists of SDKs and runtimes already installed
         private static readonly HashSet<string> _installedAspNetRuntimes = new(StringComparer.OrdinalIgnoreCase);
@@ -4018,52 +4035,42 @@ namespace Microsoft.Crank.Agent
                     break;
                 case "latest":
                     // aspnet runtime service releases are not published on feeds
-                    switch (versionPrefix)
+                    if (!_supportedDotNetVersionsByVersion.TryGetValue(versionPrefix, out var supportedVersion))
                     {
-                        case "11.0":
-                            var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions110Url, cacheDuration: _latestProductVersionsCacheDuration));
-                            aspNetCoreVersion = productsInfo["aspnetcore"]["version"].ToString();
-                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - Coherent version in 11.0 SDK)");
-                            break;
-                        case "10.0":
-                            productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions100Url, cacheDuration: _latestProductVersionsCacheDuration));
-                            aspNetCoreVersion = productsInfo["aspnetcore"]["version"].ToString();
-                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - Coherent version in 10.0 SDK)");
-                            break;
-                        case "9.0":
-                            aspNetCoreVersion = await GetFlatContainerVersion(_aspnet9FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
-                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - From 9.0 feed)");
-                            break;
-                        default:
-                            aspNetCoreVersion = currentAspNetCoreVersion;
-                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - Fallback on Current)");
-                            break;
+                        aspNetCoreVersion = currentAspNetCoreVersion;
+                        Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - Fallback on Current)");
+                    }
+                    else
+                    {
+                        switch (supportedVersion.LatestVersionSource)
+                        {
+                            case LatestVersionSource.ProductCommit:
+                                var productsInfo = await GetLatestProductVersions(supportedVersion);
+                                aspNetCoreVersion = productsInfo["aspnetcore"]["version"].ToString();
+                                Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - Coherent version in {versionPrefix} SDK)");
+                                break;
+                            case LatestVersionSource.FlatContainer:
+                                aspNetCoreVersion = await GetFlatContainerVersion(GetFlatContainerUrl(supportedVersion, PackageTypes.AspNetCore), versionPrefix, checkDotnetInstallUrl: true);
+                                Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - From {versionPrefix} feed)");
+                                break;
+                            default:
+                                aspNetCoreVersion = currentAspNetCoreVersion;
+                                Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - Fallback on Current)");
+                                break;
+                        }
                     }
                     break;
                 case "edge":
                     // aspnet runtime service releases are not published on feeds
-                    switch (versionPrefix)
+                    if (_supportedDotNetVersionsByVersion.TryGetValue(versionPrefix, out supportedVersion))
                     {
-                        case "11.0":
-                            aspNetCoreVersion = await GetFlatContainerVersion(_aspnet11FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
-                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Edge - From 11.0 feed)");
-                            break;
-                        case "10.0":
-                            aspNetCoreVersion = await GetFlatContainerVersion(_aspnet10FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
-                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Edge - From 10.0 feed)");
-                            break;                        
-                        case "9.0":
-                            aspNetCoreVersion = await GetFlatContainerVersion(_aspnet9FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
-                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Edge - From 9.0 feed)");
-                            break;
-                        case "8.0":
-                            aspNetCoreVersion = await GetFlatContainerVersion(_aspnet8FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
-                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Edge - From 8.0 feed)");
-                            break;
-                        default:
-                            aspNetCoreVersion = currentAspNetCoreVersion;
-                            Log.Info($"ASP.NET: {aspNetCoreVersion} (Edge - Fallback on Current)");
-                            break;
+                        aspNetCoreVersion = await GetFlatContainerVersion(GetFlatContainerUrl(supportedVersion, PackageTypes.AspNetCore), versionPrefix, checkDotnetInstallUrl: true);
+                        Log.Info($"ASP.NET: {aspNetCoreVersion} (Edge - From {versionPrefix} feed)");
+                    }
+                    else
+                    {
+                        aspNetCoreVersion = currentAspNetCoreVersion;
+                        Log.Info($"ASP.NET: {aspNetCoreVersion} (Edge - Fallback on Current)");
                     }
                     break;
                 default:
@@ -4148,17 +4155,71 @@ namespace Microsoft.Crank.Agent
             return sdkVersion;
         }
 
-        // NuGet sources that crank injects for package restore (key -> URL)
-        private static readonly Dictionary<string, string> _crankNuGetSources = new()
+        private static string GetFeedName(SupportedDotNetVersion version)
         {
-            ["dotnet9"] = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9/nuget/v3/index.json",
-            ["dotnet9-transport"] = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9-transport/nuget/v3/index.json",
-            ["dotnet10"] = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet10/nuget/v3/index.json",
-            ["dotnet10-transport"] = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet10-transport/nuget/v3/index.json",
-            ["dotnet11"] = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet11/nuget/v3/index.json",
-            ["dotnet11-transport"] = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet11-transport/nuget/v3/index.json",
-            ["dotnet-public"] = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-public/nuget/v3/index.json"
-        };
+            return $"dotnet{version.Version[..version.Version.IndexOf('.')]}";
+        }
+
+        private static string GetNuGetFeedUrl(string feedName)
+        {
+            return $"{DncengPublicPackagingUrl}/{feedName}/nuget/v3/index.json";
+        }
+
+        private static string GetNuGetFlatContainerUrl(string feedName)
+        {
+            return $"{DncengPublicPackagingUrl}/{feedName}/nuget/v3/flat2";
+        }
+
+        private static string GetFlatContainerUrl(SupportedDotNetVersion version, PackageTypes packageType)
+        {
+            var packageName = packageType switch
+            {
+                PackageTypes.AspNetCore => "Microsoft.AspNetCore.App.Runtime.linux-x64",
+                PackageTypes.NetCoreApp => "Microsoft.NetCore.App.Runtime.linux-x64",
+                _ => throw new ArgumentOutOfRangeException(nameof(packageType))
+            };
+
+            return $"{GetNuGetFlatContainerUrl(GetFeedName(version))}/{packageName}/index.json";
+        }
+
+        private static async Task<JObject> GetLatestProductVersions(SupportedDotNetVersion version)
+        {
+            var url = $"https://aka.ms/dotnet/{version.Version}.1xx/daily/productCommit-{GetPlatformMoniker()}.json";
+            return JObject.Parse(await DownloadContentAsync(url, cacheDuration: _latestProductVersionsCacheDuration));
+        }
+
+        private static Dictionary<string, string> CreateCrankNuGetSources()
+        {
+            var sources = new Dictionary<string, string>();
+
+            foreach (var version in _supportedDotNetVersions)
+            {
+                var feedName = GetFeedName(version);
+                sources[feedName] = GetNuGetFeedUrl(feedName);
+                sources[$"{feedName}-transport"] = GetNuGetFeedUrl($"{feedName}-transport");
+            }
+
+            sources[DotnetPublicFeedName] = GetNuGetFeedUrl(DotnetPublicFeedName);
+            return sources;
+        }
+
+        private static XDocument CreateNuGetConfig(bool includeCrankSources = false)
+        {
+            var packageSources = new XElement("packageSources", new XElement("clear"));
+
+            if (includeCrankSources)
+            {
+                packageSources.Add(_crankNuGetSources.Select(source =>
+                    new XElement("add",
+                        new XAttribute("key", source.Key),
+                        new XAttribute("value", source.Value))));
+            }
+
+            return new XDocument(new XElement("configuration", packageSources));
+        }
+
+        // NuGet sources that crank injects for package restore (key -> URL)
+        private static readonly Dictionary<string, string> _crankNuGetSources = CreateCrankNuGetSources();
 
         /// <summary>
         /// Patches or creates NuGet.config to ensure required package sources are available.
@@ -4205,13 +4266,7 @@ namespace Microsoft.Crank.Agent
             {
                 // Create a new NuGet.config in the benchmarked app directory
                 configPath = Path.Combine(benchmarkedApp, "NuGet.config");
-                doc = new XDocument(
-                    new XElement("configuration",
-                        new XElement("packageSources",
-                            new XElement("clear")
-                        )
-                    )
-                );
+                doc = CreateNuGetConfig();
                 Log.Info($"Creating new NuGet.config at {configPath}");
             }
 
@@ -4518,58 +4573,27 @@ namespace Microsoft.Crank.Agent
             }
             else if (String.Equals(sdkVersion, "Latest", StringComparison.OrdinalIgnoreCase))
             {
-                switch (targetFramework)
+                var versionPrefix = ExtractVersionPrefix(targetFramework);
+                if (_supportedDotNetVersionsByVersion.TryGetValue(versionPrefix, out var supportedVersion))
                 {
-                    case "net11.0":
-                        var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions110Url, cacheDuration: _latestProductVersionsCacheDuration));
-                        sdkVersion = productsInfo["sdk"]["version"].ToString();
-                        Log.Info($"SDK: {sdkVersion} (Latest - From Product Commit)");
-                        break;
-                    case "net10.0":
-                        productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions100Url, cacheDuration: _latestProductVersionsCacheDuration));
-                        sdkVersion = productsInfo["sdk"]["version"].ToString();
-                        Log.Info($"SDK: {sdkVersion} (Latest - From Product Commit)");
-                        break;
-                    case "net9.0":
-                        productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url, cacheDuration: _latestProductVersionsCacheDuration));
-                        sdkVersion = productsInfo["sdk"]["version"].ToString();
-                        Log.Info($"SDK: {sdkVersion} (Latest - From Product Commit)");
-                        break;
-                    case "net8.0":
-                        productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions80Url, cacheDuration: _latestProductVersionsCacheDuration));
-                        sdkVersion = productsInfo["sdk"]["version"].ToString();
-                        Log.Info($"SDK: {sdkVersion} (Latest - From Product Commit)");
-                        break;
-                    default:
-                        sdkVersion = await GetAspNetSdkVersion();
-                        Log.Info($"SDK: {sdkVersion} (Latest - From ASP.NET repository)");
-                        break;
+                    var productsInfo = await GetLatestProductVersions(supportedVersion);
+                    sdkVersion = productsInfo["sdk"]["version"].ToString();
+                    Log.Info($"SDK: {sdkVersion} (Latest - From Product Commit)");
+                }
+                else
+                {
+                    sdkVersion = await GetAspNetSdkVersion();
+                    Log.Info($"SDK: {sdkVersion} (Latest - From ASP.NET repository)");
                 }
             }
             else if (String.Equals(sdkVersion, "Edge", StringComparison.OrdinalIgnoreCase))
             {
-                switch (targetFramework)
+                var versionPrefix = ExtractVersionPrefix(targetFramework);
+                if (_supportedDotNetVersionsByVersion.TryGetValue(versionPrefix, out var supportedVersion))
                 {
-                    case "net11.0":
-                        var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions110Url, cacheDuration: _latestProductVersionsCacheDuration));
-                        sdkVersion = productsInfo["sdk"]["version"].ToString();
-                        Log.Info($"SDK: {sdkVersion} (Edge)");
-                        break;
-                    case "net10.0":
-                        productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions100Url, cacheDuration: _latestProductVersionsCacheDuration));
-                        sdkVersion = productsInfo["sdk"]["version"].ToString();
-                        Log.Info($"SDK: {sdkVersion} (Edge)");
-                        break;
-                    case "net9.0":
-                        productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url, cacheDuration: _latestProductVersionsCacheDuration));
-                        sdkVersion = productsInfo["sdk"]["version"].ToString();
-                        Log.Info($"SDK: {sdkVersion} (Edge)");
-                        break;
-                    case "net8.0":
-                        productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions80Url, cacheDuration: _latestProductVersionsCacheDuration));
-                        sdkVersion = productsInfo["sdk"]["version"].ToString();
-                        Log.Info($"SDK: {sdkVersion} (Edge)");
-                        break;
+                    var productsInfo = await GetLatestProductVersions(supportedVersion);
+                    sdkVersion = productsInfo["sdk"]["version"].ToString();
+                    Log.Info($"SDK: {sdkVersion} (Edge)");
                 }
             }
             else
@@ -4598,52 +4622,42 @@ namespace Microsoft.Crank.Agent
             }
             else if (String.Equals(runtimeVersion, "Latest", StringComparison.OrdinalIgnoreCase))
             {
-                switch (versionPrefix)
+                if (!_supportedDotNetVersionsByVersion.TryGetValue(versionPrefix, out var supportedVersion))
                 {
-                    case "11.0":
-                        var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions110Url, cacheDuration: _latestProductVersionsCacheDuration));
-                        runtimeVersion = productsInfo["runtime"]["version"].ToString();
-                        Log.Info($"Runtime: {runtimeVersion} (Latest - From 11.0 SDK)");
-                        break;
-                    case "10.0":
-                        productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions100Url, cacheDuration: _latestProductVersionsCacheDuration));
-                        runtimeVersion = productsInfo["runtime"]["version"].ToString();
-                        Log.Info($"Runtime: {runtimeVersion} (Latest - From 10.0 SDK)");
-                        break;
-                    case "9.0":
-                        runtimeVersion = await GetFlatContainerVersion(_netcore9FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
-                        Log.Info($"Runtime: {runtimeVersion} (Latest - From 9.0 feed)");
-                        break;
-                    default:
-                        runtimeVersion = currentRuntimeVersion;
-                        Log.Info($"Runtime: {runtimeVersion} (Latest - Fallback on Current)");
-                        break;
+                    runtimeVersion = currentRuntimeVersion;
+                    Log.Info($"Runtime: {runtimeVersion} (Latest - Fallback on Current)");
+                }
+                else
+                {
+                    switch (supportedVersion.LatestVersionSource)
+                    {
+                        case LatestVersionSource.ProductCommit:
+                            var productsInfo = await GetLatestProductVersions(supportedVersion);
+                            runtimeVersion = productsInfo["runtime"]["version"].ToString();
+                            Log.Info($"Runtime: {runtimeVersion} (Latest - From {versionPrefix} SDK)");
+                            break;
+                        case LatestVersionSource.FlatContainer:
+                            runtimeVersion = await GetFlatContainerVersion(GetFlatContainerUrl(supportedVersion, PackageTypes.NetCoreApp), versionPrefix, checkDotnetInstallUrl: true);
+                            Log.Info($"Runtime: {runtimeVersion} (Latest - From {versionPrefix} feed)");
+                            break;
+                        default:
+                            runtimeVersion = currentRuntimeVersion;
+                            Log.Info($"Runtime: {runtimeVersion} (Latest - Fallback on Current)");
+                            break;
+                    }
                 }
             }
             else if (String.Equals(runtimeVersion, "Edge", StringComparison.OrdinalIgnoreCase))
             {
-                switch (versionPrefix)
+                if (_supportedDotNetVersionsByVersion.TryGetValue(versionPrefix, out var supportedVersion))
                 {
-                    case "11.0":
-                        runtimeVersion = await GetFlatContainerVersion(_netcore11FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
-                        Log.Info($"Runtime: {runtimeVersion} (Edge - From 11.0 feed)");
-                        break;
-                    case "10.0":
-                        runtimeVersion = await GetFlatContainerVersion(_netcore10FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
-                        Log.Info($"Runtime: {runtimeVersion} (Edge - From 10.0 feed)");
-                        break;
-                    case "9.0":
-                        runtimeVersion = await GetFlatContainerVersion(_netcore9FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
-                        Log.Info($"Runtime: {runtimeVersion} (Edge - From 9.0 feed)");
-                        break;
-                    case "8.0":
-                        runtimeVersion = await GetFlatContainerVersion(_netcore8FlatContainerUrl, versionPrefix, checkDotnetInstallUrl: true);
-                        Log.Info($"Runtime: {runtimeVersion} (Edge - From 8.0 feed)");
-                        break;
-                    default:
-                        runtimeVersion = currentRuntimeVersion;
-                        Log.Info($"Runtime: {runtimeVersion} (Edge - Fallback on Current)");
-                        break;
+                    runtimeVersion = await GetFlatContainerVersion(GetFlatContainerUrl(supportedVersion, PackageTypes.NetCoreApp), versionPrefix, checkDotnetInstallUrl: true);
+                    Log.Info($"Runtime: {runtimeVersion} (Edge - From {versionPrefix} feed)");
+                }
+                else
+                {
+                    runtimeVersion = currentRuntimeVersion;
+                    Log.Info($"Runtime: {runtimeVersion} (Edge - Fallback on Current)");
                 }
             }
             else
@@ -4676,7 +4690,7 @@ namespace Microsoft.Crank.Agent
             }
             else if (String.Equals(desktopVersion, "Edge", StringComparison.OrdinalIgnoreCase))
             {
-                var productsInfo = JObject.Parse(await DownloadContentAsync(_latestProductVersions90Url, cacheDuration: _latestProductVersionsCacheDuration));
+                var productsInfo = await GetLatestProductVersions(_supportedDotNetVersionsByVersion["9.0"]);
                 desktopVersion = productsInfo["windowsdesktop"]["version"].ToString();
                 Log.Info($"Desktop: {desktopVersion} (Edge)");
             }
@@ -6174,7 +6188,7 @@ namespace Microsoft.Crank.Agent
             const string internalFeed = "https://ci.dot.net/public";
             const string publicFeed = "https://builds.dotnet.microsoft.com/dotnet";
 
-            string[] dotnetFeeds = version.StartsWith("11.0")
+            string[] dotnetFeeds = version.StartsWith(DefaultFeedTargetFramework)
                 ? [internalFeed, publicFeed] // for vnext and preview versions we check on the internal feed first
                 : [publicFeed, internalFeed] // for older versions odds are that we are looking for a public package
                 ;
@@ -7037,22 +7051,7 @@ namespace Microsoft.Crank.Agent
 
             if (!File.Exists(rootNugetConfig))
             {
-                File.WriteAllText(rootNugetConfig, @"<?xml version=""1.0"" encoding=""utf-8""?>
-<configuration>
-  <packageSources>
-    <clear />
-    <add key=""dotnet11"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet11/nuget/v3/index.json"" />
-    <add key=""dotnet11-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet11-transport/nuget/v3/index.json"" />
-    <add key=""dotnet10"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet10/nuget/v3/index.json"" />
-    <add key=""dotnet10-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet10-transport/nuget/v3/index.json"" />
-    <add key=""dotnet9"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9/nuget/v3/index.json"" />
-    <add key=""dotnet9-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9-transport/nuget/v3/index.json"" />
-    <add key=""dotnet8"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8/nuget/v3/index.json"" />
-    <add key=""dotnet8-transport"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8-transport/nuget/v3/index.json"" />
-    <add key=""dotnet-public"" value=""https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-public/nuget/v3/index.json"" />
-  </packageSources>
-</configuration>
-");
+                CreateNuGetConfig(includeCrankSources: true).Save(rootNugetConfig);
             }
 
             // Download PerfView and Ultra on Windows
