@@ -216,6 +216,7 @@ function Build {
   MSBuild $_InitializeToolset \
     $bl \
     /p:Configuration=$configuration \
+    /check \
     /p:RepoRoot="$repo_root" \
     /p:Restore=$restore \
     /p:Build=$build \
