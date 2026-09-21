@@ -28,7 +28,6 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
-using Microsoft.AspNetCore.Hosting.WindowsServices;
 using Microsoft.Azure.Relay;
 using Microsoft.Crank.Agent.MachineCounters;
 using Microsoft.Crank.EventSources;
@@ -441,14 +440,12 @@ namespace Microsoft.Crank.Agent
             return app.Execute(args);
         }
 
-        private static async Task<int> Run(string url, string hostname, string dockerHostname)
+        private static void ConfigureWebHost(IWebHostBuilder builder, string url)
         {
-            using var logger = Logger;
-            var builder = new WebHostBuilder()
-                    .UseKestrel()
-                    .ConfigureKestrel(o => o.Limits.MaxRequestBodySize = (long)10 * 1024 * 1024 * 1024)
-                    .UseStartup<Startup>()
-                    .UseUrls(url);
+            builder.UseKestrel()
+                .ConfigureKestrel(o => o.Limits.MaxRequestBodySize = (long)10 * 1024 * 1024 * 1024)
+                .UseStartup<Startup>()
+                .UseUrls(url);
 
             if (_relayConnectionStringOption.HasValue())
             {
@@ -532,10 +529,25 @@ namespace Microsoft.Crank.Agent
                     });
                 }
             }
+        }
 
-            var host = builder.Build();
+        private static async Task<int> Run(string url, string hostname, string dockerHostname)
+        {
+            using var logger = Logger;
+            var builder = new HostBuilder()
+                .ConfigureWebHost(webHostBuilder => ConfigureWebHost(webHostBuilder, url));
 
-            var serverAddressFeature = host.ServerFeatures.Get<IServerAddressesFeature>();
+            if (_runAsService.HasValue() && RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                builder.UseWindowsService();
+            }
+
+            using var host = builder.Build();
+
+            // Make sure the server is started before accepting new jobs.
+            await host.StartAsync();
+
+            var serverAddressFeature = host.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>();
 
             if (serverAddressFeature is not null)
             {
@@ -549,23 +561,7 @@ namespace Microsoft.Crank.Agent
                 .Replace("[::]", "127.0.0.1")
                 ;
 
-            Task hostTask;
-            if (_runAsService.HasValue())
-            {
-                hostTask = Task.Run(() =>
-                {
-                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                    {
-                        host.RunAsService();
-                    }
-                });
-            }
-            else
-            {
-                // Make sure the server is started before accepting new jobs
-                await host.StartAsync();
-                hostTask = host.WaitForShutdownAsync();
-            }
+            var hostTask = host.WaitForShutdownAsync();
 
             var version = typeof(Startup).GetTypeInfo().Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
 

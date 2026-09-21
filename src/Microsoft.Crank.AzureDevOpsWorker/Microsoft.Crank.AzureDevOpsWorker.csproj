@@ -18,11 +18,6 @@
     <PackageReference Include="Jint" />
     <PackageReference Include="McMaster.Extensions.CommandLineUtils" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
-
-    <!-- Force version for Component Governance compliance -->
-    <PackageReference Include="System.Text.Encodings.Web">
-      <AllowExplicitReference>true</AllowExplicitReference>
-    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
