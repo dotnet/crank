@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <Description>The benchmarking agent</Description>
-    <TargetFrameworks>net8.0</TargetFrameworks>
+    <TargetFrameworks>net10.0</TargetFrameworks>
     <OutputType>Exe</OutputType>
     <Authors>Microsoft</Authors>
     <PackAsTool>true</PackAsTool>

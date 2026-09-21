@@ -2400,9 +2400,9 @@ namespace Microsoft.Crank.Controller
                         localconfiguration = JObject.Parse(json);
 
                         var schemaFilename = Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "benchmarks.schema.json");
-                        var schema = Json.Schema.JsonSchema.FromFile(schemaFilename);
-                        var jsonToValidate = System.Text.Json.Nodes.JsonNode.Parse(json);
-                        var validationResults = schema.Evaluate(jsonToValidate, new Json.Schema.EvaluationOptions { OutputFormat = Json.Schema.OutputFormat.Flag });
+                        var schema = Json.Schema.JsonSchema.FromFile(schemaFilename, new Json.Schema.BuildOptions { SchemaRegistry = new Json.Schema.SchemaRegistry() });
+                        var jsonToValidate = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(json);
+                        var validationResults = schema.Evaluate(jsonToValidate, new Json.Schema.EvaluationOptions { OutputFormat = Json.Schema.OutputFormat.List });
 
                         if (!validationResults.IsValid)
                         {
@@ -2415,9 +2415,12 @@ namespace Microsoft.Crank.Controller
                             var errorBuilder = new StringBuilder();
 
                             errorBuilder.AppendLine($"Invalid configuration file '{configurationFilenameOrUrl}' at '{validationResults.InstanceLocation}'");
-                            foreach (var error in validationResults.Errors)
+                            foreach (var detail in validationResults.Details.Where(detail => detail.Errors != null))
                             {
-                                errorBuilder.AppendLine($"{error.Key} : {error.Value}");
+                                foreach (var error in detail.Errors)
+                                {
+                                    errorBuilder.AppendLine($"{detail.InstanceLocation}: {error.Key} : {error.Value}");
+                                }
                             }
                             errorBuilder.AppendLine($"Debug file created at '{debugFilename}'");
 

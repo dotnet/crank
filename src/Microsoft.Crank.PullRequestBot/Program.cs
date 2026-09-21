@@ -5,7 +5,6 @@
 using System;
 using System.Collections.Generic;
 using System.CommandLine;
-using System.CommandLine.Invocation;
 using System.CommandLine.Parsing;
 using System.IO;
 using System.IO.Hashing;
@@ -67,69 +66,87 @@ namespace Microsoft.Crank.PullRequestBot
                 }
             }
 
-            // Create a root command with some options
-            var rootCommand = new RootCommand
+            return await CreateCommand(Controller).Parse(args).InvokeAsync();
+        }
+
+        internal static RootCommand CreateCommand(Func<BotOptions, Task<int>> action)
+        {
+            var rootCommand = new RootCommand("Crank Pull Requests Bot")
             {
-                new Option<string>(
-                    "--workspace",
-                    "The folder used to clone the repository. Defaut is temp folder."),
-                new Option<string>(
-                    "--benchmarks",
-                    "The benchmarks to run."),
-                new Option<string>(
-                    "--profiles",
-                    "The profiles to run the benchmarks one."),
-                new Option<string>(
-                    "--components",
-                    "The components to build."),
-                new Option<int>(
-                    "--limit",
-                    "The maximum number of commands to execute. 0 for unlimited."),
-                new Option<string>(
-                    "--repository",
-                    "The repository for which pull-request comments should be scanned, e.g., https://github.com/dotnet/aspnetcore, dotnet/aspnetcore"),
-                new Option<string>(
-                    "--pull-request",
-                    "The Pull Request url or id to benchmark, e.g., https://github.com/dotnet/aspnetcore/pull/39527, 39527"),
-                new Option<string>(
-                    "--publish-results",
-                    "Publishes the results on the original PR."),
-                new Option<string>(
-                    "--access-token",
-                    "The GitHub account access token. (Secured)"),
-                new Option<string>(
-                    "--app-key",
-                    "The GitHub application key. (Secured)"),
-                new Option<string>(
-                    "--app-id",
-                    "The GitHub application id."),
-                new Option<long>(
-                    "--install-id",
-                    "The GitHub installation id."),
-                new Option<Uri>(
-                    "--github-base-url",
-                    "The GitHub base URL if using GitHub Enterprise, e.g., https://github.local"),
-                new Option<string>(
-                    "--arguments",
-                    "Any additional arguments to pass through to crank."),
-                new Option<string>(
-                    "--config",
-                    "The path to a configuration file.") { IsRequired = true },
-                new Option<int>(
-                    "--age",
-                    "The age of the most recent comment to look for in minutes. Default is 60."),
-                new Option<Uri>(
-                    "--external-log-uri",
-                    "Link to the logs (e.g. in AzDO) to publish in the start comment."),
+                new Option<string>("--workspace")
+                {
+                    Description = "The folder used to clone the repository. Default is temp folder.",
+                    DefaultValueFactory = _ => Path.GetTempPath()
+                },
+                new Option<string>("--benchmarks") { Description = "The benchmarks to run." },
+                new Option<string>("--profiles") { Description = "The profiles to run the benchmarks on." },
+                new Option<string>("--components") { Description = "The components to build." },
+                new Option<int>("--limit") { Description = "The maximum number of commands to execute. 0 for unlimited." },
+                new Option<string>("--repository") { Description = "The repository for which pull-request comments should be scanned, e.g., https://github.com/dotnet/aspnetcore, dotnet/aspnetcore" },
+                new Option<string>("--pull-request") { Description = "The Pull Request url or id to benchmark, e.g., https://github.com/dotnet/aspnetcore/pull/39527, 39527" },
+                new Option<bool>("--publish-results")
+                {
+                    Description = "Publishes the results on the original PR.",
+                    Arity = ArgumentArity.ExactlyOne
+                },
+                new Option<string>("--access-token") { Description = "The GitHub account access token. (Secured)" },
+                new Option<string>("--app-key") { Description = "The GitHub application key. (Secured)" },
+                new Option<string>("--app-id") { Description = "The GitHub application id." },
+                new Option<long>("--install-id") { Description = "The GitHub installation id." },
+                new Option<Uri>("--github-base-url")
+                {
+                    Description = "The GitHub base URL if using GitHub Enterprise, e.g., https://github.local",
+                    CustomParser = ParseUri
+                },
+                new Option<string>("--arguments") { Description = "Any additional arguments to pass through to crank." },
+                new Option<string>("--config") { Description = "The path to a configuration file.", Required = true },
+                new Option<int>("--age")
+                {
+                    Description = "The age of the most recent comment to look for in minutes. Default is 60.",
+                    DefaultValueFactory = _ => 60
+                },
+                new Option<Uri>("--external-log-uri")
+                {
+                    Description = "Link to the logs (e.g. in AzDO) to publish in the start comment.",
+                    CustomParser = ParseUri
+                },
             };
 
-            rootCommand.Description = "Crank Pull Requests Bot";
+            rootCommand.SetAction((result, cancellationToken) => action(new BotOptions
+            {
+                Workspace = result.GetValue<string>("--workspace"),
+                Benchmarks = result.GetValue<string>("--benchmarks") ?? "",
+                Profiles = result.GetValue<string>("--profiles") ?? "",
+                Components = result.GetValue<string>("--components") ?? "",
+                Limit = result.GetValue<int>("--limit"),
+                Repository = result.GetValue<string>("--repository"),
+                PullRequest = result.GetValue<string>("--pull-request"),
+                PublishResults = result.GetValue<bool>("--publish-results"),
+                AccessToken = result.GetValue<string>("--access-token"),
+                AppKey = result.GetValue<string>("--app-key"),
+                AppId = result.GetValue<string>("--app-id"),
+                InstallId = result.GetValue<long>("--install-id"),
+                GitHubBaseUrl = result.GetValue<Uri>("--github-base-url"),
+                Arguments = result.GetValue<string>("--arguments"),
+                Config = result.GetValue<string>("--config"),
+                Age = result.GetValue<int>("--age"),
+                ExternalLogUri = result.GetValue<Uri>("--external-log-uri")
+            }));
 
-            // Note that the parameters of the handler method are matched according to the names of the options
-            rootCommand.Handler = CommandHandler.Create<BotOptions>(Controller);
+            return rootCommand;
+        }
 
-            // Parse the incoming args and invoke the handler
-            return await rootCommand.InvokeAsync(args);
+        private static Uri ParseUri(ArgumentResult result)
+        {
+            var value = result.Tokens[0].Value;
+
+            if (Uri.TryCreate(value, UriKind.Absolute, out var uri))
+            {
+                return uri;
+            }
+
+            result.AddError($"Invalid URL: '{value}'.");
+            return null;
         }
 
         private static async Task<int> Controller(BotOptions options)
@@ -633,10 +650,10 @@ namespace Microsoft.Crank.PullRequestBot
                         localconfiguration = JObject.Parse(json);
 
                         var schemaFilename = Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "pullrequestbot.schema.json");
-                        var schema = Json.Schema.JsonSchema.FromFile(schemaFilename);
+                        var schema = Json.Schema.JsonSchema.FromFile(schemaFilename, new Json.Schema.BuildOptions { SchemaRegistry = new Json.Schema.SchemaRegistry() });
 
-                        var jsonToValidate = System.Text.Json.Nodes.JsonNode.Parse(json);
-                        var validationResults = schema.Evaluate(jsonToValidate, new Json.Schema.EvaluationOptions { OutputFormat = Json.Schema.OutputFormat.Flag });
+                        var jsonToValidate = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(json);
+                        var validationResults = schema.Evaluate(jsonToValidate, new Json.Schema.EvaluationOptions { OutputFormat = Json.Schema.OutputFormat.List });
 
                         if (!validationResults.IsValid)
                         {
@@ -649,9 +666,12 @@ namespace Microsoft.Crank.PullRequestBot
                             var errorBuilder = new StringBuilder();
 
                             errorBuilder.AppendLine($"Invalid configuration file '{configurationFilenameOrUrl}' at '{validationResults.InstanceLocation}'");
-                            foreach (var error in validationResults.Errors)
+                            foreach (var detail in validationResults.Details.Where(detail => detail.Errors != null))
                             {
-                                errorBuilder.AppendLine($"{error.Key} : {error.Value}");
+                                foreach (var error in detail.Errors)
+                                {
+                                    errorBuilder.AppendLine($"{detail.InstanceLocation}: {error.Key} : {error.Value}");
+                                }
                             }
                             errorBuilder.AppendLine($"Debug file created at '{debugFilename}'");
 
@@ -907,7 +927,7 @@ namespace Microsoft.Crank.PullRequestBot
                 rawArgs = rawArgs.Select(arg => ApplyTemplate(arg, templateContext));
             }
 
-            args = rawArgs.SelectMany(c => CommandLineStringSplitter.Instance.Split(c)).ToArray();
+            args = rawArgs.SelectMany(CommandLineParser.SplitCommandLine).ToArray();
 
             Console.WriteLine($"crank {string.Join(' ', args)}");
 

@@ -5,7 +5,6 @@
 using System;
 using System.Collections.Generic;
 using System.CommandLine;
-using System.CommandLine.Invocation;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -60,54 +59,50 @@ namespace Microsoft.Crank.RegressionBot
 
         static async Task<int> Main(string[] args)
         {
-            // Create a root command with some options
-            var rootCommand = new RootCommand
+            return await CreateCommand(Controller).Parse(args).InvokeAsync();
+        }
+
+        internal static RootCommand CreateCommand(Func<BotOptions, Task<int>> action)
+        {
+            var rootCommand = new RootCommand("Crank Regression Bot")
             {
-                new Option<long>(
-                    "--repository-id",
-                    description: "The GitHub repository id. Tip: The repository id can be found using this endpoint: https://api.github.com/repos/dotnet/aspnetcore"),
-                new Option<string>(
-                    "--access-token",
-                    "The GitHub account access token. (Secured)"),
-                new Option<string>(
-                    "--username",
-                    "The GitHub account username. e.g., 'pr-benchmarks[bot]'"),
-                new Option<string>(
-                    "--app-key",
-                    "The GitHub application key. (Secured)"),
-                new Option<string>(
-                    "--app-id",
-                    "The GitHub application id."),
-                new Option<long>(
-                    "--install-id",
-                    "The GitHub installation id."),
-                new Option<string>(
-                    "--connectionstring",
-                    "The database connection string, or environment variable name containing it. (Secured)") { IsRequired = true },
-                new Option<string[]>(
-                    "--config",
-                    "The path to a configuration file. (Can be repeated)") { IsRequired = true },
-                new Option<bool>(
-                    "--debug",
-                    "When used, GitHub issues are not created."
-                ),
-                new Option<bool>(
-                    "--verbose",
-                    "When used, detailed logs are displayed."
-                ),
-                new Option<bool>(
-                    "--read-only",
-                    "When used, nothing is written on GitHub."
-                ),
+                new Option<long>("--repository-id") { Description = "The GitHub repository id. Tip: The repository id can be found using this endpoint: https://api.github.com/repos/dotnet/aspnetcore" },
+                new Option<string>("--access-token") { Description = "The GitHub account access token. (Secured)" },
+                new Option<string>("--username") { Description = "The GitHub account username. e.g., 'pr-benchmarks[bot]'" },
+                new Option<string>("--app-key") { Description = "The GitHub application key. (Secured)" },
+                new Option<string>("--app-id") { Description = "The GitHub application id." },
+                new Option<long>("--install-id") { Description = "The GitHub installation id." },
+                new Option<string>("--connectionstring")
+                {
+                    Description = "The database connection string, or environment variable name containing it. (Secured)",
+                    Required = true
+                },
+                new Option<string[]>("--config")
+                {
+                    Description = "The path to a configuration file. (Can be repeated)",
+                    Required = true
+                },
+                new Option<bool>("--debug") { Description = "When used, GitHub issues are not created." },
+                new Option<bool>("--verbose") { Description = "When used, detailed logs are displayed." },
+                new Option<bool>("--read-only") { Description = "When used, nothing is written on GitHub." },
             };
 
-            rootCommand.Description = "Crank Regression Bot";
+            rootCommand.SetAction((result, cancellationToken) => action(new BotOptions
+            {
+                RepositoryId = result.GetValue<long>("--repository-id"),
+                AccessToken = result.GetValue<string>("--access-token"),
+                Username = result.GetValue<string>("--username"),
+                AppKey = result.GetValue<string>("--app-key"),
+                AppId = result.GetValue<string>("--app-id"),
+                InstallId = result.GetValue<long>("--install-id"),
+                ConnectionString = result.GetValue<string>("--connectionstring"),
+                Config = result.GetValue<string[]>("--config"),
+                Debug = result.GetValue<bool>("--debug"),
+                Verbose = result.GetValue<bool>("--verbose"),
+                ReadOnly = result.GetValue<bool>("--read-only")
+            }));
 
-            // Note that the parameters of the handler method are matched according to the names of the options
-            rootCommand.Handler = CommandHandler.Create<BotOptions>(Controller);
-
-            // Parse the incoming args and invoke the handler
-            return await rootCommand.InvokeAsync(args);
+            return rootCommand;
         }
 
         private static async Task<int> Controller(BotOptions options)
@@ -466,10 +461,10 @@ namespace Microsoft.Crank.RegressionBot
                         localconfiguration = JObject.Parse(json);
 
                         var schemaFilename = Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "regressionbot.schema.json");
-                        var schema = Json.Schema.JsonSchema.FromFile(schemaFilename);
-                        var jsonToValidate = System.Text.Json.Nodes.JsonNode.Parse(json);
+                        var schema = Json.Schema.JsonSchema.FromFile(schemaFilename, new Json.Schema.BuildOptions { SchemaRegistry = new Json.Schema.SchemaRegistry() });
+                        var jsonToValidate = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(json);
                         
-                        var validationResults = schema.Evaluate(jsonToValidate, new Json.Schema.EvaluationOptions { OutputFormat = Json.Schema.OutputFormat.Flag });
+                        var validationResults = schema.Evaluate(jsonToValidate, new Json.Schema.EvaluationOptions { OutputFormat = Json.Schema.OutputFormat.List });
 
                         if (!validationResults.IsValid)
                         {
@@ -482,9 +477,12 @@ namespace Microsoft.Crank.RegressionBot
                             var errorBuilder = new StringBuilder();
 
                             errorBuilder.AppendLine($"Invalid configuration file '{configurationFilenameOrUrl}' at '{validationResults.InstanceLocation}'");
-                            foreach (var error in validationResults.Errors)
+                            foreach (var detail in validationResults.Details.Where(detail => detail.Errors != null))
                             {
-                                errorBuilder.AppendLine($"{error.Key} : {error.Value}");
+                                foreach (var error in detail.Errors)
+                                {
+                                    errorBuilder.AppendLine($"{detail.InstanceLocation}: {error.Key} : {error.Value}");
+                                }
                             }
                             errorBuilder.AppendLine($"Debug file created at '{debugFilename}'");
 

@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>Microsoft.Crank.UnitTests</AssemblyName>
     <IsTestProject>true</IsTestProject>
     <IsUnitTestProject>true</IsUnitTestProject>
@@ -13,6 +13,8 @@
     <ProjectReference Include="..\..\src\Microsoft.Crank.Agent\Microsoft.Crank.Agent.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Crank.AzureDevOpsWorker\Microsoft.Crank.AzureDevOpsWorker.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Crank.Controller\Microsoft.Crank.Controller.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Crank.PullRequestBot\Microsoft.Crank.PullRequestBot.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Crank.RegressionBot\Microsoft.Crank.RegressionBot.csproj" />
   </ItemGroup>
 
   <Target Name="CopyFiles" AfterTargets="BeforeBuild">

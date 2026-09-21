@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build-env
+FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build-env
 
 COPY . .
 
@@ -7,12 +7,12 @@ ENV DOTNET_CLI_TELEMETRY_OPTOUT=1
 
 # Build self contained
 
-RUN dotnet publish -c Release src/Microsoft.Crank.Agent --output /app --framework net8.0
+RUN dotnet publish -c Release src/Microsoft.Crank.Agent --output /app --framework net10.0
 
 # Build runtime image
-# FROM mcr.microsoft.com/dotnet/aspnet:8.0
+# FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble
 # Use SDK image as it is required for the dotnet tools
-FROM mcr.microsoft.com/dotnet/sdk:8.0
+FROM mcr.microsoft.com/dotnet/sdk:10.0-noble
 
 ARG CPUNAME=x86_64
 ARG ENABLE_FIPS_MODE=false
@@ -45,9 +45,9 @@ RUN apt-get update \
 # Install HTTP/3 support
 RUN curl -LO https://packages.microsoft.com/keys/microsoft.asc && \
     echo 2fa9c05d591a1582a9aba276272478c262e95ad00acf60eaee1644d93941e3c6 microsoft.asc| sha256sum --check - && \
-    apt-key add microsoft.asc && \
+    gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg microsoft.asc && \
     rm microsoft.asc && \
-    echo deb https://packages.microsoft.com/debian/12/prod bookworm main >> /etc/apt/sources.list.d/microsoft.list && \
+    echo 'deb [signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/ubuntu/24.04/prod noble main' > /etc/apt/sources.list.d/microsoft.list && \
     apt-get update && \
     apt-get install -y libmsquic && \
     rm -rf /var/lib/apt/lists/*
@@ -61,12 +61,14 @@ RUN apt-get update \
         python-is-python3 python3-dev python3-setuptools
 
 ENV DEBIAN_FRONTEND=noninteractive
-# Add the Debian sid repository
-RUN echo 'deb http://deb.debian.org/debian sid main' >> /etc/apt/sources.list \
-    && echo 'deb http://deb.debian.org/debian-debug sid-debug main' >> /etc/apt/sources.list
+# Install matching OpenSSL debug symbols from the Ubuntu repositories.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ubuntu-dbgsym-keyring \
+    && echo 'deb [signed-by=/usr/share/keyrings/ubuntu-dbgsym-keyring.gpg] https://ddebs.ubuntu.com noble main restricted universe multiverse' > /etc/apt/sources.list.d/ddebs.list \
+    && echo 'deb [signed-by=/usr/share/keyrings/ubuntu-dbgsym-keyring.gpg] https://ddebs.ubuntu.com noble-updates main restricted universe multiverse' >> /etc/apt/sources.list.d/ddebs.list
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-overwrite" \
+    && apt-get install -y --no-install-recommends \
         openssl libssl-dev openssl-dbgsym libssl3t64-dbgsym \
     && openssl version
 

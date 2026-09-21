@@ -1,5 +1,7 @@
 ## Running from source
 
+Install the .NET 10 SDK version specified in `global.json` (or a newer .NET 10 SDK).
+
 Crank can be started from its source code by executing these commands:
 
 ### Crank Agent
