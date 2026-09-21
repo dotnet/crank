@@ -75,6 +75,14 @@ extends:
             steps:
             - checkout: self
               clean: true
+            # Set DOTNET_ROOT so native test apphosts can find the bootstrapped runtime.
+            - task: UseDotNet@2
+              displayName: Install .NET SDK from global.json
+              inputs:
+                packageType: sdk
+                useGlobalJson: true
+                workingDirectory: $(Build.SourcesDirectory)
+                installationPath: $(Build.SourcesDirectory)/.dotnet
             - script: eng\common\cibuild.cmd -configuration $(_BuildConfig) -prepareMachine $(_OfficialBuildArgs)
               displayName: Build and Publish
             # - task: PublishBuildArtifacts@1

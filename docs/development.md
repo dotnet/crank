@@ -5,8 +5,13 @@ Install the .NET 10 SDK version specified in `global.json` (or a newer .NET 10 S
 To run the CI restore, build, test, and package steps locally with warnings treated as errors:
 
 ```sh
-bash eng/common/build.sh --restore --build --test --pack --ci --configuration Release
+DOTNET_ROOT="$PWD/.dotnet" bash eng/common/build.sh --restore --build --test --pack --ci --configuration Release
 ```
+
+`DOTNET_ROOT` lets native test executables find the repository-local runtime instead
+of depending on a system-wide .NET installation. CI sets it with `UseDotNet@2`,
+using the SDK selected by `global.json` and the same `.dotnet` installation directory
+as Arcade.
 
 The build script also runs on macOS, where platform-specific integration tests are
 skipped. This command does not sign or publish artifacts. Do not add `--prepareMachine`
