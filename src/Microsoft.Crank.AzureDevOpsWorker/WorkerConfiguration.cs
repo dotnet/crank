@@ -9,62 +9,37 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 {
     internal sealed class WorkerConfiguration
     {
-        internal const string PostProcessExecutableEnvironmentVariable = "CRANK_AZDO_POST_PROCESS_EXECUTABLE";
-        internal const string PostProcessTimeoutEnvironmentVariable = "CRANK_AZDO_POST_PROCESS_TIMEOUT";
         internal const string MaxAutoLockRenewalDurationEnvironmentVariable = "CRANK_AZDO_MAX_LOCK_RENEWAL_DURATION";
-        internal static readonly TimeSpan DefaultPostProcessTimeout = TimeSpan.FromMinutes(10);
         internal static readonly TimeSpan DefaultMaxAutoLockRenewalDuration = TimeSpan.FromDays(1);
         internal static readonly TimeSpan MessageLockRenewalSafetyMargin = TimeSpan.FromMinutes(5);
 
-        private WorkerConfiguration(
-            string postProcessExecutablePath,
-            TimeSpan postProcessTimeout,
-            TimeSpan maxAutoLockRenewalDuration)
+        private WorkerConfiguration(TimeSpan maxAutoLockRenewalDuration)
         {
-            PostProcessExecutablePath = postProcessExecutablePath;
-            PostProcessTimeout = postProcessTimeout;
             MaxAutoLockRenewalDuration = maxAutoLockRenewalDuration;
         }
-
-        public string PostProcessExecutablePath { get; }
-
-        public TimeSpan PostProcessTimeout { get; }
 
         public TimeSpan MaxAutoLockRenewalDuration { get; }
 
         internal static WorkerConfiguration Create(
-            string postProcessExecutablePath,
-            string postProcessTimeout,
             string maxAutoLockRenewalDuration,
             Func<string, string> environmentVariableReader = null)
         {
             environmentVariableReader ??= Environment.GetEnvironmentVariable;
 
-            var executablePath = FirstNonEmpty(
-                postProcessExecutablePath,
-                environmentVariableReader(PostProcessExecutableEnvironmentVariable));
+            var value = String.IsNullOrWhiteSpace(maxAutoLockRenewalDuration)
+                ? environmentVariableReader(MaxAutoLockRenewalDurationEnvironmentVariable)
+                : maxAutoLockRenewalDuration;
+            if (String.IsNullOrWhiteSpace(value))
+            {
+                return new WorkerConfiguration(DefaultMaxAutoLockRenewalDuration);
+            }
 
-            var timeoutValue = FirstNonEmpty(
-                postProcessTimeout,
-                environmentVariableReader(PostProcessTimeoutEnvironmentVariable));
+            if (!TimeSpan.TryParse(value, CultureInfo.InvariantCulture, out var duration) || duration <= TimeSpan.Zero)
+            {
+                throw new ArgumentException("The maximum lock renewal duration must be a positive TimeSpan.");
+            }
 
-            var lockRenewalDurationValue = FirstNonEmpty(
-                maxAutoLockRenewalDuration,
-                environmentVariableReader(MaxAutoLockRenewalDurationEnvironmentVariable));
-
-            var timeout = ParsePositiveTimeSpan(
-                timeoutValue,
-                DefaultPostProcessTimeout,
-                "The post-process timeout",
-                nameof(postProcessTimeout));
-
-            var lockRenewalDuration = ParsePositiveTimeSpan(
-                lockRenewalDurationValue,
-                DefaultMaxAutoLockRenewalDuration,
-                "The maximum lock renewal duration",
-                nameof(maxAutoLockRenewalDuration));
-
-            return new WorkerConfiguration(executablePath, timeout, lockRenewalDuration);
+            return new WorkerConfiguration(duration);
         }
 
         internal bool HasSufficientLockRenewalDuration(JobPayload jobPayload, out TimeSpan requiredDuration)
@@ -73,14 +48,9 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
             var attempts = (long)Math.Max(0, jobPayload.Retries) + 1;
             var jobTimeoutTicks = Math.Max(0, jobPayload.Timeout.Ticks);
-            var postProcessTimeoutTicks = jobPayload.PostProcess?.Enabled == true
-                ? PostProcessTimeout.Ticks
-                : 0;
-
             try
             {
-                var attemptDurationTicks = checked(jobTimeoutTicks + postProcessTimeoutTicks);
-                var attemptsDurationTicks = checked(attemptDurationTicks * attempts);
+                var attemptsDurationTicks = checked(jobTimeoutTicks * attempts);
                 var requiredDurationTicks = checked(
                     attemptsDurationTicks + MessageLockRenewalSafetyMargin.Ticks);
                 requiredDuration = TimeSpan.FromTicks(requiredDurationTicks);
@@ -94,36 +64,5 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             return MaxAutoLockRenewalDuration >= requiredDuration;
         }
 
-        private static string FirstNonEmpty(string first, string second)
-        {
-            if (!String.IsNullOrWhiteSpace(first))
-            {
-                return first.Trim();
-            }
-
-            return String.IsNullOrWhiteSpace(second) ? null : second.Trim();
-        }
-
-        private static TimeSpan ParsePositiveTimeSpan(
-            string value,
-            TimeSpan defaultValue,
-            string description,
-            string parameterName)
-        {
-            if (String.IsNullOrEmpty(value))
-            {
-                return defaultValue;
-            }
-
-            if (!TimeSpan.TryParse(value, CultureInfo.InvariantCulture, out var parsedValue) ||
-                parsedValue <= TimeSpan.Zero)
-            {
-                throw new ArgumentException(
-                    $"{description} must be a positive TimeSpan. Received '{value}'.",
-                    parameterName);
-            }
-
-            return parsedValue;
-        }
     }
 }

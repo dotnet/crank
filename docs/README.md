@@ -20,7 +20,7 @@
 |**[Post-processing results](post_processing.md)** | Adding custom results and running scripts.
 |**[Running pre-commands](precommands.md)** | Running commands before the job is pushed to the agent.
 |**[Reporting custom measurements](measurements.md)** | How to push custom measurement from a job.
-|**[Deploying the Azure DevOps worker](../src/Microsoft.Crank.AzureDevOpsWorker/README.md)** | Configuring the queue worker and its optional external post-process hook.
+|**[Deploying the Azure DevOps worker](../src/Microsoft.Crank.AzureDevOpsWorker/README.md)** | Configuring the queue worker, attempt timeouts, and command cancellation.
 
 
 ## Reference documentation

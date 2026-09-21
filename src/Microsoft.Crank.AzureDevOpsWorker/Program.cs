@@ -38,14 +38,6 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             var certSniAuth = app.Option("--cert-sni", "Enable subject name / issuer based authentication (SNI).", CommandOptionType.NoValue);
             var managedIdentityClientId = app.Option("--mi-client-id", "Client ID of the user-assigned managed identity to use for authentication.", CommandOptionType.SingleValue);
             var verboseOption = app.Option("-v|--verbose", "Display verbose log.", CommandOptionType.NoValue);
-            var postProcessExecutableOption = app.Option(
-                "--post-process-executable <path>",
-                $"Trusted post-process executable path. Defaults to {WorkerConfiguration.PostProcessExecutableEnvironmentVariable}.",
-                CommandOptionType.SingleValue);
-            var postProcessTimeoutOption = app.Option(
-                "--post-process-timeout <timespan>",
-                $"Post-process timeout. Defaults to {WorkerConfiguration.PostProcessTimeoutEnvironmentVariable} or {WorkerConfiguration.DefaultPostProcessTimeout}.",
-                CommandOptionType.SingleValue);
             var maxAutoLockRenewalDurationOption = app.Option(
                 "--max-lock-renewal-duration <timespan>",
                 $"Maximum Service Bus message lock renewal duration. Defaults to {WorkerConfiguration.MaxAutoLockRenewalDurationEnvironmentVariable} or {WorkerConfiguration.DefaultMaxAutoLockRenewalDuration}.",
@@ -64,8 +56,6 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 Verbose = verboseOption.HasValue();
 
                 var workerConfiguration = WorkerConfiguration.Create(
-                    postProcessExecutableOption.Value(),
-                    postProcessTimeoutOption.Value(),
                     maxAutoLockRenewalDurationOption.Value());
 
                 var queue = queueOption.Value();
@@ -245,48 +235,33 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                     }
 
                     var taskLogBuilder = new StringBuilder();
-                    var postProcessRunner = new PostProcessRunner(TaskLogFeedDelay);
-
-                    var result = await AttemptExecution.RunWithRetriesAsync(
-                        jobPayload.Retries,
-                        async _ =>
+                    (bool Succeeded, bool Canceled) result = default;
+                    for (var attempt = 0; attempt <= Math.Max(0, jobPayload.Retries); attempt++)
+                    {
+                        if (attempt > 0)
                         {
-                            taskLogBuilder.Clear();
+                            Console.WriteLine($"{LogNow} Job failed, attempt ({attempt + 1} out of {Math.Max(0, jobPayload.Retries) + 1}).");
+                        }
 
-                            var workingDirectory = CreateTempWorkingDirectory();
-                            Console.WriteLine($"{LogNow} Created temp working directory: {workingDirectory}");
+                        taskLogBuilder.Clear();
+                        var workingDirectory = CreateTempWorkingDirectory();
+                        try
+                        {
+                            MaterializeFiles(jobPayload, workingDirectory);
+                            result = await RunCrankAsync(
+                                jobPayload, arguments, workingDirectory, devopsMessage,
+                                taskLogBuilder, args.CancellationToken);
+                        }
+                        finally
+                        {
+                            TryDeleteDirectory(workingDirectory);
+                        }
 
-                            return await AttemptExecution.RunWithCleanupAsync(
-                                workingDirectory,
-                                async () =>
-                                {
-                                    MaterializeFiles(jobPayload, workingDirectory);
-
-                                    var crankResult = await RunCrankAsync(
-                                        jobPayload,
-                                        arguments,
-                                        workingDirectory,
-                                        devopsMessage,
-                                        taskLogBuilder,
-                                        args.CancellationToken);
-
-                                    return await AttemptExecution.ApplyPostProcessAsync(
-                                        crankResult,
-                                        jobPayload.PostProcess,
-                                        () => postProcessRunner.RunAsync(
-                                            workerConfiguration.PostProcessExecutablePath,
-                                            jobPayload.PostProcess,
-                                            workingDirectory,
-                                            workerConfiguration.PostProcessTimeout,
-                                            logs => ForwardPostProcessLogsAsync(devopsMessage, logs, taskLogBuilder),
-                                            cancellationToken => IsTaskCompletedAsync(devopsMessage),
-                                            args.CancellationToken),
-                                        log => ForwardPostProcessLogsAsync(devopsMessage, new[] { log }, taskLogBuilder));
-                                },
-                                TryDeleteDirectory);
-                        },
-                        attempt => Console.WriteLine(
-                            $"{LogNow} Job failed, attempt ({attempt + 1} out of {Math.Max(0, jobPayload.Retries) + 1})."));
+                        if (result.Succeeded || result.Canceled)
+                        {
+                            break;
+                        }
+                    }
 
                     // Mark the task as completed
                     await devopsMessage.SendTaskCompletedEventAsync(result.Succeeded ? DevopsMessage.ResultTypes.Succeeded : DevopsMessage.ResultTypes.Failed);
@@ -369,7 +344,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             return exception.ToString();
         }
 
-        private static async Task<AttemptResult> RunCrankAsync(
+        private static async Task<(bool Succeeded, bool Canceled)> RunCrankAsync(
             JobPayload jobPayload,
             string arguments,
             string workingDirectory,
@@ -384,6 +359,11 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
             try
             {
+                if (cancellationToken.IsCancellationRequested || await IsTaskCompletedAsync(devopsMessage))
+                {
+                    return (false, true);
+                }
+
                 driverJob.Start();
 
                 while (driverJob.IsRunning)
@@ -430,27 +410,13 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                     }
                 }
 
-                return new AttemptResult(!canceled && driverJob.WasSuccessful, canceled);
+                return (!canceled && driverJob.WasSuccessful, canceled);
             }
             finally
             {
                 taskLogBuilder.Append(driverJob.OutputBuilder);
                 driverJob.Dispose();
             }
-        }
-
-        private static async Task ForwardPostProcessLogsAsync(
-            DevopsMessage devopsMessage,
-            IReadOnlyCollection<string> logs,
-            StringBuilder taskLogBuilder)
-        {
-            foreach (var log in logs)
-            {
-                Console.WriteLine(log);
-                taskLogBuilder.AppendLine(log);
-            }
-
-            await ForwardTaskLogsAsync(devopsMessage, logs);
         }
 
         private static async Task ForwardTaskLogsAsync(
