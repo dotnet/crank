@@ -5,6 +5,7 @@
 using System;
 using MessagePack;
 using MessagePack.Resolvers;
+using Microsoft.Azure.Relay;
 using Microsoft.Crank.Models.Security;
 using Microsoft.Crank.RegressionBot.Models;
 using Microsoft.Data.SqlClient;
@@ -14,6 +15,15 @@ namespace Microsoft.Crank.UnitTests
 {
     public class DependencyCompatibilityTests
     {
+        [Fact]
+        public void RelayRetainsConstructorRequiredByAspNetCoreAdapter()
+        {
+            // The precompiled adapter needs this exact signature, not an overload with an optional third argument.
+            var constructor = typeof(HybridConnectionListener).GetConstructor([typeof(Uri), typeof(TokenProvider)]);
+
+            Assert.NotNull(constructor);
+        }
+
         [Theory]
         [InlineData(SqlAuthenticationMethod.ActiveDirectoryDefault)]
         [InlineData(SqlAuthenticationMethod.ActiveDirectoryManagedIdentity)]
