@@ -62,10 +62,11 @@ RUN apt-get update \
 
 ENV DEBIAN_FRONTEND=noninteractive
 # Install matching OpenSSL debug symbols from the Ubuntu repositories.
+# ddebs redirects HTTPS to HTTP; signed-by still verifies the repository signatures.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ubuntu-dbgsym-keyring \
-    && echo 'deb [signed-by=/usr/share/keyrings/ubuntu-dbgsym-keyring.gpg] https://ddebs.ubuntu.com noble main restricted universe multiverse' > /etc/apt/sources.list.d/ddebs.list \
-    && echo 'deb [signed-by=/usr/share/keyrings/ubuntu-dbgsym-keyring.gpg] https://ddebs.ubuntu.com noble-updates main restricted universe multiverse' >> /etc/apt/sources.list.d/ddebs.list
+    && echo 'deb [signed-by=/usr/share/keyrings/ubuntu-dbgsym-keyring.gpg] http://ddebs.ubuntu.com noble main restricted universe multiverse' > /etc/apt/sources.list.d/ddebs.list \
+    && echo 'deb [signed-by=/usr/share/keyrings/ubuntu-dbgsym-keyring.gpg] http://ddebs.ubuntu.com noble-updates main restricted universe multiverse' >> /etc/apt/sources.list.d/ddebs.list
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \

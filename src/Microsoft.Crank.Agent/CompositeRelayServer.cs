@@ -34,10 +34,7 @@ namespace Microsoft.Crank.Agent
 
         public void Dispose()
         {
-            foreach (var server in _servers)
-            {
-                server.Dispose();
-            }
+            // DI owns the child servers; enumerating them here can resolve services from a disposed provider.
         }
 
         public async Task StartAsync<TContext>(IHttpApplication<TContext> application, CancellationToken cancellationToken) where TContext : notnull
