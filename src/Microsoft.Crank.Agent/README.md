@@ -109,6 +109,90 @@ dotnet test test\Microsoft.Crank.UnitTests\Microsoft.Crank.UnitTests.csproj --fi
 dotnet publish src\Microsoft.Crank.Agent\Microsoft.Crank.Agent.csproj --framework net10.0 --configuration Release
 ```
 
+### Repeatable local and remote smoke test
+
+From the repository root, with PowerShell 7.2+ and the repository's .NET SDK:
+
+```powershell
+pwsh -NoProfile -File .\test\RelaySmoke\Run.ps1
+```
+
+This publishes an agent/controller bundle under a unique `artifacts/relay-smoke-*`
+directory, starts an agent on an ephemeral loopback port, then runs the real
+controller against a small console job. It checks raw source/output ZIP uploads,
+an unknown-length gzip build upload larger than 8 MiB, payloads around 64 KiB and
+8 MiB, six downloaded SHA-256 hashes, and the URLs exported to the benchmark.
+The controller runs its normal keepalive, stop and delete lifecycle. It is not
+a performance benchmark, a timing assertion for keepalives, or live Relay
+acceptance. HTTP-only does not exercise the Relay network transport.
+
+The agent builds the uploaded project using explicitly pinned SDK/runtime
+versions (defaults: 10.0.401 / 10.0.12). Initial runs download build prerequisites
+from the public feeds; this is **not an offline test**. Override `-SdkVersion`
+and `-RuntimeVersion` together when testing another supported installation.
+The source includes isolated build configuration so it does not inherit or
+rewrite configuration in an enclosing checkout.
+
+Each run uses dedicated build, SDK, and temporary directories with `--no-cleanup`.
+The runner terminates only the local processes it started, after the controller
+finishes (or reaches `-TimeoutSeconds`). This does not test graceful OS/service
+shutdown. Logs, payloads, `summary.json`, controller results and downloaded
+`smoke-result.json` are preserved in the printed run directory. SDK downloads
+can take substantial disk space; remove only these dedicated run directories
+when no longer needed. A controller exit code of zero alone is not accepted as
+success: missing or corrupt downloaded artifacts fail the smoke test.
+
+To prepare without starting an agent:
+
+```powershell
+pwsh -NoProfile -File .\test\RelaySmoke\Run.ps1 -PrepareOnly
+```
+
+Use the printed bundle path as `$bundle`. To rerun against an existing plain HTTP
+agent, pass `-BundlePath $bundle -Endpoint http://<agent>:5010`. This never starts
+or stops that existing agent. Only use an authorized test agent: the controller
+will submit, execute, stop, and delete its own job.
+
+For a remote Relay canary, copy **only** the bundle's `agent` directory and
+`Start-Agent.ps1` to the remote machine. Do not copy prior `run-*` directories.
+The remote machine needs PowerShell 7.2+, the .NET 10 ASP.NET Core runtime, access
+to the public build feeds, and outbound access to Relay. No inbound agent port
+is needed in Relay-only mode.
+
+On the remote machine, securely set `CRANK_RELAY_LISTEN` to the separate canary
+entity's listen connection string, then run in the foreground:
+
+```powershell
+pwsh -NoProfile -File .\Start-Agent.ps1 -RelayEnvironmentVariable CRANK_RELAY_LISTEN
+```
+
+The launcher creates a new dedicated workspace and prints its location; stop
+it with Ctrl+C when finished. `-ManagedIdentityClientId <id>` forwards the agent's
+managed-identity option (the connection string still identifies the canary
+namespace/entity). It does not create resources or grant permissions.
+
+On the controller machine, securely set `CRANK_RELAY_SEND` to its sender
+connection string and run:
+
+```powershell
+pwsh -NoProfile -File .\test\RelaySmoke\Run.ps1 -BundlePath $bundle `
+  -Endpoint https://<namespace>.servicebus.windows.net/<entity> `
+  -Relay -RelayEnvironmentVariable CRANK_RELAY_SEND
+```
+
+For controller Azure CLI authentication, use an already authorized `az login`
+session and omit `-RelayEnvironmentVariable` while retaining `-Relay`. Never put
+credentials in the scenario file, command line, source control, or a test report.
+For combined mode, start the remote launcher with
+`-EnableHttp -Url http://127.0.0.1:5010` and add
+`-ExpectedAgentUrl http://127.0.0.1:5010` to the controller-side run. Its Relay
+endpoint is still the public HTTPS entity URL.
+
+Keep the canary agent running to repeat runs after token renewal or a controlled
+network interruption. These basic smoke commands do not automatically simulate
+those failures, authenticate from a benchmark process, or validate container or
+Windows-service deployment.
+
 **Opt-in live acceptance (requires an authorized, separate canary entity):**
 
 1. Provisioning resources and supplying credentials are operator actions, not
