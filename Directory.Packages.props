@@ -13,12 +13,12 @@
     <PackageVersion Include="MessagePack" Version="3.1.8" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="10.0.12" />
     <!-- The precompiled AspNetCore adapter requires the two-argument HybridConnectionListener constructor removed in 3.1.1. -->
-    <PackageVersion Include="Microsoft.Azure.Relay" Version="3.0.1" />
+    <PackageVersion Include="Microsoft.Azure.Relay" Version="3.1.1" />
     <PackageVersion Include="Microsoft.Azure.Relay.AspNetCore" Version="1.3.15173" />
     <PackageVersion Include="Microsoft.CSharp" Version="4.7.0" />
     <PackageVersion Include="Microsoft.Data.SqlClient" Version="7.1.0" />
     <PackageVersion Include="Microsoft.Data.SqlClient.Extensions.Azure" Version="7.1.0" />
-    <PackageVersion Include="Microsoft.Diagnostics.NETCore.Client" Version="0.2.745401" />
+    <PackageVersion Include="Microsoft.Diagnostics.NETCore.Client" Version="0.2.747301" />
     <PackageVersion Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="3.2.6" />
     <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.12" />
@@ -27,7 +27,7 @@
     <PackageVersion Include="Microsoft.Extensions.FileProviders.Abstractions" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.12" />
     <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.23.0" />
-    <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.333" />
+    <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.335" />
     <PackageVersion Include="Mono.Cecil" Version="0.11.6" />
     <PackageVersion Include="Mono.Unix" Version="7.1.0-final.1.21458.1" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
