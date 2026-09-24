@@ -452,13 +452,15 @@ namespace Microsoft.Crank.Agent.Controllers
         private async Task SaveBodyAsync(Job job, string filename)
         {
             using var outputFileStream = System.IO.File.Create(filename);
+            using var decompressor = Request.Headers.TryGetValue("Content-Encoding", out var encoding) && encoding.Contains("gzip")
+                ? new GZipStream(Request.Body, CompressionMode.Decompress, leaveOpen: true)
+                : null;
 
             Task task = null;
 
-            if (Request.Headers.TryGetValue("Content-Encoding", out var encoding) && encoding.Contains("gzip"))
+            if (decompressor != null)
             {
                 Log.Info($"Received gzipped file content");
-                using var decompressor = new GZipStream(Request.Body, CompressionMode.Decompress);
                 task = decompressor.CopyToAsync(outputFileStream, Request.HttpContext.RequestAborted);
             }
             else

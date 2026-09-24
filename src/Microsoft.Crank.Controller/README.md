@@ -1,5 +1,13 @@
 # Crank Benchmarks Controller
 
+For Relay agents, use the public HTTPS entity URL as the job endpoint and keep
+using `--relay` for sender authentication. The agent's owned Relay adapter does
+not change the controller protocol: job `Location` headers remain relative to
+the entity endpoint, and streamed raw/gzip uploads and download metadata are
+unchanged. See the [agent Relay hosting and live validation guide](../Microsoft.Crank.Agent/README.md#azure-relay-hosting)
+before canary testing or upgrading. Do not overlap agents on the same entity;
+Relay listener balancing does not preserve affinity to the in-memory job state.
+
 ## Usage
 
 ```
@@ -196,4 +204,3 @@ Run 'crank [command] -?|-h|--help' for more information about a command.
   ## Measurements
 
   --[JOB].options.discardResults <true|false>                   Whether to discard all the results from this job, for instance during a warmup job.
-

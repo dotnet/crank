@@ -9,26 +9,30 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Microsoft.Crank.Agent
 {
     public class CompositeServer : IServer
     {
-        private readonly IEnumerable<IServer> _servers;
+        private readonly IServer[] _servers;
+        private readonly ILogger<CompositeServer> _logger;
 
-        public CompositeServer(IEnumerable<IServer> servers)
+        public CompositeServer(IEnumerable<IServer> servers, ILogger<CompositeServer> logger = null)
         {
             if (servers == null)
             {
                 throw new ArgumentNullException(nameof(servers));
             }
 
-            if (servers.Count() < 2)
+            _servers = servers.ToArray();
+            if (_servers.Length < 2)
             {
                 throw new ArgumentException("Expected at least 2 servers.", nameof(servers));
             }
 
-            _servers = servers;
+            _logger = logger ?? NullLogger<CompositeServer>.Instance;
         }
         public IFeatureCollection Features => _servers.First().Features;
 
@@ -39,17 +43,52 @@ namespace Microsoft.Crank.Agent
 
         public async Task StartAsync<TContext>(IHttpApplication<TContext> application, CancellationToken cancellationToken) where TContext : notnull
         {
-            foreach (var server in _servers)
+            var started = new List<IServer>();
+            try
             {
-                await server.StartAsync(application, cancellationToken);
+                foreach (var server in _servers)
+                {
+                    started.Add(server);
+                    await server.StartAsync(application, cancellationToken);
+                }
+            }
+            catch
+            {
+                using var rollback = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                foreach (var server in started.AsEnumerable().Reverse())
+                {
+                    try
+                    {
+                        await server.StopAsync(rollback.Token);
+                    }
+                    catch (Exception exception)
+                    {
+                        _logger.LogError(exception, "Failed to roll back composite server startup.");
+                    }
+                }
+
+                throw;
             }
         }
 
         public async Task StopAsync(CancellationToken cancellationToken)
         {
-            foreach (var server in _servers)
+            var failures = new List<Exception>();
+            foreach (var server in _servers.Reverse())
             {
-                await server.StopAsync(cancellationToken);
+                try
+                {
+                    await server.StopAsync(cancellationToken);
+                }
+                catch (Exception exception)
+                {
+                    failures.Add(exception);
+                }
+            }
+
+            if (failures.Count != 0)
+            {
+                throw new AggregateException("Failed to stop composite servers.", failures);
             }
         }
     }

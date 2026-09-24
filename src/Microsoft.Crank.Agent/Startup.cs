@@ -449,85 +449,60 @@ namespace Microsoft.Crank.Agent
 
             if (_relayConnectionStringOption.HasValue())
             {
-                builder.UseAzureRelay(options =>
+                var relayConnectionString = _relayConnectionStringOption.Value();
+
+                relayConnectionString = Environment.GetEnvironmentVariable(relayConnectionString) ?? relayConnectionString;
+
+                var rcsb = new RelayConnectionStringBuilder(relayConnectionString);
+                TokenProvider tokenProvider = null;
+
+                if (_managedIdentityOptions != null)
                 {
-                    var relayConnectionString = _relayConnectionStringOption.Value();
+                    var credentials = _managedIdentityOptions.GetManagedIdentityCredential();
 
-                    relayConnectionString = Environment.GetEnvironmentVariable(relayConnectionString) ?? relayConnectionString;
-
-                    var rcsb = new RelayConnectionStringBuilder(relayConnectionString);
-
-                    if (_managedIdentityOptions != null)
-                    {
-                        var credentials = _managedIdentityOptions.GetManagedIdentityCredential();
-
-                        options.TokenProvider = TokenProvider.CreateAzureActiveDirectoryTokenProvider(
-                            async (audience, authority, state) =>
-                            {
-                                try
-                                {
-                                    var token = (await credentials.GetTokenAsync(new TokenRequestContext([$"{audience}/.default"]))).Token;
-                                    Log.Info("Authentication with managed identity successful.");
-                                    return token;
-                                }
-                                catch (Exception e)
-                                {
-                                    Log.Error(e, "Failed to get token with managed identity");
-                                    throw;
-                                }
-                            }, null);
-                    }
-                    else if (_certificateOptions != null)
-                    {
-                        var credentials = _certificateOptions.GetClientCertificateCredential();
-
-                        options.TokenProvider = TokenProvider.CreateAzureActiveDirectoryTokenProvider(
-                            async (audience, authority, state) =>
-                            {
-                                try
-                                {
-                                    var token = (await credentials.GetTokenAsync(new TokenRequestContext([$"{audience}/.default"]))).Token;
-                                    Log.Info("Authentication to the service principal successful.");
-                                    return token;
-                                }
-                                catch (Exception e)
-                                {
-                                    Log.Error(e, "Failed to get token");
-                                    throw;
-
-                                }
-                            }, $"https://login.microsoftonline.com/{_certificateOptions.TenantId}");
-                    }
-
-                    if (_relayPathOption.HasValue())
-                    {
-                        rcsb.EntityPath = _relayPathOption.Value();
-                    }
-
-                    options.UrlPrefixes.Add(rcsb.ToString());
-                });
-
-                if (_relayEnableHttpOption.HasValue())
-                {
-                    // Create an IServer instance that will handle both Azure Relay requests and standard HTTP ones.
-                    // MessagePump can't be used specifically as it's internal, so we need to recover it from the currently
-                    // registered services.
-
-                    var serverTypes = Array.Empty<Type>();
-
-                    builder.ConfigureServices(services =>
-                    {
-                        var descriptors = services.Where(x => x.Lifetime == ServiceLifetime.Singleton && typeof(IServer).IsAssignableFrom(x.ServiceType)).ToArray();
-
-                        foreach (var d in descriptors)
+                    tokenProvider = TokenProvider.CreateAzureActiveDirectoryTokenProvider(
+                        async (audience, authority, state) =>
                         {
-                            services.Remove(d);
-                            services.AddSingleton(d.ImplementationType);
-                        }
-
-                        services.AddSingleton<IServer>(s => new CompositeServer(descriptors.Select(d => s.GetService(d.ImplementationType) as IServer)));
-                    });
+                            try
+                            {
+                                var token = (await credentials.GetTokenAsync(new TokenRequestContext([$"{audience}/.default"]))).Token;
+                                Log.Info("Authentication with managed identity successful.");
+                                return token;
+                            }
+                            catch (Exception e)
+                            {
+                                Log.Error(e, "Failed to get token with managed identity");
+                                throw;
+                            }
+                        }, null);
                 }
+                else if (_certificateOptions != null)
+                {
+                    var credentials = _certificateOptions.GetClientCertificateCredential();
+
+                    tokenProvider = TokenProvider.CreateAzureActiveDirectoryTokenProvider(
+                        async (audience, authority, state) =>
+                        {
+                            try
+                            {
+                                var token = (await credentials.GetTokenAsync(new TokenRequestContext([$"{audience}/.default"]))).Token;
+                                Log.Info("Authentication to the service principal successful.");
+                                return token;
+                            }
+                            catch (Exception e)
+                            {
+                                Log.Error(e, "Failed to get token");
+                                throw;
+                            }
+                        }, $"https://login.microsoftonline.com/{_certificateOptions.TenantId}");
+                }
+
+                if (_relayPathOption.HasValue())
+                {
+                    rcsb.EntityPath = _relayPathOption.Value();
+                }
+
+                builder.UseCrankRelay(new RelayServerOptions(rcsb.ToString(), tokenProvider), _relayEnableHttpOption.HasValue());
             }
         }
 
@@ -7129,11 +7104,14 @@ namespace Microsoft.Crank.Agent
             {
                 Log.Info("Cancelling remaining jobs");
 
-                if (!_processJobsCts.IsCancellationRequested)
+                if (_processJobsCts != null && !_processJobsCts.IsCancellationRequested)
                 {
                     _processJobsCts.Cancel();
 
-                    Task.WaitAny(_processJobsTask, Task.Delay(TimeSpan.FromSeconds(30)));
+                    if (_processJobsTask != null)
+                    {
+                        Task.WaitAny(_processJobsTask, Task.Delay(TimeSpan.FromSeconds(30)));
+                    }
                 }
 
                 Log.Info("Cleaning up temporary folder...");
@@ -7142,7 +7120,7 @@ namespace Microsoft.Crank.Agent
                 // c.f. https://github.com/dotnet/sdk/issues/9487
 
                 // If dotnet hasn't yet been installed, don't try to shutdown the build servers
-                if (File.Exists(GetDotNetExecutable(_dotnethome)))
+                if (!string.IsNullOrEmpty(_dotnethome) && File.Exists(GetDotNetExecutable(_dotnethome)))
                 {
                     ProcessUtil.RunAsync(
                         GetDotNetExecutable(_dotnethome),
