@@ -26,6 +26,7 @@ There are also some built in jobs:
 
 ## Get Started
 
+- Install the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) to build and run Crank. Benchmark applications can target other .NET versions.
 - Read the [documentation](docs)
 - Install the crank controller dotnet tool: `dotnet tool update Microsoft.Crank.Controller --version "0.2.0-*" --global`
 - Use some [predefined scenarios](https://github.com/aspnet/Benchmarks/tree/master/scenarios)

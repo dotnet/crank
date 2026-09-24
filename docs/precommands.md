@@ -18,16 +18,16 @@ commands:
   buildHello:
     - condition: job.environment.platform == "windows"
       scriptType: batch
-      script: dotnet build -c Release -f net8.0 .\samples\hello\hello.csproj
+      script: dotnet build -c Release -f net10.0 .\samples\hello\hello.csproj
     - condition: job.environment.platform != "windows"
       scriptType: bash
-      script: dotnet build -c Release -f net8.0 ./samples/hello/hello.csproj
+      script: dotnet build -c Release -f net10.0 ./samples/hello/hello.csproj
 
 jobs:
   server:
     sources:
       hello:
-        localFolder: ../../artifacts/bin/hello/Release/net8.0
+        localFolder: ../../artifacts/bin/hello/Release/net10.0
     executable: dotnet
     arguments: hello/hello.dll
     noBuild: true
@@ -65,7 +65,7 @@ jobs:
   server:
     variables:
       configuration: Release
-      framework: net8.0
+      framework: net10.0
       rid: win-x64
     commands:
       publishHello:

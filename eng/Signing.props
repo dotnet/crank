@@ -15,6 +15,8 @@
     <FileSignInfo Include="JsonPointer.Net.dll" CertificateName="3PartySHA2" />
     <FileSignInfo Include="JsonSchema.Net.dll" CertificateName="3PartySHA2" />
     <FileSignInfo Include="Esprima.dll" CertificateName="3PartySHA2" />
+    <FileSignInfo Include="Acornima.dll" CertificateName="3PartySHA2" />
+    <FileSignInfo Include="McMaster.Extensions.CommandLineUtils.dll" CertificateName="3PartySHA2" />
     <FileSignInfo Include="MessagePack.dll" CertificateName="3PartySHA2" />
     <FileSignInfo Include="MessagePack.Annotations.dll" CertificateName="3PartySHA2" />
     <FileSignInfo Include="Mono.Cecil.dll" CertificateName="3PartySHA2" />

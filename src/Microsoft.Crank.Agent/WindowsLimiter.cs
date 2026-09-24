@@ -46,15 +46,14 @@ namespace Microsoft.Crank.Agent
             }
 
             var limitInfo = new JOBOBJECT_EXTENDED_LIMIT_INFORMATION();
-            var size = (uint)Marshal.SizeOf(limitInfo);
-            var length = 0u;
+            var buffer = new Span<byte>(&limitInfo, sizeof(JOBOBJECT_EXTENDED_LIMIT_INFORMATION));
 
-            CheckWin32Result(PInvoke.QueryInformationJobObject(_jobHandle, JOBOBJECTINFOCLASS.JobObjectExtendedLimitInformation, &limitInfo, size, &length));
+            CheckWin32Result(PInvoke.QueryInformationJobObject(_jobHandle, JOBOBJECTINFOCLASS.JobObjectExtendedLimitInformation, buffer));
 
             limitInfo.BasicLimitInformation.LimitFlags |= JOB_OBJECT_LIMIT.JOB_OBJECT_LIMIT_JOB_MEMORY;
             limitInfo.JobMemoryLimit = (nuint)memoryLimitInBytes;
 
-            CheckWin32Result(PInvoke.SetInformationJobObject(_jobHandle, JOBOBJECTINFOCLASS.JobObjectExtendedLimitInformation, &limitInfo, size));
+            CheckWin32Result(PInvoke.SetInformationJobObject(_jobHandle, JOBOBJECTINFOCLASS.JobObjectExtendedLimitInformation, buffer));
             _hasJobObj = true;
         }
 
@@ -81,8 +80,8 @@ namespace Microsoft.Crank.Agent
                     Anonymous = new JOBOBJECT_CPU_RATE_CONTROL_INFORMATION._Anonymous_e__Union { CpuRate = cpuRate }
                 };
 
-                var size = (uint)Marshal.SizeOf(limitInfo);
-                CheckWin32Result(PInvoke.SetInformationJobObject(_jobHandle, JOBOBJECTINFOCLASS.JobObjectCpuRateControlInformation, &limitInfo, size));
+                var buffer = new ReadOnlySpan<byte>(&limitInfo, sizeof(JOBOBJECT_CPU_RATE_CONTROL_INFORMATION));
+                CheckWin32Result(PInvoke.SetInformationJobObject(_jobHandle, JOBOBJECTINFOCLASS.JobObjectCpuRateControlInformation, buffer));
 
                 _hasJobObj = true;
             }
@@ -96,7 +95,7 @@ namespace Microsoft.Crank.Agent
 
                 var buffer = stackalloc SYSTEM_CPU_SET_INFORMATION[cpuCount];
 
-                CheckWin32Result(PInvoke.GetSystemCpuSetInformation(buffer, bufferSize, out uint returnedLength, _processHandle));
+                CheckWin32Result(PInvoke.GetSystemCpuSetInformation(new Span<byte>(buffer, (int)bufferSize), out uint returnedLength, _processHandle));
 
                 IntPtr pointer = (nint)buffer;
 
@@ -148,7 +147,7 @@ namespace Microsoft.Crank.Agent
                     Log.Info($"GROUP_AFFINITY -> GROUP: {groupAffinity.Group}, MASK: {Convert.ToString((long)groupAffinity.Mask, 2)}");
                 }
 
-                CheckWin32Result(PInvoke.SetInformationJobObject(_jobHandle, JOBOBJECTINFOCLASS.JobObjectGroupInformationEx, groupsBuffer, (uint)groupsBufferSize));
+                CheckWin32Result(PInvoke.SetInformationJobObject(_jobHandle, JOBOBJECTINFOCLASS.JobObjectGroupInformationEx, new ReadOnlySpan<byte>(groupsBuffer, groupsBufferSize)));
 
                 _hasJobObj = true;
             }
@@ -180,7 +179,6 @@ namespace Microsoft.Crank.Agent
             return result switch
             {
                 SafeHandle handle when !handle.IsInvalid => result,
-                HANDLE handle when (nint)WIN32_ERROR.ERROR_INVALID_HANDLE != handle.Value => result,
                 uint n when n != 0xffffffff => result,
                 bool b when b => result,
                 BOOL b when b => result,

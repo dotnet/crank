@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0</TargetFrameworks>
+    <TargetFrameworks>net10.0</TargetFrameworks>
     <Description>Execute crank jobs added to an Azure Service Bus queue by Azure DevOps.</Description>
     <ToolCommandName>crank-azdo</ToolCommandName>
     <AssemblyName>crank-azdo</AssemblyName>
@@ -18,11 +18,6 @@
     <PackageReference Include="Jint" />
     <PackageReference Include="McMaster.Extensions.CommandLineUtils" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
-
-    <!-- Force version for Component Governance compliance -->
-    <PackageReference Include="System.Text.Encodings.Web">
-      <AllowExplicitReference>true</AllowExplicitReference>
-    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>

@@ -265,12 +265,12 @@ namespace Microsoft.Crank.Jobs.HttpClientClient
 
                         var httpClient = new HttpClient(httpClientHandler);
                         var bytes = await httpClient.GetByteArrayAsync(CertPath);
-                        Certificate = new X509Certificate2(bytes, CertPassword);
+                        Certificate = X509CertificateLoader.LoadPkcs12(bytes, CertPassword);
                     }
                     else
                     {
                         Log($"Reading certificate: {CertPath}");
-                        Certificate = new X509Certificate2(CertPath, CertPassword);
+                        Certificate = X509CertificateLoader.LoadPkcs12FromFile(CertPath, CertPassword);
                     }
 
                     Log("Certificate Thumbprint: " + Certificate.Thumbprint);

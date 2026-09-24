@@ -1,0 +1,29 @@
+version: 2
+registries:
+  dotnet-public:
+    type: nuget-feed
+    url: https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-public/nuget/v3/index.json
+  dotnet-eng:
+    type: nuget-feed
+    url: https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-eng/nuget/v3/index.json
+  dotnet-tools:
+    type: nuget-feed
+    url: https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-tools/nuget/v3/index.json
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    registries:
+      - dotnet-public
+      - dotnet-eng
+      - dotnet-tools
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+    exclude-paths:
+      - eng/common/**

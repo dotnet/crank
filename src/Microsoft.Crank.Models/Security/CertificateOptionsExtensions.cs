@@ -29,7 +29,9 @@ public static class CertificateOptionsExtensions
     {
         if (!string.IsNullOrEmpty(certificateOptions.Path))
         {
-            return new X509Certificate2(certificateOptions.Path, certificateOptions.Password);
+            return X509Certificate2.GetCertContentType(certificateOptions.Path) == X509ContentType.Pkcs12
+                ? X509CertificateLoader.LoadPkcs12FromFile(certificateOptions.Path, certificateOptions.Password)
+                : X509CertificateLoader.LoadCertificateFromFile(certificateOptions.Path);
         }
 
         foreach (var location in Enum.GetValues<StoreLocation>())

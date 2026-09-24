@@ -29,7 +29,9 @@ namespace Microsoft.Crank.Models.Security
         /// </summary>
         public ManagedIdentityCredential GetManagedIdentityCredential()
         {
-            return new ManagedIdentityCredential(ClientId);
+            return new ManagedIdentityCredential(string.IsNullOrEmpty(ClientId)
+                ? ManagedIdentityId.SystemAssigned
+                : ManagedIdentityId.FromUserAssignedClientId(ClientId));
         }
     }
 }
