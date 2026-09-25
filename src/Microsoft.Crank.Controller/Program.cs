@@ -721,15 +721,7 @@ namespace Microsoft.Crank.Controller
                         );
                 }
 
-                foreach (var dependency in dependencies)
-                {
-                    var job = configuration.Jobs[dependency];
-                    if (job.AfterJob != null && job.AfterJob.Any())
-                    {
-                        engine.SetValue("job", job);
-                        await RunCommands(job, engine, job.AfterJob);
-                    }
-                }
+                await RunAfterJobsAsync(configuration, dependencies, engine, results);
 
                 // Display diff
 
@@ -2154,6 +2146,20 @@ namespace Microsoft.Crank.Controller
             }
 
             return result;
+        }
+
+        internal static async Task RunAfterJobsAsync(
+            Configuration configuration, IEnumerable<string> dependencies, Engine engine, ExecutionResult result)
+        {
+            engine.SetValue("result", result);
+            foreach (var dependency in dependencies)
+            {
+                var job = configuration.Jobs[dependency];
+                if (job.AfterJob != null && job.AfterJob.Any())
+                {
+                    await RunCommands(job, engine, job.AfterJob);
+                }
+            }
         }
 
         private static async Task RunCommands(Job job, Engine engine, List<string> commands)
