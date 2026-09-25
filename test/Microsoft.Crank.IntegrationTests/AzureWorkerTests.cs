@@ -14,6 +14,14 @@ namespace Microsoft.Crank.IntegrationTests
 {
     public class AzureWorkerTests
     {
+        [Fact]
+        public void InvalidPayloadDoesNotLogItsContents()
+        {
+            var exception = Assert.Throws<JobPayloadParseException>(() =>
+                JobPayload.Deserialize(Encoding.UTF8.GetBytes("""{"args":["secret"],"timeout":"secret"}""")));
+            Assert.DoesNotContain("secret", Program.FormatExceptionForLog(exception));
+        }
+
         // To decode the payloads used in the unit tests:
         // Console.WriteLine(System.Text.Encoding.UTF8.GetString(Convert.FromHexString("...")));
         // To encode a json payload:

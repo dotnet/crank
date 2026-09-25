@@ -7,12 +7,17 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 
 namespace Microsoft.Crank.AzureDevOpsWorker
 {
     public class Job : IDisposable
     {
+        [DllImport("libc", SetLastError = true, EntryPoint = "kill")]
+        private static extern int sys_kill(int pid, int sig);
+
         private Process _process;
 
         private ConcurrentQueue<string> _standardOutput = new ConcurrentQueue<string>();
@@ -20,7 +25,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
         private ConcurrentQueue<string> _standardError = new ConcurrentQueue<string>();
 
         public StringBuilder OutputBuilder { get; private set; } = new StringBuilder();
-
+        
         public StringBuilder ErrorBuilder { get; private set; } = new StringBuilder();
 
         public Action<string> OnStandardOutput { get; set; }
@@ -29,7 +34,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
         public DateTime StartTimeUtc { get; private set; }
 
-        public Job(string applicationPath, string arguments, string workingDirectory = null)
+        public Job (string applicationPath, string arguments, string workingDirectory = null)
         {
             _process = new Process()
             {
@@ -86,11 +91,54 @@ namespace Microsoft.Crank.AzureDevOpsWorker
         {
             try
             {
-                if (_process != null && !_process.HasExited)
+                if (_process != null)
                 {
                     Console.WriteLine($"Stopping process id: {_process.Id}");
-                    _process.Kill(entireProcessTree: true);
-                    _process.WaitForExit();
+
+                    if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                    {
+                        sys_kill(_process.Id, sig: 2); // SIGINT
+
+                        Thread.Sleep(2000);
+                    }
+
+                    if (!_process.HasExited)
+                    {
+                        try
+                        {
+                            _process.Close();
+                            Thread.Sleep(2000);
+                        }
+                        catch
+                        {
+                        }
+                    }
+
+                    if (!_process.HasExited)
+                    {
+                        try
+                        {
+                            _process.CloseMainWindow();
+                            Thread.Sleep(2000);
+                        }
+                        catch
+                        {
+                        }
+                    }
+
+                    if (!_process.HasExited)
+                    {
+                        try
+                        {
+                            _process.Kill();
+                            Thread.Sleep(2000);
+                        }
+                        catch
+                        {
+                        }
+                    }
+
+                    _process.Dispose();
                 }
             }
             catch (InvalidOperationException)
@@ -102,7 +150,6 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             }
             finally
             {
-                _process?.Dispose();
                 _process = null;
             }
         }

@@ -38,10 +38,6 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             var certSniAuth = app.Option("--cert-sni", "Enable subject name / issuer based authentication (SNI).", CommandOptionType.NoValue);
             var managedIdentityClientId = app.Option("--mi-client-id", "Client ID of the user-assigned managed identity to use for authentication.", CommandOptionType.SingleValue);
             var verboseOption = app.Option("-v|--verbose", "Display verbose log.", CommandOptionType.NoValue);
-            var maxAutoLockRenewalDurationOption = app.Option(
-                "--max-lock-renewal-duration <timespan>",
-                $"Maximum Service Bus message lock renewal duration. Defaults to {WorkerConfiguration.MaxAutoLockRenewalDurationEnvironmentVariable} or {WorkerConfiguration.DefaultMaxAutoLockRenewalDuration}.",
-                CommandOptionType.SingleValue);
 
             app.OnExecuteAsync(async cancellationToken =>
             {
@@ -54,9 +50,6 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 }
 
                 Verbose = verboseOption.HasValue();
-
-                var workerConfiguration = WorkerConfiguration.Create(
-                    maxAutoLockRenewalDurationOption.Value());
 
                 var queue = queueOption.Value();
 
@@ -84,7 +77,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                     managedIdentityOptions = new ManagedIdentityOptions(managedIdentityClientId.Value());
                 }
 
-                await ProcessAzureQueue(connectionString, queue, certificateOptions, managedIdentityOptions, workerConfiguration);
+                await ProcessAzureQueue(connectionString, queue, certificateOptions, managedIdentityOptions);
             });
 
             return app.Execute(args);
@@ -94,8 +87,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             string connectionString,
             string queue,
             CertificateOptions certificateOptions,
-            ManagedIdentityOptions managedIdentityOptions,
-            WorkerConfiguration workerConfiguration)
+            ManagedIdentityOptions managedIdentityOptions)
         {
             ServiceBusClient client;
 
@@ -120,10 +112,15 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 client = new ServiceBusClient(connectionString);
             }
 
-            var processor = client.CreateProcessor(queue, CreateProcessorOptions(workerConfiguration));
+            var processor = client.CreateProcessor(queue, new ServiceBusProcessorOptions
+            {
+                AutoCompleteMessages = false,
+                MaxConcurrentCalls = 1, // Process one message at a time
+                MaxAutoLockRenewalDuration = TimeSpan.FromHours(1) // Maintaining the lock for as much as a job should run
+            });
 
             // Whenever a message is available on the queue
-            processor.ProcessMessageAsync += args => MessageHandler(args, workerConfiguration);
+            processor.ProcessMessageAsync += MessageHandler;
 
             processor.ProcessErrorAsync += ErrorHandler;
 
@@ -133,7 +130,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             Console.ReadLine();
         }
 
-        private static async Task MessageHandler(ProcessMessageEventArgs args, WorkerConfiguration workerConfiguration)
+        private static async Task MessageHandler(ProcessMessageEventArgs args)
         {
             var message = args.Message;
             Console.WriteLine($"{LogNow} Processing Service Bus message.");
@@ -204,22 +201,6 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                         {
                             Console.WriteLine($"{LogNow} Could not evaluate condition [{jobPayload.Condition}], ignoring ...");
                         }
-                    }
-
-                    if (!workerConfiguration.HasSufficientLockRenewalDuration(jobPayload, out var requiredLockRenewalDuration))
-                    {
-                        await devopsMessage.SendTaskStartedEventAsync();
-
-                        var lockRenewalFailure =
-                            $"{LogNow} Job requires up to {requiredLockRenewalDuration} of message lock renewal, " +
-                            $"but the worker is configured for {workerConfiguration.MaxAutoLockRenewalDuration}. " +
-                            "Increase --max-lock-renewal-duration; the job will not be started.";
-
-                        Console.WriteLine(lockRenewalFailure);
-                        await devopsMessage.SendTaskLogFeedsAsync(lockRenewalFailure);
-                        await devopsMessage.SendTaskCompletedEventAsync(DevopsMessage.ResultTypes.Failed);
-                        await args.CompleteMessageAsync(message);
-                        return;
                     }
 
                     // Inform AzDo that the job is started
@@ -318,18 +299,6 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                     Console.WriteLine($"{LogNow} Failed to abandon the message: {f}");
                 }
             }
-        }
-
-        internal static ServiceBusProcessorOptions CreateProcessorOptions(WorkerConfiguration workerConfiguration)
-        {
-            ArgumentNullException.ThrowIfNull(workerConfiguration);
-
-            return new ServiceBusProcessorOptions
-            {
-                AutoCompleteMessages = false,
-                MaxConcurrentCalls = 1,
-                MaxAutoLockRenewalDuration = workerConfiguration.MaxAutoLockRenewalDuration
-            };
         }
 
         internal static string FormatExceptionForLog(Exception exception)
