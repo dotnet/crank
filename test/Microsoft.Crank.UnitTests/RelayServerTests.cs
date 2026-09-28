@@ -494,6 +494,34 @@ public class RelayServerTests
     }
 
     [Fact]
+    public async Task ApplicationFailureDoesNotCancelFollowingRequestsOrRestartTheListener()
+    {
+        var factory = new ListenerFactory();
+        using var server = CreateServer(factory);
+        var application = new Application(context => context.Request.Path == "/fail"
+            ? Task.FromException(new IOException("request failed"))
+            : context.Response.WriteAsync("healthy"));
+        await server.StartAsync(application, CancellationToken.None);
+        var failed = new Exchange("GET", "/fail");
+        factory.Listener.RequestHandler(failed);
+        await failed.Closed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(500, failed.StatusCode);
+
+        var following = new Exchange();
+        factory.Listener.RequestHandler(following);
+        await following.Closed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(200, following.StatusCode);
+        Assert.Equal("healthy", Encoding.UTF8.GetString(following.Output.ToArray()));
+        Assert.Equal(1, factory.Listener.OpenCount);
+        Assert.Equal(0, factory.Listener.CloseCount);
+
+        await server.StopAsync(CancellationToken.None);
+        Assert.Equal(2, application.DisposeCount);
+        Assert.Equal(1, failed.CloseCount);
+        Assert.Equal(1, following.CloseCount);
+    }
+
+    [Fact]
     public async Task ConcurrentUploadDoesNotStarveTouchAndSynchronousCompletionsAreTracked()
     {
         var factory = new ListenerFactory();

@@ -34,6 +34,47 @@ public class RelaySdkTests
     private const BindingFlags InstanceMembers = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
 
     [Fact]
+    public async Task SdkListenerRejectsUnusedConnectionUpgrades()
+    {
+        var fixture = CreateSdkExchange();
+        try
+        {
+            Assert.False(await fixture.Listener.AcceptHandler(fixture.Context));
+            Assert.Equal(HttpStatusCode.NotImplemented, fixture.Context.Response.StatusCode);
+            Assert.Equal("Crank Relay supports HTTP requests only.", fixture.Context.Response.StatusDescription);
+        }
+        finally
+        {
+            await fixture.Context.Response.CloseAsync();
+            await fixture.Listener.CloseAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
+    public async Task SdkListenerRetainsConfiguredTokenProviderForSdkManagedAuthentication()
+    {
+        var tokenRequests = 0;
+        var provider = TokenProvider.CreateAzureActiveDirectoryTokenProvider((_, _, _) =>
+        {
+            Interlocked.Increment(ref tokenRequests);
+            return Task.FromResult("not-used");
+        }, null);
+        var options = new RelayServerOptions("Endpoint=sb://unused.invalid/;EntityPath=entity;", provider);
+        var fixture = CreateSdkExchange(options);
+        try
+        {
+            Assert.Same(provider, fixture.Listener.TokenProvider);
+            Assert.Equal(options.ListenerAddress, fixture.Listener.Address);
+            Assert.Equal(0, tokenRequests);
+        }
+        finally
+        {
+            await fixture.Context.Response.CloseAsync();
+            await fixture.Listener.CloseAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
     public async Task CompleteAsyncClosesResponseBeforeApplicationReturns()
     {
         var exchange = new Exchange();
@@ -320,11 +361,12 @@ public class RelaySdkTests
             : "Start remained blocked after its 50ms OperationTimeout.");
     }
 
-    private static (RelayHttpExchange Exchange, RelayedHttpListenerContext Context, HybridConnectionListener Listener) CreateSdkExchange()
+    private static (RelayHttpExchange Exchange, RelayedHttpListenerContext Context, HybridConnectionListener Listener) CreateSdkExchange(
+        RelayServerOptions options = null)
     {
         // SDK HTTP contexts are not publicly constructible. Keep reflection in this test
         // harness so real SDK header/stream behavior is covered without a Relay service.
-        var wrapper = new RelayListenerFactory().Create(new RelayServerOptions(ConnectionString));
+        var wrapper = new RelayListenerFactory().Create(options ?? new RelayServerOptions(ConnectionString));
         var listener = (HybridConnectionListener)wrapper.GetType().GetField("_listener", InstanceMembers).GetValue(wrapper);
         var context = (RelayedHttpListenerContext)Activator.CreateInstance(typeof(RelayedHttpListenerContext),
             InstanceMembers, null,
