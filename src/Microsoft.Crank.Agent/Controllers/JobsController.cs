@@ -460,7 +460,7 @@ namespace Microsoft.Crank.Agent.Controllers
 
             if (decompressor != null)
             {
-                Log.Info($"Received gzipped file content");
+                Log.Info("Received compressed file content");
                 task = decompressor.CopyToAsync(outputFileStream, Request.HttpContext.RequestAborted);
             }
             else
