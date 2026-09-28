@@ -66,6 +66,117 @@ namespace Microsoft.Crank.UnitTests
             Assert.True(firstStopped);
         }
 
+        [Fact]
+        public async Task StopInitiatesEveryChildBeforeWaitingForDrains()
+        {
+            var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var firstStopped = false;
+            var composite = new CompositeServer([
+                new TestServer { Stop = () => firstStopped = true },
+                new TestServer { StopOperation = _ => { entered.SetResult(); return release.Task; } }
+            ]);
+            var stop = composite.StopAsync(CancellationToken.None);
+            try
+            {
+                await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.True(firstStopped);
+                Assert.False(stop.IsCompleted);
+            }
+            finally
+            {
+                release.SetResult();
+                await stop;
+            }
+        }
+
+        [Fact]
+        public async Task StartupRollbackStopsOtherChildrenWhileFailedChildDrains()
+        {
+            var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var firstStopped = false;
+            var composite = new CompositeServer([
+                new TestServer { Stop = () => firstStopped = true },
+                new TestServer
+                {
+                    Start = () => throw new InvalidOperationException("start failed"),
+                    StopOperation = _ => { entered.SetResult(); return release.Task; }
+                }
+            ]);
+            var start = composite.StartAsync<object>(null, CancellationToken.None);
+            try
+            {
+                await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.True(firstStopped);
+                Assert.False(start.IsCompleted);
+            }
+            finally
+            {
+                release.SetResult();
+                var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => start);
+                Assert.Equal("start failed", failure.Message);
+            }
+        }
+
+        [Fact]
+        public async Task StartupRollbackPreservesOriginalFailureAndDoesNotStopUnstartedChildren()
+        {
+            var startupFailure = new InvalidOperationException("start failed");
+            var stops = 0;
+            var composite = new CompositeServer([
+                new TestServer { Stop = () => { stops++; throw new InvalidOperationException("stop failed"); } },
+                new TestServer
+                {
+                    Start = () => throw startupFailure,
+                    StopOperation = _ => { stops++; return Task.FromException(new InvalidOperationException("async stop failed")); }
+                },
+                new TestServer { Stop = () => stops++ }
+            ]);
+
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => composite.StartAsync<object>(null, CancellationToken.None));
+            Assert.Same(startupFailure, error);
+            Assert.Equal(2, stops);
+        }
+
+        [Fact]
+        public async Task StopCollectsSynchronousAndAsynchronousFailuresAndForwardsCancellation()
+        {
+            var synchronous = new InvalidOperationException("synchronous");
+            var asynchronous = new InvalidOperationException("asynchronous");
+            var calls = 0;
+            using var cancellation = new CancellationTokenSource();
+            cancellation.Cancel();
+            var composite = new CompositeServer([
+                new TestServer { StopOperation = token =>
+                {
+                    Assert.Equal(cancellation.Token, token);
+                    calls++;
+                    return Task.FromException(asynchronous);
+                } },
+                new TestServer { StopOperation = token =>
+                {
+                    Assert.Equal(cancellation.Token, token);
+                    calls++;
+                    throw synchronous;
+                } },
+                new TestServer { StopOperation = token =>
+                {
+                    Assert.Equal(cancellation.Token, token);
+                    calls++;
+                    return Task.FromCanceled(token);
+                } }
+            ]);
+
+            var failure = await Assert.ThrowsAsync<AggregateException>(() => composite.StopAsync(cancellation.Token));
+            Assert.Equal(3, calls);
+            Assert.Equal(3, failure.InnerExceptions.Count);
+            Assert.Contains(synchronous, failure.InnerExceptions);
+            Assert.Contains(asynchronous, failure.InnerExceptions);
+            Assert.Contains(failure.InnerExceptions, exception => exception is OperationCanceledException);
+        }
+
         private sealed class TestServer : IServer
         {
             public IFeatureCollection Features { get; } = new FeatureCollection();
@@ -73,6 +184,7 @@ namespace Microsoft.Crank.UnitTests
             public int DisposeCount { get; private set; }
             public Action Start { get; init; } = () => { };
             public Action Stop { get; init; } = () => { };
+            public Func<CancellationToken, Task> StopOperation { get; init; } = _ => Task.CompletedTask;
 
             public void Dispose() => DisposeCount++;
 
@@ -85,7 +197,7 @@ namespace Microsoft.Crank.UnitTests
             public Task StopAsync(CancellationToken cancellationToken)
             {
                 Stop();
-                return Task.CompletedTask;
+                return StopOperation(cancellationToken);
             }
         }
     }

@@ -43,7 +43,8 @@ The SDK listener uses `sb://`; controllers and the `CRANK_AGENT_URL` /
 `CRANK_JOB_LOCAL_URL` job variables use the addresses above. Wildcard HTTP hosts
 are still normalized to loopback for those variables. The job processor starts
 only after all required listeners start successfully. A failed Relay startup
-rolls back the HTTP listener in combined mode.
+rolls back the HTTP listener in combined mode. Shutdown and startup rollback
+initiate both child servers' stops before awaiting their drains.
 
 Existing flags and authentication are unchanged: `--relay` accepts a connection
 string or its environment-variable name, and `--relay-path` overrides

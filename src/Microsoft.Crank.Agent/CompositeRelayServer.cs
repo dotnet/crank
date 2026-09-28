@@ -55,16 +55,11 @@ namespace Microsoft.Crank.Agent
             catch
             {
                 using var rollback = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-                foreach (var server in started.AsEnumerable().Reverse())
+                var failures = await Task.WhenAll(started.AsEnumerable().Reverse()
+                    .Select(server => StopServerAsync(server, rollback.Token)));
+                foreach (var exception in failures.Where(exception => exception != null))
                 {
-                    try
-                    {
-                        await server.StopAsync(rollback.Token);
-                    }
-                    catch (Exception exception)
-                    {
-                        _logger.LogError(exception, "Failed to roll back composite server startup.");
-                    }
+                    _logger.LogError(exception, "Failed to roll back composite server startup.");
                 }
 
                 throw;
@@ -73,22 +68,27 @@ namespace Microsoft.Crank.Agent
 
         public async Task StopAsync(CancellationToken cancellationToken)
         {
-            var failures = new List<Exception>();
-            foreach (var server in _servers.Reverse())
-            {
-                try
-                {
-                    await server.StopAsync(cancellationToken);
-                }
-                catch (Exception exception)
-                {
-                    failures.Add(exception);
-                }
-            }
+            // Stop admission on every transport before awaiting any child's drain.
+            var results = await Task.WhenAll(_servers.Reverse()
+                .Select(server => StopServerAsync(server, cancellationToken)));
+            var failures = results.Where(exception => exception != null).ToArray();
 
-            if (failures.Count != 0)
+            if (failures.Length != 0)
             {
                 throw new AggregateException("Failed to stop composite servers.", failures);
+            }
+        }
+
+        private static async Task<Exception> StopServerAsync(IServer server, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await server.StopAsync(cancellationToken);
+                return null;
+            }
+            catch (Exception exception)
+            {
+                return exception;
             }
         }
     }
