@@ -101,6 +101,7 @@ if (!$BundlePath) {
         if ($LASTEXITCODE -ne 0) { throw "Publishing $project failed." }
     }
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Start-Agent.ps1') -Destination $BundlePath
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Start-Agent.sh') -Destination $BundlePath
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Run.ps1') -Destination $BundlePath
     $null = New-Item -ItemType Directory -Path (Join-Path $BundlePath 'workload')
     foreach ($file in @('RelaySmoke.csproj', 'Program.cs')) {

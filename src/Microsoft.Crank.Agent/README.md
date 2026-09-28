@@ -153,23 +153,63 @@ agent, pass `-BundlePath $bundle -Endpoint http://<agent>:5010`. This never star
 or stops that existing agent. Only use an authorized test agent: the controller
 will submit, execute, stop, and delete its own job.
 
-For a remote Relay canary, copy **only** the bundle's `agent` directory and
-`Start-Agent.ps1` to the remote machine. Do not copy prior `run-*` directories.
-The remote machine needs PowerShell 7.2+, the .NET 10 ASP.NET Core runtime, access
-to the public build feeds, and outbound access to Relay. No inbound agent port
-is needed in Relay-only mode.
+For a remote Relay canary, copy **only** the bundle's `agent` directory and the
+appropriate launcher (`Start-Agent.sh` for Linux, `Start-Agent.ps1` for Windows)
+to the remote machine. Do not copy prior `run-*` directories. The remote machine
+needs the .NET 10 ASP.NET Core runtime, access to the public build feeds, and
+outbound access to Relay. Linux requires Bash, not PowerShell; the Windows
+launcher requires PowerShell 7.2+. No inbound agent port is needed in Relay-only
+mode. Neither launcher installs packages, registers a service, or creates cloud
+resources.
 
-On the remote machine, securely set `CRANK_RELAY_LISTEN` to the separate canary
-entity's listen connection string, then run in the foreground:
+On **Linux**, set the separate canary entity's listen connection string without
+putting it in shell history, then launch from the copied bundle:
+
+```bash
+read -r -s -p 'Canary listen connection string: ' CRANK_RELAY_LISTEN
+printf '\n'
+export CRANK_RELAY_LISTEN
+bash ./Start-Agent.sh --relay-env CRANK_RELAY_LISTEN
+```
+
+The connection string must include `EntityPath`. The launcher passes only the
+environment-variable name on the process command line; do not run it with shell
+tracing (`bash -x`). It creates a unique `agent-run.*` workspace inside the bundle
+with owner-only permissions, dedicated build/SDK/temp/log directories, and
+`--no-cleanup`. Use `--work-path /path/to/new-canary-run` to choose another new
+directory (its parent must exist). Existing paths, including symlinks, are
+rejected. No root privileges are needed for this console-job smoke test.
+
+If the **source is checked out with Git on the Linux machine**, install the SDK
+specified by `global.json` and publish the agent there instead of copying a
+bundle. Run these commands from the repository root on the adapter branch:
+
+```bash
+dotnet publish ./src/Microsoft.Crank.Agent/Microsoft.Crank.Agent.csproj \
+  --framework net10.0 --configuration Release \
+  --output ./artifacts/relay-agent/agent -p:UseAppHost=false
+bash ./test/RelaySmoke/Start-Agent.sh \
+  --bundle-path ./artifacts/relay-agent --relay-env CRANK_RELAY_LISTEN
+```
+
+This needs no PowerShell on the remote machine. The controller-side `Run.ps1`
+can continue running on your Windows machine. To start a Linux HTTP-only control,
+omit `--relay-env`; to use combined mode, add
+`--enable-http --url http://127.0.0.1:5010`.
+`--managed-identity-client-id <id>` forwards `--mi-client-id` for Relay
+authentication; the connection string still identifies the canary
+namespace/entity. Run `bash ./Start-Agent.sh --help` for all launcher options.
+
+On **Windows**, securely set `CRANK_RELAY_LISTEN`, then run in the foreground:
 
 ```powershell
 pwsh -NoProfile -File .\Start-Agent.ps1 -RelayEnvironmentVariable CRANK_RELAY_LISTEN
 ```
 
-The launcher creates a new dedicated workspace and prints its location; stop
-it with Ctrl+C when finished. `-ManagedIdentityClientId <id>` forwards the agent's
-managed-identity option (the connection string still identifies the canary
-namespace/entity). It does not create resources or grant permissions.
+Both launchers print the dedicated workspace location; stop with Ctrl+C when
+finished. The Bash launcher replaces itself with the agent so SIGTERM also
+reaches the agent directly, and it returns the agent's exit status.
+The Windows launcher's managed-identity option is `-ManagedIdentityClientId <id>`.
 
 On the controller machine, securely set `CRANK_RELAY_SEND` to its sender
 connection string and run:
@@ -184,7 +224,8 @@ For controller Azure CLI authentication, use an already authorized `az login`
 session and omit `-RelayEnvironmentVariable` while retaining `-Relay`. Never put
 credentials in the scenario file, command line, source control, or a test report.
 For combined mode, start the remote launcher with
-`-EnableHttp -Url http://127.0.0.1:5010` and add
+`--enable-http --url http://127.0.0.1:5010` (Bash) or
+`-EnableHttp -Url http://127.0.0.1:5010` (PowerShell) and add
 `-ExpectedAgentUrl http://127.0.0.1:5010` to the controller-side run. Its Relay
 endpoint is still the public HTTPS entity URL.
 
@@ -192,6 +233,18 @@ Keep the canary agent running to repeat runs after token renewal or a controlled
 network interruption. These basic smoke commands do not automatically simulate
 those failures, authenticate from a benchmark process, or validate container or
 Windows-service deployment.
+
+The Bash launcher's isolated contract tests use a fake `dotnet` command and
+require no credentials or .NET installation:
+
+```bash
+bash ./test/RelaySmoke/Start-Agent.Tests.sh
+```
+
+They cover mode/identity arguments, paths with spaces, invalid inputs, workspace
+isolation, secret forwarding without logging, and exit-code propagation. They
+print the temporary artifact directory for inspection; they do not prove Relay
+service connectivity.
 
 **Opt-in live acceptance (requires an authorized, separate canary entity):**
 
