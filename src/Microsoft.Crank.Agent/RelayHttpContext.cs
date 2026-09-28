@@ -85,16 +85,14 @@ internal sealed class RelayHttpContext : IHttpResponseFeature, IHttpResponseBody
             {
                 try
                 {
-                    // A failed OnStarting callback must not prevent a terminal error response.
-                    await InvokeCallbacksAsync(_starting, "OnStarting").ConfigureAwait(false);
-                    if (!HasStarted)
-                    {
-                        _headers = new HeaderDictionary();
-                        _statusCode = exception is BadHttpRequestException badRequest
-                            ? badRequest.StatusCode : StatusCodes.Status500InternalServerError;
-                        _reasonPhrase = null;
-                        Commit();
-                    }
+                    // Like Kestrel, don't let OnStarting callbacks turn an unhandled
+                    // application failure into a successful response.
+                    _starting.Clear();
+                    _headers = new HeaderDictionary();
+                    _statusCode = exception is BadHttpRequestException badRequest
+                        ? badRequest.StatusCode : StatusCodes.Status500InternalServerError;
+                    _reasonPhrase = null;
+                    Commit();
                 }
                 catch (Exception commitError)
                 {
@@ -361,7 +359,7 @@ internal sealed class RelayHttpContext : IHttpResponseFeature, IHttpResponseBody
         {
             cancellationToken.ThrowIfCancellationRequested();
             RequestAborted.ThrowIfCancellationRequested();
-            var error = await InvokeCallbacksAsync(_starting, "OnStarting").ConfigureAwait(false);
+            var error = await InvokeCallbacksAsync(_starting, "OnStarting", stopOnError: true).ConfigureAwait(false);
             if (error != null)
             {
                 throw error;
@@ -454,7 +452,8 @@ internal sealed class RelayHttpContext : IHttpResponseFeature, IHttpResponseBody
         }
     }
 
-    private async Task<Exception> InvokeCallbacksAsync(List<(Func<object, Task> Callback, object State)> callbacks, string name)
+    private async Task<Exception> InvokeCallbacksAsync(List<(Func<object, Task> Callback, object State)> callbacks, string name,
+        bool stopOnError = false)
     {
         List<Exception> errors = null;
         while (callbacks.Count > 0)
@@ -469,6 +468,10 @@ internal sealed class RelayHttpContext : IHttpResponseFeature, IHttpResponseBody
             {
                 _logger.LogError(exception, "Relay HTTP {Callback} callback failed.", name);
                 (errors ??= new()).Add(exception);
+                if (stopOnError)
+                {
+                    break;
+                }
             }
         }
         return errors == null ? null : new AggregateException(errors);

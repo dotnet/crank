@@ -175,6 +175,104 @@ public class RelaySdkTests
     }
 
     [Fact]
+    public async Task SdkApplicationFailureCannotBeMaskedByAStartingCallbackWrite()
+    {
+        var fixture = CreateSdkExchange();
+        var socket = AttachSdkResponseStream(fixture.Context, fixture.Listener);
+        var started = false;
+        var application = new Application(context =>
+        {
+            context.Response.StatusCode = 202;
+            context.Response.OnStarting(async () =>
+            {
+                started = true;
+                await context.Response.Body.WriteAsync(new byte[] { 42 });
+            });
+            throw new IOException("application failed");
+        });
+        try
+        {
+            await new RelayHttpContext(fixture.Exchange, PublicAddress, default, NullLogger.Instance).ProcessAsync(application);
+            Assert.Equal(HttpStatusCode.InternalServerError, fixture.Context.Response.StatusCode);
+            Assert.False(started);
+            Assert.Equal(0, socket.BinaryBytes);
+            Assert.NotNull(application.Error);
+            Assert.Equal(WebSocketState.Closed, socket.State);
+        }
+        finally
+        {
+            await fixture.Listener.CloseAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
+    public async Task SdkStartingCallbackFailureCannotBeMaskedByALaterCallbackWrite()
+    {
+        var fixture = CreateSdkExchange();
+        var socket = AttachSdkResponseStream(fixture.Context, fixture.Listener);
+        var wrote = false;
+        var application = new Application(context =>
+        {
+            context.Response.OnStarting(async () =>
+            {
+                wrote = true;
+                await context.Response.Body.WriteAsync(new byte[] { 42 });
+            });
+            context.Response.OnStarting(() => throw new IOException("starting failed"));
+            return Task.CompletedTask;
+        });
+        try
+        {
+            await new RelayHttpContext(fixture.Exchange, PublicAddress, default, NullLogger.Instance).ProcessAsync(application);
+            Assert.Equal(HttpStatusCode.InternalServerError, fixture.Context.Response.StatusCode);
+            Assert.False(wrote);
+            Assert.Equal(0, socket.BinaryBytes);
+            Assert.NotNull(application.Error);
+        }
+        finally
+        {
+            await fixture.Listener.CloseAsync(CancellationToken.None);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task KestrelDoesNotRunStartingCallbacksAfterAnApplicationOrCallbackFailure(bool failInCallback)
+    {
+        var wrote = 0;
+        using var host = new HostBuilder().ConfigureWebHost(web =>
+            web.UseKestrel().UseUrls("http://127.0.0.1:0").Configure(app => app.Run(context =>
+            {
+                context.Response.OnStarting(async () =>
+                {
+                    Interlocked.Increment(ref wrote);
+                    await context.Response.Body.WriteAsync(new byte[] { 42 });
+                });
+                if (failInCallback)
+                {
+                    context.Response.OnStarting(() => throw new IOException("starting failed"));
+                    return Task.CompletedTask;
+                }
+                return Task.FromException(new IOException("application failed"));
+            }))).Build();
+        await host.StartAsync();
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+        try
+        {
+            var address = Assert.Single(host.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>().Addresses);
+            using var response = await client.GetAsync(address);
+            Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+            Assert.Empty(await response.Content.ReadAsByteArrayAsync());
+            Assert.Equal(0, Volatile.Read(ref wrote));
+        }
+        finally
+        {
+            await host.StopAsync();
+        }
+    }
+
+    [Fact]
     public async Task SdkOnStartingReentrantWriteDoesNotCommitTwice()
     {
         var fixture = CreateSdkExchange();

@@ -603,7 +603,7 @@ public class RelayHttpContextTests
     }
 
     [Fact]
-    public async Task StartingCallbackFailuresAttemptAllCallbacksAndProduce500()
+    public async Task StartingCallbackFailureSkipsRemainingCallbacksAndProduces500()
     {
         var events = new List<int>();
         var exchange = new Exchange();
@@ -617,7 +617,7 @@ public class RelayHttpContextTests
             return Task.CompletedTask;
         });
         await Process(exchange, application, logger);
-        Assert.Equal(new[] { 3, 2, 1, 4 }, events);
+        Assert.Equal(new[] { 3, 2, 4 }, events);
         Assert.Equal(500, exchange.Status);
         Assert.NotNull(application.Error);
         Assert.Contains(logger.Errors, error => error.Message == "starting");
@@ -674,7 +674,7 @@ public class RelayHttpContextTests
             throw new IOException("application");
         });
         await Process(exchange, application);
-        Assert.True(started);
+        Assert.False(started);
         Assert.Equal(500, exchange.Status);
         Assert.Empty(exchange.ResponseHeaders);
         AssertCleanup(exchange, application);
