@@ -29,7 +29,9 @@ internal static class RelayWebHostBuilderExtensions
             {
                 // Retain the framework's actual Kestrel implementation and all of its transports.
                 // The public KestrelServer constructor only accepts one transport factory.
-                kestrel = services.Single(descriptor => descriptor.ServiceType == typeof(IServer) && !descriptor.IsKeyedService);
+                // UseKestrel can be called by both Startup and this helper; select the
+                // effective registration using the same last-registration rule as DI.
+                kestrel = services.Last(descriptor => descriptor.ServiceType == typeof(IServer) && !descriptor.IsKeyedService);
             }
 
             services.RemoveAll<IServer>();

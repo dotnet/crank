@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Azure.Relay;
 using Microsoft.Crank.Agent;
 using Microsoft.Crank.Agent.Controllers;
@@ -26,6 +27,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Repository;
 using Xunit;
 
@@ -37,18 +39,26 @@ public class RelayServerTests
         "SharedAccessKeyName=test;SharedAccessKey=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task ProductionRegistrationStartsAndPublishesTheCorrectAddress(bool enableHttp)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task ProductionRegistrationStartsAndPublishesTheCorrectAddress(bool enableHttp, bool configureKestrelFirst)
     {
         var factory = new ListenerFactory();
-        using var host = CreateHost(factory, enableHttp, app => app.Run(context => context.Response.WriteAsync("ready")));
+        using var host = CreateHost(factory, enableHttp, app => app.Run(context => context.Response.WriteAsync("ready")),
+            configureKestrelFirst: configureKestrelFirst);
         await host.StartAsync();
 
         var server = host.Services.GetRequiredService<IServer>();
         var addresses = server.Features.Get<IServerAddressesFeature>().Addresses;
         Assert.Equal(1, factory.Listener.OpenCount);
         Assert.Equal("sb://unused.invalid/test/nested", factory.Options.ListenerAddress.AbsoluteUri);
+        if (configureKestrelFirst)
+        {
+            Assert.Equal(10L * 1024 * 1024 * 1024,
+                host.Services.GetRequiredService<IOptions<KestrelServerOptions>>().Value.Limits.MaxRequestBodySize);
+        }
         if (enableHttp)
         {
             Assert.IsType<CompositeServer>(server);
@@ -543,9 +553,13 @@ public class RelayServerTests
         => new(options ?? new RelayServerOptions(ConnectionString), factory, NullLogger<RelayServer>.Instance);
 
     private static IHost CreateHost(ListenerFactory factory, bool enableHttp, Action<IApplicationBuilder> configure,
-        Action<IServiceCollection> services = null)
+        Action<IServiceCollection> services = null, bool configureKestrelFirst = true)
         => new HostBuilder().ConfigureWebHost(web =>
         {
+            if (configureKestrelFirst)
+            {
+                web.UseKestrel().ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 10L * 1024 * 1024 * 1024);
+            }
             web.UseUrls("http://127.0.0.1:0");
             web.ConfigureServices(collection =>
             {
