@@ -5723,6 +5723,11 @@ namespace Microsoft.Crank.Agent
                 return;
             }
 
+            if (NuGetVersion.Parse(runtimeVersion).Major >= 12)
+            {
+                throw new InvalidOperationException($"Mono runtime packs are not available for .NET 12 and later. Omit {nameof(Job.UseMonoRuntime)} to use CoreCLR, or select an earlier runtime version.");
+            }
+
             var pkgNameSuffix = RuntimeInformation.ProcessArchitecture == Architecture.Arm64
                 ? "arm64"
                 : "x64"
