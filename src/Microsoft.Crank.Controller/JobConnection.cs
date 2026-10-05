@@ -817,7 +817,7 @@ namespace Microsoft.Crank.Controller
                         {
                             await TryUpdateJobAsync();
                         }
-                        catch (HttpRequestException refreshError)
+                        catch (Exception refreshError) when (refreshError is HttpRequestException or OperationCanceledException)
                         {
                             Log.Verbose($"Could not retrieve the trace collection error: {refreshError.Message}");
                         }

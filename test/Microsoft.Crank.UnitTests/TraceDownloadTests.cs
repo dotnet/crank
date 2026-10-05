@@ -18,11 +18,12 @@ namespace Microsoft.Crank.UnitTests
     public class TraceDownloadTests
     {
         [Theory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public async Task MissingTraceReportsAgentErrorOrHttpFailure(bool refreshFails)
+        [InlineData(false, false)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        public async Task MissingTraceReportsAgentErrorOrHttpFailure(bool refreshFails, bool refreshTimesOut)
         {
-            using var httpClient = new HttpClient(new TraceFailureHandler(refreshFails));
+            using var httpClient = new HttpClient(new TraceFailureHandler(refreshFails, refreshTimesOut));
             var job = new Job { Service = "client", Collect = true };
             var connection = new JobConnection(job, new Uri("http://agent.invalid"));
 
@@ -54,13 +55,18 @@ namespace Microsoft.Crank.UnitTests
             }
         }
 
-        private sealed class TraceFailureHandler(bool refreshFails) : HttpMessageHandler
+        private sealed class TraceFailureHandler(bool refreshFails, bool refreshTimesOut) : HttpMessageHandler
         {
             protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             {
                 var path = request.RequestUri.AbsolutePath;
                 if (path == "/jobs/1")
                 {
+                    if (refreshTimesOut)
+                    {
+                        throw new TaskCanceledException("Agent refresh timed out.");
+                    }
+
                     if (refreshFails)
                     {
                         throw new HttpRequestException("Agent unavailable.");
