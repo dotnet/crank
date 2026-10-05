@@ -56,6 +56,8 @@ To display the live log, run the following command:
 docker logs -f --tail 100 crank-agent
 ```
 
+When native trace collection (`--[JOB].collect true`) fails, Crank reports the perfcollect error in the controller output. For example, `LTTng not installed` means the dependency is missing from the agent container, not necessarily that the host lacks perf support. Install the required dependencies in the agent image and rebuild it, or use `--[JOB].collectArguments "nolttng"` if only perf collection is needed, without LTTng runtime events.
+
 ### Continuous integration
 
 In order to restart and update the agent regularly, the following cron job can be used.

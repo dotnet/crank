@@ -176,6 +176,7 @@ namespace Microsoft.Crank.Agent
         private static string _dotnethome;
         private static bool _cleanup = true;
         private static Process perfCollectProcess;
+        private static Task perfCollectTask;
         private static readonly object _synLock = new();
         private static object _consoleLock = new();
         private static MemoryCache _fileContentCache = new(new MemoryCacheOptions { SizeLimit = 10_000_000 });
@@ -1515,6 +1516,7 @@ namespace Microsoft.Crank.Agent
                                 // Stop Perfview
                                 if (job.Collect || job.Profile && job.ProfileType == Job.PerfViewProfileType)
                                 {
+                                    var traceCollected = true;
                                     if (OperatingSystem == OperatingSystem.Windows)
                                     {
                                         var logFilename = Path.Combine(workingDirectory, "perfview.log");
@@ -1523,9 +1525,10 @@ namespace Microsoft.Crank.Agent
                                     else if (OperatingSystem == OperatingSystem.Linux)
                                     {
                                         await StopPerfcollectAsync(job, perfCollectProcess);
+                                        traceCollected = ValidatePerfcollectTrace(job);
                                     }
 
-                                    Log.Info("Trace collected");
+                                    Log.Info(traceCollected ? "Trace collected" : "Trace collection failed");
                                     Log.Info($"{job.State} -> TraceCollected ({job.Service}:{job.Id})");
                                     job.State = JobState.TraceCollected;
                                 }
@@ -2072,39 +2075,106 @@ namespace Microsoft.Crank.Agent
             return success;
         }
 
-        private static Process RunPerfcollect(string arguments, string workingDirectory)
+        private static void RunPerfcollect(Job job, string arguments, string workingDirectory)
         {
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
                 Log.Info($"PerfCollect is only supported on Linux");
-                return null;
+                return;
             }
 
+            (perfCollectProcess, perfCollectTask) = StartPerfcollectProcess(job, new ProcessStartInfo
+            {
+                FileName = "perfcollect",
+                Arguments = arguments,
+                WorkingDirectory = workingDirectory,
+            });
+        }
+
+        internal static (Process process, Task completion) StartPerfcollectProcess(Job job, ProcessStartInfo startInfo)
+        {
+            startInfo.RedirectStandardOutput = true;
+            startInfo.RedirectStandardError = true;
+            startInfo.UseShellExecute = false;
+
+            var output = new StringBuilder();
             var process = new Process()
             {
-                StartInfo = {
-                    FileName = "perfcollect",
-                    Arguments = arguments,
-                    WorkingDirectory = workingDirectory,
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                }
+                StartInfo = startInfo
             };
 
-            process.OutputDataReceived += (_, e) =>
+            void CaptureOutput(string data)
             {
-                if (e != null && e.Data != null)
+                if (data == null)
                 {
-                    Log.Info(e.Data);
+                    return;
                 }
-            };
 
-            process.Start();
+                Log.Info(data);
+                lock (output)
+                {
+                    output.AppendLine(data);
+                    const int maxOutputLength = 16 * 1024;
+                    if (output.Length > maxOutputLength)
+                    {
+                        output.Remove(0, output.Length - maxOutputLength);
+                    }
+                }
+            }
+
+            process.OutputDataReceived += (_, e) => CaptureOutput(e.Data);
+            process.ErrorDataReceived += (_, e) => CaptureOutput(e.Data);
+
+            try
+            {
+                process.Start();
+            }
+            catch (System.ComponentModel.Win32Exception ex)
+            {
+                RecordPerfcollectError(job, $"Failed to start perfcollect: {ex.Message}");
+                process.Dispose();
+                return (null, Task.CompletedTask);
+            }
+
             process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
 
             Log.Info($"Perfcollect started [{process.Id}]");
 
-            return process;
+            return (process, ObserveExitAsync());
+
+            async Task ObserveExitAsync()
+            {
+                // WaitForExitAsync also drains the redirected streams before reporting failure.
+                await process.WaitForExitAsync();
+                if (process.ExitCode != 0)
+                {
+                    string diagnostics;
+                    lock (output)
+                    {
+                        diagnostics = output.ToString().Trim();
+                    }
+
+                    RecordPerfcollectError(job, $"Perfcollect failed with exit code {process.ExitCode}.{Environment.NewLine}{diagnostics}");
+                }
+            }
+        }
+
+        private static void RecordPerfcollectError(Job job, string error)
+        {
+            Log.Error(error);
+            job.Error = string.IsNullOrEmpty(job.Error) ? error : job.Error + Environment.NewLine + error;
+        }
+
+        internal static bool ValidatePerfcollectTrace(Job job)
+        {
+            if (File.Exists(job.PerfViewTraceFile) && new FileInfo(job.PerfViewTraceFile).Length > 0)
+            {
+                return true;
+            }
+
+            RecordPerfcollectError(job, "Perfcollect did not produce a non-empty trace file.");
+            return false;
         }
 
         private static async Task StopPerfcollectAsync(Job job, Process perfCollectProcess)
@@ -2115,66 +2185,43 @@ namespace Microsoft.Crank.Agent
                 return;
             }
 
-            if (perfCollectProcess == null || perfCollectProcess.HasExited)
+            if (perfCollectProcess == null)
             {
                 Log.Info($"PerfCollect is not running");
                 return;
             }
 
-            var processId = perfCollectProcess.Id;
-
-            Log.Info($"Stopping PerfCollect");
-
-            Mono.Unix.Native.Syscall.kill(processId, Mono.Unix.Native.Signum.SIGINT);
-
-            // Max delay for perfcollect to stop
-            var collectTimeout = job.CollectTimeout > TimeSpan.Zero
-                ? job.CollectTimeout
-                : CollectTimeout
-                ;
-
-            var delay = Task.Delay(collectTimeout);
-
-            while (!perfCollectProcess.HasExited && !delay.IsCompletedSuccessfully)
+            try
             {
-                await Task.Delay(1000);
-            }
-
-            if (!perfCollectProcess.HasExited)
-            {
-                Log.Info($"PerfCollect exceeded allowed time, stopping ...");
-                perfCollectProcess.CloseMainWindow();
-
                 if (!perfCollectProcess.HasExited)
                 {
-                    perfCollectProcess.Kill();
+                    Log.Info($"Stopping PerfCollect");
+
+                    Mono.Unix.Native.Syscall.kill(perfCollectProcess.Id, Mono.Unix.Native.Signum.SIGINT);
+
+                    var collectTimeout = job.CollectTimeout > TimeSpan.Zero
+                        ? job.CollectTimeout
+                        : CollectTimeout;
+
+                    if (await Task.WhenAny(perfCollectTask, Task.Delay(collectTimeout)) != perfCollectTask)
+                    {
+                        Log.Info($"PerfCollect exceeded allowed time, stopping ...");
+                        if (!perfCollectProcess.HasExited)
+                        {
+                            perfCollectProcess.Kill(entireProcessTree: true);
+                        }
+                    }
                 }
 
-                perfCollectProcess.Dispose();
-
-                do
-                {
-                    Log.Info($"Waiting for process {processId} to stop ...");
-
-                    await Task.Delay(1000);
-
-                    try
-                    {
-                        perfCollectProcess = Process.GetProcessById(processId);
-                        perfCollectProcess.Refresh();
-                    }
-                    catch
-                    {
-                        perfCollectProcess = null;
-                    }
-
-                } while (perfCollectProcess != null && !perfCollectProcess.HasExited);
+                await perfCollectTask;
+                Log.Info($"PerfCollect process has stopped");
             }
-
-            Log.Info($"PerfCollect process has stopped");
-
-            perfCollectProcess = null;
-
+            finally
+            {
+                perfCollectProcess.Dispose();
+                Startup.perfCollectProcess = null;
+                perfCollectTask = null;
+            }
         }
 
         private static void ConvertLines(string path)
@@ -5583,7 +5630,7 @@ namespace Microsoft.Crank.Agent
                 }
 
                 job.PerfViewTraceFile = Path.Combine(job.BasePath, "benchmarks.trace.zip");
-                perfCollectProcess = RunPerfcollect(perfviewArguments, workingDirectory);
+                RunPerfcollect(job, perfviewArguments, workingDirectory);
             }
         }
 

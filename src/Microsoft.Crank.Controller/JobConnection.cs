@@ -811,7 +811,19 @@ namespace Microsoft.Crank.Controller
                 }
                 catch (Exception e)
                 {
-                    Log.Write($"The trace was not captured on the server: " + e.ToString());
+                    if (e is HttpRequestException { StatusCode: HttpStatusCode.NotFound })
+                    {
+                        try
+                        {
+                            await TryUpdateJobAsync();
+                        }
+                        catch (HttpRequestException refreshError)
+                        {
+                            Log.Verbose($"Could not retrieve the trace collection error: {refreshError.Message}");
+                        }
+                    }
+
+                    Log.WriteError($"The trace was not captured on the server: " + (String.IsNullOrEmpty(Job.Error) ? e.ToString() : Job.Error));
                 }
                 finally
                 {
