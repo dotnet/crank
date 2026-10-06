@@ -489,9 +489,9 @@ namespace Microsoft.Crank.Agent.Controllers
                 var job = _jobs.Find(id);
                 Log.Info($"Sending {job.PerfViewTraceFile}");
                 
-                if (!System.IO.File.Exists(job.PerfViewTraceFile))
+                if (!System.IO.File.Exists(job.PerfViewTraceFile) || new FileInfo(job.PerfViewTraceFile).Length == 0)
                 {
-                    Log.Info("Trace file doesn't exist");
+                    Log.Info("Trace file doesn't exist or is empty");
                     return NotFound();
                 }
 

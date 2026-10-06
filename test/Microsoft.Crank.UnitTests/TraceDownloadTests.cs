@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -18,13 +19,19 @@ namespace Microsoft.Crank.UnitTests
     public class TraceDownloadTests
     {
         [Theory]
-        [InlineData(false, false)]
-        [InlineData(true, false)]
-        [InlineData(true, true)]
-        public async Task MissingTraceReportsAgentErrorOrHttpFailure(bool refreshFails, bool refreshTimesOut)
+        [InlineData("success")]
+        [InlineData("http-error")]
+        [InlineData("canceled")]
+        [InlineData("not-found")]
+        [InlineData("empty")]
+        [InlineData("invalid-json")]
+        [InlineData("no-error")]
+        [InlineData("hang")]
+        public async Task MissingTraceReportsOnlyFreshAgentErrorOrOriginalHttpFailure(string refreshMode)
         {
-            using var httpClient = new HttpClient(new TraceFailureHandler(refreshFails, refreshTimesOut));
-            var job = new Job { Service = "client", Collect = true };
+            var handler = new TraceFailureHandler(refreshMode);
+            using var httpClient = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
+            var job = new Job { Service = "client", Collect = true, Error = "Stale benchmark error." };
             var connection = new JobConnection(job, new Uri("http://agent.invalid"));
 
             var clientField = typeof(JobConnection).GetField("_httpClient", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -35,6 +42,7 @@ namespace Microsoft.Crank.UnitTests
 
             using var output = new StringWriter();
             var originalOutput = Console.Out;
+            var stopwatch = Stopwatch.StartNew();
             try
             {
                 Console.SetOut(output);
@@ -47,29 +55,57 @@ namespace Microsoft.Crank.UnitTests
             }
 
             Assert.Contains("The trace was not captured on the server:", output.ToString());
-            Assert.Contains(refreshFails ? "404 (Not Found)" : "LTTng not installed.", output.ToString());
-            if (!refreshFails)
+            Assert.DoesNotContain("Stale benchmark error.", output.ToString());
+            Assert.Contains(refreshMode == "success" ? "LTTng not installed." : "404 (Not Found)", output.ToString());
+            if (refreshMode == "success")
             {
                 Assert.DoesNotContain("404 (Not Found)", output.ToString());
                 Assert.Contains("LTTng not installed.", connection.Job.Error);
             }
+            if (refreshMode == "hang")
+            {
+                Assert.True(handler.RefreshCanceled);
+                Assert.InRange(stopwatch.Elapsed, TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(9));
+            }
         }
 
-        private sealed class TraceFailureHandler(bool refreshFails, bool refreshTimesOut) : HttpMessageHandler
+        private sealed class TraceFailureHandler(string refreshMode) : HttpMessageHandler
         {
+            public bool RefreshCanceled { get; private set; }
+
             protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             {
                 var path = request.RequestUri.AbsolutePath;
                 if (path == "/jobs/1")
                 {
-                    if (refreshTimesOut)
+                    if (refreshMode == "hang")
+                    {
+                        return WaitForCancellationAsync(cancellationToken);
+                    }
+                    if (refreshMode == "canceled")
                     {
                         throw new TaskCanceledException("Agent refresh timed out.");
                     }
 
-                    if (refreshFails)
+                    if (refreshMode == "http-error")
                     {
                         throw new HttpRequestException("Agent unavailable.");
+                    }
+                    if (refreshMode == "not-found")
+                    {
+                        return Respond(HttpStatusCode.NotFound, "");
+                    }
+                    if (refreshMode == "empty")
+                    {
+                        return Respond(HttpStatusCode.OK, "");
+                    }
+                    if (refreshMode == "invalid-json")
+                    {
+                        return Respond(HttpStatusCode.OK, "invalid job JSON");
+                    }
+                    if (refreshMode == "no-error")
+                    {
+                        return Respond(HttpStatusCode.OK, "{\"Service\":\"client\",\"Collect\":true}");
                     }
 
                     return Respond(HttpStatusCode.OK, "{\"Service\":\"client\",\"Collect\":true,\"Error\":\"Perfcollect failed with exit code 1. LTTng not installed.\"}");
@@ -96,6 +132,20 @@ namespace Microsoft.Crank.UnitTests
 
             private static Task<HttpResponseMessage> Respond(HttpStatusCode status, string content)
                 => Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(content) });
+
+            private async Task<HttpResponseMessage> WaitForCancellationAsync(CancellationToken cancellationToken)
+            {
+                try
+                {
+                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                    throw new InvalidOperationException("The job refresh was not canceled.");
+                }
+                catch (OperationCanceledException)
+                {
+                    RefreshCanceled = true;
+                    throw;
+                }
+            }
         }
     }
 }

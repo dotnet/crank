@@ -25,7 +25,7 @@ namespace Microsoft.Crank.UnitTests
             var (process, completion) = Startup.StartPerfcollectProcess(job, startInfo);
             using (process)
             {
-                await completion.WaitAsync(TimeSpan.FromSeconds(10));
+                Assert.False(await completion.WaitAsync(TimeSpan.FromSeconds(10)));
             }
 
             Assert.StartsWith("Existing job error.", job.Error);
@@ -45,7 +45,7 @@ namespace Microsoft.Crank.UnitTests
             var (process, completion) = Startup.StartPerfcollectProcess(job, startInfo);
             using (process)
             {
-                await completion.WaitAsync(TimeSpan.FromSeconds(10));
+                Assert.False(await completion.WaitAsync(TimeSpan.FromSeconds(10)));
             }
 
             Assert.StartsWith("Perfcollect failed with exit code 1.", job.Error);
@@ -61,7 +61,7 @@ namespace Microsoft.Crank.UnitTests
                 CreateStartInfo("echo Collection finished. & exit /b 0", "echo 'Collection finished.'; exit 0"));
             using (process)
             {
-                await completion.WaitAsync(TimeSpan.FromSeconds(10));
+                Assert.True(await completion.WaitAsync(TimeSpan.FromSeconds(10)));
             }
 
             Assert.Null(job.Error);
@@ -71,12 +71,14 @@ namespace Microsoft.Crank.UnitTests
         public async Task MissingExecutableSetsJobError()
         {
             var job = new Job();
-            var (process, completion) = Startup.StartPerfcollectProcess(job,
+            var context = new JobContext { Job = job };
+            (context.PerfCollectProcess, context.PerfCollectTask) = Startup.StartPerfcollectProcess(job,
                 new ProcessStartInfo(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "perfcollect")));
 
-            await completion;
+            Assert.Null(context.PerfCollectProcess);
+            Assert.False(await Startup.StopPerfcollectAsync(context));
 
-            Assert.Null(process);
+            Assert.Null(context.PerfCollectTask);
             Assert.Contains("Failed to start perfcollect:", job.Error);
         }
 
@@ -95,7 +97,7 @@ namespace Microsoft.Crank.UnitTests
 
                 var job = new Job { PerfViewTraceFile = tracePath, Error = "LTTng not installed." };
 
-                Assert.False(Startup.ValidatePerfcollectTrace(job));
+                Assert.False(Startup.ValidatePerfcollectTrace(job, collectionSucceeded: false));
                 Assert.StartsWith("LTTng not installed.", job.Error);
                 Assert.Contains("Perfcollect did not produce a non-empty trace file.", job.Error);
             }
@@ -110,7 +112,7 @@ namespace Microsoft.Crank.UnitTests
         {
             var job = new Job();
 
-            Assert.False(Startup.ValidatePerfcollectTrace(job));
+            Assert.False(Startup.ValidatePerfcollectTrace(job, collectionSucceeded: false));
             Assert.Contains("Perfcollect did not produce a non-empty trace file.", job.Error);
         }
 
@@ -123,12 +125,85 @@ namespace Microsoft.Crank.UnitTests
                 File.WriteAllText(tracePath, "trace");
                 var job = new Job { PerfViewTraceFile = tracePath };
 
-                Assert.True(Startup.ValidatePerfcollectTrace(job));
+                Assert.True(Startup.ValidatePerfcollectTrace(job, collectionSucceeded: true));
                 Assert.Null(job.Error);
             }
             finally
             {
                 File.Delete(tracePath);
+            }
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        public async Task TraceSuccessRequiresSuccessfulCollectorExit(int exitCode)
+        {
+            var tracePath = Path.GetTempFileName();
+            var context = new JobContext { Job = new Job { PerfViewTraceFile = tracePath, Error = "Existing benchmark error." } };
+            try
+            {
+                File.WriteAllText(tracePath, "partial or complete trace");
+                (context.PerfCollectProcess, context.PerfCollectTask) = Startup.StartPerfcollectProcess(context.Job,
+                    CreateStartInfo($"exit /b {exitCode}", $"exit {exitCode}"));
+                await context.PerfCollectTask.WaitAsync(TimeSpan.FromSeconds(10));
+
+                var collectionSucceeded = await Startup.StopPerfcollectAsync(context);
+
+                Assert.Equal(exitCode == 0, Startup.ValidatePerfcollectTrace(context.Job, collectionSucceeded));
+                Assert.Null(context.PerfCollectProcess);
+                Assert.Null(context.PerfCollectTask);
+                Assert.True(File.Exists(tracePath));
+                if (exitCode != 0)
+                {
+                    Assert.Contains("Perfcollect failed with exit code 1.", context.Job.Error);
+                }
+                else
+                {
+                    Assert.Equal("Existing benchmark error.", context.Job.Error);
+                }
+            }
+            finally
+            {
+                context.PerfCollectProcess?.Dispose();
+                File.Delete(tracePath);
+            }
+        }
+
+        [Fact]
+        public async Task StoppingOneJobDoesNotStopOrDisposeAnotherJobsCollector()
+        {
+            var first = new JobContext { Job = new Job { Service = "first" } };
+            var second = new JobContext { Job = new Job { Service = "second" } };
+            (first.PerfCollectProcess, first.PerfCollectTask) = Startup.StartPerfcollectProcess(first.Job,
+                CreateStartInfo("exit /b 1", "exit 1"));
+            (second.PerfCollectProcess, second.PerfCollectTask) = Startup.StartPerfcollectProcess(second.Job,
+                CreateStartInfo("ping -n 30 127.0.0.1 >nul & exit /b 0", "sleep 30; exit 0"));
+            var secondProcess = second.PerfCollectProcess;
+            var secondTask = second.PerfCollectTask;
+            try
+            {
+                await first.PerfCollectTask.WaitAsync(TimeSpan.FromSeconds(10));
+
+                Assert.False(await Startup.StopPerfcollectAsync(first));
+
+                Assert.Null(first.PerfCollectProcess);
+                Assert.Null(first.PerfCollectTask);
+                Assert.Same(secondProcess, second.PerfCollectProcess);
+                Assert.Same(secondTask, second.PerfCollectTask);
+                Assert.False(secondProcess.HasExited);
+                Assert.False(secondTask.IsCompleted);
+                Assert.Null(second.Job.Error);
+            }
+            finally
+            {
+                first.PerfCollectProcess?.Dispose();
+                if (!secondProcess.HasExited)
+                {
+                    secondProcess.Kill(entireProcessTree: true);
+                }
+                await secondTask.WaitAsync(TimeSpan.FromSeconds(10));
+                await Startup.StopPerfcollectAsync(second);
             }
         }
 
