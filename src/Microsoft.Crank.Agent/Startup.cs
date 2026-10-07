@@ -2245,7 +2245,19 @@ namespace Microsoft.Crank.Agent
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            var requireBuild = !reuseFolder || !job.NoBuild;
+            var imageExists = false;
+
+            if (reuseFolder && job.NoBuild)
+            {
+                imageExists = await DockerImageExistsAsync(imageName, cancellationToken);
+
+                if (!imageExists)
+                {
+                    Log.Warning($"Cached build folder found, but Docker image '{imageName}' is missing. Rebuilding image.");
+                }
+            }
+
+            var requireBuild = !reuseFolder || !job.NoBuild || !imageExists;
 
             if (!requireBuild)
             {
@@ -2570,6 +2582,19 @@ namespace Microsoft.Crank.Agent
             }
 
             return (containerId, imageName, workingDirectory);
+        }
+
+        private static async Task<bool> DockerImageExistsAsync(string imageName, CancellationToken cancellationToken)
+        {
+            var result = await ProcessUtil.RunAsync(
+                "docker",
+                ["image", "inspect", imageName],
+                throwOnError: false,
+                captureOutput: true,
+                captureError: true,
+                cancellationToken: cancellationToken);
+
+            return result.ExitCode == 0;
         }
 
         private static async Task<bool> RetrieveSourcesAsync(Job job, string path)
