@@ -2257,7 +2257,7 @@ namespace Microsoft.Crank.Agent
                 }
             }
 
-            var requireBuild = !reuseFolder || !job.NoBuild || !imageExists;
+            var requireBuild = RequiresDockerBuild(reuseFolder, job.NoBuild, imageExists);
 
             if (!requireBuild)
             {
@@ -2582,6 +2582,11 @@ namespace Microsoft.Crank.Agent
             }
 
             return (containerId, imageName, workingDirectory);
+        }
+
+        internal static bool RequiresDockerBuild(bool reuseFolder, bool noBuild, bool imageExists)
+        {
+            return !reuseFolder || !noBuild || !imageExists;
         }
 
         private static async Task<bool> DockerImageExistsAsync(string imageName, CancellationToken cancellationToken)
