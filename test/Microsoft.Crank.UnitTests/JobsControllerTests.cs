@@ -263,6 +263,42 @@ namespace Microsoft.Crank.UnitTests
             Assert.IsType<BadRequestObjectResult>(result);
         }
 
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("trace")]
+        public void TraceRejectsMissingOrEmptyFilesAndPreservesNonEmptyDownloads(string content)
+        {
+            var tracePath = Path.Combine(Path.GetTempPath(), System.Guid.NewGuid().ToString("N") + ".trace.zip");
+            try
+            {
+                if (content != null)
+                {
+                    File.WriteAllText(tracePath, content);
+                }
+
+                var jobs = new JobsRepository();
+                jobs.Add(new Job { Id = 1, PerfViewTraceFile = tracePath });
+                var controller = new JobsController(jobs);
+
+                var result = controller.Trace(1);
+
+                if (string.IsNullOrEmpty(content))
+                {
+                    Assert.IsType<NotFoundResult>(result);
+                }
+                else
+                {
+                    Assert.Equal(tracePath, Assert.IsType<GZipFileResult>(result).FileName);
+                }
+                Assert.Equal(content != null, File.Exists(tracePath));
+            }
+            finally
+            {
+                File.Delete(tracePath);
+            }
+        }
+
         private class JobsRepository : IJobRepository
         {
             private readonly Dictionary<int, Job> _jobs = new();

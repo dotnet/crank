@@ -529,11 +529,11 @@ namespace Microsoft.Crank.Controller
         /// <summary>
         /// Downloads the whole job including the measurements.
         /// </summary>
-        public async Task<bool> TryUpdateJobAsync()
+        public async Task<bool> TryUpdateJobAsync(CancellationToken cancellationToken = default)
         {
             Log.Verbose($"GET {_serverJobUri}...");
-            var response = await _httpClient.GetAsync(_serverJobUri);
-            var responseContent = await response.Content.ReadAsStringAsync();
+            using var response = await _httpClient.GetAsync(_serverJobUri, cancellationToken);
+            var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
 
             Log.Verbose($"{(int)response.StatusCode} {response.StatusCode} {responseContent}");
 
@@ -811,7 +811,24 @@ namespace Microsoft.Crank.Controller
                 }
                 catch (Exception e)
                 {
-                    Log.Write($"The trace was not captured on the server: " + e.ToString());
+                    var traceError = e.ToString();
+                    if (e is HttpRequestException { StatusCode: HttpStatusCode.NotFound })
+                    {
+                        try
+                        {
+                            using var refreshTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                            if (await TryUpdateJobAsync(refreshTimeout.Token) && !String.IsNullOrEmpty(Job.Error))
+                            {
+                                traceError = Job.Error;
+                            }
+                        }
+                        catch (Exception refreshError) when (refreshError is HttpRequestException or OperationCanceledException)
+                        {
+                            Log.Verbose($"Could not retrieve the trace collection error: {refreshError.Message}");
+                        }
+                    }
+
+                    Log.WriteError($"The trace was not captured on the server: " + traceError);
                 }
                 finally
                 {
