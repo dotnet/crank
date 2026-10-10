@@ -3,9 +3,11 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using MessagePack;
 using MessagePack.Resolvers;
-using Microsoft.Azure.Relay;
+using Microsoft.Crank.Agent;
 using Microsoft.Crank.Models.Security;
 using Microsoft.Crank.RegressionBot.Models;
 using Microsoft.Data.SqlClient;
@@ -16,12 +18,12 @@ namespace Microsoft.Crank.UnitTests
     public class DependencyCompatibilityTests
     {
         [Fact]
-        public void RelayRetainsConstructorRequiredByAspNetCoreAdapter()
+        public async Task OwnedRelayAdapterConstructsThePublishedSdkListener()
         {
-            // The precompiled adapter needs this exact signature, not an overload with an optional third argument.
-            var constructor = typeof(HybridConnectionListener).GetConstructor([typeof(Uri), typeof(TokenProvider)]);
-
-            Assert.NotNull(constructor);
+            var listener = new RelayListenerFactory().Create(new RelayServerOptions(
+                "Endpoint=sb://unused.invalid/;EntityPath=test;" +
+                "SharedAccessKeyName=test;SharedAccessKey=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="));
+            await listener.CloseAsync(CancellationToken.None);
         }
 
         [Theory]

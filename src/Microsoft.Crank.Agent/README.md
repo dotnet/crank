@@ -26,6 +26,96 @@ Options:
   --service              Enables Crank.Agent to run as a windows service
 ```
 
+## Azure Relay hosting
+
+The agent uses a Crank-owned ASP.NET Core `IServer` adapter over
+`Microsoft.Azure.Relay` 3.1.1. It no longer loads the archived
+`Microsoft.Azure.Relay.AspNetCore` package. Publish/redeploy the complete agent;
+replacing individual SDK DLLs is not a supported upgrade.
+
+| Options | Transport | Address exported to benchmark jobs |
+| --- | --- | --- |
+| No `--relay` | Kestrel HTTP, unchanged | Bound HTTP address (`--url`) |
+| `--relay` | Relay only; no local listening socket or loopback proxy | Public `https://<namespace>/<entity>` |
+| `--relay --relay-enable-http` | Relay and Kestrel, sharing controllers and the job repository | Bound HTTP address (`--url`) |
+
+The SDK listener uses `sb://`; controllers and the `CRANK_AGENT_URL` /
+`CRANK_JOB_LOCAL_URL` job variables use the addresses above. Wildcard HTTP hosts
+are still normalized to loopback for those variables. The job processor starts
+only after all required listeners start successfully. A failed Relay startup
+rolls back the HTTP listener in combined mode. Shutdown and startup rollback
+initiate both child servers' stops before awaiting their drains.
+
+Existing flags and authentication are unchanged: `--relay` accepts a connection
+string or its environment-variable name, and `--relay-path` overrides
+`EntityPath`. Explicit managed-identity credentials take precedence over
+certificate credentials, then connection-string authentication is used. Token
+acquisition/renewal, reconnects, control WebSockets and rendezvous connections
+remain SDK responsibilities. Never include connection strings or tokens in
+diagnostic reports.
+
+The adapter preserves the entity prefix as `Request.PathBase`. Controller job
+`Location` headers remain `/jobs/{id}`; the Crank controller combines those with
+the entity endpoint. Request bodies do not require `Content-Length`, and gzip
+uploads are passed through unchanged for the existing controllers to decompress.
+The upload decompressor stays alive until the asynchronous transfer completes.
+Uploads and downloads are streamed, not buffered in full. Endpoint request-size
+limits still apply (including the 10,000,000,000-byte upload limits); the default
+is 10 GiB. Requests run independently so an upload does not serialize `/touch`.
+
+### Transport limitations and shutdown
+
+- This is an HTTP adapter, not an upgrade/WebSocket server. SDK connection
+  upgrade requests are explicitly rejected. HTTP trailers are not exposed.
+- Relay removes transport headers, including the original `Host`,
+  `Content-Length`, `Transfer-Encoding`, and hop-by-hop fields. The adapter uses
+  the public Relay host and SDK body-presence information; it cannot recover
+  original wire headers. Application authorization/custom headers are preserved
+  when delivered by the service.
+- The SDK's 64 KiB control-channel threshold is **not** a maximum upload or
+  download size. Larger bodies use rendezvous. `FlushAsync` and
+  `DisableBuffering` cannot force the SDK to flush: small responses may remain
+  buffered until close, overflow or the SDK's approximately two-second timer.
+  `HasStarted` means application headers have been committed, not that the client
+  has already received them. `Response.CompleteAsync()` awaits SDK response close;
+  completion callbacks and registered resource disposal still wait for the
+  application to return.
+- `RequestAborted` observes shutdown and detected stream I/O failures. The SDK
+  exposes no direct per-request client-disconnect token. A disconnected client
+  may not be detected until an I/O operation fails. Service response/idle limits
+  are not a blanket total-transfer timeout.
+- Startup waits are bounded by the connection string's `OperationTimeout` and
+  caller cancellation, including when SDK token acquisition ignores its token.
+  Shutdown does not wait indefinitely for startup. Late SDK open/close operations
+  remain observed, with their cancellation resources retained until completion;
+  a late open cannot reactivate request admission or publish an address.
+- Stop rejects new HTTP work with a completed 503 response, drains admitted
+  applications for up to 30 seconds (or the host's earlier cancellation), then
+  cancels requests and closes the listener. Listener close has a ten-second
+  budget; cancelled requests have a further five-second completion grace period.
+  Public SDK response `CloseAsync()` has no cancellation parameter. An
+  application ignoring cancellation or an outstanding response close can outlive
+  these waits; the agent logs this and continues observing cleanup rather than
+  claiming to have forcibly terminated it.
+
+### Validation
+
+Deterministic tests exercise the production registration and owned server's
+startup with a fake SDK boundary, real Kestrel in combined mode, and the published
+Relay SDK with local token callbacks and in-memory WebSockets. They do not prove
+Azure service compatibility:
+
+```powershell
+dotnet test test\Microsoft.Crank.UnitTests\Microsoft.Crank.UnitTests.csproj --filter "FullyQualifiedName~Relay|FullyQualifiedName~CompositeServerTests"
+dotnet publish src\Microsoft.Crank.Agent\Microsoft.Crank.Agent.csproj --framework net10.0 --configuration Release
+```
+
+Live validation should exercise the existing controller's upload-build-run-download
+lifecycle, authentication renewal, reconnects and interrupted transfers against
+an authorized canary entity. Record these results separately from deterministic
+tests. Use isolated workspaces and never overlap agents on the same entity:
+Relay balances listeners without job affinity, while job state is in memory.
+
 ## Running Crank.Agent as a service
 
 At the moment, only Windows service is supported.

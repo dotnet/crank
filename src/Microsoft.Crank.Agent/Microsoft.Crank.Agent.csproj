@@ -26,7 +26,6 @@
     <PackageReference Include="McMaster.Extensions.CommandLineUtils" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" />
     <PackageReference Include="Microsoft.Azure.Relay" />
-    <PackageReference Include="Microsoft.Azure.Relay.AspNetCore" />
     <PackageReference Include="Mono.Cecil" />
     <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" />
     <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" />
