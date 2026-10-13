@@ -3,9 +3,9 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
-using System.Collections.Generic;
 
 namespace Microsoft.Crank.AzureDevOpsWorker
 {
@@ -54,8 +54,8 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                         throw new InvalidOperationException("Couldn't find beginning of JSON document.");
                     }
                 }
-                while (!char.IsWhiteSpace(str[index + 1]) && str[index + 1] != '\"');                
-                
+                while (!char.IsWhiteSpace(str[index + 1]) && str[index + 1] != '\"');
+
                 str = str.Substring(index);
                 str = str.Substring(0, str.LastIndexOf("}") + 1);
                 var result = JsonSerializer.Deserialize<JobPayload>(str, _serializationOptions);
@@ -64,7 +64,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             }
             catch (Exception e)
             {
-                throw new Exception($"Error while parsing message body: {Convert.ToHexString(data)}", e);
+                throw new JobPayloadParseException(data?.Length ?? 0, e.GetType());
             }
         }
     }

@@ -87,7 +87,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 return false;
             }
         }
-        
+
         public async Task<bool> SendTaskCompletedEventAsync(ResultTypes resultType)
         {
             var taskCompletedEventUrl = $"{PlanUrl}/{ProjectId}/_apis/distributedtask/hubs/{HubName}/plans/{PlanId}/events?api-version=2.0-preview.1";
@@ -99,7 +99,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 jobId = JobId,
                 result = resultType.ToString().ToLowerInvariant()
             };
-            
+
             var requestBody = JsonSerializer.Serialize(body);
 
             try
@@ -119,7 +119,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
                 Console.WriteLine($"SendTaskCompletedEventAsync failed: {taskCompletedEventUrl}");
                 Console.WriteLine(e.ToString());
                 return false;
-            }        
+            }
         }
 
         public async Task<bool> SendTaskLogFeedsAsync(string message)
@@ -137,7 +137,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             try
             {
                 var result = await PostDataAsync(taskLogFeedsUrl, requestBody);
-                
+
                 if (!result.IsSuccessStatusCode)
                 {
                     Console.WriteLine($"SendTaskLogFeedsAsync failed: {result.StatusCode} - {result.Content}");
@@ -195,7 +195,7 @@ namespace Microsoft.Crank.AzureDevOpsWorker
 
             var buffer = Encoding.UTF8.GetBytes(message);
             var byteContent = new ByteArrayContent(buffer);
-                       
+
             try
             {
                 var result = await PostDataAsync(appendLogContentUrl, byteContent);
@@ -252,23 +252,28 @@ namespace Microsoft.Crank.AzureDevOpsWorker
             }
         }
 
-        public async Task<Records> GetRecordsAsync()
+        public async Task<Records> GetRecordsAsync(bool forceRefresh = false)
         {
             // NOTE: There is no API that allows to retrieve a single task details. Only the whole list.
             // So we cache the results to prevent rate limiting.
 
             var getRecordsUrl = $"{PlanUrl}/{ProjectId}/_apis/distributedtask/hubs/{HubName}/plans/{PlanId}/timelines/{TimelineId}/records?api-version=4.1";
-            
+
             try
             {
                 // The application is single-threaded
+
+                if (forceRefresh)
+                {
+                    _memoryCache.Remove(getRecordsUrl);
+                }
 
                 var records = await _memoryCache.GetOrCreateAsync(getRecordsUrl, async entry =>
                 {
                     var result = await GetDataAsync(getRecordsUrl);
 
-                    result.EnsureSuccessStatusCode(); 
-                    
+                    result.EnsureSuccessStatusCode();
+
                     var content = await result.Content.ReadAsStringAsync();
 
                     var records = JsonSerializer.Deserialize<Records>(content, _serializationOptions);
