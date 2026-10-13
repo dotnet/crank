@@ -125,6 +125,7 @@ namespace Microsoft.Crank.Agent
 
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
+        private static readonly HttpClient _benchmarkHttpClient;
 
         // Sources of dotnet-install scripts are in https://github.com/dotnet/install-scripts/
         private static readonly string _dotnetInstallShUrl = "https://dot.net/v1/dotnet-install.sh";
@@ -244,12 +245,17 @@ namespace Microsoft.Crank.Agent
                 throw new InvalidOperationException($"Invalid OSPlatform: {RuntimeInformation.OSDescription}");
             }
 
-            // Configuring the http client to trust the self-signed certificate
             _httpClientHandler = new HttpClientHandler();
-            _httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
             _httpClientHandler.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
 
             _httpClient = new HttpClient(_httpClientHandler);
+
+            // Only benchmark targets may use self-signed certificates, not artifact downloads.
+            _benchmarkHttpClient = new HttpClient(new HttpClientHandler
+            {
+                ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
+                AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
+            });
         }
 
         public void ConfigureServices(IServiceCollection services)
@@ -1874,7 +1880,7 @@ namespace Microsoft.Crank.Agent
                                             try
                                             {
                                                 // Tentatively invoke the shutdown endpoint on the client application
-                                                var response = await _httpClient.GetAsync(new Uri(new Uri(job.Url), "/shutdown"));
+                                                var response = await _benchmarkHttpClient.GetAsync(new Uri(new Uri(job.Url), "/shutdown"));
 
                                                 // Shutdown invoked successfully, wait for the application to stop by itself
                                                 if (response.StatusCode == HttpStatusCode.OK)

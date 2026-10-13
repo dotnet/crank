@@ -35,8 +35,8 @@ namespace Microsoft.Crank.UnitTests
                 Assert.True(loaded.HasPrivateKey);
                 using var loadedKey = loaded.GetRSAPrivateKey();
                 var data = new byte[] { 1, 2, 3 };
-                var signature = loadedKey.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-                Assert.True(key.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1));
+                var signature = loadedKey.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pss);
+                Assert.True(key.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pss));
             }
             finally
             {

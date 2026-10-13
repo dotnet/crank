@@ -40,9 +40,7 @@ namespace Microsoft.Crank.RegressionBot
         
         static Program()
         {
-            // Configuring the http client to trust the self-signed certificate
             _httpClientHandler = new HttpClientHandler();
-            _httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
             _httpClientHandler.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
 
             _httpClient = new HttpClient(_httpClientHandler);

@@ -224,7 +224,7 @@ namespace Microsoft.Crank.UnitTests
         }
 
         [Fact]
-        public async Task Invoke_NonExistentJob_ReturnsStatusCode500()
+        public async Task Invoke_NonExistentJob_ReturnsNotFound()
         {
             var jobRepo = new JobsRepository();
             var jobsController = new JobsController(jobRepo);
@@ -233,10 +233,7 @@ namespace Microsoft.Crank.UnitTests
 
             _output.WriteLine($"Result type: {result.GetType().Name}");
 
-            // When job is null, job.Url will throw NullReferenceException, caught by the catch block
-            Assert.IsType<ObjectResult>(result);
-            var objectResult = result as ObjectResult;
-            Assert.Equal(500, objectResult.StatusCode);
+            Assert.IsType<NotFoundResult>(result);
         }
 
         [Theory]

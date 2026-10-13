@@ -21,15 +21,21 @@ namespace Microsoft.Crank.Jobs.K6
     {
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
+        private static readonly HttpClient _benchmarkHttpClient;
 
         static Program()
         {
-            // Configuring the http client to trust the self-signed certificate
             _httpClientHandler = new HttpClientHandler();
-            _httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
             _httpClientHandler.AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate;
 
             _httpClient = new HttpClient(_httpClientHandler);
+
+            // Only benchmark targets may use self-signed certificates, not artifact downloads.
+            _benchmarkHttpClient = new HttpClient(new HttpClientHandler
+            {
+                ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
+                AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate
+            });
         }
 
         static async Task<int> Main(string[] args)
@@ -322,7 +328,7 @@ namespace Microsoft.Crank.Jobs.K6
 
             try
             {
-                using (var response = await _httpClient.SendAsync(httpMessage, cts.Token))
+                using (var response = await _benchmarkHttpClient.SendAsync(httpMessage, cts.Token))
                 {
                     var elapsed = stopwatch.ElapsedMilliseconds;
                     Console.WriteLine($"{elapsed} ms");

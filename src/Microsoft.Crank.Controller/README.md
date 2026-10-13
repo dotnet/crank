@@ -1,5 +1,22 @@
 # Crank Benchmarks Controller
 
+## Transport security
+
+HTTPS agent endpoints, remote configuration and imports, scripts, archives, and
+other downloaded inputs require valid server certificates. For private HTTPS
+servers, install the appropriate CA in the trust store of the machine or container
+running the controller. This requirement is separate from load generators'
+support for self-signed benchmark targets.
+
+Azure Relay authentication requires an HTTPS endpoint. Relay credentials are
+attached only to requests to the configured agent authority, never to external
+artifact downloads. Agent API redirects are not followed; configure the final
+endpoint URL, including its HTTPS scheme. Plain HTTP agent connections remain
+available without Relay credentials and must be confined to trusted networks.
+
+Only consume configuration and job definitions from trusted sources: they can
+run commands locally and on agents.
+
 ## Usage
 
 ```
@@ -196,4 +213,3 @@ Run 'crank [command] -?|-h|--help' for more information about a command.
   ## Measurements
 
   --[JOB].options.discardResults <true|false>                   Whether to discard all the results from this job, for instance during a warmup job.
-
