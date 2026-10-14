@@ -13,6 +13,9 @@
     <ProjectReference Include="..\..\src\Microsoft.Crank.Agent\Microsoft.Crank.Agent.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Crank.AzureDevOpsWorker\Microsoft.Crank.AzureDevOpsWorker.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Crank.Controller\Microsoft.Crank.Controller.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Crank.Jobs.Bombardier\Microsoft.Crank.Jobs.Bombardier.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Crank.Jobs.HttpClient\Microsoft.Crank.Jobs.HttpClient.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Crank.Jobs.K6\Microsoft.Crank.Jobs.K6.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Crank.PullRequestBot\Microsoft.Crank.PullRequestBot.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Crank.RegressionBot\Microsoft.Crank.RegressionBot.csproj" />
   </ItemGroup>

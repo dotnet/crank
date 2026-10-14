@@ -20,7 +20,8 @@ namespace Microsoft.Crank.Agent.Controllers
     [Route("[controller]")]
     public class JobsController : Controller
     {
-        private static readonly HttpClient _httpClient = new HttpClient();
+        private const int MaxInvokeRedirects = 50;
+        private static readonly HttpClient _httpClient = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false });
 
         private readonly IJobRepository _jobs;
 
@@ -809,30 +810,97 @@ namespace Microsoft.Crank.Agent.Controllers
             {
                 var job = _jobs.Find(id);
 
-                if (!Uri.TryCreate(job.Url, UriKind.Absolute, out var baseUri))
+                if (job == null)
+                {
+                    return NotFound();
+                }
+
+                // Startup replaces the creation URL with the benchmark URL before marking a job as Running.
+                if (job.State != JobState.Running)
+                {
+                    Log.Info($"Invoke rejected, job is {job.State}");
+                    return Conflict($"The job can't be invoked as its state is {job.State}");
+                }
+
+                if (!Uri.TryCreate(job.Url, UriKind.Absolute, out var baseUri) || !IsInvocationUri(baseUri))
                 {
                     Log.Error($"Invalid job URL: '{job.Url}'");
                     return BadRequest("Invalid job configuration.");
                 }
-                var combinedUri = new Uri(baseUri, path);
 
-                // Ensure the resulting URL is still under the same host/port as the base
-                var combinedUriComponents = combinedUri.GetComponents(UriComponents.SchemeAndServer | UriComponents.StrongAuthority, UriFormat.Unescaped);
-                var baseUriComponents = baseUri.GetComponents(UriComponents.SchemeAndServer | UriComponents.StrongAuthority, UriFormat.Unescaped);
-                if (!combinedUriComponents.Equals(baseUriComponents, StringComparison.InvariantCulture))
+                if (string.IsNullOrWhiteSpace(path) || path.Any(char.IsControl)
+                    || !Uri.TryCreate(baseUri, path, out var combinedUri))
                 {
-                    Log.Error($"Trying to access different address. Base: {baseUri.Host}:{baseUri.Port}, Target: {combinedUri.Host}:{combinedUri.Port}");
+                    Log.Error($"Invalid invocation path: '{path}'");
+                    return BadRequest("Invalid invocation path.");
+                }
+
+                if (!HasSameInvocationOrigin(baseUri, combinedUri))
+                {
+                    Log.Error($"Trying to access different address. Base: {baseUri.Scheme}://{baseUri.Authority}, Target: {combinedUri.Scheme}://{combinedUri.Host}:{combinedUri.Port}");
                     return BadRequest("Cannot invoke requests to different hosts.");
                 }
 
-                Log.Info($"Invoking: {combinedUri}");
-                var response = await _httpClient.GetStringAsync(combinedUri);
-                return Content(response);
+                for (var redirects = 0; ; redirects++)
+                {
+                    Log.Info($"Invoking: {combinedUri}");
+                    using var response = await _httpClient.GetAsync(combinedUri);
+
+                    if (response.StatusCode == HttpStatusCode.MovedPermanently
+                        || response.StatusCode == HttpStatusCode.Found
+                        || response.StatusCode == HttpStatusCode.SeeOther
+                        || response.StatusCode == HttpStatusCode.TemporaryRedirect
+                        || response.StatusCode == HttpStatusCode.PermanentRedirect)
+                    {
+                        if (redirects >= MaxInvokeRedirects)
+                        {
+                            Log.Error($"Too many invocation redirects for job '{id}'");
+                            return BadRequest("Too many invocation redirects.");
+                        }
+
+                        var location = response.Headers.Location;
+                        if (location == null || string.IsNullOrWhiteSpace(location.OriginalString)
+                            || location.OriginalString.Any(char.IsControl)
+                            || !Uri.TryCreate(combinedUri, location, out var redirectUri))
+                        {
+                            Log.Error($"Invalid invocation redirect location for job '{id}'");
+                            return BadRequest("Invalid invocation redirect location.");
+                        }
+
+                        if (!HasSameInvocationOrigin(baseUri, redirectUri))
+                        {
+                            Log.Error($"Trying to redirect to different address. Base: {baseUri.Scheme}://{baseUri.Authority}, Target: {redirectUri.Scheme}://{redirectUri.Host}:{redirectUri.Port}");
+                            return BadRequest("Cannot invoke requests to different hosts.");
+                        }
+
+                        combinedUri = redirectUri;
+                        continue;
+                    }
+
+                    response.EnsureSuccessStatusCode();
+                    return Content(await response.Content.ReadAsStringAsync());
+                }
             }
             catch (Exception e)
             {
+                Log.Error(e, $"Error while invoking job '{id}'");
                 return StatusCode(500, e.ToString());
             }
+        }
+
+        private static bool IsInvocationUri(Uri uri)
+        {
+            return uri.IsAbsoluteUri
+                && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+                && !uri.GetComponents(UriComponents.StrongAuthority, UriFormat.UriEscaped).Contains('@');
+        }
+
+        private static bool HasSameInvocationOrigin(Uri baseUri, Uri targetUri)
+        {
+            return IsInvocationUri(targetUri)
+                && string.Equals(baseUri.Scheme, targetUri.Scheme, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(baseUri.IdnHost, targetUri.IdnHost, StringComparison.OrdinalIgnoreCase)
+                && baseUri.Port == targetUri.Port;
         }
 
         [HttpGet("services/{service}")]

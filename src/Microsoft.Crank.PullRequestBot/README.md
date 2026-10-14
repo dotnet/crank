@@ -49,6 +49,11 @@ dotnet run --config .\sample.config.yml --repository https://github.com/sebastie
 
 Security:
 
+Remote HTTPS configuration must use a valid server certificate. Install private
+CA certificates in the bot's platform trust store if needed. Configuration can
+define build scripts executed under the bot identity, so only use trusted
+configuration sources.
+
 All arguments can be provided from an environment variable by prefixing the value with `env:`.
 
 ```

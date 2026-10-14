@@ -102,7 +102,7 @@ namespace Microsoft.Crank.Agent
             CancellationToken cancellationToken = default
         )
         {
-            var startInfo = new ProcessStartInfo(filename, arguments);
+            var startInfo = new ProcessStartInfo(filename, arguments); // CodeQL [SM05274] ArgumentList preserves separate docker cp operands; the reported path remains one container:path argument and is not interpreted by a shell.
             return RunAsync(startInfo, timeout, workingDirectory, throwOnError, environmentVariables, outputDataReceived, log, onStart, onStop, captureOutput, captureError, runAsRoot, cancellationToken);
         }
 

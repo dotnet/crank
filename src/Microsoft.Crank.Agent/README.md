@@ -26,6 +26,24 @@ Options:
   --service              Enables Crank.Agent to run as a windows service
 ```
 
+## Security
+
+The agent accepts trusted job definitions that can execute arbitrary programs and
+scripts. Do not expose its HTTP API to untrusted callers. Use authenticated Azure
+Relay or restrict access through your network and an authenticated reverse proxy.
+Enabling `--relay-enable-http` also exposes the ordinary HTTP API; protect it
+separately.
+
+HTTPS downloads of SDKs, installer scripts, tools, and other artifacts validate
+server certificates using platform trust. Install your private CA in the trust
+store of the machine or container performing the download rather than disabling
+validation. Self-signed benchmark targets remain supported for the agent's
+benchmark shutdown requests, separately from artifact downloads.
+
+The `/jobs/{id}/invoke` endpoint is available only for running benchmark jobs.
+Requests and redirects must remain on the benchmark target's scheme, host, and
+port. Private benchmark addresses are supported.
+
 ## Running Crank.Agent as a service
 
 At the moment, only Windows service is supported.

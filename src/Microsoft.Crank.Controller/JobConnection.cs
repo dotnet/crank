@@ -25,6 +25,14 @@ namespace Microsoft.Crank.Controller
         readonly HttpClient _httpClient;
         readonly HttpClientHandler _httpClientHandler;
 
+        static readonly HttpClient _downloadHttpClient = new HttpClient(new HttpClientHandler
+        {
+            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
+        })
+        {
+            Timeout = Timeout.InfiniteTimeSpan
+        };
+
         static List<string> _temporaryFolders = new List<string>();
 
         private static string _filecache = null;
@@ -51,7 +59,7 @@ namespace Microsoft.Crank.Controller
         public JobConnection(Job definition, Uri serverUri)
         {
             _httpClientHandler = new HttpClientHandler();
-            _httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+            _httpClientHandler.AllowAutoRedirect = false;
             _httpClientHandler.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
 
             _httpClient = new HttpClient(_httpClientHandler);
@@ -63,6 +71,13 @@ namespace Microsoft.Crank.Controller
 
         public void ConfigureRelay(string token)
         {
+            if (_serverUri.Scheme != Uri.UriSchemeHttps)
+            {
+                throw new InvalidOperationException("Azure Relay authentication requires an HTTPS agent endpoint.");
+            }
+
+            ArgumentException.ThrowIfNullOrEmpty(token);
+            _httpClient.DefaultRequestHeaders.Remove("ServiceBusAuthorization");
             _httpClient.DefaultRequestHeaders.Add("ServiceBusAuthorization", token);
         }
 
@@ -426,7 +441,7 @@ namespace Microsoft.Crank.Controller
 
                 Log.Write($"Downloading build file from '{downloadFiles}' to '{downDestination}'");
 
-                await _httpClient.DownloadFileAsync(downloadFiles, _serverJobUri, downDestination);
+                await _downloadHttpClient.DownloadFileAsync(downloadFiles, _serverJobUri, downDestination);
 
                 if (buildFileSegments.Length > 1)
                 {
@@ -1106,7 +1121,7 @@ namespace Microsoft.Crank.Controller
                 {
                     using var fileStream = 
                         uploadFilename.StartsWith("http", StringComparison.OrdinalIgnoreCase)
-                        ? await _httpClient.GetStreamAsync(uploadFilename)
+                        ? await _downloadHttpClient.GetStreamAsync(uploadFilename)
                         : new FileStream(uploadFilename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 1, FileOptions.Asynchronous | FileOptions.SequentialScan)
                         ;
 
@@ -1183,7 +1198,7 @@ namespace Microsoft.Crank.Controller
 
             if (!File.Exists(filehashname))
             {
-                await _httpClient.DownloadFileAsync(uri, _serverJobUri, filehashname);
+                await _downloadHttpClient.DownloadFileAsync(uri, _serverJobUri, filehashname);
             }
 
             return filehashname;

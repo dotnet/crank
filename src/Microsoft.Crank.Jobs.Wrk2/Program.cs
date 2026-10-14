@@ -382,7 +382,7 @@ namespace Microsoft.Crank.Jobs.Wrk2
 
             // Configuring the http client to trust the self-signed certificate
             var httpClientHandler = new HttpClientHandler();
-            httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+            httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator; // CodeQL [SM02184] Intentional self-signed benchmark support for first-request timing only; artifact downloads use normal TLS validation.
             httpClientHandler.MaxConnectionsPerServer = 1;
             
             using (var httpClient = new HttpClient(httpClientHandler))

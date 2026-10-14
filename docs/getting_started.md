@@ -92,6 +92,18 @@ Agent ready, waiting for jobs...
 
 At that point the agent is ready to accept jobs locally on the port `5010`.
 
+### Secure agents and downloads
+
+Crank agents execute trusted jobs and must not be accessible to untrusted
+callers. Use authenticated Azure Relay or an appropriately protected network and
+reverse proxy; see the [agent security guidance](../src/Microsoft.Crank.Agent/README.md#security).
+
+HTTPS downloads of configuration, executable tools, scripts, and client
+certificates validate server identity. Private publishers must use certificates
+trusted by the machine or container performing the download. These trusted
+downloads are separate from intentional self-signed benchmark traffic. See the
+[controller transport guidance](../src/Microsoft.Crank.Controller/README.md#transport-security).
+
 ## Run a scenario using the controller
 
 The scenario definitions file is already created and available.
