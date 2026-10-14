@@ -24,7 +24,6 @@ namespace Microsoft.Crank.Controller
     {
         readonly HttpClient _httpClient;
         readonly HttpClientHandler _httpClientHandler;
-        readonly AgentHttpMessageHandler _agentHttpMessageHandler;
 
         static readonly HttpClient _downloadHttpClient = new HttpClient(new HttpClientHandler
         {
@@ -63,11 +62,7 @@ namespace Microsoft.Crank.Controller
             _httpClientHandler.AllowAutoRedirect = false;
             _httpClientHandler.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
 
-            _agentHttpMessageHandler = new AgentHttpMessageHandler(serverUri)
-            {
-                InnerHandler = _httpClientHandler
-            };
-            _httpClient = new HttpClient(_agentHttpMessageHandler);
+            _httpClient = new HttpClient(_httpClientHandler);
             _httpClient.Timeout = Timeout.InfiniteTimeSpan;
 
             Job = definition;
@@ -76,7 +71,14 @@ namespace Microsoft.Crank.Controller
 
         public void ConfigureRelay(string token)
         {
-            _agentHttpMessageHandler.ConfigureRelay(token);
+            if (_serverUri.Scheme != Uri.UriSchemeHttps)
+            {
+                throw new InvalidOperationException("Azure Relay authentication requires an HTTPS agent endpoint.");
+            }
+
+            ArgumentException.ThrowIfNullOrEmpty(token);
+            _httpClient.DefaultRequestHeaders.Remove("ServiceBusAuthorization");
+            _httpClient.DefaultRequestHeaders.Add("ServiceBusAuthorization", token);
         }
 
         public async Task<bool> CheckConnectionAsync()

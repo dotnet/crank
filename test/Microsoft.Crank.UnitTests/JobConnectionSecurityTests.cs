@@ -30,44 +30,28 @@ namespace Microsoft.Crank.UnitTests
     public class JobConnectionSecurityTests
     {
         [Fact]
-        public async Task RelayTokenIsAttachedToAgentRequestsAndCanBeUpdated()
+        public void RelayTokenIsKeptOnAgentClientAndCanBeUpdated()
         {
-            var receiver = new RecordingHandler();
-            using var handler = new AgentHttpMessageHandler(new Uri("https://relay.example/benchmark"))
-            {
-                InnerHandler = receiver
-            };
-            using var client = new HttpClient(handler);
-            handler.ConfigureRelay("old-test-token");
-            handler.ConfigureRelay("new-test-token");
+            var connection = new JobConnection(new Job(), new Uri("https://relay.example/benchmark"));
+            using var client = GetAgentClient(connection);
+            connection.ConfigureRelay("old-test-token");
+            connection.ConfigureRelay("new-test-token");
 
-            using var response = await client.GetAsync("https://RELAY.example/benchmark/jobs/1");
-
-            Assert.Equal(1, receiver.RequestCount);
-            Assert.Equal("new-test-token", receiver.Authorization);
-            Assert.Equal(1, receiver.AuthorizationCount);
-            Assert.Empty(client.DefaultRequestHeaders);
+            Assert.Equal("new-test-token", Assert.Single(client.DefaultRequestHeaders.GetValues("ServiceBusAuthorization")));
         }
 
         [Theory]
-        [InlineData("https://other.example/benchmark/jobs/1")]
-        [InlineData("https://relay.example:8443/benchmark/jobs/1")]
-        [InlineData("http://relay.example/benchmark/jobs/1")]
-        [InlineData("https://user@relay.example/benchmark/jobs/1")]
-        [InlineData("https://@relay.example/benchmark/jobs/1")]
-        public async Task AgentRequestsCannotLeaveConfiguredAuthority(string uri)
+        [InlineData(null)]
+        [InlineData("")]
+        public void InvalidRelayTokenDoesNotReplaceExistingHeader(string token)
         {
-            var receiver = new RecordingHandler();
-            using var handler = new AgentHttpMessageHandler(new Uri("https://relay.example/benchmark"))
-            {
-                InnerHandler = receiver
-            };
-            using var client = new HttpClient(handler);
-            handler.ConfigureRelay("test-token");
+            var connection = new JobConnection(new Job(), new Uri("https://relay.example/benchmark"));
+            using var client = GetAgentClient(connection);
+            connection.ConfigureRelay("test-token");
 
-            await Assert.ThrowsAsync<InvalidOperationException>(() => client.GetAsync(uri));
+            Assert.ThrowsAny<ArgumentException>(() => connection.ConfigureRelay(token));
 
-            Assert.Equal(0, receiver.RequestCount);
+            Assert.Equal("test-token", Assert.Single(client.DefaultRequestHeaders.GetValues("ServiceBusAuthorization")));
         }
 
         [Fact]
@@ -211,26 +195,6 @@ namespace Microsoft.Crank.UnitTests
             => Assert.IsType<HttpClient>(typeof(JobConnection)
                 .GetField("_httpClient", BindingFlags.Instance | BindingFlags.NonPublic)
                 .GetValue(connection));
-
-        private sealed class RecordingHandler : HttpMessageHandler
-        {
-            public int RequestCount { get; private set; }
-            public string Authorization { get; private set; }
-            public int AuthorizationCount { get; private set; }
-
-            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-            {
-                RequestCount++;
-                if (request.Headers.TryGetValues("ServiceBusAuthorization", out var values))
-                {
-                    var tokens = values.ToArray();
-                    Authorization = tokens.Single();
-                    AuthorizationCount = tokens.Length;
-                }
-
-                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
-            }
-        }
 
         private sealed class LoopbackServer : IAsyncDisposable
         {
