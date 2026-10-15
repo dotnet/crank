@@ -18,7 +18,6 @@
         public const string BenchmarksNetSdkVersion = "netSdkVersion";
         public const string BenchmarksAspNetCoreVersion = "AspNetCoreVersion";
         public const string BenchmarksNetCoreAppVersion = "NetCoreAppVersion";
-
         public const string BenchmarksCpuGlobal = "benchmarks/cpu/global";
         public const string BenchmarksProcessCpuFormat = "benchmarks/{0}/cpu";
         public static string GetBenchmarkProcessCpu(string processName) => string.Format(BenchmarksProcessCpuFormat, processName);
