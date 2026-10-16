@@ -43,8 +43,8 @@ RUN apt-get update \
         libc6 
 
 # Install HTTP/3 support
-RUN curl -LO https://packages.microsoft.com/keys/microsoft.asc && \
-    echo 2fa9c05d591a1582a9aba276272478c262e95ad00acf60eaee1644d93941e3c6 microsoft.asc| sha256sum --check - && \
+RUN curl -fsSL https://packages.microsoft.com/keys/microsoft-2025.asc -o microsoft.asc && \
+    echo d45224d594d969f084232deaaf97c58ca502a9d964c362d7aaef5a76e16b3dd1 microsoft.asc| sha256sum --check - && \
     gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg microsoft.asc && \
     rm microsoft.asc && \
     echo 'deb [signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/ubuntu/26.04/prod resolute main' > /etc/apt/sources.list.d/microsoft.list && \
