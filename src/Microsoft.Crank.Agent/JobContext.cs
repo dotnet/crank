@@ -19,6 +19,8 @@ namespace Microsoft.Crank.Agent
     {
         public Job Job { get; set; }
         public Process Process { get; set; }
+        public Process PerfCollectProcess { get; set; }
+        public Task<bool> PerfCollectTask { get; set; }
         public string WorkingDirectory { get; set; }
         public Timer Timer { get; set; }
         public bool Disposed { get; set; }
