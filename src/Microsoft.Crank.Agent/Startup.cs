@@ -78,7 +78,8 @@ namespace Microsoft.Crank.Agent
         private sealed record SupportedDotNetVersion(string Version, LatestVersionSource LatestVersionSource);
 
         // LatestVersionSource controls "Latest" resolution for the runtime and ASP.NET Core only.
-        // SDK "Latest" and "Edge" always use productCommit, while runtime and ASP.NET Core "Edge"
+        // SDK "Latest" and "Edge" use productCommit (except the temporary net11.0 "Latest" pins below),
+        // while runtime and ASP.NET Core "Edge"
         // always use the flat-container feed. The per-version values preserve the existing behavior:
         // - 12.0, 11.0, and 10.0 use productCommit so "Latest" selects the coherent versions from the daily SDK.
         // - 9.0 uses the flat container so "Latest" selects the highest published package version.
@@ -4061,6 +4062,14 @@ namespace Microsoft.Crank.Agent
                     Log.Info($"ASP.NET: {aspNetCoreVersion} (Current)");
                     break;
                 case "latest":
+                    // Pin the coherent RTM build until GA artifacts are available under their stable versions.
+                    if (versionPrefix == "11.0")
+                    {
+                        aspNetCoreVersion = "11.0.0-rtm.26480.113";
+                        Log.Info($"ASP.NET: {aspNetCoreVersion} (Hard-coded until GA)");
+                        break;
+                    }
+
                     // aspnet runtime service releases are not published on feeds
                     if (!_supportedDotNetVersionsByVersion.TryGetValue(versionPrefix, out var supportedVersion))
                     {
@@ -4601,7 +4610,13 @@ namespace Microsoft.Crank.Agent
             else if (String.Equals(sdkVersion, "Latest", StringComparison.OrdinalIgnoreCase))
             {
                 var versionPrefix = ExtractVersionPrefix(targetFramework);
-                if (_supportedDotNetVersionsByVersion.TryGetValue(versionPrefix, out var supportedVersion))
+                // Pin the coherent RTM build until GA artifacts are available under their stable versions.
+                if (versionPrefix == "11.0")
+                {
+                    sdkVersion = "11.0.100-rtm.26480.113";
+                    Log.Info($"SDK: {sdkVersion} (Hard-coded until GA)");
+                }
+                else if (_supportedDotNetVersionsByVersion.TryGetValue(versionPrefix, out var supportedVersion))
                 {
                     var productsInfo = await GetLatestProductVersions(supportedVersion);
                     sdkVersion = productsInfo["sdk"]["version"].ToString();
@@ -4649,7 +4664,13 @@ namespace Microsoft.Crank.Agent
             }
             else if (String.Equals(runtimeVersion, "Latest", StringComparison.OrdinalIgnoreCase))
             {
-                if (!_supportedDotNetVersionsByVersion.TryGetValue(versionPrefix, out var supportedVersion))
+                // Pin the coherent RTM build until GA artifacts are available under their stable versions.
+                if (versionPrefix == "11.0")
+                {
+                    runtimeVersion = "11.0.0-rtm.26480.113";
+                    Log.Info($"Runtime: {runtimeVersion} (Hard-coded until GA)");
+                }
+                else if (!_supportedDotNetVersionsByVersion.TryGetValue(versionPrefix, out var supportedVersion))
                 {
                     runtimeVersion = currentRuntimeVersion;
                     Log.Info($"Runtime: {runtimeVersion} (Latest - Fallback on Current)");
