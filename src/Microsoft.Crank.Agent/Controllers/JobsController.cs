@@ -120,8 +120,14 @@ namespace Microsoft.Crank.Agent.Controllers
                     return NoContent();
                 }
 
-                job.State = JobState.Deleting;
-                _jobs.Update(job);
+                lock (job)
+                {
+                    if (job.State != JobState.Deleted)
+                    {
+                        job.State = JobState.Deleting;
+                        _jobs.Update(job);
+                    }
+                }
 
                 Response.Headers["Location"] = $"/jobs/{job.Id}";
                 return new StatusCodeResult((int)HttpStatusCode.Accepted);
