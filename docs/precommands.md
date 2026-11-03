@@ -77,3 +77,17 @@ jobs:
 ```
 
 In addition to `beforeJob`, you can also specify `afterJob` to run commands locally after the jobs have completed to run any cleanup commands.
+
+`afterJob` runs on the controller host, after result aggregation and JSON/SQL
+output, once per configured job rather than per iteration. Its conditions also
+have access to `result`, the completed execution result. For example,
+`result.returnCode == 0 && result.jobResults.jobs.Count > 0` selects successful
+scenarios with results. An OS/architecture skip has return code zero but no jobs.
+Cleanup commands still run after failures and skips.
+
+Command definitions are tried in order and the first matching definition runs.
+Provide a final unconditional definition (for example, a script that logs why
+export was skipped) when a command is conditional; no matching definition is an
+error. Export commands should use `continueOnError: false` and return their
+child process's exit code. The controller's working directory contains the
+file written by `--json`; the command script itself may be a temporary file.
