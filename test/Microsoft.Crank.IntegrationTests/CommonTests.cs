@@ -39,7 +39,7 @@ namespace Microsoft.Crank.IntegrationTests
             {
                 // Dispose() will not be called, flush the agent output now
                 _output.WriteLine(_agent.FlushOutput());
-                Assert.True(false, "Agent failed to start");
+                Assert.Fail("Agent failed to start");
             }
         }
 
