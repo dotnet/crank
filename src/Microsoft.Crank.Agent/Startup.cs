@@ -3478,7 +3478,7 @@ namespace Microsoft.Crank.Agent
 
                 var projectName = Path.GetFileName(FormatPathSeparators(job.Project));
 
-                var arguments = $"publish {projectName} -c Release --disable-build-servers -o {outputFolder} {buildParameters}";
+                var arguments = GetPublishArguments(projectName, outputFolder, buildParameters, sdkVersion);
 
                 // This might be set already, and the SDK will then use it for some targets files
                 // https://github.com/dotnet/sdk/blob/e2faebad758a7d38b5965cda755a17e9e9881599/src/Cli/Microsoft.DotNet.Cli.Utils/MSBuildForwardingAppWithoutLogging.cs#L75
@@ -3754,6 +3754,24 @@ namespace Microsoft.Crank.Agent
                 }
                 return size;
             }
+        }
+
+        /// <summary>
+        /// Returns the arguments of the "dotnet publish" command used to build the benchmarked application.
+        /// </summary>
+        /// <remarks>
+        /// "--disable-build-servers" is only supported starting with the .NET 7 SDK. Older SDKs fail with "MSB1001: Unknown switch".
+        /// </remarks>
+        internal static string GetPublishArguments(string projectName, string outputFolder, string buildParameters, string sdkVersion)
+        {
+            var disableBuildServers = "--disable-build-servers ";
+
+            if (int.TryParse(sdkVersion?.Split('.')[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var sdkMajorVersion) && sdkMajorVersion < 7)
+            {
+                disableBuildServers = "";
+            }
+
+            return $"publish {projectName} -c Release {disableBuildServers}-o {outputFolder} {buildParameters}";
         }
 
         /// <summary>
