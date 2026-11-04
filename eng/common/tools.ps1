@@ -611,7 +611,7 @@ function InitializeBuildTool() {
 
     # Use override if it exists - commonly set by source-build
     if ($null -eq $env:_OverrideArcadeInitializeBuildToolFramework) {
-      $initializeBuildToolFramework="net8.0"
+      $initializeBuildToolFramework="net"
     } else {
       $initializeBuildToolFramework=$env:_OverrideArcadeInitializeBuildToolFramework
     }
@@ -625,7 +625,7 @@ function InitializeBuildTool() {
       ExitWithExitCode 1
     }
 
-    $buildTool = @{ Path = $msbuildPath; Command = ""; Tool = "vs"; Framework = "net472"; ExcludePrereleaseVS = $excludePrereleaseVS }
+    $buildTool = @{ Path = $msbuildPath; Command = ""; Tool = "vs"; Framework = "netframework"; ExcludePrereleaseVS = $excludePrereleaseVS }
   } else {
     Write-PipelineTelemetryError -Category 'InitializeToolset' -Message "Unexpected value of -msbuildEngine: '$msbuildEngine'."
     ExitWithExitCode 1

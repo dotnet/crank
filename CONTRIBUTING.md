@@ -31,6 +31,23 @@ If you don't know what a pull request is read this article: https://help.github.
 -  If there is a scenario that is far too hard to test there does not need to be a test for it.
   - "Too hard" is determined by the team as a whole.
 
+### Build and signing toolchain
+
+The .NET SDK and Arcade SDK versions are pinned in `global.json`; Arcade's source
+revision is recorded in `eng/Version.Details.xml`. The bootstrap scripts use
+Arcade's `net` and `netframework` tool directories.
+
+Official signing validation runs Arcade's `SigningValidation` task with
+`-msbuildEngine dotnet`, using the pinned .NET SDK's MSBuild. Arcade 10's
+`Microsoft.DotNet.SignCheckTask` supports this engine, including Authenticode
+and strong-name verification. Do not switch this task back to MSBuild 17 or
+disable signing validation to work around an SDK compatibility failure.
+
+The shared bootstrap directory names are taken from Arcade release/10.0.
+Only the required bootstrap and signing-template changes are carried here,
+rather than an unrelated full refresh of `eng/common`. When refreshing those
+generated files, preserve the signing task's compatible engine selection.
+
 ## Code of conduct
 
 See [CODE-OF-CONDUCT.md](./CODE-OF-CONDUCT.md)
