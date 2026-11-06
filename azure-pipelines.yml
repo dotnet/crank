@@ -35,7 +35,7 @@ extends:
   template: azure-pipelines/MicroBuild.1ES.Official.yml@MicroBuildTemplate
   parameters:
     settings:
-      networkIsolationPolicy: Permissive, CFSClean, CFSClean2
+      networkIsolationPolicy: Permissive, CFSClean, CFSClean2, AzureStorage
     sdl:
       sourceAnalysisPool:
         name: $(DncEngInternalBuildPool)
