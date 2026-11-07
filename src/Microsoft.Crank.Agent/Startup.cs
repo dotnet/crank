@@ -1985,9 +1985,8 @@ namespace Microsoft.Crank.Agent
 
                                     tempDir = null;
 
-                                    Log.Info($"{job.State} -> Deleted ({job.Service}:{job.Id})");
-
-                                    job.State = JobState.Deleted;
+                                    var previousState = MarkJobDeleted(job);
+                                    Log.Info($"{previousState} -> Deleted ({job.Service}:{job.Id})");
                                 }
                             }
 
@@ -2019,6 +2018,16 @@ namespace Microsoft.Crank.Agent
             catch (Exception e)
             {
                 Log.Error(e, $"Unexpected error");
+            }
+        }
+
+        internal static JobState MarkJobDeleted(Job job)
+        {
+            lock (job)
+            {
+                var previousState = job.State;
+                job.State = JobState.Deleted;
+                return previousState;
             }
         }
 
