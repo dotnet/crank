@@ -21,9 +21,9 @@
     <PackageVersion Include="Microsoft.Diagnostics.NETCore.Client" Version="0.2.745401" />
     <PackageVersion Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="3.2.6" />
     <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="11.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.CommandLine" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.CommandLine" Version="11.0.0" />
     <PackageVersion Include="Microsoft.Extensions.FileProviders.Abstractions" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.12" />
     <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.23.0" />
