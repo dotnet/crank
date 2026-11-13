@@ -29,6 +29,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Microsoft.Crank.IntegrationTests" />
     <ProjectReference Include="..\Microsoft.Crank.Models\Microsoft.Crank.Models.csproj" />
   </ItemGroup>
 
