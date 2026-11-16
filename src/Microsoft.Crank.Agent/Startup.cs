@@ -76,8 +76,6 @@ namespace Microsoft.Crank.Agent
         }
 
         private sealed record SupportedDotNetVersion(string Version, LatestVersionSource LatestVersionSource);
-        private sealed record ProductVersions(JObject Versions, Uri ManifestUri);
-        private sealed record DotNetDownload(string Feed, string BuildVersion);
 
         // LatestVersionSource controls "Latest" resolution for the runtime and ASP.NET Core only.
         // SDK "Latest" and "Edge" use productCommit (except the temporary net11.0 "Latest" pins below),
@@ -3046,12 +3044,11 @@ namespace Microsoft.Crank.Agent
                 sdkVersion = channel;
             }
 
-            var productVersions = new Dictionary<PackageTypes, ProductVersions>();
-            runtimeVersion = await ResolveRuntimeVersion(buildToolsPath, targetFramework, runtimeVersion, productVersions);
+            runtimeVersion = await ResolveRuntimeVersion(buildToolsPath, targetFramework, runtimeVersion);
 
-            sdkVersion = await ResolveSdkVersion(sdkVersion, targetFramework, productVersions);
+            sdkVersion = await ResolveSdkVersion(sdkVersion, targetFramework);
 
-            aspNetCoreVersion = await ResolveAspNetCoreVersion(aspNetCoreVersion, targetFramework, productVersions);
+            aspNetCoreVersion = await ResolveAspNetCoreVersion(aspNetCoreVersion, targetFramework);
 
             sdkVersion = PatchOrCreateGlobalJson(job, benchmarkedApp, sdkVersion);
 
@@ -3059,7 +3056,7 @@ namespace Microsoft.Crank.Agent
             PatchNuGetConfig(benchmarkedApp);
 
             var dotnetInstallStep = "";
-            DotNetDownload download = null;
+            string dotnetFeed = "";
 
             try
             {
@@ -3074,12 +3071,17 @@ namespace Microsoft.Crank.Agent
 
                         // Install latest SDK version (and associated runtime)
 
-                        await ProcessUtil.RetryOnExceptionAsync(3, async () =>
+                        await ProcessUtil.RetryOnExceptionAsync(3, () =>
                         {
-                            download = await ResolveDotNetDownloadAsync(PackageTypes.Sdk, sdkVersion, productVersions.GetValueOrDefault(PackageTypes.Sdk));
+                            if (!TryGetAzureFeedForPackage(PackageTypes.Sdk, sdkVersion, out dotnetFeed))
+                            {
+                                throw new InvalidOperationException();
+                            }
+
+                            return Task.CompletedTask;
                         });
 
-                        var result = await ProcessUtil.RunAsync(_pwsh, $"-NoProfile -ExecutionPolicy unrestricted -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Unblock-File -Path .\\dotnet-install.ps1; .\\dotnet-install.ps1 -Version {download.BuildVersion} -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome} -AzureFeed {download.Feed}\"",
+                        var result = await ProcessUtil.RunAsync(_pwsh, $"-NoProfile -ExecutionPolicy unrestricted -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Unblock-File -Path .\\dotnet-install.ps1; .\\dotnet-install.ps1 -Version {sdkVersion} -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome} -AzureFeed {dotnetFeed}\"",
                             log: false,
                             throwOnError: false,
                             workingDirectory: _dotnetInstallPath,
@@ -3101,9 +3103,12 @@ namespace Microsoft.Crank.Agent
 
                         // Install runtimes required for this scenario
 
-                        download = await ResolveDotNetDownloadAsync(PackageTypes.NetCoreApp, runtimeVersion, productVersions.GetValueOrDefault(PackageTypes.NetCoreApp));
+                        if (!TryGetAzureFeedForPackage(PackageTypes.NetCoreApp, runtimeVersion, out dotnetFeed))
+                        {
+                            throw new InvalidOperationException();
+                        }
 
-                        var result = await ProcessUtil.RunAsync(_pwsh, $"-NoProfile -ExecutionPolicy unrestricted -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Unblock-File -Path .\\dotnet-install.ps1; .\\dotnet-install.ps1 -Version {download.BuildVersion} -Runtime dotnet -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome} -AzureFeed {download.Feed}\"",
+                        var result = await ProcessUtil.RunAsync(_pwsh, $"-NoProfile -ExecutionPolicy unrestricted -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Unblock-File -Path .\\dotnet-install.ps1; .\\dotnet-install.ps1 -Version {runtimeVersion} -Runtime dotnet -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome} -AzureFeed {dotnetFeed}\"",
                                 log: false,
                                 throwOnError: false,
                                 workingDirectory: _dotnetInstallPath,
@@ -3174,9 +3179,12 @@ namespace Microsoft.Crank.Agent
 
                         // Install aspnet runtime required for this scenario
 
-                        download = await ResolveDotNetDownloadAsync(PackageTypes.AspNetCore, aspNetCoreVersion, productVersions.GetValueOrDefault(PackageTypes.AspNetCore));
+                        if (!TryGetAzureFeedForPackage(PackageTypes.AspNetCore, aspNetCoreVersion, out dotnetFeed))
+                        {
+                            throw new InvalidOperationException();
+                        }
 
-                        var result = await ProcessUtil.RunAsync(_pwsh, $"-NoProfile -ExecutionPolicy unrestricted -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Unblock-File -Path .\\dotnet-install.ps1; .\\dotnet-install.ps1 -Version {download.BuildVersion} -Runtime aspnetcore -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome} -AzureFeed {download.Feed}\"",
+                        var result = await ProcessUtil.RunAsync(_pwsh, $"-NoProfile -ExecutionPolicy unrestricted -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Unblock-File -Path .\\dotnet-install.ps1; .\\dotnet-install.ps1 -Version {aspNetCoreVersion} -Runtime aspnetcore -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome} -AzureFeed {dotnetFeed}\"",
                                 log: false,
                                 throwOnError: false,
                                 workingDirectory: _dotnetInstallPath,
@@ -3204,9 +3212,12 @@ namespace Microsoft.Crank.Agent
 
                         await ProcessUtil.RetryOnExceptionAsync(3, async () =>
                         {
-                            download = await ResolveDotNetDownloadAsync(PackageTypes.Sdk, sdkVersion, productVersions.GetValueOrDefault(PackageTypes.Sdk));
+                            if (!TryGetAzureFeedForPackage(PackageTypes.Sdk, sdkVersion, out dotnetFeed))
+                            {
+                                throw new InvalidOperationException();
+                            }
 
-                            result = await ProcessUtil.RunAsync("/usr/bin/env", $"bash dotnet-install.sh --version {download.BuildVersion} --no-path --skip-non-versioned-files --install-dir {dotnetHome} -AzureFeed {download.Feed}",
+                            result = await ProcessUtil.RunAsync("/usr/bin/env", $"bash dotnet-install.sh --version {sdkVersion} --no-path --skip-non-versioned-files --install-dir {dotnetHome} -AzureFeed {dotnetFeed}",
                                     log: false,
                                     throwOnError: false,
                                     workingDirectory: _dotnetInstallPath,
@@ -3229,9 +3240,12 @@ namespace Microsoft.Crank.Agent
 
                         // Install required runtime
 
-                        download = await ResolveDotNetDownloadAsync(PackageTypes.NetCoreApp, runtimeVersion, productVersions.GetValueOrDefault(PackageTypes.NetCoreApp));
+                        if (!TryGetAzureFeedForPackage(PackageTypes.NetCoreApp, runtimeVersion, out dotnetFeed))
+                        {
+                            throw new InvalidOperationException();
+                        }
 
-                        ProcessResult result = await ProcessUtil.RunAsync("/usr/bin/env", $"bash dotnet-install.sh --version {download.BuildVersion} --runtime dotnet --no-path --skip-non-versioned-files --install-dir {dotnetHome} -AzureFeed {download.Feed}",
+                        ProcessResult result = await ProcessUtil.RunAsync("/usr/bin/env", $"bash dotnet-install.sh --version {runtimeVersion} --runtime dotnet --no-path --skip-non-versioned-files --install-dir {dotnetHome} -AzureFeed {dotnetFeed}",
                                 log: false,
                                 throwOnError: false,
                                 workingDirectory: _dotnetInstallPath,
@@ -3253,9 +3267,12 @@ namespace Microsoft.Crank.Agent
 
                         // Install required runtime
 
-                        download = await ResolveDotNetDownloadAsync(PackageTypes.AspNetCore, aspNetCoreVersion, productVersions.GetValueOrDefault(PackageTypes.AspNetCore));
+                        if (!TryGetAzureFeedForPackage(PackageTypes.AspNetCore, aspNetCoreVersion, out dotnetFeed))
+                        {
+                            throw new InvalidOperationException();
+                        }
 
-                        ProcessResult result = await ProcessUtil.RunAsync("/usr/bin/env", $"bash dotnet-install.sh --version {download.BuildVersion} --runtime aspnetcore --no-path --skip-non-versioned-files --install-dir {dotnetHome} -AzureFeed {download.Feed}",
+                        ProcessResult result = await ProcessUtil.RunAsync("/usr/bin/env", $"bash dotnet-install.sh --version {aspNetCoreVersion} --runtime aspnetcore --no-path --skip-non-versioned-files --install-dir {dotnetHome} -AzureFeed {dotnetFeed}",
                                 log: false,
                                 throwOnError: false,
                                 workingDirectory: _dotnetInstallPath,
@@ -3271,10 +3288,9 @@ namespace Microsoft.Crank.Agent
                     }
                 }
             }
-            catch (Exception e)
+            catch
             {
-                Log.Error(e, $"dotnet-install failed for {dotnetInstallStep}");
-                job.Error = $"dotnet-install could not install a component: {dotnetInstallStep}: {e.Message}";
+                job.Error = $"dotnet-install could not install a component: {dotnetInstallStep}";
 
                 return null;
             }
@@ -4029,7 +4045,7 @@ namespace Microsoft.Crank.Agent
             return desktopVersion;
         }
 
-        private static async Task<string> ResolveAspNetCoreVersion(string aspNetCoreVersion, string targetFramework, Dictionary<PackageTypes, ProductVersions> productVersions = null)
+        private static async Task<string> ResolveAspNetCoreVersion(string aspNetCoreVersion, string targetFramework)
         {
             (_, _, var currentAspNetCoreVersion, _) = await GetCurrentVersions(targetFramework);
             var versionPrefix = ExtractVersionPrefix(targetFramework);
@@ -4040,7 +4056,7 @@ namespace Microsoft.Crank.Agent
             {
                 case "current":
                     aspNetCoreVersion = string.IsNullOrEmpty(currentAspNetCoreVersion)
-                        ? await ResolveAspNetCoreVersion("Latest", targetFramework, productVersions)
+                        ? await ResolveAspNetCoreVersion("Latest", targetFramework)
                         : currentAspNetCoreVersion;
 
                     Log.Info($"ASP.NET: {aspNetCoreVersion} (Current)");
@@ -4066,8 +4082,7 @@ namespace Microsoft.Crank.Agent
                         {
                             case LatestVersionSource.ProductCommit:
                                 var productsInfo = await GetLatestProductVersions(supportedVersion);
-                                aspNetCoreVersion = productsInfo.Versions["aspnetcore"]["version"].ToString();
-                                productVersions?.TryAdd(PackageTypes.AspNetCore, productsInfo);
+                                aspNetCoreVersion = productsInfo["aspnetcore"]["version"].ToString();
                                 Log.Info($"ASP.NET: {aspNetCoreVersion} (Latest - Coherent version in {versionPrefix} SDK)");
                                 break;
                             case LatestVersionSource.FlatContainer:
@@ -4203,125 +4218,10 @@ namespace Microsoft.Crank.Agent
             return $"{GetNuGetFlatContainerUrl(GetFeedName(version))}/{packageName}/index.json";
         }
 
-        private static async Task<ProductVersions> GetLatestProductVersions(SupportedDotNetVersion version)
+        private static async Task<JObject> GetLatestProductVersions(SupportedDotNetVersion version)
         {
             var url = $"https://aka.ms/dotnet/{version.Version}.1xx/daily/productCommit-{GetPlatformMoniker()}.json";
-            return await ProcessUtil.RetryOnExceptionAsync(2, () => _fileContentCache.GetOrCreateAsync((url, typeof(ProductVersions)), async entry =>
-            {
-                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-                using var response = await _httpClient.GetAsync(url, timeout.Token);
-                response.EnsureSuccessStatusCode();
-                var content = await response.Content.ReadAsStringAsync(timeout.Token);
-                var result = new ProductVersions(JObject.Parse(content), response.RequestMessage.RequestUri);
-                GetDotNetBuildIdentity(result.ManifestUri, "Sdk", $"productCommit-{GetPlatformMoniker()}.json");
-                entry.AbsoluteExpirationRelativeToNow = _latestProductVersionsCacheDuration;
-                entry.Size = content.Length;
-                return result;
-            }));
-        }
-
-        private static DotNetDownload GetDotNetBuildIdentity(Uri uri, string directory, string filename)
-        {
-            var feed = uri.Host switch
-            {
-                "ci.dot.net" => "https://ci.dot.net/public",
-                "builds.dotnet.microsoft.com" => "https://builds.dotnet.microsoft.com/dotnet",
-                _ => throw new InvalidOperationException($"Unexpected .NET artifact host: {uri.Host}")
-            };
-            var prefix = new Uri(feed).AbsolutePath + "/" + directory + "/";
-            if (uri.Scheme != Uri.UriSchemeHttps || !uri.IsDefaultPort || uri.UserInfo.Length != 0
-                || uri.Query.Length != 0 || uri.Fragment.Length != 0 || !uri.AbsolutePath.StartsWith(prefix, StringComparison.Ordinal))
-            {
-                throw new InvalidOperationException($"Unexpected .NET artifact URI: {uri}");
-            }
-
-            var parts = uri.AbsolutePath[prefix.Length..].Split('/');
-            if (parts.Length != 2 || parts[1] != filename || !NuGetVersion.TryParse(parts[0], out _))
-            {
-                throw new InvalidOperationException($"Unexpected .NET artifact layout: {uri}");
-            }
-
-            return new DotNetDownload(feed, parts[0]);
-        }
-
-        private static async Task<DotNetDownload> ResolveDotNetDownloadAsync(PackageTypes type, string version, ProductVersions products)
-        {
-            var component = type switch
-            {
-                PackageTypes.Sdk => "sdk",
-                PackageTypes.NetCoreApp => "runtime",
-                PackageTypes.AspNetCore => "aspnetcore",
-                _ => throw new ArgumentOutOfRangeException(nameof(type))
-            };
-            var sdkBuild = products == null ? null
-                : GetDotNetBuildIdentity(products.ManifestUri, "Sdk", $"productCommit-{GetPlatformMoniker()}.json");
-
-            if (products == null || products.Versions[component]?["version"]?.ToString() != version
-                || sdkBuild.BuildVersion == products.Versions["sdk"]["version"].ToString())
-            {
-                if (!TryGetAzureFeedForPackage(type, version, out var feed))
-                {
-                    throw new InvalidOperationException($"No installable {component} archive for product version {version}");
-                }
-
-                return new DotNetDownload(feed, version);
-            }
-
-            var directory = type switch
-            {
-                PackageTypes.Sdk => "Sdk",
-                PackageTypes.NetCoreApp => "Runtime",
-                _ => "aspnetcore/Runtime"
-            };
-            var archive = type switch
-            {
-                PackageTypes.Sdk => "dotnet-sdk",
-                PackageTypes.NetCoreApp => "dotnet-runtime",
-                _ => "aspnetcore-runtime"
-            };
-            var extension = OperatingSystem == OperatingSystem.Windows ? "zip" : "tar.gz";
-            var filename = $"{archive}-{version}-{GetPlatformMoniker()}.{extension}";
-            var product = NuGetVersion.Parse(version);
-            var uri = type == PackageTypes.Sdk
-                ? new Uri(products.ManifestUri, filename)
-                : new Uri($"https://aka.ms/dotnet/{product.Major}.{product.Minor}/daily/{archive}-{GetPlatformMoniker()}.{extension}");
-
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-            using var request = new HttpRequestMessage(HttpMethod.Head, uri);
-            using var response = await _httpClient.SendAsync(request, timeout.Token);
-            response.EnsureSuccessStatusCode();
-            if (response.Content.Headers.ContentType?.MediaType == "text/html" || response.Content.Headers.ContentLength == 0)
-            {
-                throw new InvalidOperationException($"Daily {component} URL did not return an archive: {uri}");
-            }
-            var resolvedUri = response.RequestMessage.RequestUri;
-            var download = GetDotNetBuildIdentity(resolvedUri, directory, filename);
-            var build = NuGetVersion.Parse(download.BuildVersion);
-            var sdk = NuGetVersion.Parse(sdkBuild.BuildVersion);
-            var commit = products.Versions[component]?["commit"]?.ToString();
-            if (build.Version != product.Version || build.Release != sdk.Release
-                || commit == null || !Regex.IsMatch(commit, "^[0-9a-f]{40}$", RegexOptions.IgnoreCase)
-                || commit != products.Versions["sdk"]?["commit"]?.ToString())
-            {
-                throw new InvalidOperationException($"Incoherent daily {component} archive {resolvedUri} for SDK manifest {products.ManifestUri}");
-            }
-
-            var versionFile = type == PackageTypes.Sdk ? "sdk-productVersion.txt"
-                : type == PackageTypes.NetCoreApp ? "runtime-productVersion.txt" : "aspnetcore-productVersion.txt";
-            using var metadata = await _httpClient.GetAsync(new Uri(resolvedUri, versionFile), timeout.Token);
-            metadata.EnsureSuccessStatusCode();
-            if (GetDotNetBuildIdentity(metadata.RequestMessage.RequestUri, directory, versionFile) != download)
-            {
-                throw new InvalidOperationException($"Daily {component} product metadata changed build identity");
-            }
-            var actualVersion = (await metadata.Content.ReadAsStringAsync(timeout.Token)).Trim();
-            if (actualVersion != version)
-            {
-                throw new InvalidOperationException($"Daily {component} product version {actualVersion} does not match SDK manifest version {version}");
-            }
-
-            Log.Info($"Resolved {component}: product {version}, storage {download.BuildVersion}, archive {resolvedUri}");
-            return download;
+            return JObject.Parse(await DownloadContentAsync(url, cacheDuration: _latestProductVersionsCacheDuration));
         }
 
         private static Dictionary<string, string> CreateCrankNuGetSources()
@@ -4693,7 +4593,7 @@ namespace Microsoft.Crank.Agent
             File.WriteAllText(runtimeConfigFilename, runtimeObject.ToString());
         }
 
-        private static async Task<string> ResolveSdkVersion(string sdkVersion, string targetFramework, Dictionary<PackageTypes, ProductVersions> productVersions = null)
+        private static async Task<string> ResolveSdkVersion(string sdkVersion, string targetFramework)
         {
             (_, _, _, var currentSdkVersion) = await GetCurrentVersions(targetFramework);
 
@@ -4702,7 +4602,7 @@ namespace Microsoft.Crank.Agent
                 // Fallback to Latest if there is no current version for this TFM
 
                 sdkVersion = string.IsNullOrEmpty(currentSdkVersion)
-                    ? await ResolveSdkVersion("Latest", targetFramework, productVersions)
+                    ? await ResolveSdkVersion("Latest", targetFramework)
                     : currentSdkVersion;
 
                 Log.Info($"SDK: {sdkVersion} (Current)");
@@ -4719,8 +4619,7 @@ namespace Microsoft.Crank.Agent
                 else if (_supportedDotNetVersionsByVersion.TryGetValue(versionPrefix, out var supportedVersion))
                 {
                     var productsInfo = await GetLatestProductVersions(supportedVersion);
-                    sdkVersion = productsInfo.Versions["sdk"]["version"].ToString();
-                    productVersions?.TryAdd(PackageTypes.Sdk, productsInfo);
+                    sdkVersion = productsInfo["sdk"]["version"].ToString();
                     Log.Info($"SDK: {sdkVersion} (Latest - From Product Commit)");
                 }
                 else
@@ -4735,8 +4634,7 @@ namespace Microsoft.Crank.Agent
                 if (_supportedDotNetVersionsByVersion.TryGetValue(versionPrefix, out var supportedVersion))
                 {
                     var productsInfo = await GetLatestProductVersions(supportedVersion);
-                    sdkVersion = productsInfo.Versions["sdk"]["version"].ToString();
-                    productVersions?.TryAdd(PackageTypes.Sdk, productsInfo);
+                    sdkVersion = productsInfo["sdk"]["version"].ToString();
                     Log.Info($"SDK: {sdkVersion} (Edge)");
                 }
             }
@@ -4748,7 +4646,7 @@ namespace Microsoft.Crank.Agent
             return sdkVersion;
         }
 
-        private static async Task<string> ResolveRuntimeVersion(string buildToolsPath, string targetFramework, string runtimeVersion, Dictionary<PackageTypes, ProductVersions> productVersions = null)
+        private static async Task<string> ResolveRuntimeVersion(string buildToolsPath, string targetFramework, string runtimeVersion)
         {
             (var currentRuntimeVersion, _, _, _) = await GetCurrentVersions(targetFramework);
 
@@ -4759,7 +4657,7 @@ namespace Microsoft.Crank.Agent
                 // Fallback to Latest if there is no current version for this TFM
 
                 runtimeVersion = string.IsNullOrEmpty(currentRuntimeVersion)
-                    ? await ResolveRuntimeVersion(buildToolsPath, targetFramework, "Latest", productVersions)
+                    ? await ResolveRuntimeVersion(buildToolsPath, targetFramework, "Latest")
                     : currentRuntimeVersion;
 
                 Log.Info($"Runtime: {runtimeVersion} (Current)");
@@ -4783,8 +4681,7 @@ namespace Microsoft.Crank.Agent
                     {
                         case LatestVersionSource.ProductCommit:
                             var productsInfo = await GetLatestProductVersions(supportedVersion);
-                            runtimeVersion = productsInfo.Versions["runtime"]["version"].ToString();
-                            productVersions?.TryAdd(PackageTypes.NetCoreApp, productsInfo);
+                            runtimeVersion = productsInfo["runtime"]["version"].ToString();
                             Log.Info($"Runtime: {runtimeVersion} (Latest - From {versionPrefix} SDK)");
                             break;
                         case LatestVersionSource.FlatContainer:
@@ -4842,7 +4739,7 @@ namespace Microsoft.Crank.Agent
             else if (String.Equals(desktopVersion, "Edge", StringComparison.OrdinalIgnoreCase))
             {
                 var productsInfo = await GetLatestProductVersions(_supportedDotNetVersionsByVersion["9.0"]);
-                desktopVersion = productsInfo.Versions["windowsdesktop"]["version"].ToString();
+                desktopVersion = productsInfo["windowsdesktop"]["version"].ToString();
                 Log.Info($"Desktop: {desktopVersion} (Edge)");
             }
             else
