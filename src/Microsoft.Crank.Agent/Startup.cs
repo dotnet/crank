@@ -2985,7 +2985,6 @@ namespace Microsoft.Crank.Agent
             // Define which Runtime and SDK will be installed.
 
             string targetFramework = DefaultTargetFramework;
-            string channel = DefaultChannel;
 
             string runtimeVersion = job.RuntimeVersion;
             string desktopVersion = job.DesktopVersion;
@@ -3011,18 +3010,7 @@ namespace Microsoft.Crank.Agent
 
             await PatchProjectFrameworkReferenceAsync(job, projectFileName, targetFramework);
 
-            // If a specific channel is set, use it instead of the detected one
-            if (!String.IsNullOrEmpty(job.Channel))
-            {
-                channel = job.Channel;
-            }
-            else
-            {
-                if (targetFramework is "net11.0")
-                {
-                    channel = "latest";
-                }
-            }
+            var channel = ResolveChannel(targetFramework, job.Channel);
 
             if (String.IsNullOrEmpty(runtimeVersion))
             {
@@ -3856,6 +3844,16 @@ namespace Microsoft.Crank.Agent
             }
 
             return targetFramework;
+        }
+
+        internal static string ResolveChannel(string targetFramework, string requestedChannel)
+        {
+            if (!String.IsNullOrEmpty(requestedChannel))
+            {
+                return requestedChannel;
+            }
+
+            return targetFramework is "net11.0" or "net12.0" ? "latest" : DefaultChannel;
         }
 
         private static bool IsVersionPrefix(string version)
