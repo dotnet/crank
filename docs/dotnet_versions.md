@@ -56,10 +56,6 @@ When a TFM is configured, the agent will download the corresponding .NET SDK ver
 - `latest`: latest versions used by ASP.NET 
 - `edge`: latest nightly builds available
 
-When the channel is omitted, jobs targeting `net11.0` or `net12.0` use `latest`.
-An explicit channel or individual component version takes precedence. The channel
-does not change the job's target framework.
-
 The difference between `latest` and `edge` is that `latest` will pick runtimes and SDKs that are deemed compatible together. For instance a very recent .NET core runtime might be compatible with a less recent ASP.NET runtime. The `edge` is used to pick the absolute latest build for the select TFM.
 
 In order to benchmark and ASP.NET application using very recent runtimes of .NET 5, the `latest` channel is recommended:
