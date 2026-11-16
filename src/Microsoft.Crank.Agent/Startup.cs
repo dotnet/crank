@@ -3018,7 +3018,7 @@ namespace Microsoft.Crank.Agent
             }
             else
             {
-                if (targetFramework is "net11.0")
+                if (targetFramework is "net12.0")
                 {
                     channel = "latest";
                 }
