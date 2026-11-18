@@ -15,6 +15,7 @@ internal class Documentation
   --[JOB].sources.[SOURCE].branchOrCommit                       A branch name or commit hash, e.g., my/branch, my/branch#commit-hash
   --[JOB].sources.[SOURCE].initSubmodules                       Whether to init submodules when a git repository is used, e.g., true
   --[JOB].sources.[SOURCE].localFolder                          The local path containing the source code to upload to the server. e.g., /code/mybenchmarks
+  --[JOB].sources.[SOURCE].archive                              A URL or local path to a zip archive that contains the source code. If set, the controller will upload the archive to the agent and it will be extracted. e.g., https://example.com/myapp.zip or ./myapp.zip
 
   ## .NET options
 

@@ -105,6 +105,7 @@ namespace Microsoft.Crank.Models
                             DockerPull = DockerPull,
                             InitSubmodules = source.InitSubmodules,
                             LocalFolder = source.LocalFolder,
+                            Archive = source.Archive,
                             NoBuild = NoBuild,
                             Project = Project,
                             Repository = source.Repository,
