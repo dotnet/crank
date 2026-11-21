@@ -120,7 +120,7 @@ namespace Microsoft.Crank.Controller
         static Program()
         {
             _httpClientHandler = new HttpClientHandler();
-            _httpClientHandler.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
+            _httpClientHandler.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli;
 
             _httpClient = new HttpClient(_httpClientHandler);
 

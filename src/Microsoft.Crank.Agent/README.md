@@ -44,6 +44,21 @@ The `/jobs/{id}/invoke` endpoint is available only for running benchmark jobs.
 Requests and redirects must remain on the benchmark target's scheme, host, and
 port. Private benchmark addresses are supported.
 
+## API response compression
+
+The agent negotiates Brotli or gzip for all responses of at least 1 KiB whose
+length is known and whose content type is one of the ASP.NET Core response
+compression defaults (such as JSON and text), including over HTTPS and Azure
+Relay. Clients that don't request compression continue to receive uncompressed
+responses. Small responses, such as the `/jobs/{id}/state` and
+`/jobs/{id}/touch` polling endpoints, and streamed responses of unknown length
+are not compressed. Trace, dump, and other artifact transfers retain their
+existing compression behavior and are never compressed twice.
+
+Compressing HTTPS responses containing both secrets and attacker-controlled
+content can reveal information through response sizes. Keep the agent restricted
+to trusted callers and avoid putting secrets in job definitions or logs.
+
 ## Running Crank.Agent as a service
 
 At the moment, only Windows service is supported.
