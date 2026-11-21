@@ -103,6 +103,26 @@ namespace Microsoft.Crank.UnitTests
         }
 
         [Fact]
+        public async Task CompressesLargeResponsesFromAnyAgentEndpoint()
+        {
+            await using var server = await CompressionServer.StartAsync();
+            using var client = server.CreateRawClient();
+            server.Job.Url = server.Address.ToString();
+
+            using var baseline = await GetAsync(client, server.Address, "jobs/1/invoke?path=jobs/1", null);
+            var expected = await baseline.Content.ReadAsByteArrayAsync();
+            Assert.Equal(HttpStatusCode.OK, baseline.StatusCode);
+            Assert.Empty(baseline.Content.Headers.ContentEncoding);
+            Assert.True(expected.Length >= AgentResponseCompressionProvider.MinimumResponseSize);
+
+            using var response = await GetAsync(client, server.Address, "jobs/1/invoke?path=jobs/1", "br");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal("text/plain", response.Content.Headers.ContentType.MediaType);
+            Assert.Equal("br", Assert.Single(response.Content.Headers.ContentEncoding));
+            Assert.Equal(expected, Decompress(await response.Content.ReadAsByteArrayAsync(), "br"));
+        }
+
+        [Fact]
         public async Task PollingAndAlreadyCompressedArtifactsKeepTheirExistingEncoding()
         {
             await using var server = await CompressionServer.StartAsync();

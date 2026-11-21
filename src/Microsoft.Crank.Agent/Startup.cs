@@ -28,11 +28,8 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Azure.Relay;
-using Microsoft.Crank.Agent.Controllers;
 using Microsoft.Crank.Agent.MachineCounters;
 using Microsoft.Crank.EventSources;
 using Microsoft.Crank.Models;
@@ -284,21 +281,8 @@ namespace Microsoft.Crank.Agent
         {
             hostApplicationLifetime.ApplicationStopping.Register(OnShutdown);
 
+            app.UseResponseCompression();
             app.UseRouting();
-
-            app.UseWhen(context =>
-                context.GetEndpoint()?.Metadata.GetMetadata<ControllerActionDescriptor>() is { } action
-                && action.ControllerTypeInfo.AsType() == typeof(JobsController)
-                && action.ActionName is nameof(JobsController.GetAll)
-                    or nameof(JobsController.GetQueue)
-                    or nameof(JobsController.GetById)
-                    or nameof(JobsController.BuildLog)
-                    or nameof(JobsController.Output)
-                    or nameof(JobsController.List)
-                    or nameof(JobsController.LatestService)
-                    or nameof(JobsController.LatestServiceMeasurements)
-                    or nameof(JobsController.LatestServiceLatestMeasurement),
-                branch => branch.UseResponseCompression());
 
             app.UseEndpoints(endpoints =>
             {

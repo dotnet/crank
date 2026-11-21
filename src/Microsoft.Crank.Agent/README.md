@@ -46,12 +46,14 @@ port. Private benchmark addresses are supported.
 
 ## API response compression
 
-The agent negotiates Brotli or gzip for job JSON and log responses of at least
-1 KiB when their length is known, including over HTTPS and Azure Relay. Clients
-that don't request compression continue to receive uncompressed responses.
-The `/jobs/{id}/state` and `/jobs/{id}/touch` polling endpoints are not
-compressed. Trace, dump, and other artifact transfers retain their existing
-compression behavior.
+The agent negotiates Brotli or gzip for all responses of at least 1 KiB whose
+length is known and whose content type is one of the ASP.NET Core response
+compression defaults (such as JSON and text), including over HTTPS and Azure
+Relay. Clients that don't request compression continue to receive uncompressed
+responses. Small responses, such as the `/jobs/{id}/state` and
+`/jobs/{id}/touch` polling endpoints, and streamed responses of unknown length
+are not compressed. Trace, dump, and other artifact transfers retain their
+existing compression behavior and are never compressed twice.
 
 Compressing HTTPS responses containing both secrets and attacker-controlled
 content can reveal information through response sizes. Keep the agent restricted
