@@ -551,7 +551,7 @@ namespace Microsoft.Crank.Agent.Controllers
             {
                 var job = _jobs.Find(id);
 
-                return Json(job.BuildLog.Get(start));
+                return JsonArray(job.BuildLog.Get(start));
             }
             catch
             {
@@ -580,7 +580,7 @@ namespace Microsoft.Crank.Agent.Controllers
             {
                 var job = _jobs.Find(id);
 
-                return Json(job.Output.Get(start));
+                return JsonArray(job.Output.Get(start));
             }
             catch
             {
@@ -776,13 +776,13 @@ namespace Microsoft.Crank.Agent.Controllers
 
                 if (!Directory.Exists(Path.GetDirectoryName(fullPath)))
                 {
-                    return Json(Array.Empty<string>());
+                    return JsonArray(Array.Empty<string>());
                 }
 
                 // Returned paths are relative to the job.BasePath folder (e.g., /published in case of dotnet projects)
                 if (fullPath.Contains("*"))
                 {
-                    return Json(
+                    return JsonArray(
                         Directory.GetFiles(Path.GetDirectoryName(fullPath), Path.GetFileName(fullPath))
                         .Select(x => x.Substring(job.BasePath.Length).TrimStart('/', '\\'))
                         .ToArray()
@@ -790,7 +790,7 @@ namespace Microsoft.Crank.Agent.Controllers
                 }
                 else
                 {
-                    return Json(
+                    return JsonArray(
                         Directory.GetFiles(Path.GetDirectoryName(fullPath))
                         .Select(x => x.Substring(job.BasePath.Length).TrimStart('/', '\\'))
                         .ToArray()
@@ -1098,6 +1098,12 @@ namespace Microsoft.Crank.Agent.Controllers
                     Log.Error("Could not delete temporary folder: " + _folder);
                 }
             }
+        }
+
+        // ObjectResult sets Content-Length so the compression provider can skip small arrays.
+        private static ObjectResult JsonArray(string[] values)
+        {
+            return new ObjectResult(values) { ContentTypes = { "application/json" } };
         }
 
         private IActionResult DetailResult(Func<Job> filter)

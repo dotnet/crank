@@ -28,7 +28,11 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Azure.Relay;
+using Microsoft.Crank.Agent.Controllers;
 using Microsoft.Crank.Agent.MachineCounters;
 using Microsoft.Crank.EventSources;
 using Microsoft.Crank.Models;
@@ -38,6 +42,7 @@ using Microsoft.Diagnostics.Tools.Trace;
 using Microsoft.Diagnostics.Tracing;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Identity.Client;
 using Newtonsoft.Json;
@@ -262,6 +267,15 @@ namespace Microsoft.Crank.Agent
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllersWithViews().AddNewtonsoftJson();
+            services.AddResponseCompression(options =>
+            {
+                options.EnableForHttps = true;
+                options.Providers.Add<BrotliCompressionProvider>();
+                options.Providers.Add<GzipCompressionProvider>();
+            });
+            services.Configure<BrotliCompressionProviderOptions>(options => options.Level = CompressionLevel.Fastest);
+            services.Configure<GzipCompressionProviderOptions>(options => options.Level = CompressionLevel.Fastest);
+            services.Replace(ServiceDescriptor.Singleton<IResponseCompressionProvider, AgentResponseCompressionProvider>());
             services.AddSingleton(_jobs);
             services.AddSerilog();
         }
@@ -271,6 +285,20 @@ namespace Microsoft.Crank.Agent
             hostApplicationLifetime.ApplicationStopping.Register(OnShutdown);
 
             app.UseRouting();
+
+            app.UseWhen(context =>
+                context.GetEndpoint()?.Metadata.GetMetadata<ControllerActionDescriptor>() is { } action
+                && action.ControllerTypeInfo.AsType() == typeof(JobsController)
+                && action.ActionName is nameof(JobsController.GetAll)
+                    or nameof(JobsController.GetQueue)
+                    or nameof(JobsController.GetById)
+                    or nameof(JobsController.BuildLog)
+                    or nameof(JobsController.Output)
+                    or nameof(JobsController.List)
+                    or nameof(JobsController.LatestService)
+                    or nameof(JobsController.LatestServiceMeasurements)
+                    or nameof(JobsController.LatestServiceLatestMeasurement),
+                branch => branch.UseResponseCompression());
 
             app.UseEndpoints(endpoints =>
             {

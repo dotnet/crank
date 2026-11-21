@@ -60,7 +60,7 @@ namespace Microsoft.Crank.Controller
         {
             _httpClientHandler = new HttpClientHandler();
             _httpClientHandler.AllowAutoRedirect = false;
-            _httpClientHandler.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
+            _httpClientHandler.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli;
 
             _httpClient = new HttpClient(_httpClientHandler);
             _httpClient.Timeout = Timeout.InfiniteTimeSpan;
