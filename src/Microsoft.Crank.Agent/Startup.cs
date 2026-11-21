@@ -43,6 +43,7 @@ using Microsoft.Identity.Client;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NuGet.Versioning;
+using Passerelle;
 using Repository;
 using Serilog;
 using Serilog.Events;
@@ -170,6 +171,8 @@ namespace Microsoft.Crank.Agent
         private static string _dotnetTracePath;
         private static string _dotnetInstallPath;
         private static string _localUrl;
+        private static Uri _relayAddress;
+        private const long MaxRequestBodySize = 10L * 1024 * 1024 * 1024;
 
         private static readonly IJobRepository _jobs = new InMemoryJobRepository();
         private static string _rootTempDir;
@@ -450,25 +453,25 @@ namespace Microsoft.Crank.Agent
         private static void ConfigureWebHost(IWebHostBuilder builder, string url)
         {
             builder.UseKestrel()
-                .ConfigureKestrel(o => o.Limits.MaxRequestBodySize = (long)10 * 1024 * 1024 * 1024)
+                .ConfigureKestrel(o => o.Limits.MaxRequestBodySize = MaxRequestBodySize)
                 .UseStartup<Startup>()
                 .UseUrls(url);
 
             if (_relayConnectionStringOption.HasValue())
             {
-                builder.UseAzureRelay(options =>
+                void ConfigureRelay(RelayOptions options)
                 {
                     var relayConnectionString = _relayConnectionStringOption.Value();
 
                     relayConnectionString = Environment.GetEnvironmentVariable(relayConnectionString) ?? relayConnectionString;
 
-                    var rcsb = new RelayConnectionStringBuilder(relayConnectionString);
+                    TokenProvider tokenProvider = null;
 
                     if (_managedIdentityOptions != null)
                     {
                         var credentials = _managedIdentityOptions.GetManagedIdentityCredential();
 
-                        options.TokenProvider = TokenProvider.CreateAzureActiveDirectoryTokenProvider(
+                        tokenProvider = TokenProvider.CreateAzureActiveDirectoryTokenProvider(
                             async (audience, authority, state) =>
                             {
                                 try
@@ -488,7 +491,7 @@ namespace Microsoft.Crank.Agent
                     {
                         var credentials = _certificateOptions.GetClientCertificateCredential();
 
-                        options.TokenProvider = TokenProvider.CreateAzureActiveDirectoryTokenProvider(
+                        tokenProvider = TokenProvider.CreateAzureActiveDirectoryTokenProvider(
                             async (audience, authority, state) =>
                             {
                                 try
@@ -506,36 +509,45 @@ namespace Microsoft.Crank.Agent
                             }, $"https://login.microsoftonline.com/{_certificateOptions.TenantId}");
                     }
 
-                    if (_relayPathOption.HasValue())
-                    {
-                        rcsb.EntityPath = _relayPathOption.Value();
-                    }
-
-                    options.UrlPrefixes.Add(rcsb.ToString());
-                });
+                    _relayAddress = ConfigureRelayOptions(options, relayConnectionString, _relayPathOption.Value(), tokenProvider);
+                }
 
                 if (_relayEnableHttpOption.HasValue())
                 {
-                    // Create an IServer instance that will handle both Azure Relay requests and standard HTTP ones.
-                    // MessagePump can't be used specifically as it's internal, so we need to recover it from the currently
-                    // registered services.
-
-                    var serverTypes = Array.Empty<Type>();
-
-                    builder.ConfigureServices(services =>
-                    {
-                        var descriptors = services.Where(x => x.Lifetime == ServiceLifetime.Singleton && typeof(IServer).IsAssignableFrom(x.ServiceType)).ToArray();
-
-                        foreach (var d in descriptors)
-                        {
-                            services.Remove(d);
-                            services.AddSingleton(d.ImplementationType);
-                        }
-
-                        services.AddSingleton<IServer>(s => new CompositeServer(descriptors.Select(d => s.GetService(d.ImplementationType) as IServer)));
-                    });
+                    builder.AddPasserelle(ConfigureRelay);
+                }
+                else
+                {
+                    builder.UsePasserelle(ConfigureRelay);
                 }
             }
+        }
+
+        internal static Uri ConfigureRelayOptions(RelayOptions options, string connectionString, string entityPath, TokenProvider tokenProvider)
+        {
+            var rcsb = new RelayConnectionStringBuilder(connectionString);
+
+            if (!String.IsNullOrEmpty(entityPath))
+            {
+                rcsb.EntityPath = entityPath;
+            }
+
+            var address = new Uri(rcsb.Endpoint, rcsb.EntityPath);
+
+            // Entra credentials take precedence over SAS credentials, as in the previous adapter.
+            if (tokenProvider != null)
+            {
+                options.Address = address;
+                options.TokenProvider = tokenProvider;
+            }
+            else
+            {
+                options.ConnectionString = rcsb.ToString();
+            }
+
+            options.MaxRequestBodySize = MaxRequestBodySize;
+
+            return address;
         }
 
         private static async Task<int> Run(string url, string hostname, string dockerHostname)
@@ -559,6 +571,10 @@ namespace Microsoft.Crank.Agent
             if (serverAddressFeature is not null)
             {
                 _localUrl = serverAddressFeature.Addresses.First();
+            }
+            else if (_relayAddress is not null)
+            {
+                _localUrl = _relayAddress.AbsoluteUri;
             }
 
             // If the url contains Kestrel mappings use '127.0.0.1' instead

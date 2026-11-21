@@ -26,6 +26,20 @@ Options:
   --service              Enables Crank.Agent to run as a windows service
 ```
 
+## Azure Relay hosting
+
+The agent uses [Passerelle](https://www.nuget.org/packages/Passerelle) to serve its
+API over Azure Relay Hybrid Connections. `--relay` replaces the local HTTP
+listener; add `--relay-enable-http` to serve the same API on both Relay and the
+configured `--url`. Without `--relay`, the agent continues to use Kestrel only.
+
+Supply a connection string with Listen permission through an environment variable
+and pass its name to `--relay`. `--relay-path` overrides its `EntityPath`.
+Managed identity and client certificate listener authentication remain supported
+and take precedence over SAS credentials in the connection string. Both local
+and Relay listeners allow request bodies up to 10 GiB, subject to Azure Relay
+service limits.
+
 ## Security
 
 The agent accepts trusted job definitions that can execute arbitrary programs and
