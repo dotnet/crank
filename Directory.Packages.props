@@ -31,7 +31,7 @@
     <PackageVersion Include="Mono.Cecil" Version="0.11.6" />
     <PackageVersion Include="Mono.Unix" Version="7.1.0-final.1.21458.1" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
-    <PackageVersion Include="NuGet.Versioning" Version="7.9.0" />
+    <PackageVersion Include="NuGet.Versioning" Version="8.0.0" />
     <PackageVersion Include="Octokit" Version="14.0.0" />
     <PackageVersion Include="Parlot" Version="1.5.9" />
     <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />
